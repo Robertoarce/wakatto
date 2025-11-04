@@ -1,54 +1,89 @@
-import { Settings } from 'lucide-react';
-import { Button } from './ui/button';
-import { motion } from 'motion/react';
-import { useState } from 'react';
+import React from 'react';
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
 export function Header() {
-  const [isHovered, setIsHovered] = useState(false);
+  const navigation = useNavigation();
 
   return (
-    <header className="flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4 border-b border-zinc-800 bg-[#0f0f0f]">
-      <div className="flex items-center gap-2 sm:gap-3">
-        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
-          <span className="text-xs sm:text-sm">ψ</span>
-        </div>
-        <h1 className="text-lg sm:text-xl">Psyche AI</h1>
-      </div>
+    <View style={styles.header}>
+      <View style={styles.leftContainer}>
+        <View style={styles.logoContainer}>
+          <Text style={styles.logoText}>ψ</Text>
+        </View>
+        <Text style={styles.title}>Psyche AI</Text>
+      </View>
       
-      <div className="flex items-center gap-2 sm:gap-3">
-        <Button variant="ghost" className="text-zinc-300 hover:text-white text-sm sm:text-base px-3 sm:px-4">
-          Login
-        </Button>
-        <Button className="bg-purple-600 hover:bg-purple-700 text-sm sm:text-base px-3 sm:px-4">
-          Register
-        </Button>
-        <motion.div
-          onHoverStart={() => setIsHovered(true)}
-          onHoverEnd={() => setIsHovered(false)}
-          className="cursor-pointer"
-        >
-          <motion.div
-            animate={{
-              rotateY: isHovered ? 360 : 0,
-              rotateZ: isHovered ? 15 : 0,
-            }}
-            transition={{
-              duration: 0.6,
-              ease: "easeInOut"
-            }}
-            style={{
-              transformStyle: "preserve-3d",
-            }}
-          >
-            <Settings 
-              className="w-6 h-6 text-zinc-400 hover:text-white transition-colors" 
-              style={{
-                filter: isHovered ? 'drop-shadow(0 0 8px rgba(168, 85, 247, 0.6))' : 'none',
-              }}
-            />
-          </motion.div>
-        </motion.div>
-      </div>
-    </header>
+      <View style={styles.rightContainer}>
+        <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.button}>
+          <Text style={styles.buttonText}>Login</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('Register')} style={[styles.button, styles.buttonPrimary]}>
+          <Text style={styles.buttonPrimaryText}>Register</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.settingsButton}>
+          <Ionicons name="settings-outline" size={24} color="#a1a1aa" />
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#27272a',
+    backgroundColor: '#0f0f0f',
+  },
+  leftContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  logoContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#8b5cf6', // purple-500
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoText: {
+    fontSize: 14,
+    color: 'white',
+  },
+  title: {
+    fontSize: 20,
+    color: 'white',
+  },
+  rightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  button: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  buttonText: {
+    color: '#d4d4d8',
+    fontSize: 14,
+  },
+  buttonPrimary: {
+    backgroundColor: '#9333ea', // purple-600
+  },
+  buttonPrimaryText: {
+    color: 'white',
+    fontSize: 14,
+  },
+  settingsButton: {
+    padding: 4, // Adjust padding for touch target
+  },
+});

@@ -1,1 +1,14 @@
-.env
+node_modules/**/*
+.expo/*
+npm-debug.*
+*.jks
+*.p12
+*.key
+*.mobileprovision
+storybook-static
+.DS_Store
+.vscode
+.cache-loader
+.reg
+__screenshots__
+public

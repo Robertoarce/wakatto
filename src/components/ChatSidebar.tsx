@@ -1,6 +1,6 @@
-import { Plus, MessageSquare, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeft } from 'lucide-react';
-import { Button } from './ui/button';
-import { ScrollArea } from './ui/scroll-area';
+import React from 'react';
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface Conversation {
   id: string;
@@ -32,98 +32,228 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
 
   return (
     <>
-      {/* Burger button when sidebar is closed */}
       {!isOpen && (
-        <button
-          onClick={onToggleSidebar}
-          className="absolute top-3 left-3 sm:top-4 sm:left-4 z-50 p-1.5 sm:p-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-md transition-colors"
-          aria-label="Open sidebar"
+        <TouchableOpacity
+          onPress={onToggleSidebar}
+          style={styles.burgerButton}
+          accessibilityLabel="Open sidebar"
         >
-          <svg
-            className="w-4 h-4 sm:w-5 sm:h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 6h16M4 12h16M4 18h16"
-            />
-          </svg>
-        </button>
+          <MaterialCommunityIcons name="menu" size={24} color="white" />
+        </TouchableOpacity>
       )}
 
-      {/* Sidebar */}
-      <div 
-        className={`${isCollapsed ? 'w-14 sm:w-16' : 'w-56 sm:w-64'} bg-[#171717] border-r border-zinc-800 flex flex-col absolute left-0 top-0 h-full z-40 transition-all duration-300 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+      <View 
+        style={[
+          styles.sidebar,
+          isCollapsed ? styles.sidebarCollapsed : styles.sidebarExpanded,
+          isOpen ? styles.sidebarOpen : styles.sidebarClosed,
+        ]}
       >
-      <div className="p-2 sm:p-4 space-y-2">
-        <Button className={`w-full bg-zinc-800 hover:bg-zinc-700 text-white text-xs sm:text-sm ${isCollapsed ? 'justify-center px-1 sm:px-2' : 'gap-2'}`}>
-          <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
-          {!isCollapsed && 'New Conversation'}
-        </Button>
-        <div className="flex gap-1">
-          {onToggleCollapse && (
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={onToggleCollapse}
-              className={`${isCollapsed ? 'w-full justify-center px-1 sm:px-2' : 'flex-1'} text-zinc-400 hover:text-white text-xs sm:text-sm ${isCollapsed ? '' : 'gap-2'}`}
-              title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        <View style={styles.sidebarHeader}>
+          <TouchableOpacity style={[
+            styles.newConversationButton,
+            isCollapsed ? styles.newConversationButtonCollapsed : null
+          ]}>
+            <Ionicons name="add" size={20} color="white" />
+            {!isCollapsed && <Text style={styles.newConversationButtonText}>New Conversation</Text>}
+          </TouchableOpacity>
+          <View style={styles.toggleButtonsContainer}>
+            {onToggleCollapse && (
+              <TouchableOpacity 
+                onPress={onToggleCollapse}
+                style={[
+                  styles.toggleButton,
+                  isCollapsed ? styles.toggleButtonCollapsed : styles.toggleButtonExpanded
+                ]}
+                accessibilityLabel={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              >
+                {isCollapsed ? <Ionicons name="chevron-forward" size={20} color="#a1a1aa" /> : <MaterialCommunityIcons name="arrow-collapse-left" size={20} color="#a1a1aa" />}
+                {!isCollapsed && <Text style={styles.toggleButtonText}>Collapse</Text>}
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity 
+              onPress={onToggleSidebar}
+              style={[
+                styles.toggleButton,
+                isCollapsed ? styles.toggleButtonCollapsed : (onToggleCollapse ? styles.toggleButtonExpanded : styles.toggleButtonFullWidth)
+              ]}
+              accessibilityLabel={isCollapsed ? 'Hide sidebar' : 'Hide sidebar'}
             >
-              {isCollapsed ? <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" /> : <PanelLeftClose className="w-3 h-3 sm:w-4 sm:h-4" />}
-              {!isCollapsed && 'Collapse'}
-            </Button>
-          )}
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={onToggleSidebar}
-            className={`${isCollapsed ? 'w-full justify-center px-1 sm:px-2' : onToggleCollapse ? 'flex-1' : 'w-full'} text-zinc-400 hover:text-white text-xs sm:text-sm ${isCollapsed ? '' : 'gap-2'}`}
-            title={isCollapsed ? 'Hide sidebar' : 'Hide sidebar'}
-          >
-            <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" />
-            {!isCollapsed && 'Hide'}
-          </Button>
-        </div>
-      </div>
-      
-      <ScrollArea className="flex-1">
-        <div className={`${isCollapsed ? 'px-0.5 sm:px-1' : 'px-1 sm:px-2'} pb-2 sm:pb-4`}>
-          {!isCollapsed && <div className="text-xs text-zinc-500 px-2 sm:px-3 py-1 sm:py-2">Recent</div>}
+              <Ionicons name="chevron-back" size={20} color="#a1a1aa" />
+              {!isCollapsed && <Text style={styles.toggleButtonText}>Hide</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        <View style={styles.conversationsContainer}>
+          {!isCollapsed && <Text style={styles.recentText}>Recent</Text>}
           {conversations.map((conv) => (
-            <button
+            <TouchableOpacity
               key={conv.id}
-              onClick={() => onSelectConversation(conv)}
-              title={isCollapsed ? conv.title : undefined}
-              className={`w-full text-left ${isCollapsed ? 'px-1 sm:px-2 py-1.5 sm:py-2 justify-center' : 'px-2 sm:px-3 py-2 sm:py-3'} rounded-lg mb-1 transition-colors group ${
-                currentConversation.id === conv.id
-                  ? 'bg-zinc-800 text-white'
-                  : 'hover:bg-zinc-800/50 text-zinc-400'
-              }`}
+              onPress={() => onSelectConversation(conv)}
+              style={[
+                styles.conversationItem,
+                isCollapsed ? styles.conversationItemCollapsed : styles.conversationItemExpanded,
+                currentConversation.id === conv.id ? styles.conversationItemSelected : styles.conversationItemDefault,
+              ]}
+              accessibilityLabel={conv.title}
             >
               {isCollapsed ? (
-                <div className="flex justify-center">
-                  <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-                </div>
+                <View style={styles.conversationIconCollapsed}>
+                  <MaterialCommunityIcons name="message-text-outline" size={20} color={currentConversation.id === conv.id ? 'white' : '#a1a1aa'} />
+                </View>
               ) : (
-                <div className="flex items-start gap-1.5 sm:gap-2">
-                  <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="truncate text-xs sm:text-sm">{conv.title}</div>
-                    <div className="text-[10px] sm:text-xs text-zinc-600 mt-0.5">{formatDate(conv.timestamp)}</div>
-                  </div>
-                </div>
+                <View style={styles.conversationItemContent}>
+                  <MaterialCommunityIcons name="message-text-outline" size={20} color={currentConversation.id === conv.id ? 'white' : '#a1a1aa'} />
+                  <View style={styles.conversationTextContainer}>
+                    <Text numberOfLines={1} style={[
+                      styles.conversationTitle,
+                      currentConversation.id === conv.id ? styles.conversationTitleSelected : null
+                    ]}>{conv.title}</Text>
+                    <Text style={styles.conversationTimestamp}>{formatDate(conv.timestamp)}</Text>
+                  </View>
+                </View>
               )}
-            </button>
+            </TouchableOpacity>
           ))}
-        </div>
-      </ScrollArea>
-      </div>
+        </View>
+      </View>
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  burgerButton: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    zIndex: 50,
+    padding: 8,
+    backgroundColor: '#27272a',
+    borderRadius: 6,
+  },
+  sidebar: {
+    backgroundColor: '#171717',
+    borderRightWidth: 1,
+    borderRightColor: '#27272a',
+    flexDirection: 'column',
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    height: '100%',
+    zIndex: 40,
+  },
+  sidebarCollapsed: {
+    width: 56,
+  },
+  sidebarExpanded: {
+    width: 224,
+  },
+  sidebarOpen: {
+    transform: [{ translateX: 0 }],
+  },
+  sidebarClosed: {
+    transform: [{ translateX: -224 }], // Should match sidebarExpanded width
+  },
+  sidebarHeader: {
+    padding: 16,
+    gap: 8,
+  },
+  newConversationButton: {
+    backgroundColor: '#27272a',
+    paddingVertical: 10,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  newConversationButtonCollapsed: {
+    paddingHorizontal: 8,
+  },
+  newConversationButtonText: {
+    color: 'white',
+    fontSize: 14,
+  },
+  toggleButtonsContainer: {
+    flexDirection: 'row',
+    gap: 4,
+    marginTop: 8,
+  },
+  toggleButton: {
+    paddingVertical: 8,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  toggleButtonCollapsed: {
+    width: '100%',
+  },
+  toggleButtonExpanded: {
+    flex: 1,
+  },
+  toggleButtonFullWidth: {
+    width: '100%',
+  },
+  toggleButtonText: {
+    color: '#a1a1aa',
+    fontSize: 14,
+  },
+  conversationsContainer: {
+    flex: 1,
+    paddingHorizontal: 8,
+    paddingBottom: 16,
+  },
+  recentText: {
+    fontSize: 12,
+    color: '#71717a',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  conversationItem: {
+    borderRadius: 6,
+    marginBottom: 4,
+  },
+  conversationItemCollapsed: {
+    paddingVertical: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  conversationItemExpanded: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  conversationItemDefault: {
+    backgroundColor: 'transparent',
+  },
+  conversationItemSelected: {
+    backgroundColor: '#27272a',
+  },
+  conversationIconCollapsed: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  conversationItemContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  conversationTextContainer: {
+    flex: 1,
+    minWidth: 0,
+  },
+  conversationTitle: {
+    fontSize: 14,
+    color: '#a1a1aa',
+  },
+  conversationTitleSelected: {
+    color: 'white',
+  },
+  conversationTimestamp: {
+    fontSize: 10,
+    color: '#52525b',
+    marginTop: 2,
+  },
+});
