@@ -1,4 +1,5 @@
 const createExpoWebpackConfigAsync = require('@expo/webpack-config');
+const webpack = require('webpack');
 
 module.exports = async function (env, argv) {
   const config = await createExpoWebpackConfigAsync(
@@ -14,10 +15,22 @@ module.exports = async function (env, argv) {
   // Add node polyfills for Supabase
   config.resolve.fallback = {
     ...config.resolve.fallback,
-    crypto: require.resolve('crypto-browserify'),
-    stream: require.resolve('stream-browserify'),
-    buffer: require.resolve('buffer/'),
+    crypto: 'crypto-browserify',
+    stream: 'stream-browserify',
+    buffer: 'buffer',
+    process: 'process/browser',
+    util: 'util',
+    assert: 'assert',
   };
+  
+  // Add plugins for global polyfills
+  config.plugins = [
+    ...config.plugins,
+    new webpack.ProvidePlugin({
+      process: 'process/browser',
+      Buffer: ['buffer', 'Buffer'],
+    }),
+  ];
   
   return config;
 };
