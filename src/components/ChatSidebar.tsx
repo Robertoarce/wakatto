@@ -132,8 +132,8 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
         <View style={styles.sidebarHeader}>
           <TouchableOpacity 
             style={[
-              styles.newConversationButton,
-              isCollapsed ? styles.newConversationButtonCollapsed : null
+            styles.newConversationButton,
+            isCollapsed ? styles.newConversationButtonCollapsed : null
             ]}
             onPress={onNewConversation}
           >
@@ -212,7 +212,7 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
                 onPress={() => onSelectConversation(conv)}
                 style={styles.conversationClickable}
                 accessibilityLabel={conv.title}
-              >
+            >
               {isCollapsed ? (
                 <View style={styles.conversationIconCollapsed}>
                   <MaterialCommunityIcons name="message-text-outline" size={20} color={currentConversation?.id === conv.id ? 'white' : '#a1a1aa'} />
@@ -236,10 +236,10 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
                       </View>
                     ) : (
                       <>
-                        <Text numberOfLines={1} style={[
-                          styles.conversationTitle,
+                    <Text numberOfLines={1} style={[
+                      styles.conversationTitle,
                           currentConversation?.id === conv.id ? styles.conversationTitleSelected : null
-                        ]}>{conv.title}</Text>
+                    ]}>{conv.title}</Text>
                         <View style={styles.conversationFooter}>
                           <Text style={styles.conversationTimestamp}>{formatDate(conv.updated_at)}</Text>
                           {(hoveredConvId === conv.id || menuOpenId === conv.id) && (
@@ -289,7 +289,7 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
                   </View>
                 </View>
               )}
-              </TouchableOpacity>
+            </TouchableOpacity>
             </View>
             ))
           )}

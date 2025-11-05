@@ -171,6 +171,11 @@ export default function MainTabs() {
           onRenameConversation={onRenameConversation}
           onDeleteConversation={onDeleteConversation}
         />
+        <View style={[
+          styles.mainContentWrapper,
+          showSidebar && !sidebarCollapsed && styles.mainContentWithSidebar,
+          showSidebar && sidebarCollapsed && styles.mainContentWithCollapsedSidebar,
+        ]}>
         <Tab.Navigator
           screenOptions={{
             headerShown: false,
@@ -228,6 +233,7 @@ export default function MainTabs() {
             }}
           />
         </Tab.Navigator>
+        </View>
       </View>
     </View>
   );
@@ -241,6 +247,18 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     flexDirection: 'row',
+    position: 'relative',
+  },
+  mainContentWrapper: {
+    flex: 1,
+    position: 'relative',
+    transition: 'margin-left 0.3s ease',
+  },
+  mainContentWithSidebar: {
+    marginLeft: 224, // Width of expanded sidebar
+  },
+  mainContentWithCollapsedSidebar: {
+    marginLeft: 56, // Width of collapsed sidebar
   },
   screenContainer: {
     flex: 1,

@@ -171,7 +171,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
                   </View>
                 ) : (
                   <>
-                    <Text style={styles.messageText}>{message.content}</Text>
+                <Text style={styles.messageText}>{message.content}</Text>
                     {message.created_at && (
                       <Text style={styles.messageTimestamp}>
                         {formatTimestamp(message.created_at)}
@@ -227,7 +227,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
               {isLoading ? (
                 <ActivityIndicator size="small" color="white" />
               ) : (
-                <Ionicons name="send" size={24} color="white" />
+              <Ionicons name="send" size={24} color="white" />
               )}
             </TouchableOpacity>
           </View>

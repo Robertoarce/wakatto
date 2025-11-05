@@ -49,7 +49,7 @@ export function Header() {
             <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
               <Ionicons name="log-out-outline" size={20} color="#ef4444" />
               <Text style={styles.logoutButtonText}>Logout</Text>
-            </TouchableOpacity>
+        </TouchableOpacity>
           </>
         )}
       </View>
