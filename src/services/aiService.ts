@@ -70,37 +70,70 @@ export async function generateAIResponse(
  * OpenAI GPT API integration
  */
 async function generateOpenAIResponse(messages: AIMessage[]): Promise<string> {
+  console.log('[OpenAI] Starting request with config:', {
+    hasApiKey: !!config.apiKey,
+    keyPrefix: config.apiKey?.substring(0, 7),
+    model: config.model || 'gpt-4',
+    messageCount: messages.length
+  });
+
   if (!config.apiKey) {
     throw new Error('OpenAI API key not configured');
   }
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: config.model || 'gpt-4',
-      messages: messages,
-      temperature: 0.7,
-      max_tokens: 1000,
-    }),
-  });
+  const requestBody = {
+    model: config.model || 'gpt-4',
+    messages: messages,
+    temperature: 0.7,
+    max_tokens: 1000,
+  };
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
+  console.log('[OpenAI] Request body:', JSON.stringify(requestBody, null, 2));
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    console.log('[OpenAI] Response status:', response.status, response.statusText);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[OpenAI] Error response:', errorText);
+      let error;
+      try {
+        error = JSON.parse(errorText);
+      } catch (e) {
+        throw new Error(`OpenAI API error (${response.status}): ${errorText}`);
+      }
+      throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('[OpenAI] Success! Response data:', data);
+    return data.choices[0]?.message?.content || 'Sorry, I could not generate a response.';
+  } catch (error: any) {
+    console.error('[OpenAI] Fetch error:', error);
+    throw error;
   }
-
-  const data = await response.json();
-  return data.choices[0]?.message?.content || 'Sorry, I could not generate a response.';
 }
 
 /**
  * Anthropic Claude API integration
  */
 async function generateAnthropicResponse(messages: AIMessage[]): Promise<string> {
+  console.log('[Anthropic] Starting request with config:', {
+    hasApiKey: !!config.apiKey,
+    keyPrefix: config.apiKey?.substring(0, 7),
+    model: config.model || 'claude-3-sonnet-20240229',
+    messageCount: messages.length
+  });
+
   if (!config.apiKey) {
     throw new Error('Anthropic API key not configured');
   }
@@ -109,34 +142,60 @@ async function generateAnthropicResponse(messages: AIMessage[]): Promise<string>
   const systemMessage = messages.find(m => m.role === 'system');
   const conversationMessages = messages.filter(m => m.role !== 'system');
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': config.apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: config.model || 'claude-3-sonnet-20240229',
-      max_tokens: 1000,
-      system: systemMessage?.content,
-      messages: conversationMessages,
-    }),
-  });
+  const requestBody = {
+    model: config.model || 'claude-3-sonnet-20240229',
+    max_tokens: 1000,
+    system: systemMessage?.content,
+    messages: conversationMessages,
+  };
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(`Anthropic API error: ${error.error?.message || response.statusText}`);
+  console.log('[Anthropic] Request body:', JSON.stringify(requestBody, null, 2));
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': config.apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    console.log('[Anthropic] Response status:', response.status, response.statusText);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[Anthropic] Error response:', errorText);
+      let error;
+      try {
+        error = JSON.parse(errorText);
+      } catch (e) {
+        throw new Error(`Anthropic API error (${response.status}): ${errorText}`);
+      }
+      throw new Error(`Anthropic API error: ${error.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('[Anthropic] Success! Response data:', data);
+    return data.content[0]?.text || 'Sorry, I could not generate a response.';
+  } catch (error: any) {
+    console.error('[Anthropic] Fetch error:', error);
+    throw error;
   }
-
-  const data = await response.json();
-  return data.content[0]?.text || 'Sorry, I could not generate a response.';
 }
 
 /**
  * Google Gemini API integration
  */
 async function generateGeminiResponse(messages: AIMessage[]): Promise<string> {
+  console.log('[Gemini] Starting request with config:', {
+    hasApiKey: !!config.apiKey,
+    keyPrefix: config.apiKey?.substring(0, 10),
+    model: config.model || 'gemini-1.5-flash',
+    messageCount: messages.length
+  });
+
   if (!config.apiKey) {
     throw new Error('Gemini API key not configured');
   }
@@ -149,30 +208,51 @@ async function generateGeminiResponse(messages: AIMessage[]): Promise<string> {
       parts: [{ text: m.content }],
     }));
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${config.model || 'gemini-pro'}:generateContent?key=${config.apiKey}`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: contents,
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 1000,
+  const requestBody = {
+    contents: contents,
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: 1000,
+    },
+  };
+
+  console.log('[Gemini] Request body:', JSON.stringify(requestBody, null, 2));
+
+  const modelName = config.model || 'gemini-1.5-flash';
+  
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.apiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      }),
+        body: JSON.stringify(requestBody),
+      }
+    );
+
+    console.log('[Gemini] Response status:', response.status, response.statusText);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[Gemini] Error response:', errorText);
+      let error;
+      try {
+        error = JSON.parse(errorText);
+      } catch (e) {
+        throw new Error(`Gemini API error (${response.status}): ${errorText}`);
+      }
+      throw new Error(`Gemini API error: ${error.error?.message || response.statusText}`);
     }
-  );
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(`Gemini API error: ${error.error?.message || response.statusText}`);
+    const data = await response.json();
+    console.log('[Gemini] Success! Response data:', data);
+    return data.candidates[0]?.content?.parts[0]?.text || 'Sorry, I could not generate a response.';
+  } catch (error: any) {
+    console.error('[Gemini] Fetch error:', error);
+    throw error;
   }
-
-  const data = await response.json();
-  return data.candidates[0]?.content?.parts[0]?.text || 'Sorry, I could not generate a response.';
 }
 
 /**
