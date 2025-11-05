@@ -34,8 +34,6 @@
       }
     },
     "web": {
-      "bundler": "metro",
-      "output": "static",
       "favicon": "./src/assets/images/icon.png"
     },
     "description": "AI-powered personal diary with knowledge graph visualization"

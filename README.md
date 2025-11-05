@@ -71,7 +71,7 @@ yarn install
    ```typescript
    const supabaseUrl = 'YOUR_SUPABASE_URL';
    const supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';
-   ```
+```
 
 ### 4. Run the App
 
