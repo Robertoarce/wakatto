@@ -22,18 +22,29 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
+
+      - name: Clear npm cache
+        run: npm cache clean --force
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Clear build cache
-        run: rm -rf web-build .expo
+      - name: Clear all caches
+        run: |
+          rm -rf web-build .expo node_modules/.cache
+          npm cache verify
+
+      - name: Verify webpack config
+        run: |
+          echo "Checking webpack.config.js..."
+          cat webpack.config.js
+          echo "---"
 
       - name: Build web app
         run: npm run web:build
         env:
           CI: false # Prevent treating warnings as errors
+          NODE_ENV: production
 
       - name: Copy custom files to build
         run: |
