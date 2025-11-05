@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "react-native-typescript",
-    "slug": "react-native-typescript",
+    "name": "AI Diary",
+    "slug": "ai-diary",
     "privacy": "public",
     "platforms": [
       "ios",
@@ -14,7 +14,7 @@
     "splash": {
       "image": "./src/assets/images/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0f0f0f"
     },
     "updates": {
       "fallbackToCacheTimeout": 0
@@ -23,8 +23,21 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yourcompany.aidiary"
     },
-    "description": "Template for expo project with TS, Storybook, Reg-Suit"
+    "android": {
+      "package": "com.yourcompany.aidiary",
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/images/icon.png",
+        "backgroundColor": "#0f0f0f"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./src/assets/images/icon.png"
+    },
+    "description": "AI-powered personal diary with knowledge graph visualization"
   }
 }

@@ -206,10 +206,10 @@ const SettingsScreen = (): JSX.Element => {
                 autoCapitalize="none"
               />
 
-              <View style={styles.warningBox}>
-                <Ionicons name="warning-outline" size={20} color="#f59e0b" />
-                <Text style={styles.warningBoxText}>
-                  ⚠️ Storing API keys in the app is not secure for production. Use at your own risk for development only.
+              <View style={styles.infoBox}>
+                <Ionicons name="information-circle-outline" size={20} color="#c4b5fd" />
+                <Text style={styles.infoBoxText}>
+                  🔒 Your API key is stored locally in your browser only. It is never sent to our servers or saved in any database. Clear your browser data to remove it.
                 </Text>
               </View>
             </>

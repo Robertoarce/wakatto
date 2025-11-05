@@ -1,10 +1,14 @@
 {
-  "name": "expo-typescript-starter",
-  "version": "0.1.0",
-  "description": "Template for expo project with TS, Storybook, Reg-Suit",
-  "repository": "https://github.com/Naturalclar/expo-typescript-starter.git",
+  "name": "ai-diary",
+  "version": "1.0.0",
+  "description": "AI-powered personal diary with knowledge graph visualization",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Robertoarce/wakatto.git"
+  },
+  "homepage": "https://www.wakatto.com",
   "license": "MIT",
-  "author": "Jesse Katsumata <jesse.katsumata@gmail.com>",
+  "author": "Roberto Arce",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "android": "expo start --android",
@@ -12,6 +16,10 @@
     "eject": "expo eject",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "web:build": "expo export:web",
+    "web:serve": "npx serve web-build",
+    "predeploy": "expo export:web",
+    "deploy": "gh-pages -d web-build",
     "lint": "eslint . --ext '.ts, .tsx'",
     "new": "scaffdog generate",
     "reg-suit": "reg-suit run",
@@ -49,6 +57,7 @@
   "devDependencies": {
     "@babel/core": "^7.20.0",
     "@types/react": "~18.2.45",
+    "gh-pages": "^6.3.0",
     "typescript": "^5.1.3"
   }
 }

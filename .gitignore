@@ -11,4 +11,19 @@ storybook-static
 .cache-loader
 .reg
 __screenshots__
-public
+
+# Storybook build output
+public/
+
+# But keep public folder files for GitHub Pages
+!public/404.html
+!public/CNAME
+
+# Web build output
+web-build/
+dist/
+
+# Environment variables
+.env
+.env.local
+.env.production
