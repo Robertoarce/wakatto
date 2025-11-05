@@ -34,8 +34,8 @@ jobs:
 
       - name: Copy custom files to build
         run: |
-          cp public/404.html web-build/404.html
-          cp public/CNAME web-build/CNAME
+          cp .github/pages/404.html web-build/404.html
+          cp .github/pages/CNAME web-build/CNAME
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3

@@ -15,10 +15,6 @@ __screenshots__
 # Storybook build output
 public/
 
-# But keep public folder files for GitHub Pages
-!public/404.html
-!public/CNAME
-
 # Web build output
 web-build/
 dist/
