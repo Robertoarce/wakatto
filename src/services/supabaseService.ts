@@ -34,7 +34,7 @@ export async function getConversations(userId: string) {
     .from('conversations')
     .select('*')
     .eq('user_id', userId)
-    .order('timestamp', { ascending: false });
+    .order('updated_at', { ascending: false });
   if (error) throw error;
   return data;
 }

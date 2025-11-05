@@ -14,6 +14,11 @@ export const conversationReducer = (state = initialState, action: any): Conversa
   switch (action.type) {
     case 'SET_CONVERSATIONS':
       return { ...state, conversations: action.payload };
+    case 'ADD_CONVERSATION':
+      return { 
+        ...state, 
+        conversations: [action.payload, ...state.conversations] 
+      };
     case 'SET_CURRENT_CONVERSATION':
       return { ...state, currentConversation: action.payload };
     case 'SET_MESSAGES':

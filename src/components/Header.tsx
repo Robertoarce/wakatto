@@ -1,10 +1,33 @@
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '../store';
+import { logout } from '../store/actions/authActions';
 
 export function Header() {
   const navigation = useNavigation();
+  const dispatch = useDispatch();
+  const { user } = useSelector((state: RootState) => state.auth);
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            await dispatch(logout() as any);
+            navigation.navigate('Login' as never);
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <View style={styles.header}>
@@ -16,15 +39,19 @@ export function Header() {
       </View>
       
       <View style={styles.rightContainer}>
-        <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.button}>
-          <Text style={styles.buttonText}>Login</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('Register')} style={[styles.button, styles.buttonPrimary]}>
-          <Text style={styles.buttonPrimaryText}>Register</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.settingsButton}>
-          <Ionicons name="settings-outline" size={24} color="#a1a1aa" />
-        </TouchableOpacity>
+        {user && (
+          <>
+            <View style={styles.userInfo}>
+              <Text style={styles.userEmail} numberOfLines={1}>
+                {user.email}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+              <Ionicons name="log-out-outline" size={20} color="#ef4444" />
+              <Text style={styles.logoutButtonText}>Logout</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </View>
   );
@@ -65,25 +92,33 @@ const styles = StyleSheet.create({
   rightContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
   },
-  button: {
+  userInfo: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#27272a',
+    borderRadius: 6,
+    maxWidth: 200,
+  },
+  userEmail: {
+    color: '#a1a1aa',
+    fontSize: 14,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#ef4444',
+    backgroundColor: 'transparent',
   },
-  buttonText: {
-    color: '#d4d4d8',
+  logoutButtonText: {
+    color: '#ef4444',
     fontSize: 14,
-  },
-  buttonPrimary: {
-    backgroundColor: '#9333ea', // purple-600
-  },
-  buttonPrimaryText: {
-    color: 'white',
-    fontSize: 14,
-  },
-  settingsButton: {
-    padding: 4, // Adjust padding for touch target
+    fontWeight: '600',
   },
 });

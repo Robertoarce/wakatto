@@ -3,6 +3,10 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from 'reac
 import { useNavigation } from '@react-navigation/native';
 import { signIn } from '../services/supabaseService';
 
+// Dev credentials for quick login during development
+const DEV_EMAIL = 'dev@phsyche.ai'; // Note: matches the user created in Supabase
+const DEV_PASSWORD = 'devpass123';
+
 export default function LoginScreen() {
   const navigation = useNavigation();
   const [email, setEmail] = useState('');
@@ -16,6 +20,26 @@ export default function LoginScreen() {
       navigation.navigate('Main');
     } catch (error: any) {
       Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function quickDevLogin() {
+    setLoading(true);
+    try {
+      await signIn(DEV_EMAIL, DEV_PASSWORD);
+      navigation.navigate('Main');
+    } catch (error: any) {
+      // If dev user doesn't exist, show helpful error
+      Alert.alert(
+        'Dev User Not Found', 
+        `Please create a test user with:\nEmail: ${DEV_EMAIL}\nPassword: ${DEV_PASSWORD}\n\nOr use the Register screen to create it.`,
+        [
+          { text: 'Go to Register', onPress: () => navigation.navigate('Register') },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
     } finally {
       setLoading(false);
     }
@@ -44,6 +68,13 @@ export default function LoginScreen() {
       <TouchableOpacity style={styles.button} onPress={signInWithEmail} disabled={loading}>
         <Text style={styles.buttonText}>{loading ? 'Loading...' : 'Login'}</Text>
       </TouchableOpacity>
+      
+      {__DEV__ && (
+        <TouchableOpacity style={styles.devButton} onPress={quickDevLogin} disabled={loading}>
+          <Text style={styles.devButtonText}>⚡ Quick Dev Login</Text>
+        </TouchableOpacity>
+      )}
+      
       <TouchableOpacity onPress={() => navigation.navigate('Register')}>
         <Text style={styles.linkText}>Don't have an account? Sign Up</Text>
       </TouchableOpacity>
@@ -88,6 +119,22 @@ const styles = StyleSheet.create({
   buttonText: {
     color: 'white',
     fontSize: 18,
+    fontWeight: 'bold',
+  },
+  devButton: {
+    width: '100%',
+    height: 50,
+    backgroundColor: '#f59e0b',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+    borderWidth: 2,
+    borderColor: '#fbbf24',
+  },
+  devButtonText: {
+    color: 'white',
+    fontSize: 16,
     fontWeight: 'bold',
   },
   linkText: {

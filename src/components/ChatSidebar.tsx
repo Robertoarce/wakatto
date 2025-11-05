@@ -1,25 +1,36 @@
-import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, TextInput } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface Conversation {
   id: string;
   title: string;
-  timestamp: Date;
+  created_at: string;
+  updated_at: string;
 }
 
 interface ChatSidebarProps {
   conversations: Conversation[];
-  currentConversation: Conversation;
+  currentConversation: Conversation | null;
   onSelectConversation: (conversation: Conversation) => void;
   onToggleSidebar: () => void;
   isOpen: boolean;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  onNewConversation?: () => void;
+  onRenameConversation?: (conversationId: string, newTitle: string) => void;
+  onDeleteConversation?: (conversationId: string) => void;
 }
 
-export function ChatSidebar({ conversations, currentConversation, onSelectConversation, onToggleSidebar, isOpen, isCollapsed = false, onToggleCollapse }: ChatSidebarProps) {
-  const formatDate = (date: Date) => {
+export function ChatSidebar({ conversations, currentConversation, onSelectConversation, onToggleSidebar, isOpen, isCollapsed = false, onToggleCollapse, onNewConversation, onRenameConversation, onDeleteConversation }: ChatSidebarProps) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [hoveredConvId, setHoveredConvId] = useState<string | null>(null);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -29,6 +40,75 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
     if (days < 7) return `${days} days ago`;
     return date.toLocaleDateString();
   };
+
+  const startEditing = (conversation: Conversation) => {
+    setEditingId(conversation.id);
+    setEditingTitle(conversation.title);
+  };
+
+  const saveEdit = (conversationId: string) => {
+    if (editingTitle.trim() && onRenameConversation) {
+      onRenameConversation(conversationId, editingTitle.trim());
+    }
+    setEditingId(null);
+    setEditingTitle('');
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditingTitle('');
+  };
+
+  const confirmDelete = (conversation: Conversation) => {
+    setMenuOpenId(null); // Close menu
+    
+    // Use window.confirm for web compatibility
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${conversation.title}"?\n\nThis action cannot be undone.`
+    );
+    
+    if (confirmed && onDeleteConversation) {
+      console.log('[ChatSidebar] Delete confirmed, calling onDeleteConversation');
+      onDeleteConversation(conversation.id);
+    } else {
+      console.log('[ChatSidebar] Delete cancelled');
+    }
+  };
+
+  const toggleMenu = (convId: string, event?: any) => {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    setMenuOpenId(menuOpenId === convId ? null : convId);
+  };
+
+  const handleEdit = (conv: Conversation) => {
+    console.log('[handleEdit] Called for:', conv.title);
+    setMenuOpenId(null);
+    startEditing(conv);
+  };
+
+  // Close menu when clicking elsewhere
+  useEffect(() => {
+    if (menuOpenId) {
+      const handleClickOutside = () => {
+        setMenuOpenId(null);
+      };
+      // For web, add event listener
+      if (typeof window !== 'undefined') {
+        document.addEventListener('click', handleClickOutside);
+        return () => {
+          document.removeEventListener('click', handleClickOutside);
+        };
+      }
+    }
+  }, [menuOpenId]);
+
+  // Filter conversations based on search query
+  const filteredConversations = conversations.filter(conv => 
+    conv.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <>
@@ -50,10 +130,13 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
         ]}
       >
         <View style={styles.sidebarHeader}>
-          <TouchableOpacity style={[
-            styles.newConversationButton,
-            isCollapsed ? styles.newConversationButtonCollapsed : null
-          ]}>
+          <TouchableOpacity 
+            style={[
+              styles.newConversationButton,
+              isCollapsed ? styles.newConversationButtonCollapsed : null
+            ]}
+            onPress={onNewConversation}
+          >
             <Ionicons name="add" size={20} color="white" />
             {!isCollapsed && <Text style={styles.newConversationButtonText}>New Conversation</Text>}
           </TouchableOpacity>
@@ -85,37 +168,131 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
           </View>
         </View>
         
+        {!isCollapsed && (
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={16} color="#71717a" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search conversations..."
+              placeholderTextColor="#71717a"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
+                <Ionicons name="close-circle" size={16} color="#71717a" />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+        
         <View style={styles.conversationsContainer}>
           {!isCollapsed && <Text style={styles.recentText}>Recent</Text>}
-          {conversations.map((conv) => (
-            <TouchableOpacity
+          {filteredConversations.length === 0 && searchQuery.length > 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="search" size={32} color="#52525b" />
+              <Text style={styles.emptyStateText}>No conversations found</Text>
+              <Text style={styles.emptyStateSubtext}>Try a different search term</Text>
+            </View>
+          ) : (
+            filteredConversations.map((conv) => (
+            <View
               key={conv.id}
-              onPress={() => onSelectConversation(conv)}
               style={[
                 styles.conversationItem,
                 isCollapsed ? styles.conversationItemCollapsed : styles.conversationItemExpanded,
-                currentConversation.id === conv.id ? styles.conversationItemSelected : styles.conversationItemDefault,
+                currentConversation?.id === conv.id ? styles.conversationItemSelected : styles.conversationItemDefault,
+                menuOpenId === conv.id && styles.conversationItemWithOpenMenu,
               ]}
-              accessibilityLabel={conv.title}
+              // @ts-ignore - onMouseEnter/onMouseLeave work on web
+              onMouseEnter={() => setHoveredConvId(conv.id)}
+              onMouseLeave={() => setHoveredConvId(null)}
             >
+              <TouchableOpacity
+                onPress={() => onSelectConversation(conv)}
+                style={styles.conversationClickable}
+                accessibilityLabel={conv.title}
+              >
               {isCollapsed ? (
                 <View style={styles.conversationIconCollapsed}>
-                  <MaterialCommunityIcons name="message-text-outline" size={20} color={currentConversation.id === conv.id ? 'white' : '#a1a1aa'} />
+                  <MaterialCommunityIcons name="message-text-outline" size={20} color={currentConversation?.id === conv.id ? 'white' : '#a1a1aa'} />
                 </View>
               ) : (
                 <View style={styles.conversationItemContent}>
-                  <MaterialCommunityIcons name="message-text-outline" size={20} color={currentConversation.id === conv.id ? 'white' : '#a1a1aa'} />
+                  <MaterialCommunityIcons name="message-text-outline" size={20} color={currentConversation?.id === conv.id ? 'white' : '#a1a1aa'} />
                   <View style={styles.conversationTextContainer}>
-                    <Text numberOfLines={1} style={[
-                      styles.conversationTitle,
-                      currentConversation.id === conv.id ? styles.conversationTitleSelected : null
-                    ]}>{conv.title}</Text>
-                    <Text style={styles.conversationTimestamp}>{formatDate(conv.timestamp)}</Text>
+                    {editingId === conv.id ? (
+                      <View style={styles.editingContainer}>
+                        <TextInput
+                          style={styles.editInput}
+                          value={editingTitle}
+                          onChangeText={setEditingTitle}
+                          onSubmitEditing={() => saveEdit(conv.id)}
+                          onBlur={() => saveEdit(conv.id)}
+                          autoFocus
+                          placeholder="Conversation title"
+                          placeholderTextColor="#71717a"
+                        />
+                      </View>
+                    ) : (
+                      <>
+                        <Text numberOfLines={1} style={[
+                          styles.conversationTitle,
+                          currentConversation?.id === conv.id ? styles.conversationTitleSelected : null
+                        ]}>{conv.title}</Text>
+                        <View style={styles.conversationFooter}>
+                          <Text style={styles.conversationTimestamp}>{formatDate(conv.updated_at)}</Text>
+                          {(hoveredConvId === conv.id || menuOpenId === conv.id) && (
+                            <View style={styles.conversationMenuContainer}>
+                              <TouchableOpacity 
+                                onPress={(e: any) => toggleMenu(conv.id, e)} 
+                                style={styles.menuButton}
+                              >
+                                <Ionicons name="ellipsis-horizontal" size={16} color="#a1a1aa" />
+                              </TouchableOpacity>
+                              {menuOpenId === conv.id && (
+                                <>
+                                  <TouchableOpacity
+                                    style={styles.menuBackdrop}
+                                    onPress={() => setMenuOpenId(null)}
+                                    activeOpacity={1}
+                                  />
+                                  <View style={styles.menuDropdown}>
+                                    <TouchableOpacity 
+                                      onPress={() => {
+                                        console.log('[Menu] Rename clicked');
+                                        handleEdit(conv);
+                                      }} 
+                                      style={styles.menuItem}
+                                    >
+                                      <Ionicons name="pencil" size={14} color="#a1a1aa" />
+                                      <Text style={styles.menuItemText}>Rename</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                      onPress={() => {
+                                        console.log('[Menu] Delete clicked');
+                                        confirmDelete(conv);
+                                      }} 
+                                      style={styles.menuItem}
+                                    >
+                                      <Ionicons name="trash-outline" size={14} color="#dc2626" />
+                                      <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Delete</Text>
+                                    </TouchableOpacity>
+                                  </View>
+                                </>
+                              )}
+                            </View>
+                          )}
+                        </View>
+                      </>
+                    )}
                   </View>
                 </View>
               )}
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            </View>
+            ))
+          )}
         </View>
       </View>
     </>
@@ -123,6 +300,15 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
 }
 
 const styles = StyleSheet.create({
+  menuBackdrop: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1001,
+    backgroundColor: 'transparent',
+  },
   burgerButton: {
     position: 'absolute',
     top: 12,
@@ -231,6 +417,10 @@ const styles = StyleSheet.create({
   conversationItemSelected: {
     backgroundColor: '#27272a',
   },
+  conversationItemWithOpenMenu: {
+    zIndex: 1000,
+    position: 'relative',
+  },
   conversationIconCollapsed: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -254,6 +444,106 @@ const styles = StyleSheet.create({
   conversationTimestamp: {
     fontSize: 10,
     color: '#52525b',
+  },
+  conversationClickable: {
+    flex: 1,
+  },
+  conversationFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: 2,
+  },
+  conversationMenuContainer: {
+    position: 'relative',
+    zIndex: 1002,
+  },
+  menuButton: {
+    padding: 4,
+    borderRadius: 4,
+  },
+  menuDropdown: {
+    position: 'absolute',
+    right: 0,
+    top: 24,
+    backgroundColor: '#27272a',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3f3f46',
+    minWidth: 120,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+    zIndex: 1002,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  menuItemText: {
+    color: '#d4d4d8',
+    fontSize: 14,
+  },
+  menuItemTextDanger: {
+    color: '#dc2626',
+  },
+  editingContainer: {
+    flex: 1,
+  },
+  editInput: {
+    backgroundColor: '#27272a',
+    color: 'white',
+    fontSize: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#8b5cf6',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#18181b',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#27272a',
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    color: 'white',
+    fontSize: 14,
+  },
+  clearButton: {
+    padding: 4,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+    paddingHorizontal: 16,
+  },
+  emptyStateText: {
+    color: '#a1a1aa',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  emptyStateSubtext: {
+    color: '#71717a',
+    fontSize: 12,
+    marginTop: 4,
   },
 });

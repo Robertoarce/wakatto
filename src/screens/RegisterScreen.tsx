@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { signUp } from '../services/supabaseService';
+import { signUp, signIn } from '../services/supabaseService';
+
+// Dev credentials for quick setup during development
+const DEV_EMAIL = 'dev@phsyche.ai'; // Note: matches the user created in Supabase
+const DEV_PASSWORD = 'devpass123';
 
 export default function RegisterScreen() {
   const navigation = useNavigation();
@@ -17,6 +21,32 @@ export default function RegisterScreen() {
       navigation.navigate('Login');
     } catch (error: any) {
       Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function createDevUser() {
+    setLoading(true);
+    try {
+      await signUp(DEV_EMAIL, DEV_PASSWORD);
+      Alert.alert(
+        'Dev User Created!', 
+        'Dev user created successfully. You can now use Quick Dev Login.',
+        [{ text: 'Go to Login', onPress: () => navigation.navigate('Login') }]
+      );
+    } catch (error: any) {
+      // If user already exists, try to sign in
+      if (error.message.includes('already registered')) {
+        try {
+          await signIn(DEV_EMAIL, DEV_PASSWORD);
+          navigation.navigate('Main');
+        } catch (signInError: any) {
+          Alert.alert('Error', 'Dev user exists but could not sign in: ' + signInError.message);
+        }
+      } else {
+        Alert.alert('Error', error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -45,6 +75,13 @@ export default function RegisterScreen() {
       <TouchableOpacity style={styles.button} onPress={signUpWithEmail} disabled={loading}>
         <Text style={styles.buttonText}>{loading ? 'Loading...' : 'Sign Up'}</Text>
       </TouchableOpacity>
+      
+      {__DEV__ && (
+        <TouchableOpacity style={styles.devButton} onPress={createDevUser} disabled={loading}>
+          <Text style={styles.devButtonText}>⚡ Create Dev User</Text>
+        </TouchableOpacity>
+      )}
+      
       <TouchableOpacity onPress={() => navigation.navigate('Login')}>
         <Text style={styles.linkText}>Already have an account? Sign In</Text>
       </TouchableOpacity>
@@ -89,6 +126,22 @@ const styles = StyleSheet.create({
   buttonText: {
     color: 'white',
     fontSize: 18,
+    fontWeight: 'bold',
+  },
+  devButton: {
+    width: '100%',
+    height: 50,
+    backgroundColor: '#f59e0b',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+    borderWidth: 2,
+    borderColor: '#fbbf24',
+  },
+  devButtonText: {
+    color: 'white',
+    fontSize: 16,
     fontWeight: 'bold',
   },
   linkText: {

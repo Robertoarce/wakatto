@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  created_at?: string;
 }
 
 interface ChatInterfaceProps {
@@ -13,12 +14,33 @@ interface ChatInterfaceProps {
   onSendMessage: (content: string) => void;
   showSidebar: boolean;
   onToggleSidebar: () => void;
+  isLoading?: boolean;
+  onEditMessage?: (messageId: string, newContent: string) => void;
+  onDeleteMessage?: (messageId: string) => void;
 }
 
-export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar }: ChatInterfaceProps) {
+export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage }: ChatInterfaceProps) {
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState('');
+
+  const formatTimestamp = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays === 1) return `Yesterday at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
 
   useEffect(() => {
     if (scrollViewRef.current) {
@@ -38,6 +60,67 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     // In a real app, this would start/stop voice recording
   };
 
+  const startEditingMessage = (message: Message) => {
+    setEditingMessageId(message.id);
+    setEditingContent(message.content);
+  };
+
+  const saveEditedMessage = () => {
+    if (editingMessageId && editingContent.trim() && onEditMessage) {
+      onEditMessage(editingMessageId, editingContent.trim());
+      setEditingMessageId(null);
+      setEditingContent('');
+    }
+  };
+
+  const cancelEditing = () => {
+    setEditingMessageId(null);
+    setEditingContent('');
+  };
+
+  const confirmDeleteMessage = (messageId: string) => {
+    Alert.alert(
+      'Delete Message',
+      'Are you sure you want to delete this message?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            if (onDeleteMessage) {
+              onDeleteMessage(messageId);
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const handleLongPress = (message: Message) => {
+    // Only allow editing user messages
+    if (message.role === 'user') {
+      Alert.alert(
+        'Message Options',
+        'What would you like to do?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Edit',
+            onPress: () => startEditingMessage(message),
+          },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () => confirmDeleteMessage(message.id),
+          },
+        ],
+        { cancelable: true }
+      );
+    }
+  };
+
   return (
     <KeyboardAvoidingView 
       style={styles.container}
@@ -51,8 +134,10 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       >
         <View style={styles.messagesContent}>
           {messages.map((message) => (
-            <View
+            <TouchableOpacity
               key={message.id}
+              onLongPress={() => handleLongPress(message)}
+              activeOpacity={message.role === 'user' ? 0.7 : 1}
               style={[
                 styles.messageBubbleContainer,
                 message.role === 'user' ? styles.userMessageContainer : styles.assistantMessageContainer,
@@ -64,10 +149,48 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
                   message.role === 'user' ? styles.userMessageBubble : styles.assistantMessageBubble,
                 ]}
               >
-                <Text style={styles.messageText}>{message.content}</Text>
+                {editingMessageId === message.id ? (
+                  <View style={styles.editingMessageContainer}>
+                    <TextInput
+                      style={styles.editMessageInput}
+                      value={editingContent}
+                      onChangeText={setEditingContent}
+                      multiline
+                      autoFocus
+                      placeholder="Edit message..."
+                      placeholderTextColor="#71717a"
+                    />
+                    <View style={styles.editActions}>
+                      <TouchableOpacity onPress={cancelEditing} style={styles.editActionButton}>
+                        <Text style={styles.cancelText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={saveEditedMessage} style={[styles.editActionButton, styles.saveButton]}>
+                        <Text style={styles.saveText}>Save</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={styles.messageText}>{message.content}</Text>
+                    {message.created_at && (
+                      <Text style={styles.messageTimestamp}>
+                        {formatTimestamp(message.created_at)}
+                      </Text>
+                    )}
+                  </>
+                )}
+              </View>
+            </TouchableOpacity>
+          ))}
+          
+          {isLoading && (
+            <View style={[styles.messageBubbleContainer, styles.assistantMessageContainer]}>
+              <View style={[styles.messageBubble, styles.assistantMessageBubble, styles.loadingBubble]}>
+                <ActivityIndicator size="small" color="#8b5cf6" />
+                <Text style={styles.loadingText}>AI is thinking...</Text>
               </View>
             </View>
-          ))}
+          )}
         </View>
       </ScrollView>
 
@@ -94,14 +217,18 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleSendMessagePress}
-              disabled={!input.trim()}
+              disabled={!input.trim() || isLoading}
               style={[
                 styles.iconButton,
                 styles.sendButton,
-                !input.trim() && styles.sendButtonDisabled,
+                (!input.trim() || isLoading) && styles.sendButtonDisabled,
               ]}
             >
-              <Ionicons name="send" size={24} color="white" />
+              {isLoading ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <Ionicons name="send" size={24} color="white" />
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -151,6 +278,23 @@ const styles = StyleSheet.create({
   messageText: {
     color: 'white',
     fontSize: 16,
+    marginBottom: 4,
+  },
+  messageTimestamp: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 11,
+    marginTop: 2,
+    alignSelf: 'flex-end',
+  },
+  loadingBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  loadingText: {
+    color: '#a1a1aa',
+    fontSize: 14,
+    fontStyle: 'italic',
   },
   inputContainer: {
     borderTopWidth: 1,
@@ -166,7 +310,8 @@ const styles = StyleSheet.create({
     padding: 8,
     borderWidth: 1,
     borderColor: '#27272a',
-    maxWidth: 768,
+    maxWidth: 1400,
+    width: '100%',
     alignSelf: 'center',
   },
   textInput: {
@@ -202,5 +347,41 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.5,
+  },
+  editingMessageContainer: {
+    width: '100%',
+  },
+  editMessageInput: {
+    backgroundColor: '#18181b',
+    color: 'white',
+    fontSize: 16,
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#8b5cf6',
+    minHeight: 60,
+    marginBottom: 8,
+  },
+  editActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  editActionButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  saveButton: {
+    backgroundColor: '#8b5cf6',
+  },
+  cancelText: {
+    color: '#a1a1aa',
+    fontSize: 14,
+  },
+  saveText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
