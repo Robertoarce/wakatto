@@ -21,6 +21,7 @@ module.exports = async function (env, argv) {
     process: 'process/browser',
     util: 'util',
     assert: 'assert',
+    vm: false, // vm is not needed in browser
   };
   
   // Add plugins for global polyfills
