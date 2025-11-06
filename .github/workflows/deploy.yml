@@ -17,22 +17,21 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          clean: true # Force clean checkout
 
+      - name: Clear ALL caches first
+        run: |
+          rm -rf web-build dist .expo node_modules/.cache ~/.npm
+          
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: '' # Disable node cache
 
-      - name: Clear npm cache
-        run: npm cache clean --force
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Clear all caches
-        run: |
-          rm -rf web-build .expo node_modules/.cache
-          npm cache verify
+      - name: Install dependencies (fresh)
+        run: npm ci --prefer-offline=false --no-audit
 
       - name: Verify webpack config
         run: |
@@ -45,6 +44,13 @@ jobs:
         env:
           CI: false # Prevent treating warnings as errors
           NODE_ENV: production
+
+      - name: Verify build output
+        run: |
+          echo "=== Build completed, checking files ==="
+          ls -la web-build/static/js/
+          echo "=== index.html content ==="
+          cat web-build/index.html | grep "script defer"
 
       - name: Copy custom files to build
         run: |
