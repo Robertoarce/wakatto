@@ -43,6 +43,15 @@ module.exports = async function (env, argv) {
       process: 'process/browser',
       Buffer: ['buffer', 'Buffer'],
     }),
+    new webpack.DefinePlugin({
+      'typeof require': JSON.stringify('undefined'),
+      '__BUILD_TIME__': JSON.stringify(new Date().toISOString()),
+    }),
+    new webpack.BannerPlugin({
+      banner: `Build: ${Date.now()} | Polyfills: active`,
+      raw: false,
+      entryOnly: false,
+    }),
   ];
   
   console.log('✅ Webpack config customizations applied');
