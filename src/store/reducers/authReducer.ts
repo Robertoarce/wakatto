@@ -7,7 +7,7 @@ interface AuthState {
 const initialState: AuthState = {
   user: null,
   session: null,
-  loading: true,
+  loading: false, // Start with false, let AppNavigator control loading state
 };
 
 export const authReducer = (state = initialState, action: any): AuthState => {

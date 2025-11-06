@@ -17,6 +17,8 @@ export default function AppNavigator() {
   const { session, loading } = useSelector((state: RootState) => state.auth);
   const [initialRoute, setInitialRoute] = useState('Login');
   const [isReady, setIsReady] = useState(false);
+  
+  console.log('AppNavigator render - loading:', loading, 'isReady:', isReady, 'initialRoute:', initialRoute);
 
   // Check initial session on mount
   useEffect(() => {
