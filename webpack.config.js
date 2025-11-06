@@ -74,6 +74,14 @@ module.exports = async function (env, argv) {
   // Force all modules to be treated as web modules
   config.resolve.mainFields = ['browser', 'module', 'main'];
   
+  // Replace the problematic useFrameSize module with our web-compatible version
+  config.plugins.push(
+    new webpack.NormalModuleReplacementPlugin(
+      /@react-navigation\/elements.*useFrameSize/,
+      path.resolve(__dirname, 'src/patches/useFrameSize.web.js')
+    )
+  );
+  
   console.log('✅ Webpack config customizations applied');
   console.log('   - Entry:', config.entry);
   console.log('   - Target:', config.target);
