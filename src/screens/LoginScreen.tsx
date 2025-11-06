@@ -1,7 +1,25 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { signIn } from '../services/supabaseService';
+
+// Web-compatible alert function
+const showAlert = (title: string, message: string, buttons?: any[]) => {
+  if (Platform.OS === 'web') {
+    const fullMessage = `${title}\n\n${message}`;
+    if (buttons && buttons.length > 1) {
+      if (window.confirm(fullMessage)) {
+        buttons[0].onPress?.();
+      } else {
+        buttons[1].onPress?.();
+      }
+    } else {
+      window.alert(fullMessage);
+    }
+  } else {
+    Alert.alert(title, message, buttons);
+  }
+};
 
 // Dev credentials for quick login during development
 const DEV_EMAIL = 'dev@phsyche.ai'; // Note: matches the user created in Supabase
@@ -19,7 +37,7 @@ export default function LoginScreen() {
       await signIn(email, password);
       navigation.navigate('Main');
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      showAlert('Error', error.message);
     } finally {
       setLoading(false);
     }
@@ -32,7 +50,7 @@ export default function LoginScreen() {
       navigation.navigate('Main');
     } catch (error: any) {
       // If dev user doesn't exist, show helpful error
-      Alert.alert(
+      showAlert(
         'Dev User Not Found', 
         `Please create a test user with:\nEmail: ${DEV_EMAIL}\nPassword: ${DEV_PASSWORD}\n\nOr use the Register screen to create it.`,
         [
@@ -69,11 +87,9 @@ export default function LoginScreen() {
         <Text style={styles.buttonText}>{loading ? 'Loading...' : 'Login'}</Text>
       </TouchableOpacity>
       
-      {__DEV__ && (
-        <TouchableOpacity style={styles.devButton} onPress={quickDevLogin} disabled={loading}>
-          <Text style={styles.devButtonText}>⚡ Quick Dev Login</Text>
-        </TouchableOpacity>
-      )}
+      <TouchableOpacity style={styles.devButton} onPress={quickDevLogin} disabled={loading}>
+        <Text style={styles.devButtonText}>⚡ Quick Dev Login</Text>
+      </TouchableOpacity>
       
       <TouchableOpacity onPress={() => navigation.navigate('Register')}>
         <Text style={styles.linkText}>Don't have an account? Sign Up</Text>
