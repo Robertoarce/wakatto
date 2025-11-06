@@ -23,12 +23,12 @@ jobs:
       - name: Clear ALL caches first
         run: |
           rm -rf web-build dist .expo node_modules/.cache ~/.npm
-          
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: '' # Disable node cache
+          cache: "" # Disable node cache
 
       - name: Install dependencies (fresh)
         run: npm ci --prefer-offline=false --no-audit

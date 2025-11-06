@@ -1,16 +1,26 @@
 // Web entry point
-console.log('🔥 index.web.js loading...');
-
-import { registerRootComponent } from 'expo';
+import { AppRegistry, Platform } from 'react-native';
 import App from './App';
 
-console.log('✅ Imports loaded, App:', App);
-console.log('✅ About to register root component...');
+// Register the app
+AppRegistry.registerComponent('main', () => App);
 
-// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
-// It also ensures that whether you load the app in Expo Go or in a native build,
-// the environment is set up appropriately
-registerRootComponent(App);
-
-console.log('✅ Root component registered!');
+// For web, we need to run the application
+if (Platform.OS === 'web') {
+  const rootTag = document.getElementById('root');
+  
+  // CRITICAL: Ensure root has proper styles for React Native Web
+  // Without these styles, the app renders but remains invisible (black screen)
+  if (rootTag) {
+    rootTag.style.display = 'flex';
+    rootTag.style.flex = '1';
+    rootTag.style.height = '100vh';
+    rootTag.style.width = '100vw';
+  }
+  
+  AppRegistry.runApplication('main', {
+    rootTag: rootTag,
+    initialProps: {},
+  });
+}
 

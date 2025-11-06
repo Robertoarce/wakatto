@@ -17,16 +17,12 @@ export default function AppNavigator() {
   const { session, loading } = useSelector((state: RootState) => state.auth);
   const [initialRoute, setInitialRoute] = useState('Login');
   const [isReady, setIsReady] = useState(false);
-  
-  console.log('AppNavigator render - loading:', loading, 'isReady:', isReady, 'initialRoute:', initialRoute);
 
   // Check initial session on mount
   useEffect(() => {
-    console.log('AppNavigator mounted, checking session...');
     async function checkSession() {
       try {
         const currentSession = await getSession();
-        console.log('Session check result:', currentSession);
         if (currentSession) {
           dispatch(setSession(currentSession, currentSession.user));
           setInitialRoute('Main');
@@ -46,31 +42,36 @@ export default function AppNavigator() {
   }, [dispatch]);
 
   if (loading || !isReady) {
-    console.log('🔄 Showing loading spinner...');
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#8b5cf6" />
       </View>
     );
   }
-
-  console.log('✅ Rendering NavigationContainer with initialRoute:', initialRoute);
   
   return (
-    <NavigationContainer>
-      <Stack.Navigator 
-        initialRouteName={initialRoute} 
-        screenOptions={{ headerShown: false }}
-      >
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Register" component={RegisterScreen} />
-        <Stack.Screen name="Main" component={MainScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <View style={styles.container}>
+      <NavigationContainer>
+        <Stack.Navigator 
+          initialRouteName={initialRoute} 
+          screenOptions={{ headerShown: false }}
+        >
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen name="Main" component={MainScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#0f0f0f',
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
