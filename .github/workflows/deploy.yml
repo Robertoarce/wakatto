@@ -57,3 +57,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./web-build
           cname: www.wakatto.com
+          force_orphan: true # Force clean deployment, remove old files
