@@ -17,6 +17,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "web:build": "expo export:web",
+    "web:build:webpack": "webpack-cli --config webpack.config.js --mode production",
     "web:serve": "npx serve web-build",
     "predeploy": "expo export:web",
     "deploy": "gh-pages -d web-build",

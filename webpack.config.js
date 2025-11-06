@@ -1,5 +1,6 @@
 const createExpoWebpackConfigAsync = require('@expo/webpack-config');
 const webpack = require('webpack');
+const path = require('path');
 
 module.exports = async function (env, argv) {
   // Force fresh build - cache buster
@@ -18,6 +19,18 @@ module.exports = async function (env, argv) {
   // Disable webpack caching completely
   config.cache = false;
   
+  // Override entry point for more control
+  config.entry = path.resolve(__dirname, 'index.web.js');
+  
+  // Ensure output directory
+  config.output = {
+    ...config.output,
+    path: path.resolve(__dirname, 'web-build'),
+    filename: 'static/js/[name].[contenthash:8].js',
+    chunkFilename: 'static/js/[name].[contenthash:8].js',
+    publicPath: '/',
+  };
+  
   // Add node polyfills for Supabase
   config.resolve.fallback = {
     ...config.resolve.fallback,
@@ -30,11 +43,8 @@ module.exports = async function (env, argv) {
     vm: false, // vm is not needed in browser
   };
   
-  // Force new output file names
-  if (config.output) {
-    config.output.filename = config.output.filename?.replace('[contenthash]', `[contenthash].${Date.now()}`);
-    config.output.chunkFilename = config.output.chunkFilename?.replace('[contenthash]', `[contenthash].${Date.now()}`);
-  }
+  // CRITICAL: Set target to web to avoid Node.js-specific code
+  config.target = 'web';
   
   // Add plugins for global polyfills
   config.plugins = [
@@ -44,18 +54,26 @@ module.exports = async function (env, argv) {
       Buffer: ['buffer', 'Buffer'],
     }),
     new webpack.DefinePlugin({
+      // This will make code like `if (typeof require !== 'undefined')` evaluate to false
       'typeof require': JSON.stringify('undefined'),
       '__BUILD_TIME__': JSON.stringify(new Date().toISOString()),
+      // Ensure process.env is defined
+      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
     }),
     new webpack.BannerPlugin({
-      banner: `Build: ${Date.now()} | Polyfills: active`,
-      raw: false,
+      banner: `/* Wakatto Build: ${Date.now()} | Polyfills: active | Target: web */`,
+      raw: true,
       entryOnly: false,
     }),
   ];
   
+  // Force all modules to be treated as web modules
+  config.resolve.mainFields = ['browser', 'module', 'main'];
+  
   console.log('✅ Webpack config customizations applied');
+  console.log('   - Entry:', config.entry);
+  console.log('   - Target:', config.target);
+  console.log('   - Output:', config.output.path);
   
   return config;
 };
-
