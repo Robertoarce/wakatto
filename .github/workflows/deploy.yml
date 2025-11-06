@@ -57,6 +57,13 @@ jobs:
           cp .github/pages/404.html web-build/404.html
           cp .github/pages/CNAME web-build/CNAME
 
+      - name: List files being deployed
+        run: |
+          echo "=== JS files to be deployed ==="
+          ls -lh web-build/static/js/*.js
+          echo "=== Contents of index.html ==="
+          grep "script defer" web-build/index.html
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
@@ -64,3 +71,4 @@ jobs:
           publish_dir: ./web-build
           cname: www.wakatto.com
           force_orphan: true # Force clean deployment, remove old files
+          keep_files: false # Don't keep any old files
