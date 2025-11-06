@@ -2,6 +2,9 @@ const createExpoWebpackConfigAsync = require('@expo/webpack-config');
 const webpack = require('webpack');
 
 module.exports = async function (env, argv) {
+  // Force fresh build - cache buster
+  console.log('🔥 CUSTOM WEBPACK CONFIG LOADED - Build time:', new Date().toISOString());
+  
   const config = await createExpoWebpackConfigAsync(
     {
       ...env,
@@ -11,6 +14,9 @@ module.exports = async function (env, argv) {
     },
     argv
   );
+  
+  // Disable webpack caching completely
+  config.cache = false;
   
   // Add node polyfills for Supabase
   config.resolve.fallback = {
@@ -24,6 +30,12 @@ module.exports = async function (env, argv) {
     vm: false, // vm is not needed in browser
   };
   
+  // Force new output file names
+  if (config.output) {
+    config.output.filename = config.output.filename?.replace('[contenthash]', `[contenthash].${Date.now()}`);
+    config.output.chunkFilename = config.output.chunkFilename?.replace('[contenthash]', `[contenthash].${Date.now()}`);
+  }
+  
   // Add plugins for global polyfills
   config.plugins = [
     ...config.plugins,
@@ -32,6 +44,8 @@ module.exports = async function (env, argv) {
       Buffer: ['buffer', 'Buffer'],
     }),
   ];
+  
+  console.log('✅ Webpack config customizations applied');
   
   return config;
 };
