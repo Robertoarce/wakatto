@@ -10,7 +10,11 @@ module.exports = async function (env, argv) {
     {
       ...env,
       babel: {
-        dangerouslyAddModulePathsToTranspile: ['@expo/vector-icons'],
+        dangerouslyAddModulePathsToTranspile: [
+          '@expo/vector-icons',
+          '@react-navigation/elements',
+          'react-native-safe-area-context',
+        ],
       },
     },
     argv
