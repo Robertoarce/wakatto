@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { signIn } from '../services/supabaseService';
@@ -26,10 +26,19 @@ const DEV_EMAIL = 'dev@phsyche.ai'; // Note: matches the user created in Supabas
 const DEV_PASSWORD = 'devpass123';
 
 export default function LoginScreen() {
+  console.log('🟢 LoginScreen rendering...');
+  
   const navigation = useNavigation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  useEffect(() => {
+    console.log('🟢 LoginScreen mounted!');
+    return () => {
+      console.log('🔴 LoginScreen UNMOUNTING!');
+    };
+  }, []);
 
   async function signInWithEmail() {
     setLoading(true);
@@ -64,8 +73,8 @@ export default function LoginScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Welcome Back</Text>
+    <View style={[styles.container, { backgroundColor: '#0f0f0f' }]}>
+      <Text style={[styles.header, { color: '#ffffff' }]}>Welcome Back</Text>
       <TextInput
         style={styles.input}
         placeholder="Email"
@@ -83,12 +92,12 @@ export default function LoginScreen() {
         onChangeText={setPassword}
         secureTextEntry
       />
-      <TouchableOpacity style={styles.button} onPress={signInWithEmail} disabled={loading}>
-        <Text style={styles.buttonText}>{loading ? 'Loading...' : 'Login'}</Text>
+      <TouchableOpacity style={[styles.button, { backgroundColor: '#8b5cf6' }]} onPress={signInWithEmail} disabled={loading}>
+        <Text style={[styles.buttonText, { color: '#ffffff' }]}>{loading ? 'Loading...' : 'Login'}</Text>
       </TouchableOpacity>
       
-      <TouchableOpacity style={styles.devButton} onPress={quickDevLogin} disabled={loading}>
-        <Text style={styles.devButtonText}>⚡ Quick Dev Login</Text>
+      <TouchableOpacity style={[styles.devButton, { backgroundColor: '#f59e0b' }]} onPress={quickDevLogin} disabled={loading}>
+        <Text style={[styles.devButtonText, { color: '#ffffff' }]}>⚡ Quick Dev Login</Text>
       </TouchableOpacity>
       
       <TouchableOpacity onPress={() => navigation.navigate('Register')}>

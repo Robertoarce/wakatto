@@ -46,6 +46,7 @@ export default function AppNavigator() {
   }, [dispatch]);
 
   if (loading || !isReady) {
+    console.log('🔄 Showing loading spinner...');
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#8b5cf6" />
@@ -53,6 +54,8 @@ export default function AppNavigator() {
     );
   }
 
+  console.log('✅ Rendering NavigationContainer with initialRoute:', initialRoute);
+  
   return (
     <NavigationContainer>
       <Stack.Navigator 
