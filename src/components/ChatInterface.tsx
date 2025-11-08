@@ -1,14 +1,12 @@
-import { useState, useRef, useEffect } from 'react';
-import { Send, Mic, MicOff, Menu } from 'lucide-react';
-import { Button } from './ui/button';
-import { Textarea } from './ui/textarea';
-import { ScrollArea } from './ui/scroll-area';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useRef, useEffect } from 'react';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  created_at?: string;
 }
 
 interface ChatInterfaceProps {
@@ -16,31 +14,44 @@ interface ChatInterfaceProps {
   onSendMessage: (content: string) => void;
   showSidebar: boolean;
   onToggleSidebar: () => void;
+  isLoading?: boolean;
+  onEditMessage?: (messageId: string, newContent: string) => void;
+  onDeleteMessage?: (messageId: string) => void;
 }
 
-export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar }: ChatInterfaceProps) {
+export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage }: ChatInterfaceProps) {
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState('');
+
+  const formatTimestamp = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays === 1) return `Yesterday at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollToEnd({ animated: true });
     }
   }, [messages]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendMessagePress = () => {
     if (input.trim()) {
       onSendMessage(input);
       setInput('');
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit(e);
     }
   };
 
@@ -49,72 +60,328 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     // In a real app, this would start/stop voice recording
   };
 
-  return (
-    <div className="flex flex-col h-full bg-[#0f0f0f]">
-      <ScrollArea className="flex-1 px-3 sm:px-6" ref={scrollRef}>
-        <div className="w-full max-w-3xl mx-auto py-4 sm:py-8 space-y-4 sm:space-y-6">
-          <AnimatePresence initial={false}>
-            {messages.map((message) => (
-              <motion.div
-                key={message.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[85%] sm:max-w-[80%] rounded-2xl px-3 py-2 sm:px-4 sm:py-3 ${
-                    message.role === 'user'
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-zinc-800 text-zinc-100'
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap">{message.content}</p>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-      </ScrollArea>
+  const startEditingMessage = (message: Message) => {
+    setEditingMessageId(message.id);
+    setEditingContent(message.content);
+  };
 
-      <div className="border-t border-zinc-800 p-3 sm:p-4">
-        <form onSubmit={handleSubmit} className="w-full max-w-3xl mx-auto">
-          <div className="flex items-end gap-2 sm:gap-3 bg-zinc-900 rounded-2xl p-2 border border-zinc-800">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Type your message or use voice..."
-              className="flex-1 bg-transparent border-0 resize-none focus-visible:ring-0 focus-visible:ring-offset-0 text-white placeholder:text-zinc-500 min-h-[24px] max-h-32"
-              rows={1}
-            />
-            <div className="flex items-center gap-1 sm:gap-2">
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={toggleRecording}
-                className={`rounded-full ${
-                  isRecording 
-                    ? 'bg-red-600 hover:bg-red-700 text-white' 
-                    : 'hover:bg-zinc-800 text-zinc-400'
-                }`}
+  const saveEditedMessage = () => {
+    if (editingMessageId && editingContent.trim() && onEditMessage) {
+      onEditMessage(editingMessageId, editingContent.trim());
+      setEditingMessageId(null);
+      setEditingContent('');
+    }
+  };
+
+  const cancelEditing = () => {
+    setEditingMessageId(null);
+    setEditingContent('');
+  };
+
+  const confirmDeleteMessage = (messageId: string) => {
+    Alert.alert(
+      'Delete Message',
+      'Are you sure you want to delete this message?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            if (onDeleteMessage) {
+              onDeleteMessage(messageId);
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const handleLongPress = (message: Message) => {
+    // Only allow editing user messages
+    if (message.role === 'user') {
+      Alert.alert(
+        'Message Options',
+        'What would you like to do?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Edit',
+            onPress: () => startEditingMessage(message),
+          },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () => confirmDeleteMessage(message.id),
+          },
+        ],
+        { cancelable: true }
+      );
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+    >
+      <ScrollView 
+        ref={scrollViewRef}
+        contentContainerStyle={styles.messagesContainer}
+        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+      >
+        <View style={styles.messagesContent}>
+          {messages.map((message) => (
+            <TouchableOpacity
+              key={message.id}
+              onLongPress={() => handleLongPress(message)}
+              activeOpacity={message.role === 'user' ? 0.7 : 1}
+              style={[
+                styles.messageBubbleContainer,
+                message.role === 'user' ? styles.userMessageContainer : styles.assistantMessageContainer,
+              ]}
+            >
+              <View
+                style={[
+                  styles.messageBubble,
+                  message.role === 'user' ? styles.userMessageBubble : styles.assistantMessageBubble,
+                ]}
               >
-                {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-              </Button>
-              <Button
-                type="submit"
-                size="icon"
-                disabled={!input.trim()}
-                className="rounded-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Send className="w-5 h-5" />
-              </Button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
+                {editingMessageId === message.id ? (
+                  <View style={styles.editingMessageContainer}>
+                    <TextInput
+                      style={styles.editMessageInput}
+                      value={editingContent}
+                      onChangeText={setEditingContent}
+                      multiline
+                      autoFocus
+                      placeholder="Edit message..."
+                      placeholderTextColor="#71717a"
+                    />
+                    <View style={styles.editActions}>
+                      <TouchableOpacity onPress={cancelEditing} style={styles.editActionButton}>
+                        <Text style={styles.cancelText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={saveEditedMessage} style={[styles.editActionButton, styles.saveButton]}>
+                        <Text style={styles.saveText}>Save</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <>
+                <Text style={styles.messageText}>{message.content}</Text>
+                    {message.created_at && (
+                      <Text style={styles.messageTimestamp}>
+                        {formatTimestamp(message.created_at)}
+                      </Text>
+                    )}
+                  </>
+                )}
+              </View>
+            </TouchableOpacity>
+          ))}
+          
+          {isLoading && (
+            <View style={[styles.messageBubbleContainer, styles.assistantMessageContainer]}>
+              <View style={[styles.messageBubble, styles.assistantMessageBubble, styles.loadingBubble]}>
+                <ActivityIndicator size="small" color="#8b5cf6" />
+                <Text style={styles.loadingText}>AI is thinking...</Text>
+              </View>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      <View style={styles.inputContainer}>
+        <View style={styles.inputWrapper}>
+          <TextInput
+            value={input}
+            onChangeText={setInput}
+            placeholder="Type your message or use voice..."
+            placeholderTextColor="#a1a1aa"
+            style={styles.textInput}
+            multiline
+            onFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+          />
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              onPress={toggleRecording}
+              style={[
+                styles.iconButton,
+                isRecording ? styles.recordButtonActive : styles.recordButtonInactive,
+              ]}
+            >
+              {isRecording ? <MaterialCommunityIcons name="microphone-off" size={24} color="white" /> : <MaterialCommunityIcons name="microphone" size={24} color="#a1a1aa" />}
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleSendMessagePress}
+              disabled={!input.trim() || isLoading}
+              style={[
+                styles.iconButton,
+                styles.sendButton,
+                (!input.trim() || isLoading) && styles.sendButtonDisabled,
+              ]}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+              <Ionicons name="send" size={24} color="white" />
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0f0f0f',
+  },
+  messagesContainer: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  messagesContent: {
+    width: '100%',
+    maxWidth: 768,
+    alignSelf: 'center',
+    gap: 16,
+  },
+  messageBubbleContainer: {
+    flexDirection: 'row',
+  },
+  userMessageContainer: {
+    justifyContent: 'flex-end',
+  },
+  assistantMessageContainer: {
+    justifyContent: 'flex-start',
+  },
+  messageBubble: {
+    maxWidth: '85%',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  userMessageBubble: {
+    backgroundColor: '#8b5cf6',
+  },
+  assistantMessageBubble: {
+    backgroundColor: '#27272a',
+  },
+  messageText: {
+    color: 'white',
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  messageTimestamp: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 11,
+    marginTop: 2,
+    alignSelf: 'flex-end',
+  },
+  loadingBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  loadingText: {
+    color: '#a1a1aa',
+    fontSize: 14,
+    fontStyle: 'italic',
+  },
+  inputContainer: {
+    borderTopWidth: 1,
+    borderTopColor: '#27272a',
+    padding: 16,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 12,
+    backgroundColor: '#171717',
+    borderRadius: 16,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#27272a',
+    maxWidth: 1400,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  textInput: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    color: 'white',
+    fontSize: 16,
+    minHeight: 24,
+    maxHeight: 128,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  iconButton: {
+    borderRadius: 9999,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recordButtonActive: {
+    backgroundColor: '#dc2626',
+  },
+  recordButtonInactive: {
+    backgroundColor: 'transparent',
+  },
+  sendButton: {
+    backgroundColor: '#8b5cf6',
+  },
+  sendButtonDisabled: {
+    opacity: 0.5,
+  },
+  editingMessageContainer: {
+    width: '100%',
+  },
+  editMessageInput: {
+    backgroundColor: '#18181b',
+    color: 'white',
+    fontSize: 16,
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#8b5cf6',
+    minHeight: 60,
+    marginBottom: 8,
+  },
+  editActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  editActionButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  saveButton: {
+    backgroundColor: '#8b5cf6',
+  },
+  cancelText: {
+    color: '#a1a1aa',
+    fontSize: 14,
+  },
+  saveText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+});

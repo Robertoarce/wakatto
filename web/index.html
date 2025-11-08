@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Psyche AI</title>
+  <style>
+    /* These styles are crucial for React Native for Web to work correctly */
+    html, body, #root {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      /* This prevents the body from scrolling on mobile web */
+      overflow: hidden;
+      /* Ensure dark background loads immediately to prevent white flash */
+      background-color: #0f0f0f !important;
+    }
+    
+    /* Prevent any white flash during load */
+    body {
+      background-color: #0f0f0f !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <noscript>You need to enable JavaScript to run this app.</noscript>
+</body>
+</html>

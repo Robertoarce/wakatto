@@ -1,0 +1,74 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main # Change to 'master' if your default branch is master
+      - gemini-branch # Also deploy from gemini-branch
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # Required for gh-pages deployment
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          clean: true # Force clean checkout
+
+      - name: Clear ALL caches first
+        run: |
+          rm -rf web-build dist .expo node_modules/.cache ~/.npm
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "" # Disable node cache
+
+      - name: Install dependencies (fresh)
+        run: npm ci --prefer-offline=false --no-audit
+
+      - name: Verify webpack config
+        run: |
+          echo "Checking webpack.config.js..."
+          cat webpack.config.js
+          echo "---"
+
+      - name: Build web app
+        run: npm run web:build
+        env:
+          CI: false # Prevent treating warnings as errors
+          NODE_ENV: production
+
+      - name: Verify build output
+        run: |
+          echo "=== Build completed, checking files ==="
+          ls -la web-build/static/js/
+          echo "=== index.html content ==="
+          cat web-build/index.html | grep "script defer"
+
+      - name: Copy custom files to build
+        run: |
+          cp .github/pages/404.html web-build/404.html
+          cp .github/pages/CNAME web-build/CNAME
+
+      - name: List files being deployed
+        run: |
+          echo "=== JS files to be deployed ==="
+          ls -lh web-build/static/js/*.js
+          echo "=== Contents of index.html ==="
+          grep "script defer" web-build/index.html
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./web-build
+          cname: www.wakatto.com
+          force_orphan: true # Force clean deployment, remove old files
+          keep_files: false # Don't keep any old files
