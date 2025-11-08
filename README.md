@@ -4,7 +4,7 @@ An AI-powered personal diary application with intelligent conversation managemen
 
 ## 🌐 Live Demo
 
-🚀 **Coming Soon:** [GitHub Pages Deployment]
+🚀 **Live at:** [www.wakatto.com](https://www.wakatto.com)
 
 ## ✨ Features
 
@@ -122,17 +122,25 @@ npm run deploy
 
 Your app will be live at: `https://YOUR_USERNAME.github.io/YOUR_REPO_NAME`
 
-📖 **Complete Setup Guide:** See [`GITHUB_PAGES_SETUP.md`](GITHUB_PAGES_SETUP.md)  
-📖 **Detailed Deployment Info:** See [`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md)
+📖 **Quick Start:** See [`docs/DEPLOYMENT_WORKFLOW.md`](docs/DEPLOYMENT_WORKFLOW.md) ⭐  
+📖 **Complete Setup:** See [`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md)  
+📖 **Troubleshooting:** See [`docs/LLM_TROUBLESHOOTING_GUIDE.md`](docs/LLM_TROUBLESHOOTING_GUIDE.md)
 
 ---
 
 ## 📚 Documentation
 
+### For Developers & Users
 - [App Assessment](docs/APP_ASSESSMENT.md) - Feature overview and architecture
+- [Deployment Workflow](docs/DEPLOYMENT_WORKFLOW.md) - **Quick deployment guide** ⭐
 - [Deployment Guide](docs/DEPLOYMENT_GUIDE.md) - Complete deployment instructions
 - [PRD: Knowledge Graph](docs/PRD_KNOWLEDGE_GRAPH.md) - Knowledge graph feature specs
 - [Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md) - Development history
+
+### For AI Assistants & Troubleshooting
+- [LLM Troubleshooting Guide](docs/LLM_TROUBLESHOOTING_GUIDE.md) - **Comprehensive guide for LLMs** 🤖
+- [Black Screen Fix](docs/BLACK_SCREEN_FIX.md) - Technical details on React Native Web issue
+- [Deployment Summary](docs/DEPLOYMENT_SUMMARY_2025-11-06.md) - Latest deployment record
 
 ---
 
