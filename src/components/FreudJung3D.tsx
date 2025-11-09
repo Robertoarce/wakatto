@@ -10,7 +10,18 @@ import { OrbitControls, PerspectiveCamera, Text } from '@react-three/drei';
 import * as THREE from 'three';
 
 // Character component representing Freud, Jung, or Adler (Rounded/Toy Style)
-function Character({ position, suitColor, hairColor, hasGlasses, hasBeard, hasMustache, isBald, name }) {
+interface CharacterProps {
+  position: [number, number, number];
+  suitColor: string;
+  hairColor: string;
+  hasGlasses: boolean;
+  hasBeard: boolean;
+  hasMustache: boolean;
+  isBald: boolean;
+  name: string;
+}
+
+function Character({ position, suitColor, hairColor, hasGlasses, hasBeard, hasMustache, isBald, name }: CharacterProps) {
   const groupRef = useRef(null);
 
   // Material colors matching the reference image
