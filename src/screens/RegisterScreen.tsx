@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useDispatch } from 'react-redux';
 import { signUp, signIn } from '../services/supabaseService';
+import { setSession } from '../store/actions/authActions';
+import { useCustomAlert } from '../components/CustomAlert';
 
 // Dev credentials for quick setup during development
 const DEV_EMAIL = 'dev@phsyche.ai'; // Note: matches the user created in Supabase
@@ -9,6 +12,8 @@ const DEV_PASSWORD = 'devpass123';
 
 export default function RegisterScreen() {
   const navigation = useNavigation();
+  const dispatch = useDispatch();
+  const { showAlert, AlertComponent } = useCustomAlert();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,10 +22,10 @@ export default function RegisterScreen() {
     setLoading(true);
     try {
       await signUp(email, password);
-      Alert.alert('Success', 'Please check your email for a confirmation link.');
+      showAlert('Success', 'Please check your email for a confirmation link.');
       navigation.navigate('Login');
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      showAlert('Error', error.message);
     } finally {
       setLoading(false);
     }
@@ -30,8 +35,8 @@ export default function RegisterScreen() {
     setLoading(true);
     try {
       await signUp(DEV_EMAIL, DEV_PASSWORD);
-      Alert.alert(
-        'Dev User Created!', 
+      showAlert(
+        'Dev User Created!',
         'Dev user created successfully. You can now use Quick Dev Login.',
         [{ text: 'Go to Login', onPress: () => navigation.navigate('Login') }]
       );
@@ -39,13 +44,17 @@ export default function RegisterScreen() {
       // If user already exists, try to sign in
       if (error.message.includes('already registered')) {
         try {
-          await signIn(DEV_EMAIL, DEV_PASSWORD);
+          const data = await signIn(DEV_EMAIL, DEV_PASSWORD);
+          // Update Redux store with session before navigating
+          if (data.session && data.user) {
+            dispatch(setSession(data.session, data.user));
+          }
           navigation.navigate('Main');
         } catch (signInError: any) {
-          Alert.alert('Error', 'Dev user exists but could not sign in: ' + signInError.message);
+          showAlert('Error', 'Dev user exists but could not sign in: ' + signInError.message);
         }
       } else {
-        Alert.alert('Error', error.message);
+        showAlert('Error', error.message);
       }
     } finally {
       setLoading(false);
@@ -54,6 +63,7 @@ export default function RegisterScreen() {
 
   return (
     <View style={styles.container}>
+      <AlertComponent />
       <Text style={styles.header}>Create Account</Text>
       <TextInput
         style={styles.input}
@@ -75,13 +85,13 @@ export default function RegisterScreen() {
       <TouchableOpacity style={styles.button} onPress={signUpWithEmail} disabled={loading}>
         <Text style={styles.buttonText}>{loading ? 'Loading...' : 'Sign Up'}</Text>
       </TouchableOpacity>
-      
+
       {__DEV__ && (
         <TouchableOpacity style={styles.devButton} onPress={createDevUser} disabled={loading}>
           <Text style={styles.devButtonText}>⚡ Create Dev User</Text>
         </TouchableOpacity>
       )}
-      
+
       <TouchableOpacity onPress={() => navigation.navigate('Login')}>
         <Text style={styles.linkText}>Already have an account? Sign In</Text>
       </TouchableOpacity>

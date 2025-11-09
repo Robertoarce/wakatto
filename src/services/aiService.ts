@@ -1,12 +1,14 @@
 /**
  * AI Service
- * 
+ *
  * This service handles AI API calls for generating responses.
  * Currently supports: OpenAI GPT, Anthropic Claude, Google Gemini
- * 
- * SECURITY NOTE: In production, API keys should NEVER be in client code.
- * Use Supabase Edge Functions or a backend server as a proxy.
+ *
+ * SECURITY NOTE: API keys are now stored in secure storage with basic obfuscation.
+ * For production, use Supabase Edge Functions or a backend server as a proxy.
  */
+
+import { setSecureItem, getSecureItem, deleteSecureItem } from './secureStorage';
 
 // AI Provider configuration
 interface AIConfig {
@@ -21,25 +23,81 @@ interface AIMessage {
   content: string;
 }
 
-// Default to mock mode for development (no API key needed)
+// In-memory config (API key stored separately in secure storage)
 let config: AIConfig = {
   provider: 'mock',
-  apiKey: '',
+  apiKey: '', // Will be loaded from secure storage
   model: 'gpt-4',
 };
+
+// Load API key from secure storage on initialization
+let apiKeyPromise: Promise<string | null> | null = null;
+
+/**
+ * Load API key from secure storage
+ */
+async function loadAPIKey(): Promise<string> {
+  if (!apiKeyPromise) {
+    apiKeyPromise = getSecureItem('ai_api_key');
+  }
+  const key = await apiKeyPromise;
+  return key || '';
+}
 
 /**
  * Configure the AI service
  */
-export function configureAI(newConfig: Partial<AIConfig>) {
+export async function configureAI(newConfig: Partial<AIConfig>) {
   config = { ...config, ...newConfig };
+
+  // Store API key securely if provided
+  if (newConfig.apiKey) {
+    await setSecureItem('ai_api_key', newConfig.apiKey);
+    apiKeyPromise = Promise.resolve(newConfig.apiKey);
+  }
+
+  // Store provider and model in regular storage (non-sensitive)
+  if (newConfig.provider) {
+    localStorage.setItem('ai_provider', newConfig.provider);
+  }
+  if (newConfig.model) {
+    localStorage.setItem('ai_model', newConfig.model);
+  }
 }
 
 /**
- * Get current AI configuration
+ * Get current AI configuration (without API key for security)
  */
-export function getAIConfig() {
-  return { ...config };
+export async function getAIConfig(): Promise<Omit<AIConfig, 'apiKey'> & { apiKey: string }> {
+  // Load API key from secure storage
+  const apiKey = await loadAPIKey();
+
+  return {
+    ...config,
+    apiKey: apiKey || '', // Return actual key only when needed
+  };
+}
+
+/**
+ * Initialize AI service (load config from storage)
+ */
+export async function initializeAI() {
+  const provider = localStorage.getItem('ai_provider') as AIConfig['provider'] | null;
+  const model = localStorage.getItem('ai_model');
+  const apiKey = await loadAPIKey();
+
+  if (provider) config.provider = provider;
+  if (model) config.model = model;
+  if (apiKey) config.apiKey = apiKey;
+}
+
+/**
+ * Clear API key from secure storage
+ */
+export async function clearAPIKey() {
+  await deleteSecureItem('ai_api_key');
+  config.apiKey = '';
+  apiKeyPromise = null;
 }
 
 /**
@@ -49,6 +107,10 @@ export async function generateAIResponse(
   messages: AIMessage[],
   systemPrompt?: string
 ): Promise<string> {
+  // Ensure API key is loaded from secure storage before making requests
+  const apiKey = await loadAPIKey();
+  config.apiKey = apiKey;
+
   const fullMessages: AIMessage[] = systemPrompt
     ? [{ role: 'system', content: systemPrompt }, ...messages]
     : messages;

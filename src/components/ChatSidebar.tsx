@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, TextInput } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useCustomAlert } from './CustomAlert';
 
 interface Conversation {
   id: string;
@@ -23,6 +24,7 @@ interface ChatSidebarProps {
 }
 
 export function ChatSidebar({ conversations, currentConversation, onSelectConversation, onToggleSidebar, isOpen, isCollapsed = false, onToggleCollapse, onNewConversation, onRenameConversation, onDeleteConversation }: ChatSidebarProps) {
+  const { showAlert, AlertComponent } = useCustomAlert();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,18 +63,31 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
 
   const confirmDelete = (conversation: Conversation) => {
     setMenuOpenId(null); // Close menu
-    
-    // Use window.confirm for web compatibility
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${conversation.title}"?\n\nThis action cannot be undone.`
+
+    // Show custom alert instead of window.confirm
+    showAlert(
+      'Delete Conversation',
+      `Are you sure you want to delete "${conversation.title}"?\n\nThis action cannot be undone.`,
+      [
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            if (onDeleteConversation) {
+              console.log('[ChatSidebar] Delete confirmed, calling onDeleteConversation');
+              onDeleteConversation(conversation.id);
+            }
+          }
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: () => {
+            console.log('[ChatSidebar] Delete cancelled');
+          }
+        }
+      ]
     );
-    
-    if (confirmed && onDeleteConversation) {
-      console.log('[ChatSidebar] Delete confirmed, calling onDeleteConversation');
-      onDeleteConversation(conversation.id);
-    } else {
-      console.log('[ChatSidebar] Delete cancelled');
-    }
   };
 
   const toggleMenu = (convId: string, event?: any) => {
@@ -112,6 +127,7 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
 
   return (
     <>
+      <AlertComponent />
       {!isOpen && (
         <TouchableOpacity
           onPress={onToggleSidebar}

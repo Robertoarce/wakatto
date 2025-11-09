@@ -2,11 +2,12 @@ import React, { useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ChatInterface } from '../components/ChatInterface';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
 import { Header } from '../components/Header';
 import { ChatSidebar } from '../components/ChatSidebar';
+import { useCustomAlert } from '../components/CustomAlert';
 import { toggleSidebar, toggleSidebarCollapse } from '../store/actions/uiActions';
 import { 
   loadConversations, 
@@ -33,6 +34,7 @@ const GraphScreen = () => (
 
 export default function MainTabs() {
   const dispatch = useDispatch();
+  const { showAlert, AlertComponent } = useCustomAlert();
   const { conversations, currentConversation, messages } = useSelector((state: RootState) => state.conversations);
   const { showSidebar, sidebarCollapsed } = useSelector((state: RootState) => state.ui);
 
@@ -64,7 +66,7 @@ export default function MainTabs() {
     try {
       await dispatch(createConversation('New Conversation') as any);
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to create conversation: ' + error.message);
+      showAlert('Error', 'Failed to create conversation: ' + error.message);
     }
   };
 
@@ -72,7 +74,7 @@ export default function MainTabs() {
     try {
       await dispatch(renameConversation(conversationId, newTitle) as any);
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to rename conversation: ' + error.message);
+      showAlert('Error', 'Failed to rename conversation: ' + error.message);
     }
   };
 
@@ -83,8 +85,8 @@ export default function MainTabs() {
       console.log('[MainTabs] Delete complete');
     } catch (error: any) {
       console.error('[MainTabs] Delete failed:', error);
-      Alert.alert(
-        'Delete Failed', 
+      showAlert(
+        'Delete Failed',
         error.message || 'Failed to delete conversation. Please try again.',
         [{ text: 'OK' }]
       );
@@ -95,7 +97,7 @@ export default function MainTabs() {
     try {
       await dispatch(updateMessage(messageId, newContent) as any);
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to edit message: ' + error.message);
+      showAlert('Error', 'Failed to edit message: ' + error.message);
     }
   };
 
@@ -103,7 +105,7 @@ export default function MainTabs() {
     try {
       await dispatch(deleteMessage(messageId) as any);
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to delete message: ' + error.message);
+      showAlert('Error', 'Failed to delete message: ' + error.message);
     }
   };
 
@@ -149,7 +151,7 @@ export default function MainTabs() {
         }
       }
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to send message: ' + error.message);
+      showAlert('Error', 'Failed to send message: ' + error.message);
     } finally {
       setIsLoadingAI(false);
     }
@@ -157,6 +159,7 @@ export default function MainTabs() {
 
   return (
     <View style={styles.fullContainer}>
+      <AlertComponent />
       <Header />
       <View style={styles.contentContainer}>
         <ChatSidebar 

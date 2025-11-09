@@ -1,25 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useDispatch } from 'react-redux';
 import { signIn } from '../services/supabaseService';
-
-// Web-compatible alert function
-const showAlert = (title: string, message: string, buttons?: any[]) => {
-  if (Platform.OS === 'web') {
-    const fullMessage = `${title}\n\n${message}`;
-    if (buttons && buttons.length > 1) {
-      if (window.confirm(fullMessage)) {
-        buttons[0].onPress?.();
-      } else {
-        buttons[1].onPress?.();
-      }
-    } else {
-      window.alert(fullMessage);
-    }
-  } else {
-    Alert.alert(title, message, buttons);
-  }
-};
+import { setSession } from '../store/actions/authActions';
+import { useCustomAlert } from '../components/CustomAlert';
 
 // Dev credentials for quick login during development
 const DEV_EMAIL = 'dev@phsyche.ai'; // Note: matches the user created in Supabase
@@ -27,6 +12,8 @@ const DEV_PASSWORD = 'devpass123';
 
 export default function LoginScreen() {
   const navigation = useNavigation();
+  const dispatch = useDispatch();
+  const { showAlert, AlertComponent } = useCustomAlert();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -34,7 +21,11 @@ export default function LoginScreen() {
   async function signInWithEmail() {
     setLoading(true);
     try {
-      await signIn(email, password);
+      const data = await signIn(email, password);
+      // Update Redux store with session before navigating
+      if (data.session && data.user) {
+        dispatch(setSession(data.session, data.user));
+      }
       navigation.navigate('Main');
     } catch (error: any) {
       showAlert('Error', error.message);
@@ -46,12 +37,16 @@ export default function LoginScreen() {
   async function quickDevLogin() {
     setLoading(true);
     try {
-      await signIn(DEV_EMAIL, DEV_PASSWORD);
+      const data = await signIn(DEV_EMAIL, DEV_PASSWORD);
+      // Update Redux store with session before navigating
+      if (data.session && data.user) {
+        dispatch(setSession(data.session, data.user));
+      }
       navigation.navigate('Main');
     } catch (error: any) {
       // If dev user doesn't exist, show helpful error
       showAlert(
-        'Dev User Not Found', 
+        'Dev User Not Found',
         `Please create a test user with:\nEmail: ${DEV_EMAIL}\nPassword: ${DEV_PASSWORD}\n\nOr use the Register screen to create it.`,
         [
           { text: 'Go to Register', onPress: () => navigation.navigate('Register') },
@@ -65,6 +60,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
+      <AlertComponent />
       <Text style={styles.header}>Welcome Back</Text>
       <TextInput
         style={styles.input}
@@ -86,11 +82,11 @@ export default function LoginScreen() {
       <TouchableOpacity style={styles.button} onPress={signInWithEmail} disabled={loading}>
         <Text style={styles.buttonText}>{loading ? 'Loading...' : 'Login'}</Text>
       </TouchableOpacity>
-      
+
       <TouchableOpacity style={styles.devButton} onPress={quickDevLogin} disabled={loading}>
         <Text style={styles.devButtonText}>⚡ Quick Dev Login</Text>
       </TouchableOpacity>
-      
+
       <TouchableOpacity onPress={() => navigation.navigate('Register')}>
         <Text style={styles.linkText}>Don't have an account? Sign Up</Text>
       </TouchableOpacity>

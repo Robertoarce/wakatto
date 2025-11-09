@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
@@ -7,14 +7,16 @@ import { logout } from '../store/actions/authActions';
 import { configureAI, getAIConfig } from '../services/aiService';
 import { useNavigation } from '@react-navigation/native';
 import { runAllTests, TestResult } from '../services/aiConnectionTest';
+import { useCustomAlert } from '../components/CustomAlert';
 
 type AIProvider = 'mock' | 'openai' | 'anthropic' | 'gemini';
 
 const SettingsScreen = (): JSX.Element => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
+  const { showAlert, AlertComponent } = useCustomAlert();
   const { user } = useSelector((state: RootState) => state.auth);
-  
+
   const [aiProvider, setAIProvider] = useState<AIProvider>('mock');
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('');
@@ -24,24 +26,27 @@ const SettingsScreen = (): JSX.Element => {
 
   useEffect(() => {
     // Load current AI configuration
-    const config = getAIConfig();
-    setAIProvider(config.provider as AIProvider);
-    setApiKey(config.apiKey || '');
-    setModel(config.model || '');
+    const loadConfig = async () => {
+      const config = await getAIConfig();
+      setAIProvider(config.provider as AIProvider);
+      setApiKey(config.apiKey || '');
+      setModel(config.model || '');
+    };
+    loadConfig();
   }, []);
 
-  const handleSaveAISettings = () => {
-    configureAI({
+  const handleSaveAISettings = async () => {
+    await configureAI({
       provider: aiProvider,
       apiKey: apiKey,
       model: model || undefined,
     });
-    Alert.alert('Success', 'AI settings saved successfully!');
+    showAlert('Success', 'AI settings saved securely!');
   };
 
   const handleTestConnection = async () => {
     if (!apiKey && aiProvider !== 'mock') {
-      Alert.alert('Error', 'Please enter an API key first');
+      showAlert('Error', 'Please enter an API key first');
       return;
     }
 
@@ -51,8 +56,8 @@ const SettingsScreen = (): JSX.Element => {
       hasApiKey: !!apiKey,
       model: model || 'default'
     });
-    
-    configureAI({
+
+    await configureAI({
       provider: aiProvider,
       apiKey: apiKey,
       model: model || undefined,
@@ -66,15 +71,15 @@ const SettingsScreen = (): JSX.Element => {
       const results = await runAllTests(apiKey, aiProvider as any);
       console.log('[Settings] Test results:', results);
       setTestResults(results);
-      
+
       if (results.allPassed) {
-        Alert.alert('✅ Success', 'All AI tests passed! Ready for knowledge graph.');
+        showAlert('Success', 'All AI tests passed! Ready for knowledge graph.');
       } else {
-        Alert.alert('⚠️ Tests Failed', 'Some tests failed. Check results below.');
+        showAlert('Tests Failed', 'Some tests failed. Check results below.');
       }
     } catch (error: any) {
       console.error('[Settings] Test error:', error);
-      Alert.alert('Error', error.message || 'Failed to run tests');
+      showAlert('Error', error.message || 'Failed to run tests');
       setTestResults({
         allPassed: false,
         results: {
@@ -89,7 +94,7 @@ const SettingsScreen = (): JSX.Element => {
   };
 
   const handleLogout = () => {
-    Alert.alert(
+    showAlert(
       'Logout',
       'Are you sure you want to logout?',
       [
@@ -117,6 +122,7 @@ const SettingsScreen = (): JSX.Element => {
 
   return (
     <ScrollView style={styles.container}>
+      <AlertComponent />
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Account</Text>
         <View style={styles.card}>

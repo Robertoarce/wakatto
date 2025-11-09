@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useCustomAlert } from './CustomAlert';
 
 interface Message {
   id: string;
@@ -20,6 +21,7 @@ interface ChatInterfaceProps {
 }
 
 export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage }: ChatInterfaceProps) {
+  const { showAlert, AlertComponent } = useCustomAlert();
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -48,6 +50,14 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     }
   }, [messages]);
 
+  // Cancel editing when AI starts responding to prevent race conditions
+  useEffect(() => {
+    if (isLoading && editingMessageId) {
+      setEditingMessageId(null);
+      setEditingContent('');
+    }
+  }, [isLoading, editingMessageId]);
+
   const handleSendMessagePress = () => {
     if (input.trim()) {
       onSendMessage(input);
@@ -74,6 +84,15 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   };
 
   const saveEditedMessage = () => {
+    // Prevent saving edits when AI is responding to avoid race conditions
+    if (isLoading) {
+      showAlert(
+        'Cannot Save Edit',
+        'Please wait for the AI to finish responding before saving your edit.'
+      );
+      return;
+    }
+
     if (editingMessageId && editingContent.trim() && onEditMessage) {
       onEditMessage(editingMessageId, editingContent.trim());
       setEditingMessageId(null);
@@ -87,7 +106,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   };
 
   const confirmDeleteMessage = (messageId: string) => {
-    Alert.alert(
+    showAlert(
       'Delete Message',
       'Are you sure you want to delete this message?',
       [
@@ -101,15 +120,23 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
             }
           },
         },
-      ],
-      { cancelable: true }
+      ]
     );
   };
 
   const handleLongPress = (message: Message) => {
+    // Prevent editing/deleting when AI is responding to avoid race conditions
+    if (isLoading) {
+      showAlert(
+        'Action Not Available',
+        'Please wait for the AI to finish responding before editing or deleting messages.'
+      );
+      return;
+    }
+
     // Only allow editing user messages
     if (message.role === 'user') {
-      Alert.alert(
+      showAlert(
         'Message Options',
         'What would you like to do?',
         [
@@ -123,18 +150,19 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
             style: 'destructive',
             onPress: () => confirmDeleteMessage(message.id),
           },
-        ],
-        { cancelable: true }
+        ]
       );
     }
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
-    >
+    <>
+      <AlertComponent />
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+      >
       <ScrollView 
         ref={scrollViewRef}
         contentContainerStyle={styles.messagesContainer}
@@ -243,6 +271,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         </View>
       </View>
     </KeyboardAvoidingView>
+    </>
   );
 }
 
