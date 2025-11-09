@@ -55,6 +55,14 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     }
   };
 
+  const handleKeyPress = (e: any) => {
+    // Check for Ctrl+Enter (PC) or Cmd+Enter (Mac)
+    if (e.nativeEvent.key === 'Enter' && (e.nativeEvent.ctrlKey || e.nativeEvent.metaKey)) {
+      e.preventDefault();
+      handleSendMessagePress();
+    }
+  };
+
   const toggleRecording = () => {
     setIsRecording(!isRecording);
     // In a real app, this would start/stop voice recording
@@ -199,11 +207,12 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
           <TextInput
             value={input}
             onChangeText={setInput}
-            placeholder="Type your message or use voice..."
+            placeholder="Type your message or use voice... (Ctrl+Enter to send)"
             placeholderTextColor="#a1a1aa"
             style={styles.textInput}
             multiline
             onFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+            onKeyPress={handleKeyPress}
           />
           <View style={styles.actionButtons}>
             <TouchableOpacity

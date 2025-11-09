@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run web:*)",
+      "Bash(npm install:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill //F //PID 29688)",
+      "mcp__playwright__browser_navigate",
+      "Bash(findstr:*)",
+      "Bash(taskkill //F //PID 19540)",
+      "mcp__playwright__browser_console_messages",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_close"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

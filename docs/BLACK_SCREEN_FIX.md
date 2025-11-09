@@ -120,3 +120,143 @@ For future React Native Web projects:
 - [AppRegistry API](https://reactnative.dev/docs/appregistry)
 - [Expo Web Setup](https://docs.expo.dev/guides/customizing-webpack/)
 
+---
+
+# Black Screen Issue Fix #2 - React Navigation require() Error
+
+## Issue Description
+
+**Date Discovered:** November 8, 2025
+**Severity:** Critical - Application failed to load due to JavaScript error
+
+### Symptoms
+- Black screen displayed in browser
+- Console error: `ReferenceError: require is not defined`
+- Error originated from `@react-navigation/elements/lib/module/useFrameSize.js`
+- Webpack compiled successfully but app crashed at runtime
+- DevTools showed error at line 14 of useFrameSize.js
+
+### Root Cause
+
+The `@react-navigation/elements` package contains a module (`useFrameSize.js`) that uses CommonJS `require()` syntax to import `SafeAreaListener`:
+
+```javascript
+const SafeAreaListener = require('react-native-safe-area-context').SafeAreaListener;
+```
+
+This `require()` call doesn't work in browser environments because:
+1. Webpack targets ES modules for web builds
+2. The browser doesn't have a native `require()` function
+3. Despite babel transpilation config, the module wasn't being properly replaced
+
+The webpack configuration had an attempt to replace this module with a web-compatible patch, but the regex pattern wasn't matching correctly.
+
+## Solution
+
+### Code Changes
+
+**File:** `webpack.config.js` (lines 77-83)
+
+**Before (Not Working):**
+```javascript
+// Replace the problematic useFrameSize module with our web-compatible version
+config.plugins.push(
+  new webpack.NormalModuleReplacementPlugin(
+    /@react-navigation\/elements.*useFrameSize/,
+    path.resolve(__dirname, 'src/patches/useFrameSize.web.js')
+  )
+);
+```
+
+**After (Working):**
+```javascript
+// Replace the problematic useFrameSize module with our web-compatible version
+config.plugins.push(
+  new webpack.NormalModuleReplacementPlugin(
+    /[\\/]@react-navigation[\\/]elements[\\/]lib[\\/]module[\\/]useFrameSize\.js$/,
+    path.resolve(__dirname, 'src/patches/useFrameSize.web.js')
+  )
+);
+```
+
+### Key Changes
+
+1. **Fixed regex pattern to match exact file path**
+   - Added escaped backslashes `[\\/]` to match both forward and back slashes (cross-platform)
+   - Added specific path segments: `lib/module/useFrameSize.js`
+   - Added anchor `$` at the end to match the exact file
+   - Previous pattern was too broad and wasn't matching at build time
+
+2. **Web-compatible patch file** (`src/patches/useFrameSize.web.js`)
+   - Replaces CommonJS `require()` with ES module imports
+   - Implements the same functionality using browser-compatible APIs
+   - Uses `ResizeObserver` instead of native listeners
+   - No changes needed to this file - it already existed and works correctly
+
+### Technical Details
+
+The webpack `NormalModuleReplacementPlugin` intercepts module resolution during the build process. When webpack encounters a module that matches the regex pattern, it substitutes it with our web-compatible version.
+
+The correct regex pattern must:
+- Match the exact file path structure
+- Account for both Windows (`\`) and Unix (`/`) path separators
+- Be specific enough to only replace the intended module
+- Match at build time before the bundle is created
+
+## Why the Previous Fix Didn't Work
+
+The original regex `/@react-navigation\/elements.*useFrameSize/` was too generic:
+- Didn't account for path separators correctly
+- Used `.*` which is too greedy
+- Wasn't anchored to match the complete path
+- May have matched during resolution but not replacement
+
+## Testing
+
+After implementing the fix:
+1. Kill existing dev server processes
+2. Run `npm run web` to start fresh development server
+3. Open browser at `http://localhost:19006`
+4. Verify:
+   - No console errors
+   - Login screen renders properly
+   - All UI elements visible and interactive
+   - No "require is not defined" errors
+
+## Related Files
+
+- `webpack.config.js:77-83` - Fixed regex pattern for module replacement
+- `src/patches/useFrameSize.web.js` - Web-compatible replacement (already existed)
+- `node_modules/@react-navigation/elements/lib/module/useFrameSize.js` - Problematic source file
+
+## Prevention
+
+For future development:
+1. When using webpack module replacements, test the regex patterns thoroughly
+2. Use specific path patterns with proper escaping for cross-platform compatibility
+3. Verify webpack plugin replacements are working by checking build logs
+4. Test web builds in browser immediately after webpack config changes
+5. Use `NormalModuleReplacementPlugin` instead of aliases for more reliable replacements
+
+## Debugging Tips
+
+If you encounter similar issues:
+1. Check browser console for the exact error and file location
+2. Inspect the problematic node_modules file to understand what it's importing
+3. Verify webpack config patterns are matching using console.log in the plugin
+4. Use Chrome DevTools Sources tab to see which module version is loaded
+5. Check that patch files use only web-compatible APIs (no Node.js built-ins)
+
+## Additional Notes
+
+- This is a common issue with React Native packages that have platform-specific code
+- The `@react-navigation` team uses CommonJS imports for backwards compatibility
+- Webpack module replacement is the recommended solution for handling platform-specific code
+- This fix is complementary to Fix #1 - both are needed for proper web rendering
+
+## References
+
+- [Webpack NormalModuleReplacementPlugin](https://webpack.js.org/plugins/normal-module-replacement-plugin/)
+- [React Navigation Elements](https://github.com/react-navigation/react-navigation/tree/main/packages/elements)
+- [React Native Web Platform-Specific Extensions](https://necolas.github.io/react-native-web/docs/setup/#platform-specific-extensions)
+
