@@ -22,15 +22,9 @@ import {
 import { generateAIResponse, DIARY_SYSTEM_PROMPT } from '../services/aiService';
 import SettingsScreen from '../screens/SettingsScreen';
 import CharactersScreen from '../screens/CharactersScreen';
+import Model3DTestScreen from '../screens/Model3DTestScreen';
 
 const Tab = createBottomTabNavigator();
-
-const GraphScreen = () => (
-  <View style={styles.screenContainer}>
-    <Text style={styles.screenText}>Knowledge Graph Visualization</Text>
-    <Text style={styles.screenSubtext}>Coming soon...</Text>
-  </View>
-);
 
 export default function MainTabs() {
   const dispatch = useDispatch();
@@ -217,12 +211,12 @@ export default function MainTabs() {
               ),
             }}
           />
-          <Tab.Screen 
-            name="Graph"
-            component={GraphScreen}
+          <Tab.Screen
+            name="3D Models"
+            component={Model3DTestScreen}
             options={{
               tabBarIcon: ({ color, size }) => (
-                <MaterialCommunityIcons name="graph-outline" color={color} size={size} />
+                <MaterialCommunityIcons name="cube-outline" color={color} size={size} />
               ),
             }}
           />
@@ -262,21 +256,6 @@ const styles = StyleSheet.create({
   },
   mainContentWithCollapsedSidebar: {
     marginLeft: 56, // Width of collapsed sidebar
-  },
-  screenContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0f0f0f',
-  },
-  screenText: {
-    color: 'white',
-    fontSize: 24,
-    marginBottom: 8,
-  },
-  screenSubtext: {
-    color: '#a1a1aa',
-    fontSize: 16,
   },
   tabBar: {
     backgroundColor: '#171717',
