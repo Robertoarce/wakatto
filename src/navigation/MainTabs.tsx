@@ -22,7 +22,7 @@ import {
 import { generateAIResponse, DIARY_SYSTEM_PROMPT } from '../services/aiService';
 import SettingsScreen from '../screens/SettingsScreen';
 import CharactersScreen from '../screens/CharactersScreen';
-import Model3DTestScreen from '../screens/Model3DTestScreen';
+// import Model3DTestScreen from '../screens/Model3DTestScreen'; // Temporarily disabled - missing dependencies
 
 const Tab = createBottomTabNavigator();
 
@@ -202,7 +202,7 @@ export default function MainTabs() {
               />
             )}
           </Tab.Screen>
-          <Tab.Screen 
+          <Tab.Screen
             name="Characters"
             component={CharactersScreen}
             options={{
@@ -211,6 +211,7 @@ export default function MainTabs() {
               ),
             }}
           />
+          {/* Temporarily disabled - missing 3D dependencies
           <Tab.Screen
             name="3D Models"
             component={Model3DTestScreen}
@@ -220,6 +221,7 @@ export default function MainTabs() {
               ),
             }}
           />
+          */}
           <Tab.Screen 
             name="Settings"
             component={SettingsScreen}

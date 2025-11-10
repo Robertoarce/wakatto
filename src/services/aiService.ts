@@ -9,6 +9,7 @@
  */
 
 import { setSecureItem, getSecureItem, deleteSecureItem } from './secureStorage';
+import { supabase, supabaseUrl } from '../lib/supabase';
 
 // AI Provider configuration
 interface AIConfig {
@@ -25,18 +26,27 @@ interface AIMessage {
 
 // In-memory config (API key stored separately in secure storage)
 let config: AIConfig = {
-  provider: 'mock',
-  apiKey: '', // Will be loaded from secure storage
-  model: 'gpt-4',
+  provider: 'anthropic', // Default to Claude
+  apiKey: '', // Will be loaded from secure storage or environment
+  model: 'claude-3-haiku-20240307', // Claude 3 Haiku (fast and available on your tier)
 };
 
 // Load API key from secure storage on initialization
 let apiKeyPromise: Promise<string | null> | null = null;
 
 /**
- * Load API key from secure storage
+ * Load API key from environment or secure storage
+ * Priority: Environment variable > Secure storage
  */
 async function loadAPIKey(): Promise<string> {
+  // First, check environment variable (for development)
+  const envKey = process.env.CLAUDE_API_KEY;
+  if (envKey) {
+    console.log('[AI] Using API key from environment variable');
+    return envKey;
+  }
+
+  // Fall back to secure storage
   if (!apiKeyPromise) {
     apiKeyPromise = getSecureItem('ai_api_key');
   }
@@ -79,16 +89,20 @@ export async function getAIConfig(): Promise<Omit<AIConfig, 'apiKey'> & { apiKey
 }
 
 /**
- * Initialize AI service (load config from storage)
+ * Initialize AI service (load config from storage or environment)
  */
 export async function initializeAI() {
   const provider = localStorage.getItem('ai_provider') as AIConfig['provider'] | null;
   const model = localStorage.getItem('ai_model');
   const apiKey = await loadAPIKey();
 
+  // Use stored preferences, or defaults if none exist
   if (provider) config.provider = provider;
   if (model) config.model = model;
-  if (apiKey) config.apiKey = apiKey;
+  if (apiKey) {
+    config.apiKey = apiKey;
+    console.log('[AI] Initialized with API key from', process.env.CLAUDE_API_KEY ? 'environment' : 'secure storage');
+  }
 }
 
 /**
@@ -102,29 +116,58 @@ export async function clearAPIKey() {
 
 /**
  * Generate AI response using the configured provider
+ * Uses Supabase Edge Function to avoid CORS issues
  */
 export async function generateAIResponse(
   messages: AIMessage[],
   systemPrompt?: string
 ): Promise<string> {
-  // Ensure API key is loaded from secure storage before making requests
-  const apiKey = await loadAPIKey();
-  config.apiKey = apiKey;
-
   const fullMessages: AIMessage[] = systemPrompt
     ? [{ role: 'system', content: systemPrompt }, ...messages]
     : messages;
 
-  switch (config.provider) {
-    case 'openai':
-      return generateOpenAIResponse(fullMessages);
-    case 'anthropic':
-      return generateAnthropicResponse(fullMessages);
-    case 'gemini':
-      return generateGeminiResponse(fullMessages);
-    case 'mock':
-    default:
-      return generateMockResponse(fullMessages);
+  // Use mock for testing without API
+  if (config.provider === 'mock') {
+    return generateMockResponse(fullMessages);
+  }
+
+  try {
+    // Call Supabase Edge Function (avoids CORS issues)
+    console.log('[AI] Calling Edge Function with provider:', config.provider);
+
+    const { data: session } = await supabase.auth.getSession();
+    if (!session?.session) {
+      throw new Error('User not authenticated');
+    }
+
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/ai-chat`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.session.access_token}`,
+        },
+        body: JSON.stringify({
+          messages: fullMessages,
+          provider: config.provider,
+          model: config.model,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('[AI] Edge Function error:', error);
+      throw new Error(error.error || 'Failed to generate AI response');
+    }
+
+    const data = await response.json();
+    console.log('[AI] Edge Function success!');
+    return data.content;
+  } catch (error: any) {
+    console.error('[AI] Error:', error);
+    throw error;
   }
 }
 

@@ -17,9 +17,9 @@ const SettingsScreen = (): JSX.Element => {
   const { showAlert, AlertComponent } = useCustomAlert();
   const { user } = useSelector((state: RootState) => state.auth);
 
-  const [aiProvider, setAIProvider] = useState<AIProvider>('mock');
+  const [aiProvider, setAIProvider] = useState<AIProvider>('anthropic');
   const [apiKey, setApiKey] = useState('');
-  const [model, setModel] = useState('');
+  const [model, setModel] = useState('claude-3-haiku-20240307');
   const [showApiKey, setShowApiKey] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResults, setTestResults] = useState<any>(null);

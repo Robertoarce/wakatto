@@ -22,7 +22,20 @@
       "Bash(git commit -m \"$(cat <<''EOF''\nFix: High priority issues - Custom alerts, secure storage, error boundary, race conditions\n\nFixed 4 high priority bugs from ROADMAP.md:\n\n1. Web Alert Dialogs - Replace window.alert/confirm with custom modal\n   - Created CustomAlert component with beautiful UI\n   - Applied to all screens (Login, Register, Settings, Header, Chat, etc.)\n\n2. API Key Security - Move from plain state to secure storage\n   - Created secureStorage service with obfuscation\n   - API keys now stored in sessionStorage with XOR encryption\n   - Updated aiService to use async secure storage\n\n3. Error Boundary Context - Add more debugging information\n   - Enhanced error display with component stack, timestamps\n   - Added error count tracking and user agent info\n   - \"Try Again\" and \"Reload App\" action buttons\n\n4. Message Editing Race Condition - Prevent edits during AI response\n   - Block edit/delete operations when isLoading=true\n   - Auto-cancel editing when AI starts responding\n   - Clear user feedback via alerts\n\nAll changes tested and building successfully.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git commit -m \"$(cat <<''EOF''\nFix: High priority issues - Custom alerts, secure storage, error boundary, race conditions\n\nFixed 4 high priority bugs from ROADMAP.md:\n\n1. Web Alert Dialogs - Replace window.alert/confirm with custom modal\n   - Created CustomAlert component with beautiful UI\n   - Applied to all screens (Login, Register, Settings, Header, Chat, etc.)\n\n2. API Key Security - Move from plain state to secure storage\n   - Created secureStorage service with obfuscation\n   - API keys now stored in sessionStorage with XOR encryption\n   - Updated aiService to use async secure storage\n\n3. Error Boundary Context - Add more debugging information\n   - Enhanced error display with component stack, timestamps\n   - Added error count tracking and user agent info\n   - Try Again and Reload App action buttons\n\n4. Message Editing Race Condition - Prevent edits during AI response\n   - Block edit/delete operations when isLoading=true\n   - Auto-cancel editing when AI starts responding\n   - Clear user feedback via alerts\n\nAll changes tested and building successfully.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git push:*)",
-      "Bash(npm run deploy:*)"
+      "Bash(npm run deploy:*)",
+      "Bash(curl:*)",
+      "Bash(npx playwright install chromium)",
+      "Bash(npx playwright test:*)",
+      "Bash(brew install:*)",
+      "Bash(supabase link --project-ref rddvqbxbmpilbimmppvu)",
+      "Bash(supabase login:*)",
+      "Bash(chmod:*)",
+      "Bash(source .env)",
+      "Bash(./deploy-edge-function.sh:*)",
+      "Bash(export SUPABASE_ACCESS_TOKEN=sbp_dfbbc3449088fb6bf1219e9b033746a123ca8d73)",
+      "Bash(supabase functions deploy:*)",
+      "Bash(supabase secrets set:*)",
+      "Bash(git reset:*)"
     ],
     "deny": [],
     "ask": []
