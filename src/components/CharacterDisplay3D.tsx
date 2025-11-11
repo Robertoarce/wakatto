@@ -294,35 +294,24 @@ export function CharacterDisplay3D({ characterId, isActive = false, animation = 
 
   return (
     <View style={styles.container}>
-      <View style={styles.canvasContainer}>
-        <Canvas
-          camera={{ position: [0, 2, 5], fov: 50 }}
-          gl={{ alpha: true, antialias: true }}
-          style={{ background: 'transparent' }}
-        >
-          <ambientLight intensity={0.5} />
-          <spotLight position={[5, 10, 5]} angle={0.3} penumbra={1} intensity={1} castShadow />
-          <directionalLight position={[-5, 5, 5]} intensity={0.5} />
+      <Canvas
+        camera={{ position: [0, 2, 5], fov: 50 }}
+        gl={{ alpha: true, antialias: true }}
+        style={{ background: 'transparent' }}
+      >
+        <ambientLight intensity={0.5} />
+        <spotLight position={[5, 10, 5]} angle={0.3} penumbra={1} intensity={1} castShadow />
+        <directionalLight position={[-5, 5, 5]} intensity={0.5} />
 
-          <Character character={character} isActive={isActive} animation={animation} />
+        <Character character={character} isActive={isActive} animation={animation} />
 
-          <OrbitControls
-            enableZoom={false}
-            enablePan={false}
-            minPolarAngle={Math.PI / 3}
-            maxPolarAngle={Math.PI / 2}
-          />
-        </Canvas>
-      </View>
-
-      <View style={styles.characterInfo}>
-        <Text style={[styles.characterName, { color: character.color }]}>
-          {character.name}
-        </Text>
-        <Text style={styles.characterDescription}>
-          {character.description}
-        </Text>
-      </View>
+        <OrbitControls
+          enableZoom={false}
+          enablePan={false}
+          minPolarAngle={Math.PI / 3}
+          maxPolarAngle={Math.PI / 2}
+        />
+      </Canvas>
     </View>
   );
 }
@@ -332,23 +321,5 @@ const styles = StyleSheet.create({
     height: '100%',
     width: '100%',
     backgroundColor: '#0a0a0a',
-  },
-  canvasContainer: {
-    flex: 1,
-  },
-  characterInfo: {
-    padding: 12,
-    backgroundColor: '#0f0f0f',
-    borderTopWidth: 1,
-    borderTopColor: '#27272a',
-  },
-  characterName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  characterDescription: {
-    fontSize: 12,
-    color: '#a1a1aa',
   },
 });
