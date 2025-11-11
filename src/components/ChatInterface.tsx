@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, PanResponder } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCustomAlert } from './CustomAlert';
-import { CharacterDisplay3D } from './CharacterDisplay3D';
+import { CharacterDisplay3D, AnimationState } from './CharacterDisplay3D';
 import { DEFAULT_CHARACTER } from '../config/characters';
 
 interface Message {
@@ -30,6 +30,8 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
   const [characterHeight, setCharacterHeight] = useState(200); // Initial height in pixels
+  const [currentAnimation, setCurrentAnimation] = useState<AnimationState>('idle');
+  const [showAnimControls, setShowAnimControls] = useState(false);
 
   // Pan responder for resizable divider
   const panResponder = useRef(
@@ -186,7 +188,46 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       >
       {/* 3D Character Display - Resizable */}
       <View style={[styles.characterDisplayContainer, { height: characterHeight }]}>
-        <CharacterDisplay3D characterId={DEFAULT_CHARACTER} isActive={isLoading} />
+        <CharacterDisplay3D
+          characterId={DEFAULT_CHARACTER}
+          isActive={isLoading}
+          animation={currentAnimation}
+        />
+        {/* Animation Controls Toggle */}
+        <TouchableOpacity
+          style={styles.animToggleButton}
+          onPress={() => setShowAnimControls(!showAnimControls)}
+        >
+          <Ionicons name={showAnimControls ? "chevron-up" : "play-circle"} size={20} color="#8b5cf6" />
+          <Text style={styles.animToggleText}>
+            {showAnimControls ? 'Hide' : 'Animations'}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Animation Control Buttons */}
+        {showAnimControls && (
+          <View style={styles.animControlPanel}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {(['idle', 'thinking', 'talking', 'confused', 'happy', 'excited', 'winning'] as AnimationState[]).map((anim) => (
+                <TouchableOpacity
+                  key={anim}
+                  style={[
+                    styles.animControlButton,
+                    currentAnimation === anim && styles.animControlButtonActive,
+                  ]}
+                  onPress={() => setCurrentAnimation(anim)}
+                >
+                  <Text style={[
+                    styles.animControlButtonText,
+                    currentAnimation === anim && styles.animControlButtonTextActive,
+                  ]}>
+                    {anim.charAt(0).toUpperCase() + anim.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
       </View>
 
       {/* Resizable Divider */}
@@ -480,5 +521,52 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontWeight: '600',
+  },
+  animToggleButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(15, 15, 15, 0.8)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#27272a',
+  },
+  animToggleText: {
+    color: '#8b5cf6',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  animControlPanel: {
+    position: 'absolute',
+    bottom: 8,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 8,
+  },
+  animControlButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginHorizontal: 4,
+    backgroundColor: 'rgba(39, 39, 42, 0.9)',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#3f3f46',
+  },
+  animControlButtonActive: {
+    backgroundColor: 'rgba(139, 92, 246, 0.9)',
+    borderColor: '#8b5cf6',
+  },
+  animControlButtonText: {
+    color: '#a1a1aa',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  animControlButtonTextActive: {
+    color: 'white',
   },
 });

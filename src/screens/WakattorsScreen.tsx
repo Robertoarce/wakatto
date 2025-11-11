@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { CharacterDisplay3D } from '../components/CharacterDisplay3D';
+import { CharacterDisplay3D, AnimationState } from '../components/CharacterDisplay3D';
 import { getAllCharacters, CharacterBehavior, CHARACTERS } from '../config/characters';
 
 export default function WakattorsScreen() {
@@ -14,6 +14,7 @@ export default function WakattorsScreen() {
   const [selectedCharacter, setSelectedCharacter] = useState<CharacterBehavior | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedCharacter, setEditedCharacter] = useState<CharacterBehavior | null>(null);
+  const [currentAnimation, setCurrentAnimation] = useState<AnimationState>('idle');
 
   const handleCreateNew = () => {
     const newCharacter: CharacterBehavior = {
@@ -178,8 +179,37 @@ export default function WakattorsScreen() {
                 </View>
                 <ScrollView style={styles.modalScroll}>
                   <View style={styles.modalPreview}>
-                    <CharacterDisplay3D characterId={selectedCharacter.id} isActive={true} />
+                    <CharacterDisplay3D
+                      characterId={selectedCharacter.id}
+                      isActive={true}
+                      animation={currentAnimation}
+                    />
                   </View>
+
+                  {/* Animation Test Buttons */}
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailLabel}>Test Animations</Text>
+                    <View style={styles.animationGrid}>
+                      {(['idle', 'thinking', 'talking', 'confused', 'happy', 'excited', 'winning'] as AnimationState[]).map((anim) => (
+                        <TouchableOpacity
+                          key={anim}
+                          style={[
+                            styles.animButton,
+                            currentAnimation === anim && styles.animButtonActive,
+                          ]}
+                          onPress={() => setCurrentAnimation(anim)}
+                        >
+                          <Text style={[
+                            styles.animButtonText,
+                            currentAnimation === anim && styles.animButtonTextActive,
+                          ]}>
+                            {anim.charAt(0).toUpperCase() + anim.slice(1)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
                   <View style={styles.detailSection}>
                     <Text style={styles.detailLabel}>Description</Text>
                     <Text style={styles.detailText}>{selectedCharacter.description}</Text>
@@ -639,5 +669,30 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  animationGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  animButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#27272a',
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#3f3f46',
+  },
+  animButtonActive: {
+    backgroundColor: '#8b5cf6',
+    borderColor: '#8b5cf6',
+  },
+  animButtonText: {
+    color: '#a1a1aa',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  animButtonTextActive: {
+    color: 'white',
   },
 });
