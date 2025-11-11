@@ -302,6 +302,8 @@ export function CharacterDisplay3D({ characterId, isActive = false, animation = 
         <ambientLight intensity={0.5} />
         <spotLight position={[5, 10, 5]} angle={0.3} penumbra={1} intensity={1} castShadow />
         <directionalLight position={[-5, 5, 5]} intensity={0.5} />
+        {/* Top light for better character illumination */}
+        <directionalLight position={[0, 10, 0]} intensity={0.8} color="#ffffff" />
 
         <Character character={character} isActive={isActive} animation={animation} />
 
