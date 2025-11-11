@@ -22,7 +22,7 @@ import {
 import { generateAIResponse, DIARY_SYSTEM_PROMPT } from '../services/aiService';
 import SettingsScreen from '../screens/SettingsScreen';
 import CharactersScreen from '../screens/CharactersScreen';
-// import Model3DTestScreen from '../screens/Model3DTestScreen'; // Temporarily disabled - missing dependencies
+import WakattorsScreen from '../screens/WakattorsScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -211,17 +211,15 @@ export default function MainTabs() {
               ),
             }}
           />
-          {/* Temporarily disabled - missing 3D dependencies
           <Tab.Screen
-            name="3D Models"
-            component={Model3DTestScreen}
+            name="Wakattors"
+            component={WakattorsScreen}
             options={{
               tabBarIcon: ({ color, size }) => (
-                <MaterialCommunityIcons name="cube-outline" color={color} size={size} />
+                <MaterialCommunityIcons name="emoticon-happy-outline" color={color} size={size} />
               ),
             }}
           />
-          */}
           <Tab.Screen 
             name="Settings"
             component={SettingsScreen}

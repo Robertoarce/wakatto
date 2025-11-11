@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, PanResponder } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCustomAlert } from './CustomAlert';
+import { CharacterDisplay3D } from './CharacterDisplay3D';
+import { DEFAULT_CHARACTER } from '../config/characters';
 
 interface Message {
   id: string;
@@ -27,6 +29,25 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const scrollViewRef = useRef<ScrollView>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
+  const [characterHeight, setCharacterHeight] = useState(200); // Initial height in pixels
+
+  // Pan responder for resizable divider
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderMove: (_, gestureState) => {
+        const newHeight = characterHeight + gestureState.dy;
+        // Constrain height between 150px and 500px
+        if (newHeight >= 150 && newHeight <= 500) {
+          setCharacterHeight(newHeight);
+        }
+      },
+      onPanResponderRelease: () => {
+        // Optionally save to localStorage/AsyncStorage here
+      },
+    })
+  ).current;
 
   const formatTimestamp = (dateString: string) => {
     const date = new Date(dateString);
@@ -163,9 +184,24 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
       >
-      <ScrollView 
+      {/* 3D Character Display - Resizable */}
+      <View style={[styles.characterDisplayContainer, { height: characterHeight }]}>
+        <CharacterDisplay3D characterId={DEFAULT_CHARACTER} isActive={isLoading} />
+      </View>
+
+      {/* Resizable Divider */}
+      <View
+        {...panResponder.panHandlers}
+        style={styles.divider}
+      >
+        <View style={styles.dividerHandle} />
+      </View>
+
+      {/* Chat Messages - Remaining space */}
+      <ScrollView
         ref={scrollViewRef}
         contentContainerStyle={styles.messagesContainer}
+        style={styles.chatScrollView}
         onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
       >
         <View style={styles.messagesContent}>
@@ -279,6 +315,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f0f0f',
+  },
+  characterDisplayContainer: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#27272a',
+  },
+  divider: {
+    height: 12,
+    backgroundColor: '#171717',
+    justifyContent: 'center',
+    alignItems: 'center',
+    cursor: 'ns-resize',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#27272a',
+  },
+  dividerHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#52525b',
+    borderRadius: 2,
+  },
+  chatScrollView: {
+    flex: 1,
   },
   messagesContainer: {
     flexGrow: 1,
