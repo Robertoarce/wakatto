@@ -16,7 +16,7 @@ interface CharacterDisplay3DProps {
 // Blocky Minecraft-style character component
 function Character({ character, isActive, animation = 'idle' }: { character: CharacterBehavior; isActive: boolean; animation?: AnimationState }) {
   const meshRef = useRef<THREE.Group>(null);
-  const headRef = useRef<THREE.Mesh>(null);
+  const headRef = useRef<THREE.Group>(null);
   const leftArmRef = useRef<THREE.Mesh>(null);
   const rightArmRef = useRef<THREE.Mesh>(null);
   const leftLegRef = useRef<THREE.Mesh>(null);
@@ -181,12 +181,6 @@ function Character({ character, isActive, animation = 'idle' }: { character: Cha
 
   return (
     <group ref={meshRef} position={character.model3D.position}>
-      {/* Base/Platform */}
-      <mesh position={[0, -0.6, 0]} receiveShadow>
-        <boxGeometry args={[1.5, 0.1, 1]} />
-        <meshStandardMaterial color="#b8d8e8" roughness={0.3} metalness={0.1} />
-      </mesh>
-
       {/* Legs */}
       <mesh ref={leftLegRef} position={[-0.15, -0.25, 0]} castShadow>
         <boxGeometry args={[0.25, 0.5, 0.25]} />
@@ -221,68 +215,71 @@ function Character({ character, isActive, animation = 'idle' }: { character: Cha
         <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
       </mesh>
 
-      {/* Head */}
-      <mesh ref={headRef} position={[0, 0.85, 0]} castShadow>
-        <boxGeometry args={[0.5, 0.5, 0.5]} />
-        <meshStandardMaterial color={skinColor} roughness={0.6} />
-      </mesh>
+      {/* Head Group - All facial features move with head */}
+      <group ref={headRef} position={[0, 0.85, 0]}>
+        {/* Head */}
+        <mesh castShadow>
+          <boxGeometry args={[0.5, 0.5, 0.5]} />
+          <meshStandardMaterial color={skinColor} roughness={0.6} />
+        </mesh>
 
-      {/* Hair/Top of head */}
-      <mesh position={[0, 1.05, 0]} castShadow>
-        <boxGeometry args={[0.52, 0.15, 0.52]} />
-        <meshStandardMaterial color={hairColor} roughness={0.8} />
-      </mesh>
+        {/* Hair/Top of head */}
+        <mesh position={[0, 0.2, 0]} castShadow>
+          <boxGeometry args={[0.52, 0.15, 0.52]} />
+          <meshStandardMaterial color={hairColor} roughness={0.8} />
+        </mesh>
 
-      {/* Beard (for Freud) */}
-      {hasBeard && (
-        <>
-          <mesh position={[0, 0.7, 0.26]} castShadow>
-            <boxGeometry args={[0.35, 0.2, 0.05]} />
-            <meshStandardMaterial color="#f5f5f5" roughness={0.9} />
-          </mesh>
-          <mesh position={[0, 0.55, 0.26]} castShadow>
-            <boxGeometry args={[0.3, 0.15, 0.05]} />
-            <meshStandardMaterial color="#f5f5f5" roughness={0.9} />
-          </mesh>
-        </>
-      )}
+        {/* Beard (for Freud) */}
+        {hasBeard && (
+          <>
+            <mesh position={[0, -0.15, 0.26]} castShadow>
+              <boxGeometry args={[0.35, 0.2, 0.05]} />
+              <meshStandardMaterial color="#f5f5f5" roughness={0.9} />
+            </mesh>
+            <mesh position={[0, -0.3, 0.26]} castShadow>
+              <boxGeometry args={[0.3, 0.15, 0.05]} />
+              <meshStandardMaterial color="#f5f5f5" roughness={0.9} />
+            </mesh>
+          </>
+        )}
 
-      {/* Eyes */}
-      <mesh position={[-0.12, 0.9, 0.26]}>
-        <boxGeometry args={[0.08, 0.08, 0.01]} />
-        <meshBasicMaterial color="#3a3a3a" />
-      </mesh>
-      <mesh position={[0.12, 0.9, 0.26]}>
-        <boxGeometry args={[0.08, 0.08, 0.01]} />
-        <meshBasicMaterial color="#3a3a3a" />
-      </mesh>
+        {/* Eyes */}
+        <mesh position={[-0.12, 0.05, 0.26]}>
+          <boxGeometry args={[0.08, 0.08, 0.01]} />
+          <meshBasicMaterial color="#3a3a3a" />
+        </mesh>
+        <mesh position={[0.12, 0.05, 0.26]}>
+          <boxGeometry args={[0.08, 0.08, 0.01]} />
+          <meshBasicMaterial color="#3a3a3a" />
+        </mesh>
 
-      {/* Glasses (for Freud) */}
-      {hasGlasses && (
-        <>
-          {/* Left lens frame */}
-          <mesh position={[-0.12, 0.9, 0.27]}>
-            <torusGeometry args={[0.09, 0.015, 8, 16]} />
-            <meshStandardMaterial color="#4a4a4a" metalness={0.8} roughness={0.2} />
-          </mesh>
-          {/* Right lens frame */}
-          <mesh position={[0.12, 0.9, 0.27]}>
-            <torusGeometry args={[0.09, 0.015, 8, 16]} />
-            <meshStandardMaterial color="#4a4a4a" metalness={0.8} roughness={0.2} />
-          </mesh>
-          {/* Bridge */}
-          <mesh position={[0, 0.9, 0.27]}>
-            <boxGeometry args={[0.06, 0.015, 0.015]} />
-            <meshStandardMaterial color="#4a4a4a" metalness={0.8} roughness={0.2} />
-          </mesh>
-        </>
-      )}
+        {/* Glasses (for Freud) */}
+        {hasGlasses && (
+          <>
+            {/* Left lens frame */}
+            <mesh position={[-0.12, 0.05, 0.27]}>
+              <torusGeometry args={[0.09, 0.015, 8, 16]} />
+              <meshStandardMaterial color="#4a4a4a" metalness={0.8} roughness={0.2} />
+            </mesh>
+            {/* Right lens frame */}
+            <mesh position={[0.12, 0.05, 0.27]}>
+              <torusGeometry args={[0.09, 0.015, 8, 16]} />
+              <meshStandardMaterial color="#4a4a4a" metalness={0.8} roughness={0.2} />
+            </mesh>
+            {/* Bridge */}
+            <mesh position={[0, 0.05, 0.27]}>
+              <boxGeometry args={[0.06, 0.015, 0.015]} />
+              <meshStandardMaterial color="#4a4a4a" metalness={0.8} roughness={0.2} />
+            </mesh>
+          </>
+        )}
 
-      {/* Nose */}
-      <mesh position={[0, 0.8, 0.26]}>
-        <boxGeometry args={[0.08, 0.12, 0.08]} />
-        <meshStandardMaterial color={skinColor} roughness={0.6} />
-      </mesh>
+        {/* Nose */}
+        <mesh position={[0, -0.05, 0.26]}>
+          <boxGeometry args={[0.08, 0.12, 0.08]} />
+          <meshStandardMaterial color={skinColor} roughness={0.6} />
+        </mesh>
+      </group>
 
       {/* Glow when active */}
       {isActive && (
