@@ -3,13 +3,14 @@ import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Keyboa
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCustomAlert } from './CustomAlert';
 import { CharacterDisplay3D } from './CharacterDisplay3D';
-import { DEFAULT_CHARACTER } from '../config/characters';
+import { DEFAULT_CHARACTER, getAllCharacters, getCharacter } from '../config/characters';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   created_at?: string;
+  characterId?: string; // Which character is speaking (for assistant messages)
 }
 
 interface ChatInterfaceProps {
@@ -30,6 +31,10 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
   const [characterHeight, setCharacterHeight] = useState(200); // Initial height in pixels
+  const [selectedCharacters, setSelectedCharacters] = useState<string[]>([DEFAULT_CHARACTER]); // Up to 5 characters
+  const [showCharacterSelector, setShowCharacterSelector] = useState(false);
+
+  const availableCharacters = getAllCharacters();
 
   // Pan responder for resizable divider
   const panResponder = useRef(
@@ -126,6 +131,23 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     setEditingContent('');
   };
 
+  const toggleCharacter = (characterId: string) => {
+    setSelectedCharacters(prev => {
+      if (prev.includes(characterId)) {
+        // Don't allow removing if only one left
+        if (prev.length === 1) return prev;
+        return prev.filter(id => id !== characterId);
+      } else {
+        // Don't allow more than 5 characters
+        if (prev.length >= 5) {
+          showAlert('Maximum Reached', 'You can select up to 5 characters maximum.');
+          return prev;
+        }
+        return [...prev, characterId];
+      }
+    });
+  };
+
   const confirmDeleteMessage = (messageId: string) => {
     showAlert(
       'Delete Message',
@@ -186,10 +208,56 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       >
       {/* 3D Character Display - Resizable */}
       <View style={[styles.characterDisplayContainer, { height: characterHeight }]}>
-        <CharacterDisplay3D
-          characterId={DEFAULT_CHARACTER}
-          isActive={isLoading}
-        />
+        {/* Character Selector Button */}
+        <TouchableOpacity
+          style={styles.characterSelectorButton}
+          onPress={() => setShowCharacterSelector(!showCharacterSelector)}
+        >
+          <Ionicons name="people" size={20} color="#8b5cf6" />
+          <Text style={styles.characterSelectorText}>
+            {selectedCharacters.length} Character{selectedCharacters.length !== 1 ? 's' : ''}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Character Selector Modal */}
+        {showCharacterSelector && (
+          <View style={styles.characterSelectorPanel}>
+            <Text style={styles.characterSelectorTitle}>Select Characters (Max 5)</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.characterSelectorScroll}>
+              {availableCharacters.map((character) => {
+                const isSelected = selectedCharacters.includes(character.id);
+                return (
+                  <TouchableOpacity
+                    key={character.id}
+                    style={[
+                      styles.characterSelectorCard,
+                      isSelected && styles.characterSelectorCardActive,
+                    ]}
+                    onPress={() => toggleCharacter(character.id)}
+                  >
+                    <View style={[styles.characterSelectorIndicator, { backgroundColor: character.color }]} />
+                    <Text style={[styles.characterSelectorName, isSelected && styles.characterSelectorNameActive]}>
+                      {character.name}
+                    </Text>
+                    {isSelected && <Ionicons name="checkmark-circle" size={20} color={character.color} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Multiple Character Display */}
+        <View style={styles.charactersRow}>
+          {selectedCharacters.map((characterId, index) => (
+            <View key={characterId} style={[styles.characterWrapper, { flex: 1 / selectedCharacters.length }]}>
+              <CharacterDisplay3D
+                characterId={characterId}
+                isActive={isLoading}
+              />
+            </View>
+          ))}
+        </View>
       </View>
 
       {/* Resizable Divider */}
@@ -208,55 +276,70 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
       >
         <View style={styles.messagesContent}>
-          {messages.map((message) => (
-            <TouchableOpacity
-              key={message.id}
-              onLongPress={() => handleLongPress(message)}
-              activeOpacity={message.role === 'user' ? 0.7 : 1}
-              style={[
-                styles.messageBubbleContainer,
-                message.role === 'user' ? styles.userMessageContainer : styles.assistantMessageContainer,
-              ]}
-            >
+          {messages.map((message, index) => {
+            const character = message.characterId ? getCharacter(message.characterId) : null;
+            // Alternate character positions: even index = left, odd = right
+            const characterPosition = message.role === 'assistant' ? (index % 2 === 0 ? 'left' : 'right') : null;
+
+            return (
               <View
+                key={message.id}
                 style={[
-                  styles.messageBubble,
-                  message.role === 'user' ? styles.userMessageBubble : styles.assistantMessageBubble,
+                  styles.messageBubbleContainer,
+                  message.role === 'user' && styles.userMessageContainer,
+                  characterPosition === 'left' && styles.assistantMessageLeft,
+                  characterPosition === 'right' && styles.assistantMessageRight,
                 ]}
               >
-                {editingMessageId === message.id ? (
-                  <View style={styles.editingMessageContainer}>
-                    <TextInput
-                      style={styles.editMessageInput}
-                      value={editingContent}
-                      onChangeText={setEditingContent}
-                      multiline
-                      autoFocus
-                      placeholder="Edit message..."
-                      placeholderTextColor="#71717a"
-                    />
-                    <View style={styles.editActions}>
-                      <TouchableOpacity onPress={cancelEditing} style={styles.editActionButton}>
-                        <Text style={styles.cancelText}>Cancel</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={saveEditedMessage} style={[styles.editActionButton, styles.saveButton]}>
-                        <Text style={styles.saveText}>Save</Text>
-                      </TouchableOpacity>
+                <TouchableOpacity
+                  onLongPress={() => handleLongPress(message)}
+                  activeOpacity={message.role === 'user' ? 0.7 : 1}
+                  style={[
+                    styles.messageBubble,
+                    message.role === 'user' && styles.userMessageBubble,
+                    message.role === 'assistant' && character && { backgroundColor: character.color + '20', borderColor: character.color, borderWidth: 2 },
+                  ]}
+                >
+                  {editingMessageId === message.id ? (
+                    <View style={styles.editingMessageContainer}>
+                      <TextInput
+                        style={styles.editMessageInput}
+                        value={editingContent}
+                        onChangeText={setEditingContent}
+                        multiline
+                        autoFocus
+                        placeholder="Edit message..."
+                        placeholderTextColor="#71717a"
+                      />
+                      <View style={styles.editActions}>
+                        <TouchableOpacity onPress={cancelEditing} style={styles.editActionButton}>
+                          <Text style={styles.cancelText}>Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={saveEditedMessage} style={[styles.editActionButton, styles.saveButton]}>
+                          <Text style={styles.saveText}>Save</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                  </View>
-                ) : (
-                  <>
-                <Text style={styles.messageText}>{message.content}</Text>
-                    {message.created_at && (
-                      <Text style={styles.messageTimestamp}>
-                        {formatTimestamp(message.created_at)}
-                      </Text>
-                    )}
-                  </>
-                )}
+                  ) : (
+                    <>
+                      {/* Character Name for Assistant Messages */}
+                      {message.role === 'assistant' && character && (
+                        <Text style={[styles.characterName, { color: character.color }]}>
+                          {character.name}
+                        </Text>
+                      )}
+                      <Text style={styles.messageText}>{message.content}</Text>
+                      {message.created_at && (
+                        <Text style={styles.messageTimestamp}>
+                          {formatTimestamp(message.created_at)}
+                        </Text>
+                      )}
+                    </>
+                  )}
+                </TouchableOpacity>
               </View>
-            </TouchableOpacity>
-          ))}
+            );
+          })}
           
           {isLoading && (
             <View style={[styles.messageBubbleContainer, styles.assistantMessageContainer]}>
@@ -356,12 +439,24 @@ const styles = StyleSheet.create({
   },
   messageBubbleContainer: {
     flexDirection: 'row',
+    marginBottom: 12,
   },
   userMessageContainer: {
-    justifyContent: 'flex-end',
+    justifyContent: 'center', // Center user messages
+  },
+  assistantMessageLeft: {
+    justifyContent: 'flex-start', // Character messages on left
+  },
+  assistantMessageRight: {
+    justifyContent: 'flex-end', // Character messages on right
   },
   assistantMessageContainer: {
     justifyContent: 'flex-start',
+  },
+  characterName: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
   },
   messageBubble: {
     maxWidth: '85%',
@@ -483,5 +578,81 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontWeight: '600',
+  },
+  charactersRow: {
+    flexDirection: 'row',
+    flex: 1,
+  },
+  characterWrapper: {
+    height: '100%',
+  },
+  characterSelectorButton: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(15, 15, 15, 0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#27272a',
+    zIndex: 10,
+  },
+  characterSelectorText: {
+    color: '#8b5cf6',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  characterSelectorPanel: {
+    position: 'absolute',
+    top: 50,
+    left: 8,
+    right: 8,
+    backgroundColor: '#171717',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#27272a',
+    padding: 12,
+    zIndex: 10,
+  },
+  characterSelectorTitle: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  characterSelectorScroll: {
+    maxHeight: 120,
+  },
+  characterSelectorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginRight: 8,
+    backgroundColor: '#27272a',
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  characterSelectorCardActive: {
+    backgroundColor: '#3f3f46',
+  },
+  characterSelectorIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  characterSelectorName: {
+    color: '#a1a1aa',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  characterSelectorNameActive: {
+    color: 'white',
   },
 });
