@@ -4,6 +4,10 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCustomAlert } from './CustomAlert';
 import { CharacterDisplay3D } from './CharacterDisplay3D';
 import { DEFAULT_CHARACTER, getAllCharacters, getCharacter } from '../config/characters';
+import { getVoiceRecorder, RecordingState } from '../services/voiceRecording';
+import { transcribeAudio, isWebSpeechSupported } from '../services/speechToText';
+import { LiveSpeechRecognition, LiveTranscriptionResult } from '../services/speechToTextLive';
+import { detectBrowser, getBrowserGuidance, isVoiceSupported } from '../utils/browserDetection';
 
 interface Message {
   id: string;
@@ -27,7 +31,12 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const { showAlert, AlertComponent } = useCustomAlert();
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [liveTranscript, setLiveTranscript] = useState('');
   const scrollViewRef = useRef<ScrollView>(null);
+  const voiceRecorderRef = useRef(getVoiceRecorder());
+  const liveSpeechRef = useRef<LiveSpeechRecognition | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
   const [characterHeight, setCharacterHeight] = useState(200); // Initial height in pixels
@@ -84,6 +93,39 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     }
   }, [isLoading, editingMessageId]);
 
+  // Setup voice recorder and live speech recognition
+  useEffect(() => {
+    const voiceRecorder = voiceRecorderRef.current;
+
+    voiceRecorder.setOnStateChange((state: RecordingState) => {
+      setIsRecording(state.isRecording);
+      setRecordingDuration(state.duration);
+    });
+
+    // Initialize live speech recognition if supported
+    if (isWebSpeechSupported()) {
+      const liveSpeech = new LiveSpeechRecognition();
+
+      liveSpeech.setOnResult((result: LiveTranscriptionResult) => {
+        setLiveTranscript(result.transcript);
+      });
+
+      liveSpeech.setOnError((error: Error) => {
+        console.error('[ChatInterface] Live speech error:', error);
+        // Don't show alert for interim errors, wait for final result
+      });
+
+      liveSpeechRef.current = liveSpeech;
+    }
+
+    return () => {
+      voiceRecorder.dispose();
+      if (liveSpeechRef.current) {
+        liveSpeechRef.current.abort();
+      }
+    };
+  }, []);
+
   const handleSendMessagePress = () => {
     if (input.trim()) {
       onSendMessage(input, selectedCharacters);
@@ -99,9 +141,132 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     }
   };
 
-  const toggleRecording = () => {
-    setIsRecording(!isRecording);
-    // In a real app, this would start/stop voice recording
+  const handleTranscription = async (audioBlob: Blob) => {
+    setIsTranscribing(true);
+
+    try {
+      console.log('[ChatInterface] Transcribing audio with Whisper API...');
+
+      // Use Whisper API for recorded audio (fallback when live speech fails)
+      const result = await transcribeAudio(audioBlob, 'whisper', false);
+
+      console.log('[ChatInterface] Transcription result:', result);
+
+      if (result.text.trim()) {
+        // Add transcribed text to input
+        setInput((prev) => {
+          const separator = prev.trim() ? ' ' : '';
+          return prev + separator + result.text.trim();
+        });
+
+        showAlert(
+          'Transcription Complete',
+          'Transcribed using OpenAI Whisper API'
+        );
+      } else {
+        showAlert(
+          'No Speech Detected',
+          'Could not detect any speech in the recording. Please try again and speak clearly.'
+        );
+      }
+    } catch (error: any) {
+      console.error('[ChatInterface] Transcription error:', error);
+      showAlert('Transcription Failed', error.message || 'Failed to transcribe audio. Please check your OpenAI API key in Settings.');
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const toggleRecording = async () => {
+    const voiceRecorder = voiceRecorderRef.current;
+    const liveSpeech = liveSpeechRef.current;
+
+    // Check browser compatibility
+    const voiceSupport = isVoiceSupported();
+    if (!voiceSupport.supported) {
+      showAlert('Not Supported', voiceSupport.message);
+      return;
+    }
+
+    if (!voiceRecorder.isSupported()) {
+      const browser = detectBrowser();
+      showAlert(
+        'Not Supported',
+        `Voice recording is not supported in ${browser.name}. Please use Chrome, Edge, Brave, Firefox, or Safari.`
+      );
+      return;
+    }
+
+    if (isRecording) {
+      // Stop recording
+      voiceRecorder.stopRecording();
+
+      // Stop live speech recognition if active
+      let finalTranscript = '';
+      if (liveSpeech && liveSpeech.isSupported()) {
+        finalTranscript = liveSpeech.stop();
+      }
+
+      // Use live transcript if available, otherwise transcribe recorded audio
+      if (finalTranscript.trim()) {
+        // We got live transcription - use it directly
+        setInput((prev) => {
+          const separator = prev.trim() ? ' ' : '';
+          return prev + separator + finalTranscript.trim();
+        });
+        setLiveTranscript('');
+
+        showAlert(
+          'Transcription Complete',
+          'Transcribed using Web Speech API (live)'
+        );
+      } else {
+        // Fall back to Whisper API with recorded audio
+        const state = voiceRecorder.getState();
+        if (state.audioBlob) {
+          await handleTranscription(state.audioBlob);
+        }
+      }
+    } else {
+      // Start recording
+      try {
+        setLiveTranscript('');
+        await voiceRecorder.startRecording();
+
+        // Start live speech recognition if available
+        if (liveSpeech && liveSpeech.isSupported()) {
+          try {
+            liveSpeech.start();
+            const browser = detectBrowser();
+            console.log(`[ChatInterface] Started live speech recognition (${browser.name})`);
+          } catch (error: any) {
+            console.error('[ChatInterface] Failed to start live speech:', error);
+            // Continue with audio recording even if live speech fails
+            const browser = detectBrowser();
+            console.log(`[ChatInterface] Will use Whisper API fallback (${browser.name})`);
+          }
+        } else {
+          const browser = detectBrowser();
+          console.log(`[ChatInterface] Live speech not available in ${browser.name}, will use Whisper API`);
+        }
+      } catch (error: any) {
+        const guidance = getBrowserGuidance('microphone');
+        showAlert('Recording Error', `${error.message}\n\n${guidance}`);
+      }
+    }
+  };
+
+  const cancelRecording = () => {
+    const voiceRecorder = voiceRecorderRef.current;
+    const liveSpeech = liveSpeechRef.current;
+
+    voiceRecorder.cancelRecording();
+
+    if (liveSpeech) {
+      liveSpeech.abort();
+    }
+
+    setLiveTranscript('');
   };
 
   const startEditingMessage = (message: Message) => {
@@ -353,6 +518,35 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       </ScrollView>
 
       <View style={styles.inputContainer}>
+        {/* Recording Status & Live Transcript */}
+        {(isRecording || liveTranscript || isTranscribing) && (
+          <View style={styles.recordingStatusContainer}>
+            {isRecording && (
+              <View style={styles.recordingStatus}>
+                <View style={styles.recordingDot} />
+                <Text style={styles.recordingText}>
+                  Recording... {Math.floor(recordingDuration / 60)}:{String(recordingDuration % 60).padStart(2, '0')}
+                </Text>
+                <TouchableOpacity onPress={cancelRecording} style={styles.cancelButton}>
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {isTranscribing && (
+              <View style={styles.transcribingStatus}>
+                <ActivityIndicator size="small" color="#8b5cf6" />
+                <Text style={styles.transcribingText}>Transcribing...</Text>
+              </View>
+            )}
+            {liveTranscript && (
+              <View style={styles.liveTranscriptContainer}>
+                <Text style={styles.liveTranscriptLabel}>Live:</Text>
+                <Text style={styles.liveTranscriptText}>{liveTranscript}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
         <View style={styles.inputWrapper}>
           <TextInput
             value={input}
@@ -367,9 +561,11 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
           <View style={styles.actionButtons}>
             <TouchableOpacity
               onPress={toggleRecording}
+              disabled={isTranscribing}
               style={[
                 styles.iconButton,
                 isRecording ? styles.recordButtonActive : styles.recordButtonInactive,
+                isTranscribing && styles.buttonDisabled,
               ]}
             >
               {isRecording ? <MaterialCommunityIcons name="microphone-off" size={24} color="white" /> : <MaterialCommunityIcons name="microphone" size={24} color="#a1a1aa" />}
@@ -654,5 +850,78 @@ const styles = StyleSheet.create({
   },
   characterSelectorNameActive: {
     color: 'white',
+  },
+  recordingStatusContainer: {
+    marginBottom: 8,
+    gap: 8,
+  },
+  recordingStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#dc2626',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  recordingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'white',
+  },
+  recordingText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
+  cancelButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 4,
+  },
+  cancelButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  transcribingStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#27272a',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  transcribingText: {
+    color: '#8b5cf6',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  liveTranscriptContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#27272a',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  liveTranscriptLabel: {
+    color: '#8b5cf6',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  liveTranscriptText: {
+    color: '#a1a1aa',
+    fontSize: 14,
+    flex: 1,
+    fontStyle: 'italic',
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
 });
