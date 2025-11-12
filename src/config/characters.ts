@@ -1,10 +1,15 @@
 // Character configuration for AI personalities
+import { getPromptById } from '../prompts';
+
+export type PromptStyleId = 'compassionate' | 'psychoanalytic' | 'jungian' | 'cognitive' | 'mindfulness' | 'socratic' | 'creative' | 'adlerian' | 'existential' | 'positive' | 'narrative';
+
 export interface CharacterBehavior {
   id: string;
   name: string;
   description: string;
   color: string; // Primary color for character
-  systemPrompt: string;
+  promptStyle: PromptStyleId; // Therapeutic approach style
+  systemPrompt?: string; // Optional custom system prompt (overrides promptStyle)
   traits: {
     empathy: number; // 1-10
     directness: number; // 1-10
@@ -25,6 +30,7 @@ export const CHARACTERS: Record<string, CharacterBehavior> = {
     name: 'Freud',
     description: 'Analytical and introspective, focuses on unconscious motivations',
     color: '#8b5cf6', // Purple
+    promptStyle: 'psychoanalytic', // Uses Freudian psychoanalytic approach
     systemPrompt: `You are Freud, a psychoanalytic companion. Your approach is:
 - Deeply analytical and introspective
 - Interested in unconscious motivations and hidden meanings
@@ -50,6 +56,7 @@ Keep responses thoughtful and insightful, typically 2-4 sentences.`,
     name: 'Jung',
     description: 'Spiritual and symbolic, explores archetypes and personal growth',
     color: '#06b6d4', // Cyan
+    promptStyle: 'jungian', // Uses Jungian analytical psychology
     systemPrompt: `You are Jung, a depth psychology companion. Your approach is:
 - Exploring symbolic meanings and archetypes
 - Interested in dreams, spirituality, and personal growth
@@ -75,6 +82,7 @@ Keep responses insightful and encouraging, typically 2-4 sentences.`,
     name: 'Adler',
     description: 'Practical and goal-oriented, focuses on strengths and solutions',
     color: '#10b981', // Green
+    promptStyle: 'adlerian', // Uses Adlerian individual psychology
     systemPrompt: `You are Adler, an individual psychology companion. Your approach is:
 - Practical and solution-focused
 - Emphasizing strengths and personal power
@@ -110,4 +118,13 @@ export function getCharacter(id?: string): CharacterBehavior {
 // Get all characters as array
 export function getAllCharacters(): CharacterBehavior[] {
   return Object.values(CHARACTERS);
+}
+
+// Get the effective system prompt for a character
+// Uses custom systemPrompt if defined, otherwise uses therapeutic style prompt
+export function getCharacterPrompt(character: CharacterBehavior): string {
+  if (character.systemPrompt) {
+    return character.systemPrompt;
+  }
+  return getPromptById(character.promptStyle);
 }

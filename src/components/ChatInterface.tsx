@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, PanResponder } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, PanResponder, Dimensions } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCustomAlert } from './CustomAlert';
 import { CharacterDisplay3D } from './CharacterDisplay3D';
@@ -39,11 +39,24 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const liveSpeechRef = useRef<LiveSpeechRecognition | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
-  const [characterHeight, setCharacterHeight] = useState(200); // Initial height in pixels
+  // Set initial height to 1/3 of viewport height
+  const [characterHeight, setCharacterHeight] = useState(() => {
+    const windowHeight = Dimensions.get('window').height;
+    return Math.floor(windowHeight / 3);
+  });
   const [selectedCharacters, setSelectedCharacters] = useState<string[]>([DEFAULT_CHARACTER]); // Up to 5 characters
   const [showCharacterSelector, setShowCharacterSelector] = useState(false);
 
   const availableCharacters = getAllCharacters();
+
+  // Update character height on window resize
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      const newHeight = Math.floor(window.height / 3);
+      setCharacterHeight(newHeight);
+    });
+    return () => subscription?.remove();
+  }, []);
 
   // Pan responder for resizable divider
   const panResponder = useRef(
@@ -52,8 +65,11 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       onMoveShouldSetPanResponder: () => true,
       onPanResponderMove: (_, gestureState) => {
         const newHeight = characterHeight + gestureState.dy;
-        // Constrain height between 150px and 500px
-        if (newHeight >= 150 && newHeight <= 500) {
+        const windowHeight = Dimensions.get('window').height;
+        // Constrain height between 20% and 60% of viewport
+        const minHeight = Math.floor(windowHeight * 0.2);
+        const maxHeight = Math.floor(windowHeight * 0.6);
+        if (newHeight >= minHeight && newHeight <= maxHeight) {
           setCharacterHeight(newHeight);
         }
       },

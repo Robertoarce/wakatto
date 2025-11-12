@@ -5,7 +5,7 @@ import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { getCharacter, CharacterBehavior } from '../config/characters';
 
-export type AnimationState = 'idle' | 'thinking' | 'talking' | 'confused' | 'happy' | 'excited' | 'winning';
+export type AnimationState = 'idle' | 'thinking' | 'talking' | 'confused' | 'happy' | 'excited' | 'winning' | 'walking' | 'jump' | 'surprise_jump' | 'surprise_happy';
 
 interface CharacterDisplay3DProps {
   characterId: string;
@@ -159,6 +159,88 @@ function Character({ character, isActive, animation = 'idle' }: { character: Cha
           }
           if (rightLegRef.current) {
             rightLegRef.current.rotation.x = Math.sin(time * 4 + Math.PI) * 0.5;
+          }
+          break;
+
+        case 'walking':
+          // Walking animation - swinging arms and legs
+          if (meshRef.current) {
+            meshRef.current.position.y = Math.abs(Math.sin(time * 4)) * 0.05;
+          }
+          if (headRef.current) {
+            headRef.current.rotation.y = Math.sin(time * 2) * 0.05;
+          }
+          if (leftArmRef.current) {
+            leftArmRef.current.rotation.x = Math.sin(time * 4) * 0.6;
+          }
+          if (rightArmRef.current) {
+            rightArmRef.current.rotation.x = Math.sin(time * 4 + Math.PI) * 0.6;
+          }
+          if (leftLegRef.current) {
+            leftLegRef.current.rotation.x = Math.sin(time * 4 + Math.PI) * 0.5;
+          }
+          if (rightLegRef.current) {
+            rightLegRef.current.rotation.x = Math.sin(time * 4) * 0.5;
+          }
+          break;
+
+        case 'jump':
+          // Simple jump animation
+          if (meshRef.current) {
+            const jumpCycle = Math.sin(time * 2) * 0.5 + 0.5; // 0 to 1
+            meshRef.current.position.y = jumpCycle * 0.4;
+          }
+          if (leftArmRef.current) {
+            leftArmRef.current.rotation.x = -0.5;
+            leftArmRef.current.rotation.z = -0.3;
+          }
+          if (rightArmRef.current) {
+            rightArmRef.current.rotation.x = -0.5;
+            rightArmRef.current.rotation.z = 0.3;
+          }
+          break;
+
+        case 'surprise_jump':
+          // Surprised jump - sudden upward movement with hands out
+          if (meshRef.current) {
+            const surpriseJump = Math.abs(Math.sin(time * 6)) * 0.6;
+            meshRef.current.position.y = surpriseJump;
+          }
+          if (headRef.current) {
+            headRef.current.rotation.x = -0.2; // Head tilted back
+          }
+          if (leftArmRef.current) {
+            leftArmRef.current.rotation.x = -1.5; // Arms out to sides
+            leftArmRef.current.rotation.z = -1.2;
+          }
+          if (rightArmRef.current) {
+            rightArmRef.current.rotation.x = -1.5;
+            rightArmRef.current.rotation.z = 1.2;
+          }
+          if (leftLegRef.current) {
+            leftLegRef.current.rotation.x = -0.3;
+          }
+          if (rightLegRef.current) {
+            rightLegRef.current.rotation.x = -0.3;
+          }
+          break;
+
+        case 'surprise_happy':
+          // Surprised and happy - bouncing with hands to face
+          if (meshRef.current) {
+            meshRef.current.position.y = Math.abs(Math.sin(time * 4)) * 0.2;
+          }
+          if (headRef.current) {
+            headRef.current.rotation.z = Math.sin(time * 3) * 0.2;
+            headRef.current.rotation.x = -0.1;
+          }
+          if (leftArmRef.current) {
+            leftArmRef.current.rotation.x = -2.0; // Hands near face
+            leftArmRef.current.rotation.z = -0.5;
+          }
+          if (rightArmRef.current) {
+            rightArmRef.current.rotation.x = -2.0;
+            rightArmRef.current.rotation.z = 0.5;
           }
           break;
       }

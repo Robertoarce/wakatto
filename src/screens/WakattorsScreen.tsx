@@ -7,7 +7,8 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CharacterDisplay3D, AnimationState } from '../components/CharacterDisplay3D';
-import { getAllCharacters, CharacterBehavior, CHARACTERS } from '../config/characters';
+import { getAllCharacters, CharacterBehavior, CHARACTERS, PromptStyleId } from '../config/characters';
+import { PROMPT_STYLES } from '../prompts';
 
 export default function WakattorsScreen() {
   const [characters] = useState<CharacterBehavior[]>(getAllCharacters());
@@ -22,6 +23,7 @@ export default function WakattorsScreen() {
       name: 'New Wakattor',
       description: 'A new AI character',
       color: '#8b5cf6',
+      promptStyle: 'compassionate', // Default therapeutic style
       systemPrompt: 'You are a helpful AI assistant.',
       traits: {
         empathy: 5,
@@ -190,7 +192,19 @@ export default function WakattorsScreen() {
                   <View style={styles.detailSection}>
                     <Text style={styles.detailLabel}>Test Animations</Text>
                     <View style={styles.animationGrid}>
-                      {(['idle', 'thinking', 'talking', 'confused', 'happy', 'excited', 'winning'] as AnimationState[]).map((anim) => (
+                      {([
+                        'idle',
+                        'thinking',
+                        'talking',
+                        'confused',
+                        'happy',
+                        'excited',
+                        'winning',
+                        'walking',
+                        'jump',
+                        'surprise_jump',
+                        'surprise_happy'
+                      ] as AnimationState[]).map((anim) => (
                         <TouchableOpacity
                           key={anim}
                           style={[
@@ -203,7 +217,7 @@ export default function WakattorsScreen() {
                             styles.animButtonText,
                             currentAnimation === anim && styles.animButtonTextActive,
                           ]}>
-                            {anim.charAt(0).toUpperCase() + anim.slice(1)}
+                            {anim.replace('_', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
                           </Text>
                         </TouchableOpacity>
                       ))}
@@ -297,13 +311,44 @@ export default function WakattorsScreen() {
                     />
                   </View>
 
+                  {/* Therapeutic Prompt Style Selector */}
                   <View style={styles.formSection}>
-                    <Text style={styles.formLabel}>System Prompt</Text>
+                    <Text style={styles.formLabel}>Therapeutic Approach</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.promptStyleScroll}>
+                      <View style={styles.promptStyleRow}>
+                        {PROMPT_STYLES.map((style) => (
+                          <TouchableOpacity
+                            key={style.id}
+                            style={[
+                              styles.promptStyleButton,
+                              editedCharacter.promptStyle === style.id && styles.promptStyleButtonActive,
+                            ]}
+                            onPress={() => updateCharacterField('promptStyle', style.id as PromptStyleId)}
+                          >
+                            <Text style={styles.promptStyleIcon}>{style.icon}</Text>
+                            <Text style={[
+                              styles.promptStyleButtonText,
+                              editedCharacter.promptStyle === style.id && styles.promptStyleButtonTextActive,
+                            ]}>
+                              {style.name}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </ScrollView>
+                    <Text style={styles.promptStyleDescription}>
+                      {PROMPT_STYLES.find(s => s.id === editedCharacter.promptStyle)?.description}
+                    </Text>
+                  </View>
+
+                  <View style={styles.formSection}>
+                    <Text style={styles.formLabel}>Custom System Prompt (Optional)</Text>
+                    <Text style={styles.formHint}>Leave blank to use the therapeutic style above</Text>
                     <TextInput
                       style={[styles.input, styles.textArea]}
                       value={editedCharacter.systemPrompt}
                       onChangeText={(value) => updateCharacterField('systemPrompt', value)}
-                      placeholder="Define the character's behavior"
+                      placeholder="Optional: Define custom behavior"
                       placeholderTextColor="#71717a"
                       multiline
                       numberOfLines={6}
@@ -694,5 +739,50 @@ const styles = StyleSheet.create({
   },
   animButtonTextActive: {
     color: 'white',
+  },
+  promptStyleScroll: {
+    marginBottom: 12,
+  },
+  promptStyleRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  promptStyleButton: {
+    minWidth: 140,
+    padding: 12,
+    backgroundColor: '#27272a',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#3f3f46',
+    alignItems: 'center',
+  },
+  promptStyleButtonActive: {
+    backgroundColor: '#1e1b4b',
+    borderColor: '#8b5cf6',
+  },
+  promptStyleIcon: {
+    fontSize: 28,
+    marginBottom: 6,
+  },
+  promptStyleButtonText: {
+    color: '#a1a1aa',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  promptStyleButtonTextActive: {
+    color: '#c4b5fd',
+  },
+  promptStyleDescription: {
+    fontSize: 13,
+    color: '#71717a',
+    fontStyle: 'italic',
+    lineHeight: 18,
+  },
+  formHint: {
+    fontSize: 12,
+    color: '#71717a',
+    marginTop: 4,
+    marginBottom: 8,
   },
 });
