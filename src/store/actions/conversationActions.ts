@@ -94,7 +94,7 @@ export const createConversation = (title: string = 'New Conversation') => async 
 export const selectConversation = (conversation: any) => async (dispatch: any) => {
   try {
     dispatch(setCurrentConversation(conversation));
-    
+
     // Load messages for this conversation
     const { data: messages, error } = await supabase
       .from('messages')
@@ -104,7 +104,13 @@ export const selectConversation = (conversation: any) => async (dispatch: any) =
 
     if (error) throw error;
 
-    dispatch(setMessages(messages || []));
+    // Map character_id to characterId for TypeScript
+    const mappedMessages = (messages || []).map((msg: any) => ({
+      ...msg,
+      characterId: msg.character_id,
+    }));
+
+    dispatch(setMessages(mappedMessages));
   } catch (error) {
     console.error('Error selecting conversation:', error);
     dispatch(setMessages([]));
@@ -112,7 +118,7 @@ export const selectConversation = (conversation: any) => async (dispatch: any) =
 };
 
 // Async action to save a message to the database
-export const saveMessage = (conversationId: string, role: 'user' | 'assistant', content: string) => async (dispatch: any, getState: any) => {
+export const saveMessage = (conversationId: string, role: 'user' | 'assistant', content: string, characterId?: string) => async (dispatch: any, getState: any) => {
   try {
     const { data, error } = await supabase
       .from('messages')
@@ -121,6 +127,7 @@ export const saveMessage = (conversationId: string, role: 'user' | 'assistant', 
           conversation_id: conversationId,
           role,
           content,
+          character_id: characterId || null,
           created_at: new Date().toISOString(),
         }
       ])
@@ -130,7 +137,12 @@ export const saveMessage = (conversationId: string, role: 'user' | 'assistant', 
     if (error) throw error;
 
     if (data) {
-      dispatch(addMessage(data));
+      // Map character_id to characterId for TypeScript
+      const mappedMessage = {
+        ...data,
+        characterId: data.character_id,
+      };
+      dispatch(addMessage(mappedMessage));
 
       // Update conversation's updated_at timestamp
       await supabase

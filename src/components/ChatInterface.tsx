@@ -15,7 +15,7 @@ interface Message {
 
 interface ChatInterfaceProps {
   messages: Message[];
-  onSendMessage: (content: string) => void;
+  onSendMessage: (content: string, selectedCharacters: string[]) => void;
   showSidebar: boolean;
   onToggleSidebar: () => void;
   isLoading?: boolean;
@@ -86,7 +86,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
   const handleSendMessagePress = () => {
     if (input.trim()) {
-      onSendMessage(input);
+      onSendMessage(input, selectedCharacters);
       setInput('');
     }
   };
