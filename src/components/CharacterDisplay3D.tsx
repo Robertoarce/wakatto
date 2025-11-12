@@ -261,8 +261,11 @@ function Character({ character, isActive, animation = 'idle' }: { character: Cha
   const hairColor = character.id === 'freud' ? '#f5f5f5' : character.id === 'jung' ? '#8b6f47' : '#6b5d4f';
   const skinColor = '#f4c8a8';
 
+  // For single character display, center at origin
+  const position: [number, number, number] = [0, 0, 0];
+
   return (
-    <group ref={meshRef} position={character.model3D.position}>
+    <group ref={meshRef} position={position}>
       {/* Legs */}
       <mesh ref={leftLegRef} position={[-0.15, -0.25, 0]} castShadow>
         <boxGeometry args={[0.25, 0.5, 0.25]} />
@@ -377,7 +380,7 @@ export function CharacterDisplay3D({ characterId, isActive = false, animation = 
   return (
     <View style={styles.container}>
       <Canvas
-        camera={{ position: [0, 2, 5], fov: 50 }}
+        camera={{ position: [0, 1.5, 3], fov: 50 }}
         gl={{ alpha: true, antialias: true }}
         style={{ background: 'transparent' }}
       >
@@ -386,6 +389,8 @@ export function CharacterDisplay3D({ characterId, isActive = false, animation = 
         <directionalLight position={[-5, 5, 5]} intensity={0.5} />
         {/* Top light for better character illumination */}
         <directionalLight position={[0, 10, 0]} intensity={0.8} color="#ffffff" />
+        {/* Frontal light for face illumination */}
+        <directionalLight position={[0, 2, 5]} intensity={1.2} color="#ffffff" />
 
         <Character character={character} isActive={isActive} animation={animation} />
 

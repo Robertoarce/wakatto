@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
@@ -37,9 +37,13 @@ export function Header() {
       <View style={styles.header}>
         <View style={styles.leftContainer}>
           <View style={styles.logoContainer}>
-            <Text style={styles.logoText}>ψ</Text>
+            <Image
+              source={require('../assets/images/logo.svg')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
-          <Text style={styles.title}>Psyche AI</Text>
+          <Text style={styles.title}>Wakatto</Text>
         </View>
 
         <View style={styles.rightContainer}>
@@ -82,13 +86,14 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#8b5cf6', // purple-500
+    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 4,
   },
-  logoText: {
-    fontSize: 14,
-    color: 'white',
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   title: {
     fontSize: 20,

@@ -671,7 +671,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   messageBubble: {
-    maxWidth: '85%',
+    maxWidth: '95%',
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 8,
