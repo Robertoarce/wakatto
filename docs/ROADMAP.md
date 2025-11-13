@@ -1,8 +1,8 @@
 # Wakatto AI Diary - Product Roadmap
 
-**Last Updated**: November 9, 2025
+**Last Updated**: November 13, 2024
 **Status**: Active Development
-**Current Version**: MVP 1.0
+**Current Version**: MVP 1.5 (with 3D Wakattors)
 
 ---
 
@@ -135,8 +135,15 @@
 - [ ] **Backup & Sync**: Automatic encrypted backups to cloud storage
 - [ ] **Data Visualization**: Charts for writing frequency, mood trends, etc.
 
-### Characters Screen (Phase 1)
+### Wakattors Screen - Advanced Features
 **Goal**: Extract and display entities mentioned in diary
+**Status**: Basic Wakattor management complete, entity extraction pending
+
+- [x] **Wakattor Management**: Create, edit, delete AI characters
+  - ✅ Character grid with 3D previews
+  - ✅ Personality customization
+  - ✅ Animation testing
+  - ✅ Color customization
 
 - [ ] **Entity Extraction**: Use AI to identify people, places, concepts
   - Reference: `src/services/entityExtraction.ts` (partially exists)
@@ -318,7 +325,48 @@
 
 ## Completed Tasks
 
-### November 9, 2025
+### November 13, 2024
+- [x] **3D Wakattor Character System**: Implemented complete 3D character system
+  - Blocky Minecraft-style character design with Three.js
+  - 7-state animation system (idle, thinking, talking, confused, happy, excited, winning)
+  - Smooth 60fps animations using requestAnimationFrame
+  - Files: `src/components/CharacterDisplay3D.tsx`, `src/config/characters.ts`
+
+- [x] **Wakattors Management Screen**: Character CRUD interface
+  - Create, view, modify, delete characters
+  - Character grid with 3D previews
+  - Personality trait sliders (empathy, directness, formality, humor)
+  - System prompt editing for AI behavior customization
+  - Body and accessory color pickers
+  - Real-time animation testing
+  - File: `src/screens/WakattorsScreen.tsx`
+
+- [x] **Resizable Character Display**: User-controlled character viewport
+  - Drag-to-resize divider (150px-500px)
+  - PanResponder integration for touch gestures
+  - Smooth visual feedback
+  - File: `src/components/ChatInterface.tsx`
+
+- [x] **Animation Test Controls**: Interactive animation testing
+  - Collapsible animation control panel
+  - Toggle button with "Animations" label
+  - All 7 animation states accessible
+  - Active animation visual feedback
+  - Files: `src/screens/WakattorsScreen.tsx`, `src/components/ChatInterface.tsx`
+
+- [x] **Multi-Character System**: Support for multiple characters in conversations
+  - Up to 5 characters per conversation
+  - Character positioning system for group scenes
+  - Individual animation states per character
+  - Default character lineup: Freud, Jung, Adler
+
+- [x] **Rebrand to Wakatto**: Complete rebrand from Psyche AI
+  - New branding and naming convention
+  - Updated UI with Wakatto branding
+  - Improved 3D character display
+  - File: Various branding files
+
+### November 9, 2024
 - [x] **Login Flow Fix**: Fixed chat history not loading after login
   - Issue: Redux store not updated with session after `signIn()`
   - Solution: Added `setSession()` dispatch in `LoginScreen` and `RegisterScreen`
@@ -424,6 +472,6 @@ Want to work on something? Here's how:
 
 ---
 
-**Last Updated**: November 9, 2025
-**Next Review**: November 16, 2025
+**Last Updated**: November 13, 2024
+**Next Review**: November 20, 2024
 **Maintainer**: @Robertoarce

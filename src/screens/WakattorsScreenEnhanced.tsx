@@ -16,7 +16,7 @@ const BODY_COLORS = [
   '#ec4899', '#f43f5e', '#ef4444', '#f97316',
   '#f59e0b', '#eab308', '#84cc16', '#22c55e',
   '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9',
-  '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef',
+  '#3b82f6', '#6366f1', '#a78bfa', '#d946ef',
 ];
 
 const SKIN_COLORS = ['#f4c8a8', '#d4a574', '#c68642', '#8d5524'];
@@ -31,7 +31,7 @@ const ROLES = [
   'Guide', 'Teacher', 'Companion', 'Counselor', 'Supporter',
 ];
 
-type EditorTab = 'basic' | 'personality' | 'appearance' | 'advanced';
+type EditorTab = 'basic' | 'personality' | 'animations' | 'advanced';
 
 export default function WakattorsScreenEnhanced() {
   const [characters] = useState<CharacterBehavior[]>(getAllCharacters());
@@ -165,13 +165,6 @@ export default function WakattorsScreenEnhanced() {
               <View style={styles.cardActions}>
                 <TouchableOpacity
                   style={styles.actionButton}
-                  onPress={() => setSelectedCharacter(character)}
-                >
-                  <Ionicons name="eye" size={20} color="#06b6d4" />
-                  <Text style={styles.actionButtonText}>View</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.actionButton}
                   onPress={() => handleEdit(character)}
                 >
                   <Ionicons name="create" size={20} color="#8b5cf6" />
@@ -220,11 +213,11 @@ export default function WakattorsScreenEnhanced() {
                     <Text style={[styles.tabText, editorTab === 'personality' && styles.tabTextActive]}>Personality</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.tab, editorTab === 'appearance' && styles.tabActive]}
-                    onPress={() => setEditorTab('appearance')}
+                    style={[styles.tab, editorTab === 'animations' && styles.tabActive]}
+                    onPress={() => setEditorTab('animations')}
                   >
-                    <Ionicons name="body" size={20} color={editorTab === 'appearance' ? '#8b5cf6' : '#71717a'} />
-                    <Text style={[styles.tabText, editorTab === 'appearance' && styles.tabTextActive]}>Appearance</Text>
+                    <Ionicons name="play-circle" size={20} color={editorTab === 'animations' ? '#8b5cf6' : '#71717a'} />
+                    <Text style={[styles.tabText, editorTab === 'animations' && styles.tabTextActive]}>Animations</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.tab, editorTab === 'advanced' && styles.tabActive]}
@@ -351,158 +344,33 @@ export default function WakattorsScreenEnhanced() {
                     </View>
                   )}
 
-                  {/* Appearance Tab */}
-                  {editorTab === 'appearance' && (
+                  {/* Animations Tab */}
+                  {editorTab === 'animations' && (
                     <View style={styles.tabContent}>
-                      <Text style={styles.sectionTitle}>Personalize Appearance</Text>
-                      <Text style={styles.sectionSubtitle}>Customize how your Wakattor looks</Text>
+                      <Text style={styles.sectionTitle}>Test Animations</Text>
+                      <Text style={styles.sectionSubtitle}>Preview different animation states</Text>
 
-                      {/* Gender */}
-                      <View style={styles.formSection}>
-                        <Text style={styles.formLabel}>Gender</Text>
-                        <View style={styles.optionRow}>
-                          {(['male', 'female', 'neutral'] as GenderType[]).map((gender) => (
-                            <TouchableOpacity
-                              key={gender}
-                              style={[
-                                styles.optionButton,
-                                editedCharacter.customization.gender === gender && styles.optionButtonActive,
-                              ]}
-                              onPress={() => updateCustomization('gender', gender)}
-                            >
-                              <Text style={[
-                                styles.optionButtonText,
-                                editedCharacter.customization.gender === gender && styles.optionButtonTextActive,
-                              ]}>
-                                {gender.charAt(0).toUpperCase() + gender.slice(1)}
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
+                      <View style={styles.animationGrid}>
+                        {(['idle', 'thinking', 'talking', 'confused', 'happy', 'excited', 'winning', 'walking', 'jump', 'surprise_jump', 'surprise_happy'] as AnimationState[]).map((animation) => (
+                          <TouchableOpacity
+                            key={animation}
+                            style={[
+                              styles.animationButton,
+                              currentAnimation === animation && styles.animationButtonActive,
+                            ]}
+                            onPress={() => setCurrentAnimation(animation)}
+                          >
+                            <Text style={[
+                              styles.animationButtonText,
+                              currentAnimation === animation && styles.animationButtonTextActive,
+                            ]}>
+                              {animation.replace('_', ' ').split(' ').map(word =>
+                                word.charAt(0).toUpperCase() + word.slice(1)
+                              ).join(' ')}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
                       </View>
-
-                      {/* Skin Tone */}
-                      <View style={styles.formSection}>
-                        <Text style={styles.formLabel}>Skin Tone</Text>
-                        <View style={styles.optionRow}>
-                          {(['light', 'medium', 'tan', 'dark'] as SkinToneType[]).map((tone) => (
-                            <TouchableOpacity
-                              key={tone}
-                              style={[
-                                styles.optionButton,
-                                editedCharacter.customization.skinTone === tone && styles.optionButtonActive,
-                              ]}
-                              onPress={() => updateCustomization('skinTone', tone)}
-                            >
-                              <Text style={[
-                                styles.optionButtonText,
-                                editedCharacter.customization.skinTone === tone && styles.optionButtonTextActive,
-                              ]}>
-                                {tone.charAt(0).toUpperCase() + tone.slice(1)}
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      </View>
-
-                      {/* Clothing */}
-                      <View style={styles.formSection}>
-                        <Text style={styles.formLabel}>Clothing</Text>
-                        <View style={styles.optionRow}>
-                          {(['suit', 'tshirt', 'dress', 'casual'] as ClothingType[]).map((clothing) => (
-                            <TouchableOpacity
-                              key={clothing}
-                              style={[
-                                styles.optionButton,
-                                editedCharacter.customization.clothing === clothing && styles.optionButtonActive,
-                              ]}
-                              onPress={() => updateCustomization('clothing', clothing)}
-                            >
-                              <Text style={[
-                                styles.optionButtonText,
-                                editedCharacter.customization.clothing === clothing && styles.optionButtonTextActive,
-                              ]}>
-                                {clothing.charAt(0).toUpperCase() + clothing.slice(1)}
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      </View>
-
-                      {/* Hair */}
-                      <View style={styles.formSection}>
-                        <Text style={styles.formLabel}>Hair Style</Text>
-                        <View style={styles.optionRow}>
-                          {(['short', 'medium', 'long', 'none'] as HairType[]).map((hair) => (
-                            <TouchableOpacity
-                              key={hair}
-                              style={[
-                                styles.optionButton,
-                                editedCharacter.customization.hair === hair && styles.optionButtonActive,
-                              ]}
-                              onPress={() => updateCustomization('hair', hair)}
-                            >
-                              <Text style={[
-                                styles.optionButtonText,
-                                editedCharacter.customization.hair === hair && styles.optionButtonTextActive,
-                              ]}>
-                                {hair.charAt(0).toUpperCase() + hair.slice(1)}
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      </View>
-
-                      {/* Accessory */}
-                      <View style={styles.formSection}>
-                        <Text style={styles.formLabel}>Accessory</Text>
-                        <View style={styles.optionRow}>
-                          {(['none', 'glasses', 'hat', 'tie'] as AccessoryType[]).map((acc) => (
-                            <TouchableOpacity
-                              key={acc}
-                              style={[
-                                styles.optionButton,
-                                editedCharacter.customization.accessory === acc && styles.optionButtonActive,
-                              ]}
-                              onPress={() => updateCustomization('accessory', acc)}
-                            >
-                              <Text style={[
-                                styles.optionButtonText,
-                                editedCharacter.customization.accessory === acc && styles.optionButtonTextActive,
-                              ]}>
-                                {acc.charAt(0).toUpperCase() + acc.slice(1)}
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      </View>
-
-                      <ColorPicker
-                        label="Body Color"
-                        selectedColor={editedCharacter.customization.bodyColor}
-                        onColorSelect={(color) => {
-                          updateCustomization('bodyColor', color);
-                          updateModel3D('bodyColor', color);
-                        }}
-                        colors={BODY_COLORS}
-                      />
-
-                      <ColorPicker
-                        label="Hair Color"
-                        selectedColor={editedCharacter.customization.hairColor}
-                        onColorSelect={(color) => updateCustomization('hairColor', color)}
-                        colors={HAIR_COLORS}
-                      />
-
-                      <ColorPicker
-                        label="Accessory Color"
-                        selectedColor={editedCharacter.customization.accessoryColor}
-                        onColorSelect={(color) => {
-                          updateCustomization('accessoryColor', color);
-                          updateModel3D('accessoryColor', color);
-                        }}
-                        colors={BODY_COLORS}
-                      />
                     </View>
                   )}
 
@@ -804,6 +672,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   optionButtonTextActive: {
+    color: 'white',
+  },
+  animationGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 16,
+  },
+  animationButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#27272a',
+    borderWidth: 2,
+    borderColor: '#3a3a3a',
+  },
+  animationButtonActive: {
+    backgroundColor: '#8b5cf6',
+    borderColor: '#8b5cf6',
+  },
+  animationButtonText: {
+    color: '#a1a1aa',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  animationButtonTextActive: {
     color: 'white',
   },
   formActions: {

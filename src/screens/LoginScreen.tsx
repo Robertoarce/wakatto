@@ -8,10 +8,6 @@ import { setSession } from '../store/actions/authActions';
 import { useCustomAlert } from '../components/CustomAlert';
 import { AnimatedBackground3D } from '../components/AnimatedBackground3D';
 
-// Dev credentials for quick login during development
-const DEV_EMAIL = 'dev@phsyche.ai'; // Note: matches the user created in Supabase
-const DEV_PASSWORD = 'devpass123';
-
 export default function LoginScreen() {
   const navigation = useNavigation();
   const dispatch = useDispatch();
@@ -57,32 +53,6 @@ export default function LoginScreen() {
         errorMessage = 'No account found with this email. Please sign up first.';
       }
       showAlert('Sign In Failed', errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function quickDevLogin() {
-    setLoading(true);
-    try {
-      const data = await signIn(DEV_EMAIL, DEV_PASSWORD);
-      // Update Redux store with session before navigating
-      if (data.session && data.user) {
-        dispatch(setSession(data.session, data.user));
-        navigation.navigate('Main');
-      } else {
-        showAlert('Dev Login Failed', 'Could not establish session. Please try again.');
-      }
-    } catch (error: any) {
-      // If dev user doesn't exist, show helpful error
-      showAlert(
-        'Dev User Not Found',
-        `The dev user doesn't exist yet. Please create it first:\n\nEmail: ${DEV_EMAIL}\nPassword: ${DEV_PASSWORD}\n\nUse the "Create Dev User" button on the Register screen.`,
-        [
-          { text: 'Go to Register', onPress: () => navigation.navigate('Register') },
-          { text: 'Cancel', style: 'cancel' }
-        ]
-      );
     } finally {
       setLoading(false);
     }
@@ -171,17 +141,6 @@ export default function LoginScreen() {
                 {loading ? 'Signing In...' : 'Sign In'}
               </Text>
             </TouchableOpacity>
-
-            {/* Dev Login Button */}
-            {__DEV__ && (
-              <TouchableOpacity
-                style={styles.devButton}
-                onPress={quickDevLogin}
-                disabled={loading}
-              >
-                <Text style={styles.devButtonText}>⚡ Quick Dev Login</Text>
-              </TouchableOpacity>
-            )}
           </View>
         </View>
       </ScrollView>
@@ -298,22 +257,6 @@ const styles = StyleSheet.create({
   signInButtonText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: '600',
-  },
-  devButton: {
-    width: '100%',
-    height: 48,
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#f59e0b',
-  },
-  devButtonText: {
-    color: '#f59e0b',
-    fontSize: 14,
     fontWeight: '600',
   },
 });

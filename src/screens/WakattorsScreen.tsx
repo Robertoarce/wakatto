@@ -133,14 +133,19 @@ export default function WakattorsScreen() {
               <View style={styles.cardActions}>
                 <TouchableOpacity
                   style={styles.actionButton}
-                  onPress={() => setSelectedCharacter(character)}
-                >
-                  <Ionicons name="eye" size={20} color="#06b6d4" />
-                  <Text style={styles.actionButtonText}>View</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleEdit(character)}
+                  onPress={() => {
+                    console.log('Edit button clicked for:', character.name);
+                    handleEdit(character);
+                  }}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Edit ${character.name}`}
+                  testID={`edit-button-${character.id}`}
+                  // @ts-ignore - onClick is web-only
+                  onClick={() => {
+                    console.log('Edit button clicked for:', character.name);
+                    handleEdit(character);
+                  }}
                 >
                   <Ionicons name="create" size={20} color="#8b5cf6" />
                   <Text style={styles.actionButtonText}>Edit</Text>
@@ -148,7 +153,19 @@ export default function WakattorsScreen() {
                 {!['freud', 'jung', 'adler'].includes(character.id) && (
                   <TouchableOpacity
                     style={styles.actionButton}
-                    onPress={() => handleDelete(character.id)}
+                    onPress={() => {
+                      console.log('Delete button clicked for:', character.id);
+                      handleDelete(character.id);
+                    }}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Delete ${character.name}`}
+                    testID={`delete-button-${character.id}`}
+                    // @ts-ignore - onClick is web-only
+                    onClick={() => {
+                      console.log('Delete button clicked for:', character.id);
+                      handleDelete(character.id);
+                    }}
                   >
                     <Ionicons name="trash" size={20} color="#ef4444" />
                     <Text style={styles.actionButtonText}>Delete</Text>
@@ -159,96 +176,6 @@ export default function WakattorsScreen() {
           </View>
         ))}
       </ScrollView>
-
-      {/* Character Detail Modal */}
-      <Modal
-        visible={selectedCharacter !== null}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setSelectedCharacter(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {selectedCharacter && (
-              <>
-                <View style={styles.modalHeader}>
-                  <Text style={[styles.modalTitle, { color: selectedCharacter.color }]}>
-                    {selectedCharacter.name}
-                  </Text>
-                  <TouchableOpacity onPress={() => setSelectedCharacter(null)}>
-                    <Ionicons name="close" size={28} color="white" />
-                  </TouchableOpacity>
-                </View>
-                <ScrollView style={styles.modalScroll}>
-                  <View style={styles.modalPreview}>
-                    <CharacterDisplay3D
-                      characterId={selectedCharacter.id}
-                      isActive={true}
-                      animation={currentAnimation}
-                    />
-                  </View>
-
-                  {/* Animation Test Buttons */}
-                  <View style={styles.detailSection}>
-                    <Text style={styles.detailLabel}>Test Animations</Text>
-                    <View style={styles.animationGrid}>
-                      {([
-                        'idle',
-                        'thinking',
-                        'talking',
-                        'confused',
-                        'happy',
-                        'excited',
-                        'winning',
-                        'walking',
-                        'jump',
-                        'surprise_jump',
-                        'surprise_happy'
-                      ] as AnimationState[]).map((anim) => (
-                        <TouchableOpacity
-                          key={anim}
-                          style={[
-                            styles.animButton,
-                            currentAnimation === anim && styles.animButtonActive,
-                          ]}
-                          onPress={() => setCurrentAnimation(anim)}
-                        >
-                          <Text style={[
-                            styles.animButtonText,
-                            currentAnimation === anim && styles.animButtonTextActive,
-                          ]}>
-                            {anim.replace('_', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-
-                  <View style={styles.detailSection}>
-                    <Text style={styles.detailLabel}>Description</Text>
-                    <Text style={styles.detailText}>{selectedCharacter.description}</Text>
-                  </View>
-                  <View style={styles.detailSection}>
-                    <Text style={styles.detailLabel}>System Prompt</Text>
-                    <Text style={styles.detailText}>{selectedCharacter.systemPrompt}</Text>
-                  </View>
-                  <View style={styles.detailSection}>
-                    <Text style={styles.detailLabel}>Personality Traits</Text>
-                    {Object.entries(selectedCharacter.traits).map(([key, value]) => (
-                      <View key={key} style={styles.traitDetail}>
-                        <Text style={styles.traitDetailLabel}>
-                          {key.charAt(0).toUpperCase() + key.slice(1)}
-                        </Text>
-                        <Text style={styles.traitDetailValue}>{value}/10</Text>
-                      </View>
-                    ))}
-                  </View>
-                </ScrollView>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
 
       {/* Character Editor Modal */}
       <Modal
@@ -492,9 +419,13 @@ const styles = StyleSheet.create({
   cardPreview: {
     height: 200,
     backgroundColor: '#0a0a0a',
+    overflow: 'hidden', // Prevent 3D content from overflowing
+    pointerEvents: 'none', // Allow clicks to pass through to buttons below
   },
   cardInfo: {
     padding: 16,
+    position: 'relative',
+    zIndex: 10, // Ensure buttons are above 3D content
   },
   cardName: {
     fontSize: 20,
@@ -539,6 +470,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     backgroundColor: '#27272a',
     borderRadius: 8,
+    cursor: 'pointer', // Web: show pointer cursor
+    userSelect: 'none', // Web: prevent text selection
   },
   actionButtonText: {
     color: 'white',
