@@ -254,12 +254,22 @@ function Character({ character, isActive, animation = 'idle' }: { character: Cha
     };
   }, [isActive, animation]);
 
-  // Character-specific features
-  const hasGlasses = character.id === 'freud';
-  const hasBeard = character.id === 'freud';
-  const hasTie = character.id === 'jung';
-  const hairColor = character.id === 'freud' ? '#f5f5f5' : character.id === 'jung' ? '#8b6f47' : '#6b5d4f';
-  const skinColor = '#f4c8a8';
+  // Get customization from character config
+  const customization = character.customization;
+  const hasGlasses = customization.accessory === 'glasses';
+  const hasTie = customization.accessory === 'tie';
+  const hasHat = customization.accessory === 'hat';
+  const hairType = customization.hair;
+  const hairColor = customization.hairColor;
+
+  // Skin tone mapping
+  const skinToneColors = {
+    light: '#f4c8a8',
+    medium: '#d4a574',
+    tan: '#c68642',
+    dark: '#8d5524',
+  };
+  const skinColor = skinToneColors[customization.skinTone];
 
   // For single character display, center at origin
   const position: [number, number, number] = [0, 0, 0];
@@ -308,22 +318,59 @@ function Character({ character, isActive, animation = 'idle' }: { character: Cha
           <meshStandardMaterial color={skinColor} roughness={0.6} />
         </mesh>
 
-        {/* Hair/Top of head */}
-        <mesh position={[0, 0.2, 0]} castShadow>
-          <boxGeometry args={[0.52, 0.15, 0.52]} />
-          <meshStandardMaterial color={hairColor} roughness={0.8} />
-        </mesh>
-
-        {/* Beard (for Freud) */}
-        {hasBeard && (
+        {/* Hair - Different styles based on hairType */}
+        {hairType === 'short' && (
+          <mesh position={[0, 0.2, 0]} castShadow>
+            <boxGeometry args={[0.52, 0.15, 0.52]} />
+            <meshStandardMaterial color={hairColor} roughness={0.8} />
+          </mesh>
+        )}
+        {hairType === 'medium' && (
           <>
-            <mesh position={[0, -0.15, 0.26]} castShadow>
-              <boxGeometry args={[0.35, 0.2, 0.05]} />
-              <meshStandardMaterial color="#f5f5f5" roughness={0.9} />
+            <mesh position={[0, 0.2, 0]} castShadow>
+              <boxGeometry args={[0.52, 0.15, 0.52]} />
+              <meshStandardMaterial color={hairColor} roughness={0.8} />
             </mesh>
-            <mesh position={[0, -0.3, 0.26]} castShadow>
-              <boxGeometry args={[0.3, 0.15, 0.05]} />
-              <meshStandardMaterial color="#f5f5f5" roughness={0.9} />
+            <mesh position={[0, 0.15, -0.28]} castShadow>
+              <boxGeometry args={[0.5, 0.25, 0.08]} />
+              <meshStandardMaterial color={hairColor} roughness={0.8} />
+            </mesh>
+          </>
+        )}
+        {hairType === 'long' && (
+          <>
+            <mesh position={[0, 0.2, 0]} castShadow>
+              <boxGeometry args={[0.52, 0.15, 0.52]} />
+              <meshStandardMaterial color={hairColor} roughness={0.8} />
+            </mesh>
+            {/* Left side long hair */}
+            <mesh position={[-0.3, 0.0, 0]} castShadow>
+              <boxGeometry args={[0.1, 0.5, 0.3]} />
+              <meshStandardMaterial color={hairColor} roughness={0.8} />
+            </mesh>
+            {/* Right side long hair */}
+            <mesh position={[0.3, 0.0, 0]} castShadow>
+              <boxGeometry args={[0.1, 0.5, 0.3]} />
+              <meshStandardMaterial color={hairColor} roughness={0.8} />
+            </mesh>
+            {/* Back long hair */}
+            <mesh position={[0, 0.0, -0.3]} castShadow>
+              <boxGeometry args={[0.5, 0.5, 0.1]} />
+              <meshStandardMaterial color={hairColor} roughness={0.8} />
+            </mesh>
+          </>
+        )}
+
+        {/* Hat accessory */}
+        {hasHat && (
+          <>
+            <mesh position={[0, 0.35, 0]} castShadow>
+              <boxGeometry args={[0.55, 0.12, 0.55]} />
+              <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
+            </mesh>
+            <mesh position={[0, 0.45, 0]} castShadow>
+              <boxGeometry args={[0.4, 0.15, 0.4]} />
+              <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
             </mesh>
           </>
         )}
@@ -381,7 +428,7 @@ export function CharacterDisplay3D({ characterId, isActive = false, animation = 
     <View style={styles.container}>
       <Canvas
         camera={{ position: [0, 1.5, 3], fov: 50 }}
-        gl={{ alpha: true, antialias: true }}
+        gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
         style={{ background: 'transparent' }}
       >
         <ambientLight intensity={0.5} />
@@ -409,6 +456,6 @@ const styles = StyleSheet.create({
   container: {
     height: '100%',
     width: '100%',
-    backgroundColor: '#0a0a0a',
+    backgroundColor: 'transparent',
   },
 });

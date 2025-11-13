@@ -58,6 +58,33 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     return () => subscription?.remove();
   }, []);
 
+  // Restore characters from messages when conversation is loaded
+  useEffect(() => {
+    if (messages.length > 0) {
+      // Extract unique character IDs from assistant messages
+      const characterIds = messages
+        .filter(msg => msg.role === 'assistant' && msg.characterId)
+        .map(msg => msg.characterId as string);
+
+      const uniqueCharacterIds = Array.from(new Set(characterIds));
+
+      // Only update if we found characters and they're different from current selection
+      if (uniqueCharacterIds.length > 0) {
+        const currentIds = [...selectedCharacters].sort().join(',');
+        const newIds = [...uniqueCharacterIds].sort().join(',');
+
+        if (currentIds !== newIds) {
+          setSelectedCharacters(uniqueCharacterIds);
+        }
+      }
+    } else {
+      // New conversation - reset to default character
+      if (selectedCharacters.length !== 1 || selectedCharacters[0] !== DEFAULT_CHARACTER) {
+        setSelectedCharacters([DEFAULT_CHARACTER]);
+      }
+    }
+  }, [messages]);
+
   // Pan responder for resizable divider
   const panResponder = useRef(
     PanResponder.create({

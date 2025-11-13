@@ -68,7 +68,11 @@
       "Bash(start http://localhost:3000)",
       "Bash(git fetch:*)",
       "Bash(supabase status:*)",
-      "Bash(where:*)"
+      "Bash(where:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(npx webpack:*)",
+      "Bash(start http://localhost:59541)",
+      "Bash(start http://localhost:63975)"
     ],
     "deny": [],
     "ask": []

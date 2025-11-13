@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
+import { Ionicons } from '@expo/vector-icons';
 import { signIn } from '../services/supabaseService';
 import { setSession } from '../store/actions/authActions';
 import { useCustomAlert } from '../components/CustomAlert';
+import { AnimatedBackground3D } from '../components/AnimatedBackground3D';
 
 // Dev credentials for quick login during development
 const DEV_EMAIL = 'dev@phsyche.ai'; // Note: matches the user created in Supabase
@@ -17,18 +19,44 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'signIn' | 'signUp'>('signIn');
 
   async function signInWithEmail() {
+    // Validation
+    if (!email.trim()) {
+      showAlert('Validation Error', 'Please enter your email.');
+      return;
+    }
+    if (!email.includes('@')) {
+      showAlert('Validation Error', 'Please enter a valid email address.');
+      return;
+    }
+    if (!password) {
+      showAlert('Validation Error', 'Please enter your password.');
+      return;
+    }
+
     setLoading(true);
     try {
-      const data = await signIn(email, password);
+      const data = await signIn(email.trim().toLowerCase(), password);
       // Update Redux store with session before navigating
       if (data.session && data.user) {
         dispatch(setSession(data.session, data.user));
+        navigation.navigate('Main');
+      } else {
+        showAlert('Sign In Failed', 'Could not establish session. Please try again.');
       }
-      navigation.navigate('Main');
     } catch (error: any) {
-      showAlert('Error', error.message);
+      // Provide user-friendly error messages
+      let errorMessage = error.message;
+      if (errorMessage.includes('Invalid login credentials')) {
+        errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+      } else if (errorMessage.includes('Email not confirmed')) {
+        errorMessage = 'Please confirm your email address before signing in. Check your inbox for the confirmation link.';
+      } else if (errorMessage.includes('User not found')) {
+        errorMessage = 'No account found with this email. Please sign up first.';
+      }
+      showAlert('Sign In Failed', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -41,13 +69,15 @@ export default function LoginScreen() {
       // Update Redux store with session before navigating
       if (data.session && data.user) {
         dispatch(setSession(data.session, data.user));
+        navigation.navigate('Main');
+      } else {
+        showAlert('Dev Login Failed', 'Could not establish session. Please try again.');
       }
-      navigation.navigate('Main');
     } catch (error: any) {
       // If dev user doesn't exist, show helpful error
       showAlert(
         'Dev User Not Found',
-        `Please create a test user with:\nEmail: ${DEV_EMAIL}\nPassword: ${DEV_PASSWORD}\n\nOr use the Register screen to create it.`,
+        `The dev user doesn't exist yet. Please create it first:\n\nEmail: ${DEV_EMAIL}\nPassword: ${DEV_PASSWORD}\n\nUse the "Create Dev User" button on the Register screen.`,
         [
           { text: 'Go to Register', onPress: () => navigation.navigate('Register') },
           { text: 'Cancel', style: 'cancel' }
@@ -58,38 +88,103 @@ export default function LoginScreen() {
     }
   }
 
+  const handleTabSwitch = (tab: 'signIn' | 'signUp') => {
+    setActiveTab(tab);
+    if (tab === 'signUp') {
+      navigation.navigate('Register');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <AlertComponent />
-      <Text style={styles.header}>Welcome Back</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        placeholderTextColor="#888"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor="#888"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      <TouchableOpacity style={styles.button} onPress={signInWithEmail} disabled={loading}>
-        <Text style={styles.buttonText}>{loading ? 'Loading...' : 'Login'}</Text>
-      </TouchableOpacity>
 
-      <TouchableOpacity style={styles.devButton} onPress={quickDevLogin} disabled={loading}>
-        <Text style={styles.devButtonText}>⚡ Quick Dev Login</Text>
-      </TouchableOpacity>
+      {/* 3D Animated Background */}
+      <AnimatedBackground3D />
 
-      <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-        <Text style={styles.linkText}>Don't have an account? Sign Up</Text>
-      </TouchableOpacity>
+      {/* Login Card */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.card}>
+          {/* Logo Icon */}
+          <View style={styles.logoContainer}>
+            <View style={styles.logoBackground}>
+              <Ionicons name="chatbubbles" size={40} color="white" />
+            </View>
+          </View>
+
+          {/* Welcome Text */}
+          <Text style={styles.title}>Welcome to Wakatto</Text>
+          <Text style={styles.subtitle}>Organize social events with friends effortlessly</Text>
+
+          {/* Tabs */}
+          <View style={styles.tabContainer}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'signIn' && styles.activeTab]}
+              onPress={() => handleTabSwitch('signIn')}
+            >
+              <Text style={[styles.tabText, activeTab === 'signIn' && styles.activeTabText]}>
+                Sign In
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'signUp' && styles.activeTab]}
+              onPress={() => handleTabSwitch('signUp')}
+            >
+              <Text style={[styles.tabText, activeTab === 'signUp' && styles.activeTabText]}>
+                Sign Up
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Form */}
+          <View style={styles.form}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="you@example.com"
+              placeholderTextColor="#6b7280"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+
+            <Text style={styles.label}>Password</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="••••••••"
+              placeholderTextColor="#6b7280"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
+
+            <TouchableOpacity
+              style={styles.signInButton}
+              onPress={signInWithEmail}
+              disabled={loading}
+            >
+              <Text style={styles.signInButtonText}>
+                {loading ? 'Signing In...' : 'Sign In'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Dev Login Button */}
+            {__DEV__ && (
+              <TouchableOpacity
+                style={styles.devButton}
+                onPress={quickDevLogin}
+                disabled={loading}
+              >
+                <Text style={styles.devButtonText}>⚡ Quick Dev Login</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -97,60 +192,128 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000000',
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f0f0f',
     padding: 20,
+    minHeight: '100%',
   },
-  header: {
-    fontSize: 28,
-    color: 'white',
-    marginBottom: 30,
+  card: {
+    width: '100%',
+    maxWidth: 440,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 24,
+    padding: 32,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 10,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  logoBackground: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
+    backgroundColor: '#5b7ef6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#ffffff',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#9ca3af',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#1f1f1f',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 24,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  activeTab: {
+    backgroundColor: '#5b7ef6',
+  },
+  tabText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#9ca3af',
+  },
+  activeTabText: {
+    color: '#ffffff',
+  },
+  form: {
+    width: '100%',
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#d1d5db',
+    marginBottom: 8,
+    marginTop: 4,
   },
   input: {
     width: '100%',
-    height: 50,
-    backgroundColor: '#1e1e1e',
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    color: 'white',
-    fontSize: 16,
-    marginBottom: 15,
+    height: 48,
+    backgroundColor: '#1f1f1f',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    color: '#ffffff',
+    fontSize: 15,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#2e2e2e',
+    borderColor: '#3a3a3a',
   },
-  button: {
+  signInButton: {
     width: '100%',
-    height: 50,
-    backgroundColor: '#8b5cf6',
-    borderRadius: 8,
+    height: 48,
+    backgroundColor: '#5b7ef6',
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 8,
   },
-  buttonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
+  signInButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   devButton: {
     width: '100%',
-    height: 50,
-    backgroundColor: '#f59e0b',
-    borderRadius: 8,
+    height: 48,
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
-    borderWidth: 2,
-    borderColor: '#fbbf24',
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
   },
   devButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  linkText: {
-    color: '#a78bfa',
-    marginTop: 20,
+    color: '#f59e0b',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

@@ -23,7 +23,7 @@ import { generateAIResponse, DIARY_SYSTEM_PROMPT } from '../services/aiService';
 import { getCharacter } from '../config/characters';
 import SettingsScreen from '../screens/SettingsScreen';
 import CharactersScreen from '../screens/CharactersScreen';
-import WakattorsScreen from '../screens/WakattorsScreen';
+import WakattorsScreenEnhanced from '../screens/WakattorsScreenEnhanced';
 
 const Tab = createBottomTabNavigator();
 
@@ -232,7 +232,7 @@ export default function MainTabs() {
           />
           <Tab.Screen
             name="Wakattors"
-            component={WakattorsScreen}
+            component={WakattorsScreenEnhanced}
             options={{
               tabBarIcon: ({ color, size }) => (
                 <MaterialCommunityIcons name="emoticon-happy-outline" color={color} size={size} />
