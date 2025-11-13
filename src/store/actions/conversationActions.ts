@@ -47,7 +47,28 @@ export const loadConversations = () => async (dispatch: any, getState: any) => {
     }
 
     const conversations = await fetchConversations(auth.user.id);
-    dispatch(setConversations(conversations || []));
+
+    // Enrich conversations with character count
+    const enrichedConversations = await Promise.all(
+      (conversations || []).map(async (conv: any) => {
+        // Count unique characters in this conversation
+        const { data: messages } = await supabase
+          .from('messages')
+          .select('character_id')
+          .eq('conversation_id', conv.id)
+          .eq('role', 'assistant')
+          .not('character_id', 'is', null);
+
+        const uniqueCharacters = new Set(messages?.map((m: any) => m.character_id) || []);
+
+        return {
+          ...conv,
+          characterCount: uniqueCharacters.size,
+        };
+      })
+    );
+
+    dispatch(setConversations(enrichedConversations));
   } catch (error) {
     console.error('Error loading conversations:', error);
     dispatch(setConversations([]));

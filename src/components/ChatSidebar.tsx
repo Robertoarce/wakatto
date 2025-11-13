@@ -8,6 +8,7 @@ interface Conversation {
   title: string;
   created_at: string;
   updated_at: string;
+  characterCount?: number;
 }
 
 interface ChatSidebarProps {
@@ -257,7 +258,18 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
                           currentConversation?.id === conv.id ? styles.conversationTitleSelected : null
                     ]}>{conv.title}</Text>
                         <View style={styles.conversationFooter}>
-                          <Text style={styles.conversationTimestamp}>{formatDate(conv.updated_at)}</Text>
+                          <View style={styles.conversationMetadata}>
+                            <Text style={styles.conversationTimestamp}>{formatDate(conv.updated_at)}</Text>
+                            {conv.characterCount !== undefined && conv.characterCount > 0 && (
+                              <>
+                                <Text style={styles.metadataSeparator}>•</Text>
+                                <View style={styles.characterCountBadge}>
+                                  <Ionicons name="people" size={10} color="#8b5cf6" />
+                                  <Text style={styles.characterCountText}>{conv.characterCount}</Text>
+                                </View>
+                              </>
+                            )}
+                          </View>
                           {(hoveredConvId === conv.id || menuOpenId === conv.id) && (
                             <View style={styles.conversationMenuContainer}>
                               <TouchableOpacity 
@@ -460,6 +472,29 @@ const styles = StyleSheet.create({
   conversationTimestamp: {
     fontSize: 10,
     color: '#52525b',
+  },
+  conversationMetadata: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  metadataSeparator: {
+    fontSize: 10,
+    color: '#52525b',
+  },
+  characterCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#8b5cf6' + '20',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  characterCountText: {
+    fontSize: 10,
+    color: '#8b5cf6',
+    fontWeight: '600',
   },
   conversationClickable: {
     flex: 1,

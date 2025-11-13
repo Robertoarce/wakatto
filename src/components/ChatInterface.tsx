@@ -630,7 +630,7 @@ const styles = StyleSheet.create({
   },
   dividerHandle: {
     width: 40,
-    height: 4,
+    height: 2,
     backgroundColor: '#52525b',
     borderRadius: 2,
   },
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
   },
   messagesContent: {
     width: '100%',
-    maxWidth: 768,
+    maxWidth: '85%', // this is where the bubbles get constrained
     alignSelf: 'center',
     gap: 16,
   },
@@ -671,7 +671,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   messageBubble: {
-    maxWidth: '95%',
+    maxWidth: '90%', 
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 8,
