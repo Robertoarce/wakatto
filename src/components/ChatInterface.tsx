@@ -570,6 +570,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
                 <CharacterDisplay3D
                   characterId={characterId}
                   isActive={isLoading}
+                  isTalking={isLoading}
                   showName={showCharacterNames}
                   nameKey={nameKey}
                 />

@@ -11,18 +11,20 @@ interface CharacterDisplay3DProps {
   characterId: string;
   isActive?: boolean;
   animation?: AnimationState;
+  isTalking?: boolean;
   showName?: boolean;
   nameKey?: number;
 }
 
 // Blocky Minecraft-style character component
-function Character({ character, isActive, animation = 'idle', scale = 1 }: { character: CharacterBehavior; isActive: boolean; animation?: AnimationState; scale?: number }) {
+function Character({ character, isActive, animation = 'idle', isTalking = false, scale = 1 }: { character: CharacterBehavior; isActive: boolean; animation?: AnimationState; isTalking?: boolean; scale?: number }) {
   const meshRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Group>(null);
   const leftArmRef = useRef<THREE.Mesh>(null);
   const rightArmRef = useRef<THREE.Mesh>(null);
   const leftLegRef = useRef<THREE.Mesh>(null);
   const rightLegRef = useRef<THREE.Mesh>(null);
+  const mouthRef = useRef<THREE.Mesh>(null);
 
   // Animation system
   React.useEffect(() => {
@@ -49,6 +51,15 @@ function Character({ character, isActive, animation = 'idle', scale = 1 }: { cha
       }
       if (leftLegRef.current) leftLegRef.current.rotation.x = 0;
       if (rightLegRef.current) rightLegRef.current.rotation.x = 0;
+
+      // Independent mouth animation when talking
+      if (mouthRef.current && isTalking) {
+        // Mouth opens and closes 3 times per second
+        const mouthCycle = Math.sin(time * 6 * Math.PI);
+        // Scale from 0.3 (almost closed) to 1.0 (fully open)
+        const mouthScale = 0.3 + (mouthCycle * 0.5 + 0.5) * 0.7;
+        mouthRef.current.scale.y = mouthScale;
+      }
 
       // Apply animation based on state
       switch (animation) {
@@ -254,7 +265,7 @@ function Character({ character, isActive, animation = 'idle', scale = 1 }: { cha
     return () => {
       if (animationId) cancelAnimationFrame(animationId);
     };
-  }, [isActive, animation]);
+  }, [isActive, animation, isTalking]);
 
   // Get customization from character config
   const customization = character.customization;
@@ -413,6 +424,14 @@ function Character({ character, isActive, animation = 'idle', scale = 1 }: { cha
           <boxGeometry args={[0.08, 0.12, 0.08]} />
           <meshStandardMaterial color={skinColor} roughness={0.6} />
         </mesh>
+
+        {/* Mouth - visible and animated when talking */}
+        {isTalking && (
+          <mesh ref={mouthRef} position={[0, -0.18, 0.26]} scale={[1.5, 0.6, 1]}>
+            <circleGeometry args={[0.08, 16]} />
+            <meshBasicMaterial color="#2a2a2a" />
+          </mesh>
+        )}
       </group>
 
       {/* Glow when active */}
@@ -423,7 +442,7 @@ function Character({ character, isActive, animation = 'idle', scale = 1 }: { cha
   );
 }
 
-export function CharacterDisplay3D({ characterId, isActive = false, animation = 'idle' }: CharacterDisplay3DProps) {
+export function CharacterDisplay3D({ characterId, isActive = false, animation = 'idle', isTalking = false }: CharacterDisplay3DProps) {
   const character = useMemo(() => getCharacter(characterId), [characterId]);
   const [responsiveScale, setResponsiveScale] = useState(1);
   const [cameraDistance, setCameraDistance] = useState(3);
@@ -473,7 +492,7 @@ export function CharacterDisplay3D({ characterId, isActive = false, animation = 
         {/* Frontal light for face illumination */}
         <directionalLight position={[0, 2, 5]} intensity={1.2} color="#ffffff" />
 
-        <Character character={character} isActive={isActive} animation={animation} scale={responsiveScale} />
+        <Character character={character} isActive={isActive} animation={animation} isTalking={isTalking} scale={responsiveScale} />
 
         <OrbitControls
           enableZoom={false}

@@ -231,7 +231,12 @@ export default function WakattorsScreenEnhanced() {
                 <ScrollView style={styles.modalScroll}>
                   {/* Live Preview */}
                   <View style={styles.editorPreview}>
-                    <CharacterDisplay3D characterId={editedCharacter.id} isActive={true} animation={currentAnimation} />
+                    <CharacterDisplay3D
+                      characterId={editedCharacter.id}
+                      isActive={true}
+                      animation={currentAnimation === 'talking' ? 'idle' : currentAnimation}
+                      isTalking={currentAnimation === 'talking'}
+                    />
                   </View>
 
                   {/* Basic Tab */}
