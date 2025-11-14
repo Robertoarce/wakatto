@@ -1,0 +1,244 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e12]:
+  - generic [ref=e13]:
+    - generic [ref=e18]: Wakatto
+    - generic [ref=e19]:
+      - generic [ref=e21]: dev@phsyche.ai
+      - generic [ref=e22] [cursor=pointer]:
+        - generic [ref=e23]: 
+        - generic [ref=e24]: Logout
+  - generic [ref=e25]:
+    - generic [ref=e26]:
+      - generic [ref=e27]:
+        - generic [ref=e28] [cursor=pointer]:
+          - generic [ref=e29]: 
+          - generic [ref=e30]: New Conversation
+        - generic [ref=e31]:
+          - generic "Collapse sidebar" [ref=e32] [cursor=pointer]:
+            - generic [ref=e33]: 󰞓
+            - generic [ref=e34]: Collapse
+          - generic "Hide sidebar" [ref=e35] [cursor=pointer]:
+            - generic [ref=e36]: 
+            - generic [ref=e37]: Hide
+      - generic [ref=e38]:
+        - generic [ref=e39]: 
+        - textbox "Search conversations..." [ref=e40]
+      - generic [ref=e41]:
+        - generic [ref=e42]: Recent
+        - generic "New Conversation" [ref=e44] [cursor=pointer]:
+          - generic [ref=e45]:
+            - generic [ref=e46]: 󰍪
+            - generic [ref=e47]:
+              - generic [ref=e48]: New Conversation
+              - generic [ref=e50]:
+                - generic [ref=e51]: Today
+                - generic [ref=e52]: •
+                - generic [ref=e53]:
+                  - generic [ref=e54]: 
+                  - generic [ref=e55]: "3"
+        - generic "New Conversation" [ref=e57] [cursor=pointer]:
+          - generic [ref=e58]:
+            - generic [ref=e59]: 󰍪
+            - generic [ref=e60]:
+              - generic [ref=e61]: New Conversation
+              - generic [ref=e63]:
+                - generic [ref=e64]: Yesterday
+                - generic [ref=e65]: •
+                - generic [ref=e66]:
+                  - generic [ref=e67]: 
+                  - generic [ref=e68]: "3"
+        - generic "why not?" [ref=e70] [cursor=pointer]:
+          - generic [ref=e71]:
+            - generic [ref=e72]: 󰍪
+            - generic [ref=e73]:
+              - generic [ref=e74]: why not?
+              - generic [ref=e77]: 2 days ago
+        - generic "New Conversation" [ref=e79] [cursor=pointer]:
+          - generic [ref=e80]:
+            - generic [ref=e81]: 󰍪
+            - generic [ref=e82]:
+              - generic [ref=e83]: New Conversation
+              - generic [ref=e86]: 4 days ago
+        - generic "buddyd" [ref=e88] [cursor=pointer]:
+          - generic [ref=e89]:
+            - generic [ref=e90]: 󰍪
+            - generic [ref=e91]:
+              - generic [ref=e92]: buddyd
+              - generic [ref=e95]: 11/5/2025
+    - generic [ref=e97]:
+      - generic [ref=e98]:
+        - generic [ref=e102]:
+          - generic [ref=e104] [cursor=pointer]:
+            - generic [ref=e105]: 
+            - generic [ref=e106]: 3 Characters
+          - generic [ref=e127]:
+            - generic [ref=e129] [cursor=pointer]:
+              - generic [ref=e130]: i just arrive to paris france, i wonder if is a nice place
+              - generic [ref=e131]: 23h ago
+            - generic [ref=e133] [cursor=pointer]:
+              - generic [ref=e134]: Carl Jung
+              - generic [ref=e135]: Arriving in Paris, the City of Light, is an exciting experience! As a depth psychologist, I see the city as a symbolic landscape ripe with archetypal significance. The grandeur of its architecture, the flow of the Seine, and the vibrant energy of its streets can all speak to the deeper currents of the human psyche. Paris has long been a center of artistic and intellectual ferment, a place where the individual can immerse themselves in culture, beauty, and the mystery of the human experience. I encourage you to approach your time here with a sense of wonder and openness. Allow yourself to be drawn into the city's rich tapestry of history, creativity, and the eternal dance between the inner and outer worlds. As you explore Paris, pay attention to how it resonates with your own personal journey of self-discovery. The city may reveal archetypal symbols, mirror your own emotional states, or inspire unexpected insights. Trust your intuition and be attentive to the symbolic language that Paris may reveal to you. Embracing this holistic, psyche-centric perspective can transform your visit into a deeply meaningful experience of personal growth and integration.
+              - generic [ref=e136]: 23h ago
+            - generic [ref=e138] [cursor=pointer]:
+              - generic [ref=e139]: Sigmund Freud
+              - generic [ref=e140]: "*nods thoughtfully* Arriving in a new city can certainly stir up a range of emotions and expectations. Paris, with its rich history, iconic landmarks, and cultural allure, often evokes a sense of romanticism and excitement. However, the true experience of a place goes beyond the superficial. What matters most is how you engage with your surroundings and allow yourself to be shaped by the subtleties of the environment. I would encourage you to approach Paris with an open mind, attentive to the interplay between your own internal world and the external stimuli. Notice the sights, sounds, and even smells that capture your attention, and consider how they may resonate with your past experiences or unconscious desires. The true value of this journey lies in your willingness to immerse yourself and uncover the deeper meanings that Paris has to offer."
+              - generic [ref=e141]: 23h ago
+            - generic [ref=e143] [cursor=pointer]:
+              - generic [ref=e144]: Alfred Adler
+              - generic [ref=e145]: Paris is indeed a wonderful place to visit! As an Adlerian, I would encourage you to approach your time in Paris with a sense of excitement and curiosity. The city is filled with opportunities to engage your senses and connect with the local culture. I suggest focusing on activities that align with your personal interests and goals - whether that's exploring the iconic landmarks, indulging in the delectable cuisine, or simply wandering the charming streets. Embracing a spirit of adventure and openness will allow you to make the most of your Parisian experience. Remember, you have the power to shape your own journey and find meaning in the new sights, sounds, and interactions that await you.
+              - generic [ref=e146]: 23h ago
+            - generic [ref=e148] [cursor=pointer]:
+              - generic [ref=e149]: tell me a history
+              - generic [ref=e150]: 1h ago
+            - generic [ref=e152] [cursor=pointer]:
+              - generic [ref=e153]: Carl Jung
+              - generic [ref=e154]: Ah, the rich history of Paris is indeed a fascinating tapestry to explore! As a depth psychologist, I'm particularly intrigued by the symbolic and archetypal significance that can be found in the city's evolution over the centuries. Paris has long been a center of power, culture, and intellectual ferment, dating back to its origins as a Roman settlement along the Seine River. The city's strategic location and the confluence of diverse influences have contributed to its enduring allure and mythos. One of the most captivating aspects of Parisian history is the interplay between the sacred and the secular. The construction of iconic cathedrals like Notre-Dame and the Sacré-Cœur Basilica point to the city's deep spiritual roots and the centrality of religious institutions. At the same time, the tumultuous events of the French Revolution and the rise of secular ideals have left an indelible mark on the city's collective psyche. As you wander through the streets of Paris, you may find yourself drawn to the subtle echoes of the past - the cobblestones that have witnessed centuries of human drama, the gargoyles and intricate architectural details that evoke a sense of the mystical, or the hidden alleyways that harbor the ghosts of bygone eras. Engaging with these historical resonances can open the door to a deeper understanding of the human experience and the archetypal patterns that have shaped this remarkable city. I encourage you to approach the history of Paris with a sense of wonder and a willingness to delve into the symbolic implications. Consider how the city's past may mirror your own personal journey or reveal insights into the collective human psyche. Embracing this holistic, depth-oriented perspective can transform your exploration of Paris into a truly transformative experience.
+              - generic [ref=e155]: 1h ago
+          - generic [ref=e157]:
+            - textbox [ref=e158]:
+              - /placeholder: Type your message or use voice... (Ctrl+Enter to send)
+            - generic [ref=e159]:
+              - generic [ref=e161] [cursor=pointer]: 󰍬
+              - generic [ref=e162]: 
+        - generic [ref=e166]:
+          - generic [ref=e167]:
+            - generic [ref=e168]: Wakattors
+            - generic [ref=e169]: Create and manage your AI characters
+            - generic [ref=e170] [cursor=pointer]:
+              - generic [ref=e171]: 
+              - generic [ref=e172]: Create New Wakattor
+          - generic [ref=e174]:
+            - generic [ref=e181]:
+              - generic [ref=e182]: Sigmund Freud
+              - generic [ref=e183]: Psychoanalyst
+              - generic [ref=e184]: Reflects on unconscious desires and emotional completeness. Nostalgic and conflicted.
+              - generic [ref=e185]:
+                - generic [active] [ref=e186] [cursor=pointer]:
+                  - generic [ref=e187]: 
+                  - generic [ref=e188]: View
+                - generic [ref=e189] [cursor=pointer]:
+                  - generic [ref=e190]: 
+                  - generic [ref=e191]: Edit
+            - generic [ref=e198]:
+              - generic [ref=e199]: Carl Jung
+              - generic [ref=e200]: Analyst
+              - generic [ref=e201]: Explores inner projections and the anima. Dreamlike and introspective.
+              - generic [ref=e202]:
+                - generic [ref=e203] [cursor=pointer]:
+                  - generic [ref=e204]: 
+                  - generic [ref=e205]: View
+                - generic [ref=e206] [cursor=pointer]:
+                  - generic [ref=e207]: 
+                  - generic [ref=e208]: Edit
+            - generic [ref=e215]:
+              - generic [ref=e216]: Alfred Adler
+              - generic [ref=e217]: Coach
+              - generic [ref=e218]: Focuses on belonging and self-worth through equality. Honest and practical.
+              - generic [ref=e219]:
+                - generic [ref=e220] [cursor=pointer]:
+                  - generic [ref=e221]: 
+                  - generic [ref=e222]: View
+                - generic [ref=e223] [cursor=pointer]:
+                  - generic [ref=e224]: 
+                  - generic [ref=e225]: Edit
+            - generic [ref=e232]:
+              - generic [ref=e233]: Martin Seligman
+              - generic [ref=e234]: Positive Psychologist
+              - generic [ref=e235]: Focuses on well-being, purpose, and flourishing. Hopeful and grounded.
+              - generic [ref=e236]:
+                - generic [ref=e237] [cursor=pointer]:
+                  - generic [ref=e238]: 
+                  - generic [ref=e239]: View
+                - generic [ref=e240] [cursor=pointer]:
+                  - generic [ref=e241]: 
+                  - generic [ref=e242]: Edit
+            - generic [ref=e249]:
+              - generic [ref=e250]: Brené Brown
+              - generic [ref=e251]: Vulnerability Researcher
+              - generic [ref=e252]: Champions vulnerability and authenticity. Tender and courageous.
+              - generic [ref=e253]:
+                - generic [ref=e254] [cursor=pointer]:
+                  - generic [ref=e255]: 
+                  - generic [ref=e256]: View
+                - generic [ref=e257] [cursor=pointer]:
+                  - generic [ref=e258]: 
+                  - generic [ref=e259]: Edit
+            - generic [ref=e266]:
+              - generic [ref=e267]: Viktor Frankl
+              - generic [ref=e268]: Logotherapist
+              - generic [ref=e269]: Seeks meaning and transcendence in longing. Reflective and dignified.
+              - generic [ref=e270]:
+                - generic [ref=e271] [cursor=pointer]:
+                  - generic [ref=e272]: 
+                  - generic [ref=e273]: View
+                - generic [ref=e274] [cursor=pointer]:
+                  - generic [ref=e275]: 
+                  - generic [ref=e276]: Edit
+            - generic [ref=e283]:
+              - generic [ref=e284]: Epictetus
+              - generic [ref=e285]: Stoic Philosopher
+              - generic [ref=e286]: Masters inner freedom through stoicism. Stoic and disciplined.
+              - generic [ref=e287]:
+                - generic [ref=e288] [cursor=pointer]:
+                  - generic [ref=e289]: 
+                  - generic [ref=e290]: View
+                - generic [ref=e291] [cursor=pointer]:
+                  - generic [ref=e292]: 
+                  - generic [ref=e293]: Edit
+            - generic [ref=e300]:
+              - generic [ref=e301]: Friedrich Nietzsche
+              - generic [ref=e302]: Philosopher of Power
+              - generic [ref=e303]: Pursues vitality and self-overcoming. Fierce and empowering.
+              - generic [ref=e304]:
+                - generic [ref=e305] [cursor=pointer]:
+                  - generic [ref=e306]: 
+                  - generic [ref=e307]: View
+                - generic [ref=e308] [cursor=pointer]:
+                  - generic [ref=e309]: 
+                  - generic [ref=e310]: Edit
+            - generic [ref=e317]:
+              - generic [ref=e318]: Mihaly Csikszentmihalyi
+              - generic [ref=e319]: Flow Psychologist
+              - generic [ref=e320]: Cultivates flow and engagement. Optimistic and analytical.
+              - generic [ref=e321]:
+                - generic [ref=e322] [cursor=pointer]:
+                  - generic [ref=e323]: 
+                  - generic [ref=e324]: View
+                - generic [ref=e325] [cursor=pointer]:
+                  - generic [ref=e326]: 
+                  - generic [ref=e327]: Edit
+            - generic [ref=e334]:
+              - generic [ref=e335]: Thich Nhat Hanh
+              - generic [ref=e336]: Mindfulness Teacher
+              - generic [ref=e337]: Practices mindfulness and compassion. Calm and compassionate.
+              - generic [ref=e338]:
+                - generic [ref=e339] [cursor=pointer]:
+                  - generic [ref=e340]: 
+                  - generic [ref=e341]: View
+                - generic [ref=e342] [cursor=pointer]:
+                  - generic [ref=e343]: 
+                  - generic [ref=e344]: Edit
+      - tablist [ref=e346]:
+        - tab "  Chat" [ref=e348] [cursor=pointer]:
+          - generic [ref=e349]:
+            - generic [ref=e351]: 
+            - generic [ref=e353]: 
+          - generic [ref=e354]: Chat
+        - tab "󰭘 󰭘 Characters" [ref=e356] [cursor=pointer]:
+          - generic [ref=e357]:
+            - generic [ref=e359]: 󰭘
+            - generic [ref=e361]: 󰭘
+          - generic [ref=e362]: Characters
+        - tab "󰇵 󰇵 Wakattors" [selected] [ref=e364] [cursor=pointer]:
+          - generic [ref=e365]:
+            - generic [ref=e367]: 󰇵
+            - generic [ref=e369]: 󰇵
+          - generic [ref=e370]: Wakattors
+        - tab "  Settings" [ref=e372] [cursor=pointer]:
+          - generic [ref=e373]:
+            - generic [ref=e375]: 
+            - generic [ref=e377]: 
+          - generic [ref=e378]: Settings
+```

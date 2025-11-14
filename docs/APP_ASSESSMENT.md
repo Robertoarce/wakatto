@@ -1,8 +1,8 @@
-# Psyche AI - App Assessment
+# Wakatto - App Assessment
 
 ## Overview
 
-**Psyche AI** is a React Native mobile application (iOS, Android, Web) built with Expo that serves as an AI-powered diary/journaling app. Users can interact with an AI assistant to record their thoughts, track conversations, and potentially visualize their personal data through characters and knowledge graphs.
+**Wakatto** is a React Native mobile application (iOS, Android, Web) built with Expo that serves as an AI-powered diary/journaling app with interactive 3D character assistants. Users can interact with AI characters called "Wakattors" to record their thoughts, track conversations, and visualize their personal data through an engaging 3D interface.
 
 ### Current Status: **✅ Fully Functional MVP**
 
@@ -13,11 +13,13 @@ The app has evolved from a template to a complete, working diary application wit
 ## What Does It Do?
 
 ### Core Concept
-Psyche AI is designed to be a personal AI diary assistant where users can:
-- Chat with an AI to journal their thoughts and experiences
-- Manage multiple conversation threads
+Wakatto is designed to be a personal AI diary assistant with interactive 3D characters where users can:
+- Chat with AI-powered 3D characters (Wakattors) to journal their thoughts and experiences
+- Interact with animated blocky characters that respond with personality and emotion
+- Manage multiple conversation threads with different therapeutic approaches
 - Store diary entries securely with user authentication
-- Visualize personal insights (planned feature)
+- Create and customize their own Wakattor characters
+- Visualize character animations and emotional states in real-time
 
 ### Tech Stack
 - **Framework**: React Native with Expo (~50.0.14)
@@ -25,8 +27,9 @@ Psyche AI is designed to be a personal AI diary assistant where users can:
 - **State Management**: Redux with Redux Thunk
 - **Navigation**: React Navigation (Stack + Bottom Tabs)
 - **Backend**: Supabase (Authentication + Database)
+- **3D Graphics**: Three.js with React Three Fiber (expo-three, expo-gl)
 - **UI**: Custom dark-themed interface with purple accents (#8b5cf6)
-- **Development Tools**: Storybook, Jest, ESLint
+- **Development Tools**: Storybook, Jest, ESLint, Playwright (E2E Testing)
 
 ---
 
@@ -41,7 +44,44 @@ Psyche AI is designed to be a personal AI diary assistant where users can:
 - ✅ Error boundary for crash protection
 - ✅ User email displayed in header
 
-### 2. Conversation Management (Full CRUD)
+### 2. 3D Character System (Wakattors)
+- ✅ **Blocky Minecraft-Style Characters** - Voxel-based 3D character design
+- ✅ **7-State Animation System**:
+  - `idle`: Gentle bobbing with head movement
+  - `thinking`: Hand on chin, head tilted, slight sway
+  - `talking`: Head bobbing with alternating hand gestures
+  - `confused`: Head tilting side-to-side, scratching head
+  - `happy`: Bouncing with swaying arms
+  - `excited`: Fast bouncing with waving arms
+  - `winning`: High jumps with arms up and alternating leg kicks
+- ✅ **Character Customization**:
+  - Body and accessory color pickers
+  - Personality trait sliders (empathy, directness, formality, humor)
+  - System prompt editing for AI behavior
+  - Character-specific visual features (glasses, ties, beards)
+- ✅ **Wakattors Management Screen**:
+  - Create, view, modify, delete characters
+  - Character grid with 3D previews
+  - Fine-tune character personalities
+  - Test animations in real-time
+- ✅ **Resizable Character Display**:
+  - Drag-to-resize divider (150px-500px)
+  - Smooth 60fps animations using requestAnimationFrame
+  - PanResponder for touch interactions
+- ✅ **Animation Test Controls**:
+  - Toggle animation panel in chat interface
+  - Quick-select animations while conversing
+  - Visual feedback for active animation states
+- ✅ **Multi-Character Support**:
+  - Up to 5 characters in conversation
+  - Character positioning system for group scenes
+  - Individual animation states per character
+- ✅ **Default Character Lineup**:
+  - Freud (brown suit, glasses, beard, empathetic)
+  - Jung (grey suit, tie, analytical)
+  - Adler (green suit, practical approach)
+
+### 3. Conversation Management (Full CRUD)
 - ✅ Create new conversations
 - ✅ Load all user conversations from Supabase
 - ✅ Select and switch between conversations
@@ -50,7 +90,7 @@ Psyche AI is designed to be a personal AI diary assistant where users can:
 - ✅ Conversation list in collapsible sidebar
 - ✅ Real-time updates on conversation changes
 
-### 3. Message System
+### 4. Message System
 - ✅ Send messages to AI assistant
 - ✅ Receive AI responses (Mock mode + real APIs)
 - ✅ Save all messages to Supabase database
@@ -59,7 +99,7 @@ Psyche AI is designed to be a personal AI diary assistant where users can:
 - ✅ Auto-scrolling message list
 - ✅ Keyboard-aware input
 
-### 4. AI Integration (Multi-Provider)
+### 5. AI Integration (Multi-Provider)
 - ✅ **Mock AI** - Simulated responses (default, no API key needed)
 - ✅ **OpenAI GPT** - GPT-4 / GPT-3.5 integration
 - ✅ **Anthropic Claude** - Claude 3 integration
@@ -68,7 +108,7 @@ Psyche AI is designed to be a personal AI diary assistant where users can:
 - ✅ Conversation history maintained for context
 - ✅ Error handling with fallback messages
 
-### 5. Settings Screen
+### 6. Settings Screen
 - ✅ AI provider selection (Mock, OpenAI, Claude, Gemini)
 - ✅ API key input (secure)
 - ✅ Model selection with defaults
@@ -76,7 +116,7 @@ Psyche AI is designed to be a personal AI diary assistant where users can:
 - ✅ Logout button
 - ✅ About section
 
-### 6. UI Components
+### 7. UI Components
 - ✅ Modern dark-themed interface
 - ✅ Chat interface with message bubbles
 - ✅ Collapsible sidebar for conversation management
@@ -85,7 +125,7 @@ Psyche AI is designed to be a personal AI diary assistant where users can:
 - ✅ Loading states and activity indicators
 - ✅ Responsive layout (iOS, Android, Web)
 
-### 7. State Management
+### 8. State Management
 - ✅ Redux store with proper structure:
   - Auth reducer (user, session, loading)
   - Conversation reducer (conversations, messages, currentConversation)
@@ -94,7 +134,7 @@ Psyche AI is designed to be a personal AI diary assistant where users can:
 - ✅ Proper TypeScript types
 - ✅ Action creators for all operations
 
-### 8. Database
+### 9. Database
 - ✅ Supabase client configured
 - ✅ Complete database schema with RLS policies
 - ✅ Tables: conversations, messages, entities, relationships
@@ -102,7 +142,7 @@ Psyche AI is designed to be a personal AI diary assistant where users can:
 - ✅ Indexes for performance
 - ✅ Auto-update triggers
 
-### 9. Component Architecture
+### 10. Component Architecture
 - ✅ Atomic design structure (atoms, molecules, organisms, templates)
 - ✅ Storybook integration for component development
 - ✅ Component tests with snapshots
@@ -114,7 +154,10 @@ Psyche AI is designed to be a personal AI diary assistant where users can:
 
 ### Planned Features
 
-#### 1. **Characters Visualization** 
+#### 1. **Characters Visualization**
+- ✅ Interactive 3D Wakattor characters with animations
+- ✅ Character customization and management screen
+- ✅ Real-time animation testing
 - ⏳ Extract entities (people, places) from diary entries
 - ⏳ Display character cards with mentions
 - ⏳ Timeline of character appearances
@@ -302,11 +345,14 @@ CREATE TABLE relationships (
 
 ## Conclusion
 
-**Psyche AI MVP Status**: ✅ **COMPLETE & FUNCTIONAL**
+**Wakatto MVP Status**: ✅ **COMPLETE & FUNCTIONAL**
 
 ### What Works Right Now:
 - ✅ Full authentication flow (login, register, logout)
 - ✅ AI-powered journaling (Mock mode works out of the box)
+- ✅ **Interactive 3D Wakattor characters with 7-state animation system**
+- ✅ **Character customization and management**
+- ✅ **Blocky Minecraft-style character design**
 - ✅ Conversation management (create, view, switch, delete)
 - ✅ Message persistence to Supabase
 - ✅ Beautiful, modern UI with dark theme
@@ -316,25 +362,30 @@ CREATE TABLE relationships (
 - ✅ Cross-platform (iOS, Android, Web)
 
 ### Current Capabilities:
-The app is **production-ready for personal use** as a diary/journal with AI assistance. Users can:
+The app is **production-ready for personal use** as a diary/journal with AI assistance and interactive 3D characters. Users can:
 1. Create an account and login
-2. Start conversations with an AI journal assistant
-3. Receive empathetic, thoughtful responses
-4. Save and retrieve all diary entries
-5. Switch between multiple journal conversations
-6. Configure different AI providers (or use Mock mode)
+2. Start conversations with AI-powered 3D Wakattor characters
+3. Watch characters animate with personality and emotion
+4. Customize and create their own Wakattors
+5. Test different animations in real-time
+6. Receive empathetic, thoughtful responses from multiple character personalities
+7. Save and retrieve all diary entries
+8. Switch between multiple journal conversations
+9. Configure different AI providers (or use Mock mode)
 
 ### What's Next (Optional Enhancements):
-- ⏳ Characters visualization (extract people/places from entries)
-- ⏳ Knowledge graph (visualize relationships)
-- ⏳ Voice input
-- ⏳ Search functionality
+- ⏳ Entity extraction from diary entries (extract people/places mentioned)
+- ⏳ Knowledge graph (visualize relationships between entities)
+- ⏳ Voice input with transcription
+- ⏳ Advanced search functionality
 - ⏳ Export to PDF/text
+- ⏳ More character types and customization options
 
 ### Development Timeline Achieved:
 - **Initial Assessment**: Non-functional prototype
-- **After Implementation**: Fully working MVP in ~3 hours
-- **Current State**: Ready for daily use with optional enhancements available
+- **After Core Implementation**: Fully working MVP in ~3 hours
+- **After 3D Characters**: Revolutionary diary experience with interactive Wakattors
+- **Current State**: Production-ready with unique 3D character experience
 
-**The app has evolved from a template to a complete, functional diary application with AI integration!** 🎉
+**The app has evolved from a template to a complete, functional diary application with groundbreaking 3D AI character interaction!** 🎉
 

@@ -1,18 +1,20 @@
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
 import { logout } from '../store/actions/authActions';
+import { useCustomAlert } from './CustomAlert';
 
 export function Header() {
   const navigation = useNavigation();
   const dispatch = useDispatch();
+  const { showAlert, AlertComponent } = useCustomAlert();
   const { user } = useSelector((state: RootState) => state.auth);
 
   const handleLogout = () => {
-    Alert.alert(
+    showAlert(
       'Logout',
       'Are you sure you want to logout?',
       [
@@ -30,30 +32,37 @@ export function Header() {
   };
 
   return (
-    <View style={styles.header}>
-      <View style={styles.leftContainer}>
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoText}>ψ</Text>
+    <>
+      <AlertComponent />
+      <View style={styles.header}>
+        <View style={styles.leftContainer}>
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('../assets/images/logo.svg')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
+          </View>
+          <Text style={styles.title}>Wakatto</Text>
         </View>
-        <Text style={styles.title}>Psyche AI</Text>
+
+        <View style={styles.rightContainer}>
+          {user && (
+            <>
+              <View style={styles.userInfo}>
+                <Text style={styles.userEmail} numberOfLines={1}>
+                  {user.email}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+                <Ionicons name="log-out-outline" size={20} color="#ef4444" />
+                <Text style={styles.logoutButtonText}>Logout</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
       </View>
-      
-      <View style={styles.rightContainer}>
-        {user && (
-          <>
-            <View style={styles.userInfo}>
-              <Text style={styles.userEmail} numberOfLines={1}>
-                {user.email}
-              </Text>
-            </View>
-            <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-              <Ionicons name="log-out-outline" size={20} color="#ef4444" />
-              <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
-          </>
-        )}
-      </View>
-    </View>
+    </>
   );
 }
 
@@ -77,13 +86,14 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#8b5cf6', // purple-500
+    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 4,
   },
-  logoText: {
-    fontSize: 14,
-    color: 'white',
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   title: {
     fontSize: 20,

@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, TextInput } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useCustomAlert } from './CustomAlert';
 
 interface Conversation {
   id: string;
   title: string;
   created_at: string;
   updated_at: string;
+  characterCount?: number;
 }
 
 interface ChatSidebarProps {
@@ -23,6 +25,7 @@ interface ChatSidebarProps {
 }
 
 export function ChatSidebar({ conversations, currentConversation, onSelectConversation, onToggleSidebar, isOpen, isCollapsed = false, onToggleCollapse, onNewConversation, onRenameConversation, onDeleteConversation }: ChatSidebarProps) {
+  const { showAlert, AlertComponent } = useCustomAlert();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,18 +64,31 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
 
   const confirmDelete = (conversation: Conversation) => {
     setMenuOpenId(null); // Close menu
-    
-    // Use window.confirm for web compatibility
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${conversation.title}"?\n\nThis action cannot be undone.`
+
+    // Show custom alert instead of window.confirm
+    showAlert(
+      'Delete Conversation',
+      `Are you sure you want to delete "${conversation.title}"?\n\nThis action cannot be undone.`,
+      [
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            if (onDeleteConversation) {
+              console.log('[ChatSidebar] Delete confirmed, calling onDeleteConversation');
+              onDeleteConversation(conversation.id);
+            }
+          }
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: () => {
+            console.log('[ChatSidebar] Delete cancelled');
+          }
+        }
+      ]
     );
-    
-    if (confirmed && onDeleteConversation) {
-      console.log('[ChatSidebar] Delete confirmed, calling onDeleteConversation');
-      onDeleteConversation(conversation.id);
-    } else {
-      console.log('[ChatSidebar] Delete cancelled');
-    }
   };
 
   const toggleMenu = (convId: string, event?: any) => {
@@ -112,6 +128,7 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
 
   return (
     <>
+      <AlertComponent />
       {!isOpen && (
         <TouchableOpacity
           onPress={onToggleSidebar}
@@ -241,7 +258,18 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
                           currentConversation?.id === conv.id ? styles.conversationTitleSelected : null
                     ]}>{conv.title}</Text>
                         <View style={styles.conversationFooter}>
-                          <Text style={styles.conversationTimestamp}>{formatDate(conv.updated_at)}</Text>
+                          <View style={styles.conversationMetadata}>
+                            <Text style={styles.conversationTimestamp}>{formatDate(conv.updated_at)}</Text>
+                            {conv.characterCount !== undefined && conv.characterCount > 0 && (
+                              <>
+                                <Text style={styles.metadataSeparator}>•</Text>
+                                <View style={styles.characterCountBadge}>
+                                  <Ionicons name="people" size={10} color="#8b5cf6" />
+                                  <Text style={styles.characterCountText}>{conv.characterCount}</Text>
+                                </View>
+                              </>
+                            )}
+                          </View>
                           {(hoveredConvId === conv.id || menuOpenId === conv.id) && (
                             <View style={styles.conversationMenuContainer}>
                               <TouchableOpacity 
@@ -444,6 +472,29 @@ const styles = StyleSheet.create({
   conversationTimestamp: {
     fontSize: 10,
     color: '#52525b',
+  },
+  conversationMetadata: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  metadataSeparator: {
+    fontSize: 10,
+    color: '#52525b',
+  },
+  characterCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#8b5cf6' + '20',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  characterCountText: {
+    fontSize: 10,
+    color: '#8b5cf6',
+    fontWeight: '600',
   },
   conversationClickable: {
     flex: 1,

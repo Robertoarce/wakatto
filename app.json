@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "AI Diary",
-    "slug": "ai-diary",
+    "name": "Wakatto",
+    "slug": "wakatto",
     "privacy": "public",
     "platforms": [
       "ios",
@@ -36,6 +36,6 @@
     "web": {
       "favicon": "./src/assets/images/icon.png"
     },
-    "description": "AI-powered personal diary with knowledge graph visualization"
+    "description": "Explore multiple perspectives with AI-powered conversations featuring diverse therapeutic characters"
   }
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
@@ -7,41 +7,61 @@ import { logout } from '../store/actions/authActions';
 import { configureAI, getAIConfig } from '../services/aiService';
 import { useNavigation } from '@react-navigation/native';
 import { runAllTests, TestResult } from '../services/aiConnectionTest';
+import { useCustomAlert } from '../components/CustomAlert';
+import { PROMPT_STYLES, PromptStyle } from '../prompts';
 
 type AIProvider = 'mock' | 'openai' | 'anthropic' | 'gemini';
+type PromptStyleId = 'compassionate' | 'psychoanalytic' | 'jungian' | 'cognitive' | 'mindfulness' | 'socratic' | 'creative' | 'adlerian' | 'existential' | 'positive' | 'narrative';
 
 const SettingsScreen = (): JSX.Element => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
+  const { showAlert, AlertComponent } = useCustomAlert();
   const { user } = useSelector((state: RootState) => state.auth);
-  
-  const [aiProvider, setAIProvider] = useState<AIProvider>('mock');
+
+  const [aiProvider, setAIProvider] = useState<AIProvider>('anthropic');
   const [apiKey, setApiKey] = useState('');
-  const [model, setModel] = useState('');
+  const [model, setModel] = useState('claude-3-haiku-20240307');
   const [showApiKey, setShowApiKey] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResults, setTestResults] = useState<any>(null);
+  const [promptStyle, setPromptStyle] = useState<PromptStyleId>('compassionate');
 
   useEffect(() => {
-    // Load current AI configuration
-    const config = getAIConfig();
-    setAIProvider(config.provider as AIProvider);
-    setApiKey(config.apiKey || '');
-    setModel(config.model || '');
+    // Load current AI configuration and prompt style
+    const loadConfig = async () => {
+      const config = await getAIConfig();
+      setAIProvider(config.provider as AIProvider);
+      setApiKey(config.apiKey || '');
+      setModel(config.model || '');
+
+      // Load prompt style from localStorage
+      const savedPromptStyle = localStorage.getItem('promptStyle') as PromptStyleId;
+      if (savedPromptStyle && PROMPT_STYLES.find(s => s.id === savedPromptStyle)) {
+        setPromptStyle(savedPromptStyle);
+      }
+    };
+    loadConfig();
   }, []);
 
-  const handleSaveAISettings = () => {
-    configureAI({
+  const handleSaveAISettings = async () => {
+    await configureAI({
       provider: aiProvider,
       apiKey: apiKey,
       model: model || undefined,
     });
-    Alert.alert('Success', 'AI settings saved successfully!');
+    showAlert('Success', 'AI settings saved securely!');
+  };
+
+  const handleSavePromptStyle = () => {
+    localStorage.setItem('promptStyle', promptStyle);
+    const style = PROMPT_STYLES.find(s => s.id === promptStyle);
+    showAlert('Success', `Therapeutic style set to: ${style?.name || promptStyle}`);
   };
 
   const handleTestConnection = async () => {
     if (!apiKey && aiProvider !== 'mock') {
-      Alert.alert('Error', 'Please enter an API key first');
+      showAlert('Error', 'Please enter an API key first');
       return;
     }
 
@@ -51,8 +71,8 @@ const SettingsScreen = (): JSX.Element => {
       hasApiKey: !!apiKey,
       model: model || 'default'
     });
-    
-    configureAI({
+
+    await configureAI({
       provider: aiProvider,
       apiKey: apiKey,
       model: model || undefined,
@@ -66,15 +86,15 @@ const SettingsScreen = (): JSX.Element => {
       const results = await runAllTests(apiKey, aiProvider as any);
       console.log('[Settings] Test results:', results);
       setTestResults(results);
-      
+
       if (results.allPassed) {
-        Alert.alert('✅ Success', 'All AI tests passed! Ready for knowledge graph.');
+        showAlert('Success', 'All AI tests passed! Ready for knowledge graph.');
       } else {
-        Alert.alert('⚠️ Tests Failed', 'Some tests failed. Check results below.');
+        showAlert('Tests Failed', 'Some tests failed. Check results below.');
       }
     } catch (error: any) {
       console.error('[Settings] Test error:', error);
-      Alert.alert('Error', error.message || 'Failed to run tests');
+      showAlert('Error', error.message || 'Failed to run tests');
       setTestResults({
         allPassed: false,
         results: {
@@ -89,7 +109,7 @@ const SettingsScreen = (): JSX.Element => {
   };
 
   const handleLogout = () => {
-    Alert.alert(
+    showAlert(
       'Logout',
       'Are you sure you want to logout?',
       [
@@ -117,6 +137,7 @@ const SettingsScreen = (): JSX.Element => {
 
   return (
     <ScrollView style={styles.container}>
+      <AlertComponent />
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Account</Text>
         <View style={styles.card}>
@@ -283,6 +304,56 @@ const SettingsScreen = (): JSX.Element => {
               </View>
             </View>
           )}
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Therapeutic Prompt Style</Text>
+        <View style={styles.card}>
+          <Text style={styles.label}>Select Your Therapeutic Approach</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.promptStylesScroll}>
+            <View style={styles.promptStylesContainer}>
+              {PROMPT_STYLES.map((style) => {
+                return (
+                  <TouchableOpacity
+                    key={style.id}
+                    style={[
+                      styles.promptStyleCard,
+                      promptStyle === style.id && styles.promptStyleCardActive,
+                    ]}
+                    onPress={() => setPromptStyle(style.id as PromptStyleId)}
+                  >
+                    <View style={styles.promptStyleHeader}>
+                      <Text style={styles.promptStyleIcon}>{style.icon}</Text>
+                      {promptStyle === style.id && (
+                        <Ionicons name="checkmark-circle" size={20} color="#8b5cf6" />
+                      )}
+                    </View>
+                    <Text style={[
+                      styles.promptStyleName,
+                      promptStyle === style.id && styles.promptStyleNameActive
+                    ]}>
+                      {style.name}
+                    </Text>
+                    <Text style={styles.promptStyleDescription}>
+                      {style.description}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
+
+          <View style={styles.infoBox}>
+            <Ionicons name="information-circle-outline" size={20} color="#c4b5fd" />
+            <Text style={styles.infoBoxText}>
+              {PROMPT_STYLES.find(s => s.id === promptStyle)?.description || 'Select a therapeutic style'}
+            </Text>
+          </View>
+
+          <TouchableOpacity style={styles.saveButton} onPress={handleSavePromptStyle}>
+            <Text style={styles.saveButtonText}>Save Prompt Style</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -520,6 +591,49 @@ const styles = StyleSheet.create({
   versionText: {
     color: '#71717a',
     fontSize: 12,
+  },
+  promptStylesScroll: {
+    marginBottom: 16,
+  },
+  promptStylesContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingRight: 16,
+  },
+  promptStyleCard: {
+    width: 200,
+    backgroundColor: '#27272a',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: '#27272a',
+  },
+  promptStyleCardActive: {
+    borderColor: '#8b5cf6',
+    backgroundColor: '#1e1b4b',
+  },
+  promptStyleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  promptStyleIcon: {
+    fontSize: 24,
+  },
+  promptStyleName: {
+    color: '#a1a1aa',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  promptStyleNameActive: {
+    color: '#c4b5fd',
+  },
+  promptStyleDescription: {
+    color: '#71717a',
+    fontSize: 13,
+    lineHeight: 18,
   },
 });
 

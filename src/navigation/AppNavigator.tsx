@@ -52,12 +52,20 @@ export default function AppNavigator() {
   return (
     <View style={styles.container}>
       <NavigationContainer>
-        <Stack.Navigator 
-          initialRouteName={initialRoute} 
+        <Stack.Navigator
+          initialRouteName={initialRoute}
           screenOptions={{ headerShown: false }}
         >
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen
+            name="Login"
+            component={LoginScreen}
+            options={{ unmountOnBlur: true }}
+          />
+          <Stack.Screen
+            name="Register"
+            component={RegisterScreen}
+            options={{ unmountOnBlur: true }}
+          />
           <Stack.Screen name="Main" component={MainScreen} />
         </Stack.Navigator>
       </NavigationContainer>

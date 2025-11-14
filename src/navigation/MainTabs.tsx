@@ -2,11 +2,12 @@ import React, { useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ChatInterface } from '../components/ChatInterface';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
 import { Header } from '../components/Header';
 import { ChatSidebar } from '../components/ChatSidebar';
+import { useCustomAlert } from '../components/CustomAlert';
 import { toggleSidebar, toggleSidebarCollapse } from '../store/actions/uiActions';
 import { 
   loadConversations, 
@@ -19,20 +20,16 @@ import {
   deleteMessage
 } from '../store/actions/conversationActions';
 import { generateAIResponse, DIARY_SYSTEM_PROMPT } from '../services/aiService';
+import { getCharacter } from '../config/characters';
 import SettingsScreen from '../screens/SettingsScreen';
 import CharactersScreen from '../screens/CharactersScreen';
+import WakattorsScreenEnhanced from '../screens/WakattorsScreenEnhanced';
 
 const Tab = createBottomTabNavigator();
 
-const GraphScreen = () => (
-  <View style={styles.screenContainer}>
-    <Text style={styles.screenText}>Knowledge Graph Visualization</Text>
-    <Text style={styles.screenSubtext}>Coming soon...</Text>
-  </View>
-);
-
 export default function MainTabs() {
   const dispatch = useDispatch();
+  const { showAlert, AlertComponent } = useCustomAlert();
   const { conversations, currentConversation, messages } = useSelector((state: RootState) => state.conversations);
   const { showSidebar, sidebarCollapsed } = useSelector((state: RootState) => state.ui);
 
@@ -64,7 +61,7 @@ export default function MainTabs() {
     try {
       await dispatch(createConversation('New Conversation') as any);
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to create conversation: ' + error.message);
+      showAlert('Error', 'Failed to create conversation: ' + error.message);
     }
   };
 
@@ -72,7 +69,7 @@ export default function MainTabs() {
     try {
       await dispatch(renameConversation(conversationId, newTitle) as any);
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to rename conversation: ' + error.message);
+      showAlert('Error', 'Failed to rename conversation: ' + error.message);
     }
   };
 
@@ -83,8 +80,8 @@ export default function MainTabs() {
       console.log('[MainTabs] Delete complete');
     } catch (error: any) {
       console.error('[MainTabs] Delete failed:', error);
-      Alert.alert(
-        'Delete Failed', 
+      showAlert(
+        'Delete Failed',
         error.message || 'Failed to delete conversation. Please try again.',
         [{ text: 'OK' }]
       );
@@ -95,7 +92,7 @@ export default function MainTabs() {
     try {
       await dispatch(updateMessage(messageId, newContent) as any);
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to edit message: ' + error.message);
+      showAlert('Error', 'Failed to edit message: ' + error.message);
     }
   };
 
@@ -103,13 +100,13 @@ export default function MainTabs() {
     try {
       await dispatch(deleteMessage(messageId) as any);
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to delete message: ' + error.message);
+      showAlert('Error', 'Failed to delete message: ' + error.message);
     }
   };
 
   const [isLoadingAI, setIsLoadingAI] = React.useState(false);
-  
-  const handleSendMessage = async (content: string) => {
+
+  const handleSendMessage = async (content: string, selectedCharacters: string[]) => {
     setIsLoadingAI(true);
     try {
       // If no current conversation, create one
@@ -119,37 +116,55 @@ export default function MainTabs() {
       }
 
       if (conversation) {
-        // Save user message
+        // Save user message (no character ID for user messages)
         await dispatch(saveMessage(conversation.id, 'user', content) as any);
-        
-        // Generate AI response
+
+        // Generate AI response from each selected character
         try {
           // Prepare conversation history for AI
           const conversationHistory = messages.map(msg => ({
             role: msg.role as 'user' | 'assistant' | 'system',
             content: msg.content,
           }));
-          
+
           // Add the new user message
           conversationHistory.push({ role: 'user', content });
 
-          // Generate AI response
-          const aiResponse = await generateAIResponse(conversationHistory, DIARY_SYSTEM_PROMPT);
-          
-          // Save AI response
-          await dispatch(saveMessage(conversation.id, 'assistant', aiResponse) as any);
+          // Generate responses from each selected character
+          for (const characterId of selectedCharacters) {
+            try {
+              const character = getCharacter(characterId);
+
+              // Generate AI response using character's system prompt
+              const aiResponse = await generateAIResponse(conversationHistory, character.systemPrompt);
+
+              // Save AI response with character ID
+              await dispatch(saveMessage(conversation.id, 'assistant', aiResponse, characterId) as any);
+            } catch (characterError: any) {
+              console.error(`AI generation error for ${characterId}:`, characterError);
+              // Save a fallback message if this character's AI fails
+              const character = getCharacter(characterId);
+              await dispatch(saveMessage(
+                conversation.id,
+                'assistant',
+                "I'm having trouble connecting right now. Your message has been saved, and I'll be back soon!",
+                characterId
+              ) as any);
+            }
+          }
         } catch (aiError: any) {
           console.error('AI generation error:', aiError);
-          // Save a fallback message if AI fails
+          // Save a fallback message if AI fails completely
           await dispatch(saveMessage(
-            conversation.id, 
-            'assistant', 
-            "I'm having trouble connecting right now. Your message has been saved, and I'll be back soon!"
+            conversation.id,
+            'assistant',
+            "I'm having trouble connecting right now. Your message has been saved, and I'll be back soon!",
+            selectedCharacters[0] // Use first selected character for fallback
           ) as any);
         }
       }
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to send message: ' + error.message);
+      showAlert('Error', 'Failed to send message: ' + error.message);
     } finally {
       setIsLoadingAI(false);
     }
@@ -157,6 +172,7 @@ export default function MainTabs() {
 
   return (
     <View style={styles.fullContainer}>
+      <AlertComponent />
       <Header />
       <View style={styles.contentContainer}>
         <ChatSidebar 
@@ -205,7 +221,7 @@ export default function MainTabs() {
               />
             )}
           </Tab.Screen>
-          <Tab.Screen 
+          <Tab.Screen
             name="Characters"
             component={CharactersScreen}
             options={{
@@ -214,12 +230,12 @@ export default function MainTabs() {
               ),
             }}
           />
-          <Tab.Screen 
-            name="Graph"
-            component={GraphScreen}
+          <Tab.Screen
+            name="Wakattors"
+            component={WakattorsScreenEnhanced}
             options={{
               tabBarIcon: ({ color, size }) => (
-                <MaterialCommunityIcons name="graph-outline" color={color} size={size} />
+                <MaterialCommunityIcons name="emoticon-happy-outline" color={color} size={size} />
               ),
             }}
           />
@@ -259,21 +275,6 @@ const styles = StyleSheet.create({
   },
   mainContentWithCollapsedSidebar: {
     marginLeft: 56, // Width of collapsed sidebar
-  },
-  screenContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0f0f0f',
-  },
-  screenText: {
-    color: 'white',
-    fontSize: 24,
-    marginBottom: 8,
-  },
-  screenSubtext: {
-    color: '#a1a1aa',
-    fontSize: 16,
   },
   tabBar: {
     backgroundColor: '#171717',

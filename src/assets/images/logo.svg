@@ -1,0 +1,24 @@
+<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Multiple leaf petals representing different perspectives -->
+
+  <!-- Dark Blue Leaf (top-left) -->
+  <path d="M 30 50 Q 20 30, 35 20 Q 40 25, 40 35 Q 35 45, 30 50 Z" fill="#07004D" opacity="0.9"/>
+
+  <!-- Bright Blue Leaf (top-right) -->
+  <path d="M 50 30 Q 65 18, 75 28 Q 70 38, 60 42 Q 52 40, 50 30 Z" fill="#0072BB" opacity="0.85"/>
+
+  <!-- Green Leaf (right) -->
+  <path d="M 70 50 Q 82 45, 85 55 Q 82 65, 72 68 Q 68 60, 70 50 Z" fill="#8FC93A" opacity="0.9"/>
+
+  <!-- Yellow Leaf (bottom-right) -->
+  <path d="M 60 70 Q 68 78, 58 88 Q 50 85, 48 75 Q 52 68, 60 70 Z" fill="#FAC748" opacity="0.85"/>
+
+  <!-- Dark Green Leaf (bottom-left) -->
+  <path d="M 30 70 Q 20 75, 18 65 Q 22 55, 32 53 Q 35 62, 30 70 Z" fill="#103900" opacity="0.9"/>
+
+  <!-- Dark Red Leaf (left) -->
+  <path d="M 25 45 Q 12 42, 12 32 Q 18 28, 28 32 Q 30 38, 25 45 Z" fill="#9A031E" opacity="0.85"/>
+
+  <!-- Center circle to unify the design -->
+  <circle cx="50" cy="50" r="8" fill="#07004D" opacity="0.3"/>
+</svg>

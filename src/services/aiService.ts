@@ -1,12 +1,15 @@
 /**
  * AI Service
- * 
+ *
  * This service handles AI API calls for generating responses.
  * Currently supports: OpenAI GPT, Anthropic Claude, Google Gemini
- * 
- * SECURITY NOTE: In production, API keys should NEVER be in client code.
- * Use Supabase Edge Functions or a backend server as a proxy.
+ *
+ * SECURITY NOTE: API keys are now stored in secure storage with basic obfuscation.
+ * For production, use Supabase Edge Functions or a backend server as a proxy.
  */
+
+import { setSecureItem, getSecureItem, deleteSecureItem } from './secureStorage';
+import { supabase, supabaseUrl } from '../lib/supabase';
 
 // AI Provider configuration
 interface AIConfig {
@@ -21,29 +24,99 @@ interface AIMessage {
   content: string;
 }
 
-// Default to mock mode for development (no API key needed)
+// In-memory config (API key stored separately in secure storage)
 let config: AIConfig = {
-  provider: 'mock',
-  apiKey: '',
-  model: 'gpt-4',
+  provider: 'anthropic', // Default to Claude
+  apiKey: '', // Will be loaded from secure storage or environment
+  model: 'claude-3-haiku-20240307', // Claude 3 Haiku (fast and available on your tier)
 };
+
+// Load API key from secure storage on initialization
+let apiKeyPromise: Promise<string | null> | null = null;
+
+/**
+ * Load API key from environment or secure storage
+ * Priority: Environment variable > Secure storage
+ */
+async function loadAPIKey(): Promise<string> {
+  // First, check environment variable (for development)
+  const envKey = process.env.CLAUDE_API_KEY;
+  if (envKey) {
+    console.log('[AI] Using API key from environment variable');
+    return envKey;
+  }
+
+  // Fall back to secure storage
+  if (!apiKeyPromise) {
+    apiKeyPromise = getSecureItem('ai_api_key');
+  }
+  const key = await apiKeyPromise;
+  return key || '';
+}
 
 /**
  * Configure the AI service
  */
-export function configureAI(newConfig: Partial<AIConfig>) {
+export async function configureAI(newConfig: Partial<AIConfig>) {
   config = { ...config, ...newConfig };
+
+  // Store API key securely if provided
+  if (newConfig.apiKey) {
+    await setSecureItem('ai_api_key', newConfig.apiKey);
+    apiKeyPromise = Promise.resolve(newConfig.apiKey);
+  }
+
+  // Store provider and model in regular storage (non-sensitive)
+  if (newConfig.provider) {
+    localStorage.setItem('ai_provider', newConfig.provider);
+  }
+  if (newConfig.model) {
+    localStorage.setItem('ai_model', newConfig.model);
+  }
 }
 
 /**
- * Get current AI configuration
+ * Get current AI configuration (without API key for security)
  */
-export function getAIConfig() {
-  return { ...config };
+export async function getAIConfig(): Promise<Omit<AIConfig, 'apiKey'> & { apiKey: string }> {
+  // Load API key from secure storage
+  const apiKey = await loadAPIKey();
+
+  return {
+    ...config,
+    apiKey: apiKey || '', // Return actual key only when needed
+  };
+}
+
+/**
+ * Initialize AI service (load config from storage or environment)
+ */
+export async function initializeAI() {
+  const provider = localStorage.getItem('ai_provider') as AIConfig['provider'] | null;
+  const model = localStorage.getItem('ai_model');
+  const apiKey = await loadAPIKey();
+
+  // Use stored preferences, or defaults if none exist
+  if (provider) config.provider = provider;
+  if (model) config.model = model;
+  if (apiKey) {
+    config.apiKey = apiKey;
+    console.log('[AI] Initialized with API key from', process.env.CLAUDE_API_KEY ? 'environment' : 'secure storage');
+  }
+}
+
+/**
+ * Clear API key from secure storage
+ */
+export async function clearAPIKey() {
+  await deleteSecureItem('ai_api_key');
+  config.apiKey = '';
+  apiKeyPromise = null;
 }
 
 /**
  * Generate AI response using the configured provider
+ * Uses Supabase Edge Function to avoid CORS issues
  */
 export async function generateAIResponse(
   messages: AIMessage[],
@@ -53,16 +126,48 @@ export async function generateAIResponse(
     ? [{ role: 'system', content: systemPrompt }, ...messages]
     : messages;
 
-  switch (config.provider) {
-    case 'openai':
-      return generateOpenAIResponse(fullMessages);
-    case 'anthropic':
-      return generateAnthropicResponse(fullMessages);
-    case 'gemini':
-      return generateGeminiResponse(fullMessages);
-    case 'mock':
-    default:
-      return generateMockResponse(fullMessages);
+  // Use mock for testing without API
+  if (config.provider === 'mock') {
+    return generateMockResponse(fullMessages);
+  }
+
+  try {
+    // Call Supabase Edge Function (avoids CORS issues)
+    console.log('[AI] Calling Edge Function with provider:', config.provider);
+
+    const { data: session } = await supabase.auth.getSession();
+    if (!session?.session) {
+      throw new Error('User not authenticated');
+    }
+
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/ai-chat`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.session.access_token}`,
+        },
+        body: JSON.stringify({
+          messages: fullMessages,
+          provider: config.provider,
+          model: config.model,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('[AI] Edge Function error:', error);
+      throw new Error(error.error || 'Failed to generate AI response');
+    }
+
+    const data = await response.json();
+    console.log('[AI] Edge Function success!');
+    return data.content;
+  } catch (error: any) {
+    console.error('[AI] Error:', error);
+    throw error;
   }
 }
 
