@@ -1,0 +1,22 @@
+{
+  "background_color": "#0f0f0f",
+  "description": "Explore multiple perspectives with AI-powered conversations featuring diverse therapeutic characters",
+  "display": "standalone",
+  "lang": "en",
+  "name": "Wakatto",
+  "short_name": "Wakatto",
+  "start_url": "/?utm_source=web_app_manifest",
+  "orientation": "portrait",
+  "related_applications": [
+    {
+      "platform": "itunes",
+      "id": "com.yourcompany.aidiary"
+    },
+    {
+      "platform": "play",
+      "url": "http://play.google.com/store/apps/details?id=com.yourcompany.aidiary",
+      "id": "com.yourcompany.aidiary"
+    }
+  ],
+  "prefer_related_applications": true
+}
