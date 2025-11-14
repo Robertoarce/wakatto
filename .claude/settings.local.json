@@ -72,7 +72,11 @@
       "Bash(npx ts-node:*)",
       "Bash(npx webpack:*)",
       "Bash(start http://localhost:59541)",
-      "Bash(start http://localhost:63975)"
+      "Bash(start http://localhost:63975)",
+      "Bash(timeout:*)",
+      "Bash(exit 0)",
+      "Bash(start http://localhost:19006)",
+      "mcp__playwright__browser_resize"
     ],
     "deny": [],
     "ask": []

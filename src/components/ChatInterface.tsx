@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, PanResponder, Dimensions } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, PanResponder, Dimensions, Animated } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCustomAlert } from './CustomAlert';
 import { CharacterDisplay3D } from './CharacterDisplay3D';
@@ -27,6 +27,41 @@ interface ChatInterfaceProps {
   onDeleteMessage?: (messageId: string) => void;
 }
 
+// Character name label component with fade animation
+function CharacterNameLabel({ name, color, visible }: { name: string; color: string; visible: boolean }) {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      // Fade in quickly
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+
+      // Then fade out slowly after 2 seconds (3 second fade duration)
+      setTimeout(() => {
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 3000,
+          useNativeDriver: true,
+        }).start();
+      }, 2000);
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <Animated.View style={[styles.characterNameLabel, { opacity: fadeAnim }]}>
+      <Text style={[styles.characterNameText, { color }]}>
+        {name}
+      </Text>
+    </Animated.View>
+  );
+}
+
 export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage }: ChatInterfaceProps) {
   const { showAlert, AlertComponent } = useCustomAlert();
   const [input, setInput] = useState('');
@@ -39,24 +74,57 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const liveSpeechRef = useRef<LiveSpeechRecognition | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
-  // Set initial height to 1/3 of viewport height
+  // Set initial height based on screen size
   const [characterHeight, setCharacterHeight] = useState(() => {
-    const windowHeight = Dimensions.get('window').height;
-    return Math.floor(windowHeight / 3);
+    const { height, width } = Dimensions.get('window');
+    // Mobile: smaller height, Desktop: larger height
+    if (width < 768) {
+      return Math.floor(height * 0.25); // 25% on mobile
+    } else if (width < 1024) {
+      return Math.floor(height * 0.3); // 30% on tablet
+    } else {
+      return Math.floor(height * 0.35); // 35% on desktop
+    }
   });
   const [selectedCharacters, setSelectedCharacters] = useState<string[]>([DEFAULT_CHARACTER]); // Up to 5 characters
   const [showCharacterSelector, setShowCharacterSelector] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(false);
+  const [showCharacterNames, setShowCharacterNames] = useState(true); // Show names at start
+  const [nameKey, setNameKey] = useState(0); // Key to trigger re-animation
 
   const availableCharacters = getAllCharacters();
 
-  // Update character height on window resize
+  // Update character height and mobile view on window resize
   useEffect(() => {
-    const subscription = Dimensions.addEventListener('change', ({ window }) => {
-      const newHeight = Math.floor(window.height / 3);
+    const updateResponsiveSettings = () => {
+      const { width, height } = Dimensions.get('window');
+
+      // Update mobile view state
+      const isMobile = width < 768;
+      setIsMobileView(isMobile);
+
+      // Update character height based on screen size
+      let heightPercentage = 0.35; // Default desktop
+      if (width < 768) {
+        heightPercentage = 0.25; // Mobile
+      } else if (width < 1024) {
+        heightPercentage = 0.3; // Tablet
+      }
+      const newHeight = Math.floor(height * heightPercentage);
       setCharacterHeight(newHeight);
-    });
+    };
+
+    updateResponsiveSettings();
+    const subscription = Dimensions.addEventListener('change', updateResponsiveSettings);
     return () => subscription?.remove();
   }, []);
+
+  // Auto-hide character selector when switching to mobile view
+  useEffect(() => {
+    if (isMobileView && showCharacterSelector) {
+      setShowCharacterSelector(false);
+    }
+  }, [isMobileView]);
 
   // Restore characters from messages when conversation is loaded
   useEffect(() => {
@@ -85,6 +153,19 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     }
   }, [messages]);
 
+  // Show character names when characters change or at conversation start
+  useEffect(() => {
+    setShowCharacterNames(true);
+    setNameKey(prev => prev + 1); // Trigger re-animation
+
+    // Keep visible for 5 seconds total (2s display + 3s fade)
+    const timer = setTimeout(() => {
+      setShowCharacterNames(false);
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [selectedCharacters]);
+
   // Pan responder for resizable divider
   const panResponder = useRef(
     PanResponder.create({
@@ -92,10 +173,25 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       onMoveShouldSetPanResponder: () => true,
       onPanResponderMove: (_, gestureState) => {
         const newHeight = characterHeight + gestureState.dy;
-        const windowHeight = Dimensions.get('window').height;
-        // Constrain height between 20% and 60% of viewport
-        const minHeight = Math.floor(windowHeight * 0.2);
-        const maxHeight = Math.floor(windowHeight * 0.6);
+        const { height: windowHeight, width: windowWidth } = Dimensions.get('window');
+        // Responsive min/max constraints based on screen size
+        let minPercent = 0.15;
+        let maxPercent = 0.5;
+        if (windowWidth < 768) {
+          // Mobile: smaller range
+          minPercent = 0.15;
+          maxPercent = 0.4;
+        } else if (windowWidth < 1024) {
+          // Tablet
+          minPercent = 0.2;
+          maxPercent = 0.5;
+        } else {
+          // Desktop
+          minPercent = 0.2;
+          maxPercent = 0.6;
+        }
+        const minHeight = Math.floor(windowHeight * minPercent);
+        const maxHeight = Math.floor(windowHeight * maxPercent);
         if (newHeight >= minHeight && newHeight <= maxHeight) {
           setCharacterHeight(newHeight);
         }
@@ -421,7 +517,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
           style={styles.characterSelectorButton}
           onPress={() => setShowCharacterSelector(!showCharacterSelector)}
         >
-          <Ionicons name="people" size={20} color="#8b5cf6" />
+          <Ionicons name="people" size={20} color="#ff6b35" />
           <Text style={styles.characterSelectorText}>
             {selectedCharacters.length} Character{selectedCharacters.length !== 1 ? 's' : ''}
           </Text>
@@ -429,8 +525,18 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
         {/* Character Selector Modal */}
         {showCharacterSelector && (
-          <View style={styles.characterSelectorPanel}>
-            <Text style={styles.characterSelectorTitle}>Select Characters (Max 5)</Text>
+          <View style={[
+            styles.characterSelectorPanel,
+            isMobileView && styles.characterSelectorPanelMobile
+          ]}>
+            <View style={styles.characterSelectorHeader}>
+              <Text style={styles.characterSelectorTitle}>Select Characters (Max 5)</Text>
+              {isMobileView && (
+                <TouchableOpacity onPress={() => setShowCharacterSelector(false)}>
+                  <Ionicons name="close" size={24} color="#ff6b35" />
+                </TouchableOpacity>
+              )}
+            </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.characterSelectorScroll}>
               {availableCharacters.map((character) => {
                 const isSelected = selectedCharacters.includes(character.id);
@@ -457,14 +563,26 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
         {/* Multiple Character Display */}
         <View style={styles.charactersRow}>
-          {selectedCharacters.map((characterId, index) => (
-            <View key={characterId} style={[styles.characterWrapper, { flex: 1 / selectedCharacters.length }]}>
-              <CharacterDisplay3D
-                characterId={characterId}
-                isActive={isLoading}
-              />
-            </View>
-          ))}
+          {selectedCharacters.map((characterId, index) => {
+            const character = getCharacter(characterId);
+            return (
+              <View key={characterId} style={[styles.characterWrapper, { flex: 1 / selectedCharacters.length }]}>
+                <CharacterDisplay3D
+                  characterId={characterId}
+                  isActive={isLoading}
+                  showName={showCharacterNames}
+                  nameKey={nameKey}
+                />
+                {/* Character Name Label with Fade Animation */}
+                <CharacterNameLabel
+                  key={`name-${nameKey}`}
+                  name={character.name}
+                  color={character.color}
+                  visible={showCharacterNames}
+                />
+              </View>
+            );
+          })}
         </View>
       </View>
 
@@ -650,7 +768,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#171717',
     justifyContent: 'center',
     alignItems: 'center',
-    cursor: 'ns-resize',
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: '#27272a',
@@ -672,7 +789,7 @@ const styles = StyleSheet.create({
   },
   messagesContent: {
     width: '100%',
-    maxWidth: '85%', // this is where the bubbles get constrained
+    maxWidth: '100%', // Full width, bubbles constrain themselves
     alignSelf: 'center',
     gap: 16,
   },
@@ -693,12 +810,12 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   characterName: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '700',
     marginBottom: 4,
   },
   messageBubble: {
-    maxWidth: '90%', 
+    maxWidth: '85%',
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -824,10 +941,30 @@ const styles = StyleSheet.create({
   },
   characterWrapper: {
     height: '100%',
+    position: 'relative',
+  },
+  characterNameLabel: {
+    position: 'absolute',
+    top: 20,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  characterNameText: {
+    fontSize: 16,
+    fontWeight: '700',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   characterSelectorButton: {
     position: 'absolute',
-    top: 8,
+    bottom: 8,
     left: 8,
     flexDirection: 'row',
     alignItems: 'center',
@@ -841,7 +978,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   characterSelectorText: {
-    color: '#8b5cf6',
+    color: '#ff6b35',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -857,11 +994,28 @@ const styles = StyleSheet.create({
     padding: 12,
     zIndex: 10,
   },
+  characterSelectorPanelMobile: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(23, 23, 23, 0.98)',
+    borderRadius: 0,
+    padding: 20,
+    zIndex: 100,
+    justifyContent: 'center',
+  },
+  characterSelectorHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   characterSelectorTitle: {
     color: 'white',
     fontSize: 14,
     fontWeight: '600',
-    marginBottom: 12,
   },
   characterSelectorScroll: {
     maxHeight: 120,

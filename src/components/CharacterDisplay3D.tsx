@@ -1,5 +1,5 @@
-import React, { useRef, useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useRef, useMemo, useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -11,10 +11,12 @@ interface CharacterDisplay3DProps {
   characterId: string;
   isActive?: boolean;
   animation?: AnimationState;
+  showName?: boolean;
+  nameKey?: number;
 }
 
 // Blocky Minecraft-style character component
-function Character({ character, isActive, animation = 'idle' }: { character: CharacterBehavior; isActive: boolean; animation?: AnimationState }) {
+function Character({ character, isActive, animation = 'idle', scale = 1 }: { character: CharacterBehavior; isActive: boolean; animation?: AnimationState; scale?: number }) {
   const meshRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Group>(null);
   const leftArmRef = useRef<THREE.Mesh>(null);
@@ -275,7 +277,7 @@ function Character({ character, isActive, animation = 'idle' }: { character: Cha
   const position: [number, number, number] = [0, 0, 0];
 
   return (
-    <group ref={meshRef} position={position}>
+    <group ref={meshRef} position={position} scale={[scale * 0.7, scale * 0.7, scale * 0.7]}>
       {/* Legs */}
       <mesh ref={leftLegRef} position={[-0.15, -0.25, 0]} castShadow>
         <boxGeometry args={[0.25, 0.5, 0.25]} />
@@ -423,11 +425,43 @@ function Character({ character, isActive, animation = 'idle' }: { character: Cha
 
 export function CharacterDisplay3D({ characterId, isActive = false, animation = 'idle' }: CharacterDisplay3DProps) {
   const character = useMemo(() => getCharacter(characterId), [characterId]);
+  const [responsiveScale, setResponsiveScale] = useState(1);
+  const [cameraDistance, setCameraDistance] = useState(3);
+
+  // Calculate responsive scale based on screen width
+  useEffect(() => {
+    const updateScale = () => {
+      const { width } = Dimensions.get('window');
+
+      // Mobile: < 768px, Tablet: 768-1024px, Desktop: > 1024px
+      if (width < 480) {
+        // Very small mobile
+        setResponsiveScale(0.7);
+        setCameraDistance(2.5);
+      } else if (width < 768) {
+        // Mobile
+        setResponsiveScale(0.85);
+        setCameraDistance(2.8);
+      } else if (width < 1024) {
+        // Tablet
+        setResponsiveScale(1.0);
+        setCameraDistance(3);
+      } else {
+        // Desktop
+        setResponsiveScale(1.2);
+        setCameraDistance(3.2);
+      }
+    };
+
+    updateScale();
+    const subscription = Dimensions.addEventListener('change', updateScale);
+    return () => subscription?.remove();
+  }, []);
 
   return (
     <View style={styles.container}>
       <Canvas
-        camera={{ position: [0, 1.5, 3], fov: 50 }}
+        camera={{ position: [0, 1.5, cameraDistance], fov: 50 }}
         gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
         style={{ background: 'transparent' }}
       >
@@ -439,7 +473,7 @@ export function CharacterDisplay3D({ characterId, isActive = false, animation = 
         {/* Frontal light for face illumination */}
         <directionalLight position={[0, 2, 5]} intensity={1.2} color="#ffffff" />
 
-        <Character character={character} isActive={isActive} animation={animation} />
+        <Character character={character} isActive={isActive} animation={animation} scale={responsiveScale} />
 
         <OrbitControls
           enableZoom={false}
