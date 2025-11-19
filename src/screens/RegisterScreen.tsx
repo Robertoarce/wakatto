@@ -101,6 +101,34 @@ export default function RegisterScreen() {
     }
   }
 
+  function skipLoginWithDemo() {
+    // Create a demo session without authentication
+    const demoSession = {
+      access_token: 'demo-token',
+      refresh_token: 'demo-refresh-token',
+      expires_in: 3600,
+      token_type: 'bearer',
+      user: {
+        id: 'demo-user-id',
+        email: 'demo@wakatto.app',
+        user_metadata: { name: 'Demo User' },
+      },
+    };
+
+    const demoUser = {
+      id: 'demo-user-id',
+      email: 'demo@wakatto.app',
+      user_metadata: { name: 'Demo User' },
+      app_metadata: {},
+      aud: 'authenticated',
+      created_at: new Date().toISOString(),
+    };
+
+    // Set demo session in Redux store
+    dispatch(setSession(demoSession, demoUser));
+    navigation.navigate('Main');
+  }
+
   const handleTabSwitch = (tab: 'signIn' | 'signUp') => {
     setActiveTab(tab);
     if (tab === 'signIn') {
@@ -215,6 +243,18 @@ export default function RegisterScreen() {
                 <Text style={styles.devButtonText}>⚡ Create Dev User</Text>
               </TouchableOpacity>
             )}
+
+            {/* Skip Login Button */}
+            <TouchableOpacity
+              style={styles.demoButton}
+              onPress={skipLoginWithDemo}
+              disabled={loading}
+            >
+              <Ionicons name="play-circle-outline" size={20} color="#f97316" style={styles.demoIcon} />
+              <Text style={styles.demoButtonText}>
+                Skip Login, Use Demo Account
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -348,5 +388,25 @@ const styles = StyleSheet.create({
     color: '#f59e0b',
     fontSize: 14,
     fontWeight: '600',
+  },
+  demoButton: {
+    width: '100%',
+    height: 48,
+    backgroundColor: 'rgba(249, 115, 22, 0.1)',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#f97316',
+    flexDirection: 'row',
+  },
+  demoButtonText: {
+    color: '#f97316',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  demoIcon: {
+    marginRight: 8,
   },
 });

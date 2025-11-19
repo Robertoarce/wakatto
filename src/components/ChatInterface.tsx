@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Keyboa
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCustomAlert } from './CustomAlert';
 import { CharacterDisplay3D } from './CharacterDisplay3D';
+import { AnimatedArrowPointer } from './AnimatedArrowPointer';
 import { DEFAULT_CHARACTER, getAllCharacters, getCharacter } from '../config/characters';
 import { getVoiceRecorder, RecordingState } from '../services/voiceRecording';
 import { transcribeAudio, isWebSpeechSupported } from '../services/speechToText';
@@ -91,6 +92,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [isMobileView, setIsMobileView] = useState(false);
   const [showCharacterNames, setShowCharacterNames] = useState(true); // Show names at start
   const [nameKey, setNameKey] = useState(0); // Key to trigger re-animation
+  const [showArrowPointer, setShowArrowPointer] = useState(true); // Show arrow pointer initially
 
   const availableCharacters = getAllCharacters();
 
@@ -125,6 +127,34 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       setShowCharacterSelector(false);
     }
   }, [isMobileView]);
+
+  // Arrow pointer logic: hide after 20 seconds, or when user has conversation, or interacts with characters
+  useEffect(() => {
+    // Hide arrow if user has messages (conversation started)
+    if (messages.length > 0) {
+      setShowArrowPointer(false);
+      return;
+    }
+
+    // Hide arrow if user opened character selector
+    if (showCharacterSelector) {
+      setShowArrowPointer(false);
+      return;
+    }
+
+    // Hide arrow if user changed characters (not just the initial default)
+    if (selectedCharacters.length !== 1 || selectedCharacters[0] !== DEFAULT_CHARACTER) {
+      setShowArrowPointer(false);
+      return;
+    }
+
+    // Hide arrow after 20 seconds
+    const timer = setTimeout(() => {
+      setShowArrowPointer(false);
+    }, 20000); // 20 seconds
+
+    return () => clearTimeout(timer);
+  }, [messages.length, showCharacterSelector, selectedCharacters]);
 
   // Restore characters from messages when conversation is loaded
   useEffect(() => {
@@ -512,6 +542,12 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       >
       {/* 3D Character Display - Resizable */}
       <View style={[styles.characterDisplayContainer, { height: characterHeight }]}>
+        {/* 3D Animated Arrow Pointer - Positioned near character selector button */}
+        <AnimatedArrowPointer
+          visible={showArrowPointer}
+          message="Add more characters!"
+        />
+
         {/* Character Selector Button */}
         <TouchableOpacity
           style={styles.characterSelectorButton}
