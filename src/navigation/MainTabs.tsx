@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { ChatInterface } from '../components/ChatInterface';
+import ChatInterface from '../components/ChatInterface';
 import { View, Text, StyleSheet } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
@@ -9,9 +9,9 @@ import { Header } from '../components/Header';
 import { ChatSidebar } from '../components/ChatSidebar';
 import { useCustomAlert } from '../components/CustomAlert';
 import { toggleSidebar, toggleSidebarCollapse } from '../store/actions/uiActions';
-import { 
-  loadConversations, 
-  selectConversation, 
+import {
+  loadConversations,
+  selectConversation,
   createConversation,
   saveMessage,
   renameConversation,
@@ -20,7 +20,7 @@ import {
   deleteMessage
 } from '../store/actions/conversationActions';
 import { generateAIResponse, DIARY_SYSTEM_PROMPT } from '../services/aiService';
-import { getCharacter } from '../config/characters';
+import { getCharacter, DEFAULT_CHARACTER } from '../config/characters';
 import SettingsScreen from '../screens/SettingsScreen';
 import CharactersScreen from '../screens/CharactersScreen';
 import WakattorsScreenEnhanced from '../screens/WakattorsScreenEnhanced';
@@ -48,11 +48,11 @@ export default function MainTabs() {
   const onSelectConversation = (conversation: any) => {
     dispatch(selectConversation(conversation) as any);
   };
-  
+
   const onToggleSidebar = () => {
     dispatch(toggleSidebar());
   };
-  
+
   const onToggleCollapse = () => {
     dispatch(toggleSidebarCollapse());
   };
@@ -106,7 +106,9 @@ export default function MainTabs() {
 
   const [isLoadingAI, setIsLoadingAI] = React.useState(false);
 
-  const handleSendMessage = async (content: string, selectedCharacters: string[]) => {
+  const [selectedCharacters, setSelectedCharacters] = React.useState<string[]>([DEFAULT_CHARACTER]);
+
+  const handleSendMessage = async (content: string, selectedCharacters: string[], options?: { useFastModel?: boolean }) => {
     setIsLoadingAI(true);
     try {
       // If no current conversation, create one
@@ -122,10 +124,20 @@ export default function MainTabs() {
         // Generate AI response from each selected character
         try {
           // Prepare conversation history for AI
-          const conversationHistory = messages.map(msg => ({
-            role: msg.role as 'user' | 'assistant' | 'system',
-            content: msg.content,
-          }));
+          const conversationHistory = messages.map(msg => {
+            let content = msg.content;
+            // If it's an assistant message with a character ID, prepend the name
+            if (msg.role === 'assistant' && msg.characterId) {
+              const char = getCharacter(msg.characterId);
+              if (char) {
+                content = `[${char.name}]: ${content}`;
+              }
+            }
+            return {
+              role: msg.role as 'user' | 'assistant' | 'system',
+              content: content,
+            };
+          });
 
           // Add the new user message
           conversationHistory.push({ role: 'user', content });
@@ -136,7 +148,17 @@ export default function MainTabs() {
               const character = getCharacter(characterId);
 
               // Generate AI response using character's system prompt
-              const aiResponse = await generateAIResponse(conversationHistory, character.systemPrompt);
+              // Use Gemini Flash if useFastModel is true
+              const aiConfig = options?.useFastModel ? {
+                provider: 'gemini',
+                model: 'gemini-1.5-flash',
+              } : undefined;
+
+              const aiResponse = await generateAIResponse(
+                conversationHistory,
+                character.systemPrompt,
+                aiConfig
+              );
 
               // Save AI response with character ID
               await dispatch(saveMessage(conversation.id, 'assistant', aiResponse, characterId) as any);
@@ -175,7 +197,7 @@ export default function MainTabs() {
       <AlertComponent />
       <Header />
       <View style={styles.contentContainer}>
-        <ChatSidebar 
+        <ChatSidebar
           conversations={conversations}
           currentConversation={currentConversation}
           onSelectConversation={onSelectConversation}
@@ -192,63 +214,63 @@ export default function MainTabs() {
           showSidebar && !sidebarCollapsed && styles.mainContentWithSidebar,
           showSidebar && sidebarCollapsed && styles.mainContentWithCollapsedSidebar,
         ]}>
-        <Tab.Navigator
-          screenOptions={{
-            headerShown: false,
-            tabBarStyle: styles.tabBar,
-            tabBarActiveTintColor: '#8b5cf6',
-            tabBarInactiveTintColor: '#a1a1aa',
-            tabBarLabelStyle: styles.tabBarLabel,
-          }}
-        >
-          <Tab.Screen 
-            name="Chat"
-            options={{
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons name="chatbox-outline" color={color} size={size} />
-              ),
+          <Tab.Navigator
+            screenOptions={{
+              headerShown: false,
+              tabBarStyle: styles.tabBar,
+              tabBarActiveTintColor: '#8b5cf6',
+              tabBarInactiveTintColor: '#a1a1aa',
+              tabBarLabelStyle: styles.tabBarLabel,
             }}
           >
-            {() => (
-              <ChatInterface 
-                messages={messages}
-                onSendMessage={handleSendMessage}
-                showSidebar={showSidebar}
-                onToggleSidebar={onToggleSidebar}
-                isLoading={isLoadingAI}
-                onEditMessage={onEditMessage}
-                onDeleteMessage={onDeleteMessage}
-              />
-            )}
-          </Tab.Screen>
-          <Tab.Screen
-            name="Characters"
-            component={CharactersScreen}
-            options={{
-              tabBarIcon: ({ color, size }) => (
-                <MaterialCommunityIcons name="account-group-outline" color={color} size={size} />
-              ),
-            }}
-          />
-          <Tab.Screen
-            name="Wakattors"
-            component={WakattorsScreenEnhanced}
-            options={{
-              tabBarIcon: ({ color, size }) => (
-                <MaterialCommunityIcons name="emoticon-happy-outline" color={color} size={size} />
-              ),
-            }}
-          />
-          <Tab.Screen 
-            name="Settings"
-            component={SettingsScreen}
-            options={{
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons name="settings-outline" color={color} size={size} />
-              ),
-            }}
-          />
-        </Tab.Navigator>
+            <Tab.Screen
+              name="Chat"
+              options={{
+                tabBarIcon: ({ color, size }) => (
+                  <Ionicons name="chatbox-outline" color={color} size={size} />
+                ),
+              }}
+            >
+              {() => (
+                <ChatInterface
+                  messages={messages}
+                  onSendMessage={handleSendMessage}
+                  isLoading={isLoadingAI}
+                  selectedCharacters={selectedCharacters}
+                  setSelectedCharacters={setSelectedCharacters}
+                  onEditMessage={onEditMessage}
+                  onDeleteMessage={onDeleteMessage}
+                />
+              )}
+            </Tab.Screen>
+            <Tab.Screen
+              name="Characters"
+              component={CharactersScreen}
+              options={{
+                tabBarIcon: ({ color, size }) => (
+                  <MaterialCommunityIcons name="account-group-outline" color={color} size={size} />
+                ),
+              }}
+            />
+            <Tab.Screen
+              name="Wakattors"
+              component={WakattorsScreenEnhanced}
+              options={{
+                tabBarIcon: ({ color, size }) => (
+                  <MaterialCommunityIcons name="emoticon-happy-outline" color={color} size={size} />
+                ),
+              }}
+            />
+            <Tab.Screen
+              name="Settings"
+              component={SettingsScreen}
+              options={{
+                tabBarIcon: ({ color, size }) => (
+                  <Ionicons name="settings-outline" color={color} size={size} />
+                ),
+              }}
+            />
+          </Tab.Navigator>
         </View>
       </View>
     </View>
@@ -268,7 +290,7 @@ const styles = StyleSheet.create({
   mainContentWrapper: {
     flex: 1,
     position: 'relative',
-    transition: 'margin-left 0.3s ease',
+    // transition: 'margin-left 0.3s ease', // Not supported in RN
   },
   mainContentWithSidebar: {
     marginLeft: 224, // Width of expanded sidebar

@@ -5,12 +5,11 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { CharacterDisplay3D, AnimationState } from '../components/CharacterDisplay3D';
-import { getAllCharacters, CharacterBehavior, GenderType, SkinToneType, ClothingType, HairType, AccessoryType } from '../config/characters';
+import CharacterDisplay3D, { AnimationState } from '../components/CharacterDisplay3D';
+import { getAllCharacters, CharacterBehavior } from '../config/characters';
 import { ColorPicker } from '../components/ColorPicker';
 import { TraitSlider } from '../components/TraitSlider';
 
-// Preset color palettes
 const BODY_COLORS = [
   '#8b5cf6', '#a855f7', '#c084fc', '#e879f9',
   '#ec4899', '#f43f5e', '#ef4444', '#f97316',
@@ -427,7 +426,7 @@ export default function WakattorsScreenEnhanced() {
           </View>
         </View>
       </Modal>
-    </View>
+    </View >
   );
 }
 

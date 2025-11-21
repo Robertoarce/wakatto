@@ -160,3 +160,7 @@ export class LiveSpeechRecognition {
     return (this.finalTranscript + ' ' + this.interimTranscript).trim();
   }
 }
+
+export function isWebSpeechSupported(): boolean {
+  return !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+}
