@@ -15,10 +15,12 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { getCustomWakattors, CustomWakattor } from '../services/customWakattorsService';
+import { useNavigation } from '@react-navigation/native';
+import { getCustomWakattors, CustomWakattor, addCharacterToWakattors } from '../services/customWakattorsService';
 import { CharacterDisplay3D, AnimationState } from '../components/CharacterDisplay3D';
 import { CharacterBehavior } from '../config/characters';
 import { Badge } from '../components/ui';
+import { useCustomAlert } from '../components/CustomAlert';
 
 type SortOption = 'name' | 'recent' | 'popular';
 
@@ -43,6 +45,8 @@ const getRandomAnimation = (): AnimationState => {
 };
 
 export default function LibraryScreen() {
+  const navigation = useNavigation();
+  const { showAlert } = useCustomAlert();
   const [characters, setCharacters] = useState<CustomWakattor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -51,6 +55,7 @@ export default function LibraryScreen() {
   const [selectedCharacter, setSelectedCharacter] = useState<CustomWakattor | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [currentAnimation, setCurrentAnimation] = useState<AnimationState>('idle');
+  const [adding, setAdding] = useState(false);
 
   // Load characters
   useEffect(() => {
@@ -125,12 +130,40 @@ export default function LibraryScreen() {
     setSelectedCharacter(null);
   };
 
-  const handleAddToWakattors = () => {
-    if (selectedCharacter) {
-      // TODO: Implement add to wakattors functionality
-      console.log('Adding character to Wakattors:', selectedCharacter.name);
-      // For now, just close the modal
+  const handleAddToWakattors = async () => {
+    if (!selectedCharacter) return;
+
+    setAdding(true);
+    try {
+      const result = await addCharacterToWakattors(selectedCharacter);
+
+      if (result.alreadyExists) {
+        showAlert(
+          'Already Added',
+          `${selectedCharacter.name} is already in your Wakattors!`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        showAlert(
+          'Success!',
+          `${selectedCharacter.name} has been added to your Wakattors!`,
+          [{ text: 'OK' }]
+        );
+      }
+
+      // Close modal and navigate to Wakattors tab with the new character ID
       handleCloseDetail();
+      // @ts-ignore - Navigate to Wakattors tab
+      navigation.navigate('Wakattors', { newCharacterId: result.characterId });
+    } catch (error: any) {
+      console.error('[Library] Add to Wakattors error:', error);
+      showAlert(
+        'Error',
+        `Failed to add character: ${error.message}`,
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setAdding(false);
     }
   };
 
@@ -302,9 +335,19 @@ export default function LibraryScreen() {
 
               {/* Action Button */}
               <View style={styles.modalActions}>
-                <TouchableOpacity style={styles.actionButton} onPress={handleAddToWakattors}>
-                  <Ionicons name="add-circle-outline" size={22} color="white" />
-                  <Text style={styles.actionButtonText}>Add to Wakattors</Text>
+                <TouchableOpacity
+                  style={[styles.actionButton, adding && styles.actionButtonDisabled]}
+                  onPress={handleAddToWakattors}
+                  disabled={adding}
+                >
+                  {adding ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <>
+                      <Ionicons name="add-circle-outline" size={22} color="white" />
+                      <Text style={styles.actionButtonText}>Add to Wakattors</Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
@@ -611,6 +654,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
+  },
+  actionButtonDisabled: {
+    opacity: 0.5,
   },
   actionButtonText: {
     color: 'white',

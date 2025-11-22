@@ -204,3 +204,51 @@ export async function characterIdExists(characterId: string): Promise<boolean> {
 
   return (count || 0) > 0;
 }
+
+/**
+ * Add a character from the library to user's wakattors
+ * Converts CustomWakattor (library format) to user's collection
+ */
+export async function addCharacterToWakattors(libraryCharacter: CustomWakattor): Promise<{ success: boolean; characterId: string; alreadyExists?: boolean }> {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  // Check if character already exists in user's collection
+  const exists = await characterIdExists(libraryCharacter.character_id);
+  if (exists) {
+    return { success: true, characterId: libraryCharacter.character_id, alreadyExists: true };
+  }
+
+  // Add character to user's collection
+  const dbData = {
+    user_id: user.id,
+    character_id: libraryCharacter.character_id,
+    name: libraryCharacter.name,
+    description: libraryCharacter.description,
+    color: libraryCharacter.color,
+    role: libraryCharacter.role,
+    prompt_style: libraryCharacter.prompt_style,
+    system_prompt: libraryCharacter.system_prompt,
+    response_style: libraryCharacter.response_style,
+    traits: libraryCharacter.traits,
+    customization: libraryCharacter.customization,
+    model3d: libraryCharacter.model3d,
+    is_public: false,
+  };
+
+  const { data, error } = await supabase
+    .from('custom_wakattors')
+    .insert(dbData)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('[CustomWakattors] Add to wakattors error:', error);
+    throw new Error(`Failed to add character: ${error.message}`);
+  }
+
+  return { success: true, characterId: libraryCharacter.character_id };
+}

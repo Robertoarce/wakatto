@@ -2,13 +2,16 @@
  * Enhanced Wakattors Screen - Character Management with Full Customization
  */
 
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Animated, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRoute, RouteProp } from '@react-navigation/native';
 import { CharacterDisplay3D, AnimationState } from '../components/CharacterDisplay3D';
 import { getAllCharacters, CharacterBehavior, GenderType, SkinToneType, ClothingType, HairType, AccessoryType } from '../config/characters';
 import { ColorPicker } from '../components/ColorPicker';
 import { TraitSlider } from '../components/TraitSlider';
+import { getCustomWakattors, deleteCustomWakattor } from '../services/customWakattorsService';
+import { useCustomAlert } from '../components/CustomAlert';
 
 // Preset color palettes
 const BODY_COLORS = [
@@ -33,13 +36,71 @@ const ROLES = [
 
 type EditorTab = 'basic' | 'personality' | 'animations' | 'advanced';
 
+type RootStackParamList = {
+  Wakattors: { newCharacterId?: string };
+};
+
 export default function WakattorsScreenEnhanced() {
-  const [characters] = useState<CharacterBehavior[]>(getAllCharacters());
+  const route = useRoute<RouteProp<RootStackParamList, 'Wakattors'>>();
+  const { showAlert } = useCustomAlert();
+  const [characters, setCharacters] = useState<CharacterBehavior[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedCharacter, setSelectedCharacter] = useState<CharacterBehavior | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedCharacter, setEditedCharacter] = useState<CharacterBehavior | null>(null);
   const [currentAnimation, setCurrentAnimation] = useState<AnimationState>('idle');
   const [editorTab, setEditorTab] = useState<EditorTab>('basic');
+  const [newCharacterId, setNewCharacterId] = useState<string | null>(null);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Load custom wakattors on mount
+  useEffect(() => {
+    loadWakattors();
+  }, []);
+
+  // Handle new character from navigation
+  useEffect(() => {
+    if (route.params?.newCharacterId) {
+      setNewCharacterId(route.params.newCharacterId);
+      startPulseAnimation();
+      // Clear after 3 seconds
+      const timeout = setTimeout(() => {
+        setNewCharacterId(null);
+      }, 3000);
+      return () => clearTimeout(timeout);
+    }
+  }, [route.params?.newCharacterId]);
+
+  const loadWakattors = async () => {
+    setLoading(true);
+    try {
+      const customWakattors = await getCustomWakattors();
+      setCharacters(customWakattors);
+    } catch (error: any) {
+      console.error('[Wakattors] Load error:', error);
+      showAlert('Error', `Failed to load wakattors: ${error.message}`, [{ text: 'OK' }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startPulseAnimation = () => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]),
+      { iterations: 3 } // 3 pulses = 3 seconds
+    ).start();
+  };
 
   const handleCreateNew = () => {
     const newCharacter: CharacterBehavior = {
@@ -86,6 +147,30 @@ export default function WakattorsScreenEnhanced() {
     setEditedCharacter({ ...character });
     setIsEditing(true);
     setEditorTab('basic');
+  };
+
+  const handleRemove = async (character: CharacterBehavior) => {
+    showAlert(
+      'Remove Character',
+      `Are you sure you want to remove ${character.name} from your Wakattors?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteCustomWakattor(character.id);
+              setCharacters(characters.filter(c => c.id !== character.id));
+              showAlert('Success', `${character.name} has been removed.`, [{ text: 'OK' }]);
+            } catch (error: any) {
+              console.error('[Wakattors] Remove error:', error);
+              showAlert('Error', `Failed to remove character: ${error.message}`, [{ text: 'OK' }]);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleSave = () => {
@@ -149,31 +234,71 @@ export default function WakattorsScreenEnhanced() {
 
       {/* Character Grid */}
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.grid}>
-        {characters.map((character) => (
-          <View key={character.id} style={styles.card}>
-            <View style={styles.cardPreview}>
-              <CharacterDisplay3D characterId={character.id} isActive={false} />
-            </View>
-            <View style={styles.cardInfo}>
-              <Text style={[styles.cardName, { color: character.color }]}>
-                {character.name}
-              </Text>
-              <Text style={styles.cardRole}>{character.role}</Text>
-              <Text style={styles.cardDescription} numberOfLines={2}>
-                {character.description}
-              </Text>
-              <View style={styles.cardActions}>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleEdit(character)}
-                >
-                  <Ionicons name="create" size={20} color="#8b5cf6" />
-                  <Text style={styles.actionButtonText}>Edit</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#8b5cf6" />
+            <Text style={styles.loadingText}>Loading your Wakattors...</Text>
           </View>
-        ))}
+        ) : characters.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="people-outline" size={64} color="#3f3f46" />
+            <Text style={styles.emptyText}>No Wakattors yet</Text>
+            <Text style={styles.emptySubtext}>
+              Go to the Library tab to add characters to your collection!
+            </Text>
+          </View>
+        ) : (
+          characters.map((character) => {
+            const isNewlyAdded = newCharacterId === character.id;
+            return (
+              <Animated.View
+                key={character.id}
+                style={[
+                  styles.card,
+                  isNewlyAdded && {
+                    transform: [{ scale: pulseAnim }],
+                    shadowColor: character.color,
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.6,
+                    shadowRadius: 16,
+                    elevation: 12,
+                  },
+                ]}
+              >
+                <View style={styles.cardPreview}>
+                  <CharacterDisplay3D characterId={character.id} isActive={false} />
+                </View>
+                <View style={styles.cardInfo}>
+                  <Text style={[styles.cardName, { color: character.color }]}>
+                    {character.name}
+                  </Text>
+                  <Text style={styles.cardRole}>{character.role}</Text>
+                  <Text style={styles.cardDescription} numberOfLines={2}>
+                    {character.description}
+                  </Text>
+                  <View style={styles.cardActions}>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => handleEdit(character)}
+                    >
+                      <Ionicons name="create" size={20} color="#8b5cf6" />
+                      <Text style={styles.actionButtonText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.actionButton, styles.removeButton]}
+                      onPress={() => handleRemove(character)}
+                    >
+                      <Ionicons name="trash-outline" size={20} color="#ef4444" />
+                      <Text style={[styles.actionButtonText, styles.removeButtonText]}>
+                        Remove
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </Animated.View>
+            );
+          })
+        )}
       </ScrollView>
 
       {/* Character Editor Modal */}
@@ -524,6 +649,43 @@ const styles = StyleSheet.create({
     color: '#d4d4d8',
     fontSize: 14,
     fontWeight: '500',
+  },
+  removeButton: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  removeButtonText: {
+    color: '#ef4444',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 100,
+  },
+  loadingText: {
+    color: '#a1a1aa',
+    fontSize: 16,
+    marginTop: 16,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 100,
+    paddingHorizontal: 40,
+  },
+  emptyText: {
+    color: '#d4d4d8',
+    fontSize: 20,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    color: '#71717a',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   modalOverlay: {
     flex: 1,
