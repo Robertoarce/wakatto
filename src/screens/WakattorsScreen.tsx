@@ -3,43 +3,62 @@
  * Create, view, modify, delete, and fine-tune AI characters
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CharacterDisplay3D, AnimationState } from '../components/CharacterDisplay3D';
+import { CharacterCreationWizard } from '../components/CharacterCreationWizard';
 import { getAllCharacters, CharacterBehavior, CHARACTERS, PromptStyleId } from '../config/characters';
 import { PROMPT_STYLES } from '../prompts';
+import { getCustomWakattors, deleteCustomWakattor } from '../services/customWakattorsService';
 
 export default function WakattorsScreen() {
-  const [characters] = useState<CharacterBehavior[]>(getAllCharacters());
+  const [builtInCharacters] = useState<CharacterBehavior[]>(getAllCharacters());
+  const [customCharacters, setCustomCharacters] = useState<CharacterBehavior[]>([]);
+  const [allCharacters, setAllCharacters] = useState<CharacterBehavior[]>([]);
   const [selectedCharacter, setSelectedCharacter] = useState<CharacterBehavior | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const [editedCharacter, setEditedCharacter] = useState<CharacterBehavior | null>(null);
   const [currentAnimation, setCurrentAnimation] = useState<AnimationState>('idle');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Load custom characters on mount
+  useEffect(() => {
+    loadCustomCharacters();
+  }, []);
+
+  // Combine built-in and custom characters
+  useEffect(() => {
+    setAllCharacters([...builtInCharacters, ...customCharacters]);
+  }, [builtInCharacters, customCharacters]);
+
+  const loadCustomCharacters = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const customs = await getCustomWakattors();
+      setCustomCharacters(customs);
+    } catch (err: any) {
+      console.error('[Wakattors] Load error:', err);
+      setError(err.message || 'Failed to load custom characters');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCreateNew = () => {
-    const newCharacter: CharacterBehavior = {
-      id: `custom_${Date.now()}`,
-      name: 'New Wakattor',
-      description: 'A new AI character',
-      color: '#8b5cf6',
-      promptStyle: 'compassionate', // Default therapeutic style
-      systemPrompt: 'You are a helpful AI assistant.',
-      traits: {
-        empathy: 5,
-        directness: 5,
-        formality: 5,
-        humor: 5,
-      },
-      responseStyle: 'balanced',
-      model3D: {
-        bodyColor: '#8b5cf6',
-        accessoryColor: '#6d28d9',
-        position: [0, 0, 0],
-      },
-    };
-    setEditedCharacter(newCharacter);
-    setIsEditing(true);
+    setIsCreating(true);
+  };
+
+  const handleCreationComplete = (character: CharacterBehavior) => {
+    setIsCreating(false);
+    setCustomCharacters([character, ...customCharacters]);
+  };
+
+  const handleCreationCancel = () => {
+    setIsCreating(false);
   };
 
   const handleEdit = (character: CharacterBehavior) => {
@@ -61,9 +80,18 @@ export default function WakattorsScreen() {
     setEditedCharacter(null);
   };
 
-  const handleDelete = (characterId: string) => {
-    // TODO: Implement delete with confirmation
-    console.log('Delete character:', characterId);
+  const handleDelete = async (characterId: string) => {
+    if (!confirm(`Are you sure you want to delete this character?`)) {
+      return;
+    }
+
+    try {
+      await deleteCustomWakattor(characterId);
+      setCustomCharacters(customCharacters.filter(c => c.id !== characterId));
+    } catch (err: any) {
+      console.error('[Wakattors] Delete error:', err);
+      alert(`Failed to delete character: ${err.message}`);
+    }
   };
 
   const updateCharacterField = (field: keyof CharacterBehavior, value: any) => {
@@ -104,7 +132,12 @@ export default function WakattorsScreen() {
 
       {/* Character Grid */}
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.grid}>
-        {characters.map((character) => (
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorBanner}>{error}</Text>
+          </View>
+        )}
+        {allCharacters.map((character) => (
           <View key={character.id} style={styles.card}>
             <View style={styles.cardPreview}>
               <CharacterDisplay3D characterId={character.id} isActive={false} />
@@ -357,6 +390,19 @@ export default function WakattorsScreen() {
             )}
           </View>
         </View>
+      </Modal>
+
+      {/* Character Creation Wizard Modal */}
+      <Modal
+        visible={isCreating}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={handleCreationCancel}
+      >
+        <CharacterCreationWizard
+          onComplete={handleCreationComplete}
+          onCancel={handleCreationCancel}
+        />
       </Modal>
     </View>
   );
@@ -717,5 +763,17 @@ const styles = StyleSheet.create({
     color: '#71717a',
     marginTop: 4,
     marginBottom: 8,
+  },
+  errorContainer: {
+    width: '100%',
+    marginBottom: 16,
+  },
+  errorBanner: {
+    backgroundColor: '#7f1d1d',
+    color: '#fecaca',
+    padding: 12,
+    borderRadius: 8,
+    fontSize: 14,
+    textAlign: 'center',
   },
 });

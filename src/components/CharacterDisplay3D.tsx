@@ -8,7 +8,8 @@ import { getCharacter, CharacterBehavior } from '../config/characters';
 export type AnimationState = 'idle' | 'thinking' | 'talking' | 'confused' | 'happy' | 'excited' | 'winning' | 'walking' | 'jump' | 'surprise_jump' | 'surprise_happy';
 
 interface CharacterDisplay3DProps {
-  characterId: string;
+  characterId?: string;
+  character?: CharacterBehavior; // Optional: pass character directly for custom/temporary characters
   isActive?: boolean;
   animation?: AnimationState;
   isTalking?: boolean;
@@ -442,8 +443,13 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
   );
 }
 
-export function CharacterDisplay3D({ characterId, isActive = false, animation = 'idle', isTalking = false }: CharacterDisplay3DProps) {
-  const character = useMemo(() => getCharacter(characterId), [characterId]);
+export function CharacterDisplay3D({ characterId, character: passedCharacter, isActive = false, animation = 'idle', isTalking = false }: CharacterDisplay3DProps) {
+  // Use passed character or fetch by ID
+  const character = useMemo(() => {
+    if (passedCharacter) return passedCharacter;
+    if (characterId) return getCharacter(characterId);
+    return getCharacter(); // Returns default character
+  }, [characterId, passedCharacter]);
   const [responsiveScale, setResponsiveScale] = useState(1);
   const [cameraDistance, setCameraDistance] = useState(3);
 
