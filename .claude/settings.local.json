@@ -79,7 +79,9 @@
       "mcp__playwright__browser_resize",
       "Bash(supabase db push:*)",
       "mcp__playwright__browser_evaluate",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(cd /Users/robertoarce/00\\ All/02\\ Projects/04\\ wakatto:*)",
+      "Bash(cd:*)"
     ],
     "deny": [],
     "ask": []
