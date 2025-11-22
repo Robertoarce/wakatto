@@ -1,5 +1,5 @@
 /**
- * Wakatinstein Screen - Character Discovery & Search
+ * Library Screen - Character Discovery & Search
  * Browse and search through 100+ AI characters
  */
 
@@ -16,20 +16,41 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { getCustomWakattors, CustomWakattor } from '../services/customWakattorsService';
-import { CharacterDisplay3D } from '../components/CharacterDisplay3D';
+import { CharacterDisplay3D, AnimationState } from '../components/CharacterDisplay3D';
 import { CharacterBehavior } from '../config/characters';
+import { Badge } from '../components/ui';
 
-type FilterCategory = 'all' | 'role' | 'style' | 'traits';
 type SortOption = 'name' | 'recent' | 'popular';
 
-export default function WakatinsteinScreen() {
+// Role/Profession filters
+const ROLE_FILTERS = ['All', 'Therapist', 'Coach', 'Analyst', 'Friend', 'Mentor', 'Guide', 'Counselor', 'Philosopher'];
+
+// Available animations for random selection
+const AVAILABLE_ANIMATIONS: AnimationState[] = [
+  'idle',
+  'thinking',
+  'happy',
+  'excited',
+  'winning',
+  'walking',
+  'confused',
+  'talking',
+];
+
+// Get random animation
+const getRandomAnimation = (): AnimationState => {
+  return AVAILABLE_ANIMATIONS[Math.floor(Math.random() * AVAILABLE_ANIMATIONS.length)];
+};
+
+export default function LibraryScreen() {
   const [characters, setCharacters] = useState<CustomWakattor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<FilterCategory>('all');
+  const [selectedRole, setSelectedRole] = useState<string>('All');
   const [sortBy, setSortBy] = useState<SortOption>('recent');
   const [selectedCharacter, setSelectedCharacter] = useState<CustomWakattor | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [currentAnimation, setCurrentAnimation] = useState<AnimationState>('idle');
 
   // Load characters
   useEffect(() => {
@@ -40,8 +61,6 @@ export default function WakatinsteinScreen() {
     try {
       setLoading(true);
       const data = await getCustomWakattors();
-      // Convert CharacterBehavior[] to CustomWakattor[] format
-      // Note: This is a simplified conversion; you may need to adjust based on your data structure
       setCharacters(data as any);
     } catch (error) {
       console.error('Failed to load characters:', error);
@@ -49,6 +68,12 @@ export default function WakatinsteinScreen() {
       setLoading(false);
     }
   };
+
+  // Get unique roles from characters
+  const uniqueRoles = useMemo(() => {
+    const roles = characters.map((c) => c.role).filter(Boolean);
+    return ['All', ...Array.from(new Set(roles))];
+  }, [characters]);
 
   // Filter and search characters
   const filteredCharacters = useMemo(() => {
@@ -65,10 +90,11 @@ export default function WakatinsteinScreen() {
       );
     }
 
-    // Category filter
-    if (selectedCategory !== 'all') {
-      // Add specific category filtering logic here
-      // For example, filter by role, style, etc.
+    // Role filter
+    if (selectedRole !== 'All') {
+      filtered = filtered.filter(char =>
+        char.role?.toLowerCase() === selectedRole.toLowerCase()
+      );
     }
 
     // Sort
@@ -79,30 +105,33 @@ export default function WakatinsteinScreen() {
         case 'recent':
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         case 'popular':
-          // You can add a popularity metric later
-          return 0;
+          return 0; // Placeholder for popularity metric
         default:
           return 0;
       }
     });
 
     return filtered;
-  }, [characters, searchQuery, selectedCategory, sortBy]);
-
-  // Get unique roles for filtering
-  const uniqueRoles = useMemo(() => {
-    const roles = characters.map((c) => c.role).filter(Boolean);
-    return Array.from(new Set(roles));
-  }, [characters]);
+  }, [characters, searchQuery, selectedRole, sortBy]);
 
   const handleCharacterPress = (character: CustomWakattor) => {
     setSelectedCharacter(character);
+    setCurrentAnimation(getRandomAnimation()); // Set random animation
     setShowDetailModal(true);
   };
 
   const handleCloseDetail = () => {
     setShowDetailModal(false);
     setSelectedCharacter(null);
+  };
+
+  const handleAddToWakattors = () => {
+    if (selectedCharacter) {
+      // TODO: Implement add to wakattors functionality
+      console.log('Adding character to Wakattors:', selectedCharacter.name);
+      // For now, just close the modal
+      handleCloseDetail();
+    }
   };
 
   const renderCharacterCard = (character: CustomWakattor) => {
@@ -112,33 +141,19 @@ export default function WakatinsteinScreen() {
         style={styles.characterCard}
         onPress={() => handleCharacterPress(character)}
       >
-        <View style={styles.cardHeader}>
-          <View style={[styles.colorDot, { backgroundColor: character.color }]} />
-          <View style={styles.cardHeaderText}>
-            <Text style={styles.characterName} numberOfLines={1}>
-              {character.name}
-            </Text>
-            <Text style={styles.characterRole} numberOfLines={1}>
-              {character.role}
-            </Text>
-          </View>
-        </View>
+        <Text style={[styles.characterName, { color: character.color }]} numberOfLines={1}>
+          {character.name}
+        </Text>
 
-        <Text style={styles.characterDescription} numberOfLines={2}>
+        <Badge label={character.role || 'Character'} variant="primary" size="sm" style={styles.roleBadge} />
+
+        <Text style={styles.characterDescription} numberOfLines={3}>
           {character.description}
         </Text>
 
         <View style={styles.cardFooter}>
-          <View style={styles.traitBadges}>
-            {character.traits && Object.entries(character.traits).slice(0, 3).map(([key, value]) => (
-              <View key={key} style={styles.traitBadge}>
-                <Text style={styles.traitBadgeText}>
-                  {key.charAt(0).toUpperCase() + key.slice(1)}: {value}
-                </Text>
-              </View>
-            ))}
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#71717a" />
+          <Text style={styles.viewDetailsText}>Tap to view in 3D</Text>
+          <Ionicons name="cube-outline" size={20} color="#8b5cf6" />
         </View>
       </TouchableOpacity>
     );
@@ -148,7 +163,7 @@ export default function WakatinsteinScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#8b5cf6" />
-        <Text style={styles.loadingText}>Loading characters...</Text>
+        <Text style={styles.loadingText}>Loading library...</Text>
       </View>
     );
   }
@@ -158,10 +173,10 @@ export default function WakatinsteinScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <MaterialCommunityIcons name="head-lightbulb-outline" size={28} color="#8b5cf6" />
+          <Ionicons name="library" size={28} color="#8b5cf6" />
           <View>
-            <Text style={styles.title}>Wakatinstein</Text>
-            <Text style={styles.subtitle}>{characters.length} Characters</Text>
+            <Text style={styles.title}>Character Library</Text>
+            <Text style={styles.subtitle}>{filteredCharacters.length} of {characters.length} Characters</Text>
           </View>
         </View>
         <TouchableOpacity onPress={loadCharacters} style={styles.refreshButton}>
@@ -174,7 +189,7 @@ export default function WakatinsteinScreen() {
         <Ionicons name="search" size={20} color="#71717a" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search characters by name, role, or traits..."
+          placeholder="Search by name, role, style, or traits..."
           placeholderTextColor="#71717a"
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -186,57 +201,47 @@ export default function WakatinsteinScreen() {
         )}
       </View>
 
-      {/* Sort Options */}
-      <View style={styles.sortContainer}>
-        <Text style={styles.sortLabel}>Sort by:</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortScroll}>
-          {(['recent', 'name', 'popular'] as SortOption[]).map((option) => (
+      {/* Sort & Filter Bar */}
+      <View style={styles.filterBarContainer}>
+        <View style={styles.sortContainer}>
+          <Text style={styles.sortLabel}>Sort:</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortScroll}>
+            {(['recent', 'name', 'popular'] as SortOption[]).map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[styles.sortButton, sortBy === option && styles.sortButtonActive]}
+                onPress={() => setSortBy(option)}
+              >
+                <Text style={[styles.sortButtonText, sortBy === option && styles.sortButtonTextActive]}>
+                  {option.charAt(0).toUpperCase() + option.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+
+      {/* Role/Profession Filter */}
+      <View style={styles.filterContainer}>
+        <Text style={styles.filterLabel}>
+          <Ionicons name="briefcase-outline" size={16} color="#a1a1aa" /> Profession:
+        </Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {uniqueRoles.map((role) => (
             <TouchableOpacity
-              key={option}
-              style={[styles.sortButton, sortBy === option && styles.sortButtonActive]}
-              onPress={() => setSortBy(option)}
+              key={role}
+              style={[styles.roleChip, selectedRole === role && styles.roleChipActive]}
+              onPress={() => setSelectedRole(role)}
             >
-              <Text style={[styles.sortButtonText, sortBy === option && styles.sortButtonTextActive]}>
-                {option.charAt(0).toUpperCase() + option.slice(1)}
+              <Text style={[styles.roleChipText, selectedRole === role && styles.roleChipTextActive]}>
+                {role}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
       </View>
 
-      {/* Role Filters */}
-      {uniqueRoles.length > 0 && (
-        <View style={styles.filterContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <TouchableOpacity
-              style={[styles.filterChip, selectedCategory === 'all' && styles.filterChipActive]}
-              onPress={() => setSelectedCategory('all')}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  selectedCategory === 'all' && styles.filterChipTextActive,
-                ]}
-              >
-                All
-              </Text>
-            </TouchableOpacity>
-            {uniqueRoles.slice(0, 10).map((role) => (
-              <TouchableOpacity
-                key={role}
-                style={[styles.filterChip]}
-                onPress={() => {
-                  // Could implement role-based filtering
-                }}
-              >
-                <Text style={styles.filterChipText}>{role}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* Character Grid */}
+      {/* Character Mosaic Grid */}
       <ScrollView style={styles.characterList} contentContainerStyle={styles.characterListContent}>
         {filteredCharacters.length === 0 ? (
           <View style={styles.emptyState}>
@@ -245,11 +250,11 @@ export default function WakatinsteinScreen() {
             <Text style={styles.emptySubtext}>
               {searchQuery
                 ? `No results for "${searchQuery}"`
-                : 'Start by creating your first character'}
+                : 'Try adjusting your filters or search terms'}
             </Text>
           </View>
         ) : (
-          <View style={styles.characterGrid}>
+          <View style={styles.characterMosaic}>
             {filteredCharacters.map((character) => renderCharacterCard(character))}
           </View>
         )}
@@ -259,7 +264,7 @@ export default function WakatinsteinScreen() {
       {selectedCharacter && (
         <Modal
           visible={showDetailModal}
-          animationType="slide"
+          animationType="fade"
           transparent={true}
           onRequestClose={handleCloseDetail}
         >
@@ -268,9 +273,10 @@ export default function WakatinsteinScreen() {
               {/* Modal Header */}
               <View style={styles.modalHeader}>
                 <View style={styles.modalHeaderLeft}>
-                  <View style={[styles.modalColorDot, { backgroundColor: selectedCharacter.color }]} />
                   <View>
-                    <Text style={styles.modalTitle}>{selectedCharacter.name}</Text>
+                    <Text style={[styles.modalTitle, { color: selectedCharacter.color }]}>
+                      {selectedCharacter.name}
+                    </Text>
                     <Text style={styles.modalSubtitle}>{selectedCharacter.role}</Text>
                   </View>
                 </View>
@@ -279,60 +285,26 @@ export default function WakatinsteinScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* 3D Preview */}
-              <View style={styles.preview3D}>
+              {/* 3D Preview - Full Screen */}
+              <View style={styles.preview3DFullScreen}>
                 <CharacterDisplay3D
                   characterId={selectedCharacter.character_id}
-                  animation="idle"
+                  animation={currentAnimation}
                 />
               </View>
 
-              {/* Details */}
-              <ScrollView style={styles.modalBody}>
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Description</Text>
-                  <Text style={styles.sectionContent}>{selectedCharacter.description}</Text>
-                </View>
+              {/* Character Info */}
+              <View style={styles.modalInfo}>
+                <Text style={styles.characterInfoDescription}>
+                  {selectedCharacter.description}
+                </Text>
+              </View>
 
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Personality Traits</Text>
-                  <View style={styles.traitsGrid}>
-                    {selectedCharacter.traits &&
-                      Object.entries(selectedCharacter.traits).map(([key, value]) => (
-                        <View key={key} style={styles.traitItem}>
-                          <Text style={styles.traitName}>
-                            {key.charAt(0).toUpperCase() + key.slice(1)}
-                          </Text>
-                          <View style={styles.traitBar}>
-                            <View
-                              style={[
-                                styles.traitBarFill,
-                                { width: `${(value / 10) * 100}%`, backgroundColor: selectedCharacter.color },
-                              ]}
-                            />
-                          </View>
-                          <Text style={styles.traitValue}>{value}/10</Text>
-                        </View>
-                      ))}
-                  </View>
-                </View>
-
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Response Style</Text>
-                  <Text style={styles.sectionContent}>{selectedCharacter.response_style}</Text>
-                </View>
-
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Prompt Style</Text>
-                  <Text style={styles.sectionContent}>{selectedCharacter.prompt_style}</Text>
-                </View>
-              </ScrollView>
-
-              {/* Action Buttons */}
+              {/* Action Button */}
               <View style={styles.modalActions}>
-                <TouchableOpacity style={styles.actionButton} onPress={handleCloseDetail}>
-                  <Ionicons name="chatbox-outline" size={20} color="white" />
-                  <Text style={styles.actionButtonText}>Start Conversation</Text>
+                <TouchableOpacity style={styles.actionButton} onPress={handleAddToWakattors}>
+                  <Ionicons name="add-circle-outline" size={22} color="white" />
+                  <Text style={styles.actionButtonText}>Add to Wakattors</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -395,6 +367,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#27272a',
   },
   searchIcon: {
     marginRight: 8,
@@ -407,11 +381,15 @@ const styles = StyleSheet.create({
   clearButton: {
     padding: 4,
   },
+  filterBarContainer: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#27272a',
+  },
   sortContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
     gap: 8,
   },
   sortLabel: {
@@ -428,9 +406,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginRight: 8,
     backgroundColor: '#18181b',
+    borderWidth: 1,
+    borderColor: '#27272a',
   },
   sortButtonActive: {
     backgroundColor: '#8b5cf6',
+    borderColor: '#8b5cf6',
   },
   sortButtonText: {
     color: '#a1a1aa',
@@ -442,29 +423,37 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#27272a',
   },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+  filterLabel: {
+    fontSize: 13,
+    color: '#a1a1aa',
+    fontWeight: '600',
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  roleChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
-    marginRight: 8,
+    marginRight: 10,
     backgroundColor: '#18181b',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#27272a',
   },
-  filterChipActive: {
+  roleChipActive: {
     backgroundColor: '#8b5cf6',
     borderColor: '#8b5cf6',
   },
-  filterChipText: {
+  roleChipText: {
     color: '#a1a1aa',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
   },
-  filterChipTextActive: {
+  roleChipTextActive: {
     color: 'white',
   },
   characterList: {
@@ -473,40 +462,36 @@ const styles = StyleSheet.create({
   characterListContent: {
     padding: 16,
   },
-  characterGrid: {
+  characterMosaic: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
+    justifyContent: 'space-between',
   },
   characterCard: {
     backgroundColor: '#18181b',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#27272a',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 12,
-  },
-  colorDot: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  cardHeaderText: {
-    flex: 1,
+    width: '48%', // Two columns on most screens
+    minWidth: 160,
+    maxWidth: 200,
   },
   characterName: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
-    color: 'white',
-    marginBottom: 2,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  roleBadge: {
+    alignSelf: 'center',
+    marginBottom: 12,
   },
   characterRole: {
     fontSize: 13,
     color: '#a1a1aa',
+    marginTop: 4,
   },
   characterDescription: {
     fontSize: 14,
@@ -518,22 +503,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#27272a',
   },
-  traitBadges: {
-    flexDirection: 'row',
-    gap: 6,
-    flex: 1,
-    flexWrap: 'wrap',
-  },
-  traitBadge: {
-    backgroundColor: '#27272a',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  traitBadgeText: {
-    fontSize: 11,
-    color: '#a1a1aa',
+  viewDetailsText: {
+    fontSize: 13,
+    color: '#8b5cf6',
+    fontWeight: '600',
   },
   emptyState: {
     flex: 1,
@@ -557,15 +535,21 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalContent: {
     backgroundColor: '#18181b',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
+    borderRadius: 20,
+    width: '66.67%', // 2/3 of screen width
+    height: '66.67%', // 2/3 of screen height
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 10,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -577,20 +561,12 @@ const styles = StyleSheet.create({
     borderBottomColor: '#27272a',
   },
   modalHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
     flex: 1,
   },
-  modalColorDot: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-  },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
-    color: 'white',
+    marginBottom: 4,
   },
   modalSubtitle: {
     fontSize: 14,
@@ -600,58 +576,21 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 4,
   },
-  preview3D: {
-    height: 200,
+  preview3DFullScreen: {
+    flex: 1,
     backgroundColor: '#0f0f0f',
   },
-  modalBody: {
-    flex: 1,
+  modalInfo: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#27272a',
   },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: 'white',
-    marginBottom: 12,
-  },
-  sectionContent: {
-    fontSize: 14,
+  characterInfoDescription: {
+    fontSize: 15,
     color: '#d4d4d8',
-    lineHeight: 22,
-  },
-  traitsGrid: {
-    gap: 12,
-  },
-  traitItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  traitName: {
-    fontSize: 13,
-    color: '#a1a1aa',
-    width: 80,
-  },
-  traitBar: {
-    flex: 1,
-    height: 8,
-    backgroundColor: '#27272a',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  traitBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  traitValue: {
-    fontSize: 13,
-    color: '#a1a1aa',
-    width: 40,
-    textAlign: 'right',
+    lineHeight: 24,
+    textAlign: 'center',
   },
   modalActions: {
     paddingHorizontal: 20,
@@ -664,9 +603,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#8b5cf6',
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 12,
-    gap: 8,
+    gap: 10,
+    shadowColor: '#8b5cf6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   actionButtonText: {
     color: 'white',

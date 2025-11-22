@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
@@ -9,6 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 import { runAllTests, TestResult } from '../services/aiConnectionTest';
 import { useCustomAlert } from '../components/CustomAlert';
 import { PROMPT_STYLES, PromptStyle } from '../prompts';
+import { Button, Input, Card, Badge } from '../components/ui';
 
 type AIProvider = 'mock' | 'openai' | 'anthropic' | 'gemini';
 type PromptStyleId = 'compassionate' | 'psychoanalytic' | 'jungian' | 'cognitive' | 'mindfulness' | 'socratic' | 'creative' | 'adlerian' | 'existential' | 'positive' | 'narrative';
@@ -140,21 +141,25 @@ const SettingsScreen = (): JSX.Element => {
       <AlertComponent />
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Account</Text>
-        <View style={styles.card}>
+        <Card variant="elevated">
           <View style={styles.infoRow}>
             <Ionicons name="person-outline" size={20} color="#a1a1aa" />
             <Text style={styles.infoText}>{user?.email || 'Not logged in'}</Text>
           </View>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={20} color="#ef4444" />
-            <Text style={styles.logoutButtonText}>Logout</Text>
-          </TouchableOpacity>
-        </View>
+          <Button
+            title="Logout"
+            onPress={handleLogout}
+            variant="danger"
+            icon="log-out-outline"
+            fullWidth
+            size="md"
+          />
+        </Card>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>AI Configuration</Text>
-        <View style={styles.card}>
+        <Card variant="elevated">
           <Text style={styles.label}>AI Provider</Text>
           <View style={styles.providerButtons}>
             {(['mock', 'openai', 'anthropic', 'gemini'] as AIProvider[]).map((provider) => (
@@ -194,37 +199,25 @@ const SettingsScreen = (): JSX.Element => {
 
           {aiProvider !== 'mock' && (
             <>
-              <Text style={styles.label}>API Key</Text>
-              <View style={styles.inputWithIcon}>
-                <TextInput
-                  style={styles.inputWithButton}
-                  placeholder={`Enter your ${aiProvider} API key`}
-                  placeholderTextColor="#71717a"
-                  value={apiKey}
-                  onChangeText={setApiKey}
-                  secureTextEntry={!showApiKey}
-                  autoCapitalize="none"
-                />
-                <TouchableOpacity 
-                  style={styles.eyeButton}
-                  onPress={() => setShowApiKey(!showApiKey)}
-                >
-                  <Ionicons 
-                    name={showApiKey ? "eye-off-outline" : "eye-outline"} 
-                    size={20} 
-                    color="#71717a" 
-                  />
-                </TouchableOpacity>
-              </View>
+              <Input
+                label="API Key"
+                placeholder={`Enter your ${aiProvider} API key`}
+                value={apiKey}
+                onChangeText={setApiKey}
+                secureTextEntry
+                showPasswordToggle
+                autoCapitalize="none"
+                icon="key-outline"
+              />
 
-              <Text style={styles.label}>Model (Optional)</Text>
-              <TextInput
-                style={styles.input}
+              <Input
+                label="Model (Optional)"
                 placeholder={getDefaultModel(aiProvider)}
-                placeholderTextColor="#71717a"
                 value={model}
                 onChangeText={setModel}
                 autoCapitalize="none"
+                icon="cube-outline"
+                helperText="Leave empty to use default model"
               />
 
               <View style={styles.infoBox}>
@@ -236,27 +229,26 @@ const SettingsScreen = (): JSX.Element => {
             </>
           )}
 
-          <TouchableOpacity style={styles.saveButton} onPress={handleSaveAISettings}>
-            <Text style={styles.saveButtonText}>Save AI Settings</Text>
-          </TouchableOpacity>
+          <Button
+            title="Save AI Settings"
+            onPress={handleSaveAISettings}
+            variant="success"
+            fullWidth
+            size="md"
+            icon="checkmark-circle-outline"
+          />
 
-          <TouchableOpacity 
-            style={[styles.testButton, testing && styles.testButtonDisabled]} 
+          <Button
+            title={testing ? "Testing..." : "Test AI Connection"}
             onPress={handleTestConnection}
             disabled={testing}
-          >
-            {testing ? (
-              <>
-                <ActivityIndicator size="small" color="white" />
-                <Text style={styles.testButtonText}>Testing...</Text>
-              </>
-            ) : (
-              <>
-                <Ionicons name="flask-outline" size={20} color="white" />
-                <Text style={styles.testButtonText}>Test AI Connection</Text>
-              </>
-            )}
-          </TouchableOpacity>
+            loading={testing}
+            variant="secondary"
+            fullWidth
+            size="md"
+            icon="flask-outline"
+            style={{ marginTop: 12 }}
+          />
 
           {testResults && (
             <View style={styles.testResultsContainer}>
@@ -304,12 +296,12 @@ const SettingsScreen = (): JSX.Element => {
               </View>
             </View>
           )}
-        </View>
+        </Card>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Therapeutic Prompt Style</Text>
-        <View style={styles.card}>
+        <Card variant="elevated">
           <Text style={styles.label}>Select Your Therapeutic Approach</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.promptStylesScroll}>
             <View style={styles.promptStylesContainer}>
@@ -351,18 +343,26 @@ const SettingsScreen = (): JSX.Element => {
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.saveButton} onPress={handleSavePromptStyle}>
-            <Text style={styles.saveButtonText}>Save Prompt Style</Text>
-          </TouchableOpacity>
-        </View>
+          <Button
+            title="Save Prompt Style"
+            onPress={handleSavePromptStyle}
+            variant="success"
+            fullWidth
+            size="md"
+            icon="checkmark-circle-outline"
+          />
+        </Card>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>About</Text>
-        <View style={styles.card}>
+        <Card variant="elevated">
           <Text style={styles.aboutText}>Psyche AI - Your Personal Journal Companion</Text>
-          <Text style={styles.versionText}>Version 0.1.0</Text>
-        </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+            <Badge label="Version 0.1.0" variant="info" />
+            <Badge label="Beta" variant="warning" />
+          </View>
+        </Card>
       </View>
     </ScrollView>
   );

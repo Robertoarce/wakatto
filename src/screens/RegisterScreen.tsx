@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import { signUp, signIn } from '../services/supabaseService';
 import { setSession } from '../store/actions/authActions';
 import { useCustomAlert } from '../components/CustomAlert';
 import { AnimatedBackground3D } from '../components/AnimatedBackground3D';
+import { Button, Input } from '../components/ui';
 
 // Dev credentials for quick setup during development
 const DEV_EMAIL = 'dev@phsyche.ai'; // Note: matches the user created in Supabase
@@ -182,79 +183,79 @@ export default function RegisterScreen() {
 
           {/* Form */}
           <View style={styles.form}>
-            <Text style={styles.label}>Name</Text>
-            <TextInput
-              style={styles.input}
+            <Input
+              label="Name"
               placeholder="Your name"
-              placeholderTextColor="#6b7280"
               value={name}
               onChangeText={setName}
               autoCapitalize="words"
+              icon="person-outline"
             />
 
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
+            <Input
+              label="Email"
               placeholder="you@example.com"
-              placeholderTextColor="#6b7280"
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
+              icon="mail-outline"
             />
 
-            <Text style={styles.label}>Phone (optional)</Text>
-            <TextInput
-              style={styles.input}
+            <Input
+              label="Phone (optional)"
               placeholder="+1 (555) 123-4567"
-              placeholderTextColor="#6b7280"
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"
+              icon="call-outline"
             />
 
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
+            <Input
+              label="Password"
               placeholder="••••••••"
-              placeholderTextColor="#6b7280"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              showPasswordToggle
+              icon="lock-closed-outline"
+              helperText="Must be at least 6 characters"
             />
 
-            <TouchableOpacity
-              style={styles.signUpButton}
+            <Button
+              title={loading ? 'Creating Account...' : 'Sign Up'}
               onPress={signUpWithEmail}
               disabled={loading}
-            >
-              <Text style={styles.signUpButtonText}>
-                {loading ? 'Creating Account...' : 'Sign Up'}
-              </Text>
-            </TouchableOpacity>
+              loading={loading}
+              fullWidth
+              size="lg"
+              style={{ marginTop: 8 }}
+            />
 
             {/* Dev User Button */}
             {__DEV__ && (
-              <TouchableOpacity
-                style={styles.devButton}
+              <Button
+                title="⚡ Create Dev User"
                 onPress={createDevUser}
                 disabled={loading}
-              >
-                <Text style={styles.devButtonText}>⚡ Create Dev User</Text>
-              </TouchableOpacity>
+                variant="secondary"
+                fullWidth
+                size="md"
+                style={{ marginTop: 12 }}
+              />
             )}
 
             {/* Skip Login Button */}
-            <TouchableOpacity
-              style={styles.demoButton}
+            <Button
+              title="Skip Login, Use Demo Account"
               onPress={skipLoginWithDemo}
               disabled={loading}
-            >
-              <Ionicons name="play-circle-outline" size={20} color="#f97316" style={styles.demoIcon} />
-              <Text style={styles.demoButtonText}>
-                Skip Login, Use Demo Account
-              </Text>
-            </TouchableOpacity>
+              variant="outline"
+              fullWidth
+              size="md"
+              icon="play-circle-outline"
+              style={{ marginTop: 12 }}
+            />
           </View>
         </View>
       </ScrollView>

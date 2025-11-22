@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import { signIn } from '../services/supabaseService';
 import { setSession } from '../store/actions/authActions';
 import { useCustomAlert } from '../components/CustomAlert';
 import { AnimatedBackground3D } from '../components/AnimatedBackground3D';
+import { Button, Input, Card } from '../components/ui';
 
 export default function LoginScreen() {
   const navigation = useNavigation();
@@ -139,48 +140,47 @@ export default function LoginScreen() {
 
           {/* Form */}
           <View style={styles.form}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
+            <Input
+              label="Email"
               placeholder="you@example.com"
-              placeholderTextColor="#6b7280"
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
+              icon="mail-outline"
             />
 
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
+            <Input
+              label="Password"
               placeholder="••••••••"
-              placeholderTextColor="#6b7280"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              showPasswordToggle
+              icon="lock-closed-outline"
             />
 
-            <TouchableOpacity
-              style={styles.signInButton}
+            <Button
+              title={loading ? 'Signing In...' : 'Sign In'}
               onPress={signInWithEmail}
               disabled={loading}
-            >
-              <Text style={styles.signInButtonText}>
-                {loading ? 'Signing In...' : 'Sign In'}
-              </Text>
-            </TouchableOpacity>
+              loading={loading}
+              fullWidth
+              size="lg"
+              style={{ marginTop: 8 }}
+            />
 
             {/* Skip Login Button */}
-            <TouchableOpacity
-              style={styles.demoButton}
+            <Button
+              title="Skip Login, Use Demo Account"
               onPress={skipLoginWithDemo}
               disabled={loading}
-            >
-              <Ionicons name="play-circle-outline" size={20} color="#f97316" style={styles.demoIcon} />
-              <Text style={styles.demoButtonText}>
-                Skip Login, Use Demo Account
-              </Text>
-            </TouchableOpacity>
+              variant="outline"
+              fullWidth
+              size="md"
+              icon="play-circle-outline"
+              style={{ marginTop: 12 }}
+            />
           </View>
         </View>
       </ScrollView>
