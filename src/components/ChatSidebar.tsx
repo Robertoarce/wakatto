@@ -37,7 +37,7 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
+
     if (days === 0) return 'Today';
     if (days === 1) return 'Yesterday';
     if (days < 7) return `${days} days ago`;
@@ -122,7 +122,7 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
   }, [menuOpenId]);
 
   // Filter conversations based on search query
-  const filteredConversations = conversations.filter(conv => 
+  const filteredConversations = conversations.filter(conv =>
     conv.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -139,7 +139,7 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
         </TouchableOpacity>
       )}
 
-      <View 
+      <View
         style={[
           styles.sidebar,
           isCollapsed ? styles.sidebarCollapsed : styles.sidebarExpanded,
@@ -147,10 +147,10 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
         ]}
       >
         <View style={styles.sidebarHeader}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
-            styles.newConversationButton,
-            isCollapsed ? styles.newConversationButtonCollapsed : null
+              styles.newConversationButton,
+              isCollapsed ? styles.newConversationButtonCollapsed : null
             ]}
             onPress={onNewConversation}
           >
@@ -159,7 +159,7 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
           </TouchableOpacity>
           <View style={styles.toggleButtonsContainer}>
             {onToggleCollapse && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={onToggleCollapse}
                 style={[
                   styles.toggleButton,
@@ -171,7 +171,7 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
                 {!isCollapsed && <Text style={styles.toggleButtonText}>Collapse</Text>}
               </TouchableOpacity>
             )}
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={onToggleSidebar}
               style={[
                 styles.toggleButton,
@@ -184,7 +184,7 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
             </TouchableOpacity>
           </View>
         </View>
-        
+
         {!isCollapsed && (
           <View style={styles.searchContainer}>
             <Ionicons name="search" size={16} color="#71717a" style={styles.searchIcon} />
@@ -202,7 +202,7 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
             )}
           </View>
         )}
-        
+
         <View style={styles.conversationsContainer}>
           {!isCollapsed && <Text style={styles.recentText}>Recent</Text>}
           {filteredConversations.length === 0 && searchQuery.length > 0 ? (
@@ -213,112 +213,112 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
             </View>
           ) : (
             filteredConversations.map((conv) => (
-            <View
-              key={conv.id}
-              style={[
-                styles.conversationItem,
-                isCollapsed ? styles.conversationItemCollapsed : styles.conversationItemExpanded,
-                currentConversation?.id === conv.id ? styles.conversationItemSelected : styles.conversationItemDefault,
-                menuOpenId === conv.id && styles.conversationItemWithOpenMenu,
-              ]}
-              // @ts-ignore - onMouseEnter/onMouseLeave work on web
-              onMouseEnter={() => setHoveredConvId(conv.id)}
-              onMouseLeave={() => setHoveredConvId(null)}
-            >
-              <TouchableOpacity
-                onPress={() => onSelectConversation(conv)}
-                style={styles.conversationClickable}
-                accessibilityLabel={conv.title}
-            >
-              {isCollapsed ? (
-                <View style={styles.conversationIconCollapsed}>
-                  <MaterialCommunityIcons name="message-text-outline" size={20} color={currentConversation?.id === conv.id ? 'white' : '#a1a1aa'} />
-                </View>
-              ) : (
-                <View style={styles.conversationItemContent}>
-                  <MaterialCommunityIcons name="message-text-outline" size={20} color={currentConversation?.id === conv.id ? 'white' : '#a1a1aa'} />
-                  <View style={styles.conversationTextContainer}>
-                    {editingId === conv.id ? (
-                      <View style={styles.editingContainer}>
-                        <TextInput
-                          style={styles.editInput}
-                          value={editingTitle}
-                          onChangeText={setEditingTitle}
-                          onSubmitEditing={() => saveEdit(conv.id)}
-                          onBlur={() => saveEdit(conv.id)}
-                          autoFocus
-                          placeholder="Conversation title"
-                          placeholderTextColor="#71717a"
-                        />
-                      </View>
-                    ) : (
-                      <>
-                    <Text numberOfLines={1} style={[
-                      styles.conversationTitle,
-                          currentConversation?.id === conv.id ? styles.conversationTitleSelected : null
-                    ]}>{conv.title}</Text>
-                        <View style={styles.conversationFooter}>
-                          <View style={styles.conversationMetadata}>
-                            <Text style={styles.conversationTimestamp}>{formatDate(conv.updated_at)}</Text>
-                            {conv.characterCount !== undefined && conv.characterCount > 0 && (
-                              <>
-                                <Text style={styles.metadataSeparator}>•</Text>
-                                <View style={styles.characterCountBadge}>
-                                  <Ionicons name="people" size={10} color="#8b5cf6" />
-                                  <Text style={styles.characterCountText}>{conv.characterCount}</Text>
-                                </View>
-                              </>
-                            )}
+              <View
+                key={conv.id}
+                style={[
+                  styles.conversationItem,
+                  isCollapsed ? styles.conversationItemCollapsed : styles.conversationItemExpanded,
+                  currentConversation?.id === conv.id ? styles.conversationItemSelected : styles.conversationItemDefault,
+                  menuOpenId === conv.id && styles.conversationItemWithOpenMenu,
+                ]}
+                // @ts-ignore - onMouseEnter/onMouseLeave work on web
+                onMouseEnter={() => setHoveredConvId(conv.id)}
+                onMouseLeave={() => setHoveredConvId(null)}
+              >
+                <TouchableOpacity
+                  onPress={() => onSelectConversation(conv)}
+                  style={styles.conversationClickable}
+                  accessibilityLabel={conv.title}
+                >
+                  {isCollapsed ? (
+                    <View style={styles.conversationIconCollapsed}>
+                      <MaterialCommunityIcons name="message-text-outline" size={20} color={currentConversation?.id === conv.id ? 'white' : '#a1a1aa'} />
+                    </View>
+                  ) : (
+                    <View style={styles.conversationItemContent}>
+                      <MaterialCommunityIcons name="message-text-outline" size={20} color={currentConversation?.id === conv.id ? 'white' : '#a1a1aa'} />
+                      <View style={styles.conversationTextContainer}>
+                        {editingId === conv.id ? (
+                          <View style={styles.editingContainer}>
+                            <TextInput
+                              style={styles.editInput}
+                              value={editingTitle}
+                              onChangeText={setEditingTitle}
+                              onSubmitEditing={() => saveEdit(conv.id)}
+                              onBlur={() => saveEdit(conv.id)}
+                              autoFocus
+                              placeholder="Conversation title"
+                              placeholderTextColor="#71717a"
+                            />
                           </View>
-                          {(hoveredConvId === conv.id || menuOpenId === conv.id) && (
-                            <View style={styles.conversationMenuContainer}>
-                              <TouchableOpacity 
-                                onPress={(e: any) => toggleMenu(conv.id, e)} 
-                                style={styles.menuButton}
-                              >
-                                <Ionicons name="ellipsis-horizontal" size={16} color="#a1a1aa" />
-                              </TouchableOpacity>
-                              {menuOpenId === conv.id && (
-                                <>
+                        ) : (
+                          <>
+                            <Text numberOfLines={1} style={[
+                              styles.conversationTitle,
+                              currentConversation?.id === conv.id ? styles.conversationTitleSelected : null
+                            ]}>{conv.title}</Text>
+                            <View style={styles.conversationFooter}>
+                              <View style={styles.conversationMetadata}>
+                                <Text style={styles.conversationTimestamp}>{formatDate(conv.updated_at)}</Text>
+                                {conv.characterCount !== undefined && conv.characterCount > 0 && (
+                                  <>
+                                    <Text style={styles.metadataSeparator}>•</Text>
+                                    <View style={styles.characterCountBadge}>
+                                      <Ionicons name="people" size={10} color="#8b5cf6" />
+                                      <Text style={styles.characterCountText}>{conv.characterCount}</Text>
+                                    </View>
+                                  </>
+                                )}
+                              </View>
+                              {(hoveredConvId === conv.id || menuOpenId === conv.id) && (
+                                <View style={styles.conversationMenuContainer}>
                                   <TouchableOpacity
-                                    style={styles.menuBackdrop}
-                                    onPress={() => setMenuOpenId(null)}
-                                    activeOpacity={1}
-                                  />
-                                  <View style={styles.menuDropdown}>
-                                    <TouchableOpacity 
-                                      onPress={() => {
-                                        console.log('[Menu] Rename clicked');
-                                        handleEdit(conv);
-                                      }} 
-                                      style={styles.menuItem}
-                                    >
-                                      <Ionicons name="pencil" size={14} color="#a1a1aa" />
-                                      <Text style={styles.menuItemText}>Rename</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity 
-                                      onPress={() => {
-                                        console.log('[Menu] Delete clicked');
-                                        confirmDelete(conv);
-                                      }} 
-                                      style={styles.menuItem}
-                                    >
-                                      <Ionicons name="trash-outline" size={14} color="#dc2626" />
-                                      <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Delete</Text>
-                                    </TouchableOpacity>
-                                  </View>
-                                </>
+                                    onPress={(e: any) => toggleMenu(conv.id, e)}
+                                    style={styles.menuButton}
+                                  >
+                                    <Ionicons name="ellipsis-horizontal" size={16} color="#a1a1aa" />
+                                  </TouchableOpacity>
+                                  {menuOpenId === conv.id && (
+                                    <>
+                                      <TouchableOpacity
+                                        style={styles.menuBackdrop}
+                                        onPress={() => setMenuOpenId(null)}
+                                        activeOpacity={1}
+                                      />
+                                      <View style={styles.menuDropdown}>
+                                        <TouchableOpacity
+                                          onPress={() => {
+                                            console.log('[Menu] Rename clicked');
+                                            handleEdit(conv);
+                                          }}
+                                          style={styles.menuItem}
+                                        >
+                                          <Ionicons name="pencil" size={14} color="#a1a1aa" />
+                                          <Text style={styles.menuItemText}>Rename</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                          onPress={() => {
+                                            console.log('[Menu] Delete clicked');
+                                            confirmDelete(conv);
+                                          }}
+                                          style={styles.menuItem}
+                                        >
+                                          <Ionicons name="trash-outline" size={14} color="#dc2626" />
+                                          <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>Delete</Text>
+                                        </TouchableOpacity>
+                                      </View>
+                                    </>
+                                  )}
+                                </View>
                               )}
                             </View>
-                          )}
-                        </View>
-                      </>
-                    )}
-                  </View>
-                </View>
-              )}
-            </TouchableOpacity>
-            </View>
+                          </>
+                        )}
+                      </View>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
             ))
           )}
         </View>
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   sidebar: {
-    backgroundColor: '#171717',
+    backgroundColor: '#0f0f0f',
     borderRightWidth: 1,
     borderRightColor: '#27272a',
     flexDirection: 'column',

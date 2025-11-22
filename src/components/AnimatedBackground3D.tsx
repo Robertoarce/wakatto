@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
-import { CharacterDisplay3D, AnimationState } from './CharacterDisplay3D';
+import CharacterDisplay3D, { AnimationState } from './CharacterDisplay3D';
 import { getAllCharacters } from '../config/characters';
 
 interface CharacterAnimation {

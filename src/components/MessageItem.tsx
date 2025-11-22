@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     messageContent: {
         padding: 12,
         borderRadius: 16,
-        backgroundColor: 'white',
+        backgroundColor: '#1f2937',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.05,
@@ -143,25 +143,25 @@ const styles = StyleSheet.create({
         borderTopRightRadius: 4,
     },
     assistantContent: {
-        backgroundColor: 'white',
+        backgroundColor: '#1f2937',
         borderTopLeftRadius: 4,
     },
     characterName: {
         fontSize: 12,
         fontWeight: '600',
-        color: '#6b7280',
+        color: '#9ca3af',
         marginBottom: 4,
     },
     messageText: {
         fontSize: 16,
         lineHeight: 24,
-        color: '#1f2937',
+        color: 'white',
     },
     userText: {
         color: 'white',
     },
     assistantText: {
-        color: '#1f2937',
+        color: 'white',
     },
     messageFooter: {
         flexDirection: 'row',
@@ -183,9 +183,9 @@ const styles = StyleSheet.create({
     editInput: {
         fontSize: 16,
         lineHeight: 24,
-        color: '#1f2937',
+        color: 'white',
         borderWidth: 1,
-        borderColor: '#e5e7eb',
+        borderColor: '#374151',
         borderRadius: 8,
         padding: 8,
         marginBottom: 8,
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 12,
-        backgroundColor: '#f3f4f6',
+        backgroundColor: '#374151',
         marginLeft: 8,
     },
     saveButton: {
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     editButtonText: {
         fontSize: 12,
         fontWeight: '600',
-        color: '#4b5563',
+        color: '#d1d5db',
     },
     saveButtonText: {
         color: 'white',

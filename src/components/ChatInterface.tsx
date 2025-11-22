@@ -385,26 +385,28 @@ export default function ChatInterface({
         />
 
         {/* Character Selector Overlay */}
-        {showCharacterSelector && (
-          <View style={styles.characterSelectorOverlay}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.characterSelector}>
-              {availableCharacters.map((char) => (
-                <TouchableOpacity
-                  key={char.id}
-                  style={[
-                    styles.characterOption,
-                    selectedCharacters.includes(char.id) && styles.characterOptionSelected,
-                    { borderColor: char.color }
-                  ]}
-                  onPress={() => toggleCharacter(char.id)}
-                >
-                  <View style={[styles.characterOptionColor, { backgroundColor: char.color }]} />
-                  <Text style={styles.characterOptionName}>{char.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
+        {
+          showCharacterSelector && (
+            <View style={styles.characterSelectorOverlay}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.characterSelector}>
+                {availableCharacters.map((char) => (
+                  <TouchableOpacity
+                    key={char.id}
+                    style={[
+                      styles.characterOption,
+                      selectedCharacters.includes(char.id) && styles.characterOptionSelected,
+                      { borderColor: char.color }
+                    ]}
+                    onPress={() => toggleCharacter(char.id)}
+                  >
+                    <View style={[styles.characterOptionColor, { backgroundColor: char.color }]} />
+                    <Text style={styles.characterOptionName}>{char.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )
+        }
 
         {/* Toggle Selector Button */}
         <TouchableOpacity
@@ -415,12 +417,14 @@ export default function ChatInterface({
         </TouchableOpacity>
 
         {/* Arrow Pointer */}
-        {showArrowPointer && (
-          <View style={styles.arrowPointer}>
-            <Text style={styles.arrowText}>Chat with {getCharacter(selectedCharacters[0]).name}</Text>
-            <Ionicons name="arrow-down" size={30} color="white" />
-          </View>
-        )}
+        {
+          showArrowPointer && (
+            <View style={styles.arrowPointer}>
+              <Text style={styles.arrowText}>Chat with {getCharacter(selectedCharacters[0]).name}</Text>
+              <Ionicons name="arrow-down" size={30} color="white" />
+            </View>
+          )
+        }
 
         {/* Resizable Handle */}
         <View
@@ -429,10 +433,10 @@ export default function ChatInterface({
         >
           <View style={styles.resizeBar} />
         </View>
-      </View>
+      </View >
 
       {/* Chat Area */}
-      <View style={styles.chatArea}>
+      < View style={styles.chatArea} >
         <FlatList
           ref={scrollViewRef}
           data={messages}
@@ -477,31 +481,33 @@ export default function ChatInterface({
           </TouchableOpacity>
         </View>
 
-        {isRecording && (
-          <View style={styles.recordingIndicator}>
-            <View style={styles.recordingDot} />
-            <Text style={styles.recordingText}>
-              Recording {Math.floor(recordingDuration / 1000)}s
-            </Text>
-            <TouchableOpacity onPress={() => {
-              const voiceRecorder = getVoiceRecorder();
-              voiceRecorder.cancelRecording();
-              if (liveSpeechRef.current) liveSpeechRef.current.abort();
-              setLiveTranscript('');
-            }}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-    </View>
+        {
+          isRecording && (
+            <View style={styles.recordingIndicator}>
+              <View style={styles.recordingDot} />
+              <Text style={styles.recordingText}>
+                Recording {Math.floor(recordingDuration / 1000)}s
+              </Text>
+              <TouchableOpacity onPress={() => {
+                const voiceRecorder = getVoiceRecorder();
+                voiceRecorder.cancelRecording();
+                if (liveSpeechRef.current) liveSpeechRef.current.abort();
+                setLiveTranscript('');
+              }}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          )
+        }
+      </View >
+    </View >
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#0f0f0f',
   },
   characterDisplayContainer: {
     width: '100%',
@@ -585,7 +591,7 @@ const styles = StyleSheet.create({
   },
   chatArea: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#0f0f0f',
   },
   messageList: {
     padding: 16,
@@ -594,15 +600,15 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     padding: 16,
-    backgroundColor: 'white',
+    backgroundColor: '#1f2937',
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderTopColor: '#374151',
     alignItems: 'flex-end',
   },
   inputWrapper: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#374151',
     borderRadius: 24,
     alignItems: 'center',
     paddingRight: 8,
@@ -614,7 +620,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     maxHeight: 100,
     fontSize: 16,
-    color: '#1f2937',
+    color: 'white',
   },
   micButton: {
     padding: 8,

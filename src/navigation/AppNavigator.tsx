@@ -48,7 +48,7 @@ export default function AppNavigator() {
       </View>
     );
   }
-  
+
   return (
     <View style={styles.container}>
       <NavigationContainer>
