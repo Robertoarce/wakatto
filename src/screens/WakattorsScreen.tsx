@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CharacterDisplay3D, AnimationState } from '../components/CharacterDisplay3D';
+import { CharacterCardPreview } from '../components/CharacterCardPreview';
 import { CharacterCreationWizard } from '../components/CharacterCreationWizard';
 import { getAllCharacters, CharacterBehavior, CHARACTERS, PromptStyleId } from '../config/characters';
 import { PROMPT_STYLES } from '../prompts';
@@ -140,7 +141,7 @@ export default function WakattorsScreen() {
         {allCharacters.map((character) => (
           <View key={character.id} style={styles.card}>
             <View style={styles.cardPreview}>
-              <CharacterDisplay3D characterId={character.id} isActive={false} />
+              <CharacterCardPreview character={character} />
             </View>
             <View style={styles.cardInfo}>
               <Text style={[styles.cardName, { color: character.color }]}>
@@ -465,8 +466,7 @@ const styles = StyleSheet.create({
   cardPreview: {
     height: 200,
     backgroundColor: '#0a0a0a',
-    overflow: 'hidden', // Prevent 3D content from overflowing
-    pointerEvents: 'none', // Allow clicks to pass through to buttons below
+    overflow: 'hidden',
   },
   cardInfo: {
     padding: 16,

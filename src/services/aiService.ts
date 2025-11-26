@@ -10,6 +10,7 @@
 
 import { setSecureItem, getSecureItem, deleteSecureItem } from './secureStorage';
 import { supabase, supabaseUrl } from '../lib/supabase';
+import { getCharacterParameters, getModelParameters, ModelParameters } from '../config/llmConfig';
 
 // AI Provider configuration
 interface AIConfig {
@@ -120,11 +121,21 @@ export async function clearAPIKey() {
  */
 export async function generateAIResponse(
   messages: AIMessage[],
-  systemPrompt?: string
+  systemPrompt?: string,
+  characterId?: string,
+  parameterOverrides?: Partial<ModelParameters>
 ): Promise<string> {
   const fullMessages: AIMessage[] = systemPrompt
     ? [{ role: 'system', content: systemPrompt }, ...messages]
     : messages;
+
+  // Get parameters from config (with character-specific overrides if provided)
+  const parameters = characterId
+    ? getCharacterParameters(characterId, config.provider)
+    : getModelParameters(config.provider);
+
+  // Apply any additional overrides
+  const finalParameters = { ...parameters, ...parameterOverrides };
 
   // Use mock for testing without API
   if (config.provider === 'mock') {
@@ -134,6 +145,7 @@ export async function generateAIResponse(
   try {
     // Call Supabase Edge Function (avoids CORS issues)
     console.log('[AI] Calling Edge Function with provider:', config.provider);
+    console.log('[AI] Using parameters:', finalParameters);
 
     const { data: session } = await supabase.auth.getSession();
     if (!session?.session) {
@@ -152,6 +164,7 @@ export async function generateAIResponse(
           messages: fullMessages,
           provider: config.provider,
           model: config.model,
+          parameters: finalParameters,
         }),
       }
     );

@@ -81,7 +81,9 @@
       "mcp__playwright__browser_evaluate",
       "Bash(git checkout:*)",
       "Bash(cd /Users/robertoarce/00\\ All/02\\ Projects/04\\ wakatto:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(git stash:*)"
     ],
     "deny": [],
     "ask": []

@@ -7,6 +7,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal,
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { CharacterDisplay3D, AnimationState } from '../components/CharacterDisplay3D';
+import { CharacterCardPreview } from '../components/CharacterCardPreview';
 import { getAllCharacters, CharacterBehavior, GenderType, SkinToneType, ClothingType, HairType, AccessoryType } from '../config/characters';
 import { ColorPicker } from '../components/ColorPicker';
 import { TraitSlider } from '../components/TraitSlider';
@@ -266,7 +267,7 @@ export default function WakattorsScreenEnhanced() {
                 ]}
               >
                 <View style={styles.cardPreview}>
-                  <CharacterDisplay3D characterId={character.id} isActive={false} />
+                  <CharacterCardPreview character={character} />
                 </View>
                 <View style={styles.cardInfo}>
                   <Text style={[styles.cardName, { color: character.color }]}>
@@ -600,9 +601,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
+    justifyContent: 'center',
   },
   card: {
-    width: 280,
+    width: 200,
     backgroundColor: '#1a1a1a',
     borderRadius: 16,
     overflow: 'hidden',
@@ -610,27 +612,28 @@ const styles = StyleSheet.create({
     borderColor: '#27272a',
   },
   cardPreview: {
-    height: 200,
+    height: 140,
     backgroundColor: '#0a0a0a',
+    padding: 12,
   },
   cardInfo: {
-    padding: 16,
+    padding: 12,
   },
   cardName: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 4,
   },
   cardRole: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#8b5cf6',
-    marginBottom: 8,
+    marginBottom: 6,
     fontWeight: '600',
   },
   cardDescription: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#a1a1aa',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   cardActions: {
     flexDirection: 'row',
@@ -639,15 +642,15 @@ const styles = StyleSheet.create({
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
     backgroundColor: '#27272a',
   },
   actionButtonText: {
     color: '#d4d4d8',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
   },
   removeButton: {

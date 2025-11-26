@@ -45,20 +45,21 @@ serve(async (req) => {
     }
 
     // Parse request body
-    const { messages, provider = 'anthropic', model } = await req.json()
+    const { messages, provider = 'anthropic', model, parameters = {} } = await req.json()
 
     console.log(`[AI-Chat] User: ${user.id}, Provider: ${provider}, Messages: ${messages.length}`)
+    console.log(`[AI-Chat] Parameters:`, parameters)
 
     // Call the appropriate AI provider
     let response
     if (provider === 'anthropic') {
-      response = await callAnthropic(messages, model || 'claude-3-haiku-20240307', CLAUDE_API_KEY)
+      response = await callAnthropic(messages, model || 'claude-3-haiku-20240307', CLAUDE_API_KEY, parameters)
     } else if (provider === 'openai') {
       const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
       if (!OPENAI_API_KEY) {
         throw new Error('OPENAI_API_KEY not configured')
       }
-      response = await callOpenAI(messages, model || 'gpt-4', OPENAI_API_KEY)
+      response = await callOpenAI(messages, model || 'gpt-4', OPENAI_API_KEY, parameters)
     } else {
       throw new Error(`Unsupported provider: ${provider}`)
     }
@@ -82,10 +83,23 @@ serve(async (req) => {
   }
 })
 
-async function callAnthropic(messages: any[], model: string, apiKey: string): Promise<string> {
+async function callAnthropic(messages: any[], model: string, apiKey: string, parameters: any = {}): Promise<string> {
   // Separate system message from conversation messages
   const systemMessage = messages.find(m => m.role === 'system')
   const conversationMessages = messages.filter(m => m.role !== 'system')
+
+  // Build request body with parameters
+  const requestBody: any = {
+    model: model,
+    max_tokens: parameters.maxTokens || 1000,
+    system: systemMessage?.content,
+    messages: conversationMessages,
+  }
+
+  // Add optional parameters if provided
+  if (parameters.temperature !== undefined) requestBody.temperature = parameters.temperature
+  if (parameters.topP !== undefined) requestBody.top_p = parameters.topP
+  if (parameters.topK !== undefined) requestBody.top_k = parameters.topK
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -94,12 +108,7 @@ async function callAnthropic(messages: any[], model: string, apiKey: string): Pr
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
     },
-    body: JSON.stringify({
-      model: model,
-      max_tokens: 1000,
-      system: systemMessage?.content,
-      messages: conversationMessages,
-    }),
+    body: JSON.stringify(requestBody),
   })
 
   if (!response.ok) {
@@ -111,19 +120,27 @@ async function callAnthropic(messages: any[], model: string, apiKey: string): Pr
   return data.content[0]?.text || 'Sorry, I could not generate a response.'
 }
 
-async function callOpenAI(messages: any[], model: string, apiKey: string): Promise<string> {
+async function callOpenAI(messages: any[], model: string, apiKey: string, parameters: any = {}): Promise<string> {
+  // Build request body with parameters
+  const requestBody: any = {
+    model: model,
+    messages: messages,
+    temperature: parameters.temperature !== undefined ? parameters.temperature : 0.7,
+    max_tokens: parameters.maxTokens || 1000,
+  }
+
+  // Add optional parameters if provided
+  if (parameters.topP !== undefined) requestBody.top_p = parameters.topP
+  if (parameters.frequencyPenalty !== undefined) requestBody.frequency_penalty = parameters.frequencyPenalty
+  if (parameters.presencePenalty !== undefined) requestBody.presence_penalty = parameters.presencePenalty
+
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model: model,
-      messages: messages,
-      temperature: 0.7,
-      max_tokens: 1000,
-    }),
+    body: JSON.stringify(requestBody),
   })
 
   if (!response.ok) {

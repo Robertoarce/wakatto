@@ -21,6 +21,11 @@ import {
 } from '../store/actions/conversationActions';
 import { generateAIResponse, DIARY_SYSTEM_PROMPT } from '../services/aiService';
 import { getCharacter } from '../config/characters';
+import {
+  generateMultiCharacterResponses,
+  generateSingleCharacterResponse,
+  ConversationMessage
+} from '../services/multiCharacterConversation';
 import SettingsScreen from '../screens/SettingsScreen';
 import LibraryScreen from '../screens/LibraryScreen';
 import WakattorsScreenEnhanced from '../screens/WakattorsScreenEnhanced';
@@ -119,38 +124,54 @@ export default function MainTabs() {
         // Save user message (no character ID for user messages)
         await dispatch(saveMessage(conversation.id, 'user', content) as any);
 
-        // Generate AI response from each selected character
+        // Prepare conversation history for multi-character service
+        const conversationHistory: ConversationMessage[] = messages.map(msg => ({
+          id: msg.id,
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content,
+          characterId: msg.characterId,
+          timestamp: new Date(msg.created_at || Date.now()).getTime(),
+        }));
+
         try {
-          // Prepare conversation history for AI
-          const conversationHistory = messages.map(msg => ({
-            role: msg.role as 'user' | 'assistant' | 'system',
-            content: msg.content,
-          }));
+          // Use multi-character conversation service for intelligent responses
+          if (selectedCharacters.length > 1) {
+            // Multi-character mode: characters can interrupt and react
+            console.log('[Chat] Using multi-character mode with:', selectedCharacters);
 
-          // Add the new user message
-          conversationHistory.push({ role: 'user', content });
+            const characterResponses = await generateMultiCharacterResponses(
+              content,
+              selectedCharacters,
+              conversationHistory
+            );
 
-          // Generate responses from each selected character
-          for (const characterId of selectedCharacters) {
-            try {
-              const character = getCharacter(characterId);
-
-              // Generate AI response using character's system prompt
-              const aiResponse = await generateAIResponse(conversationHistory, character.systemPrompt);
-
-              // Save AI response with character ID
-              await dispatch(saveMessage(conversation.id, 'assistant', aiResponse, characterId) as any);
-            } catch (characterError: any) {
-              console.error(`AI generation error for ${characterId}:`, characterError);
-              // Save a fallback message if this character's AI fails
-              const character = getCharacter(characterId);
+            // Save each character's response
+            for (const response of characterResponses) {
               await dispatch(saveMessage(
                 conversation.id,
                 'assistant',
-                "I'm having trouble connecting right now. Your message has been saved, and I'll be back soon!",
-                characterId
+                response.content,
+                response.characterId
               ) as any);
             }
+
+            console.log(`[Chat] Generated ${characterResponses.length} responses`);
+          } else {
+            // Single character mode: traditional response
+            console.log('[Chat] Using single character mode:', selectedCharacters[0]);
+
+            const aiResponse = await generateSingleCharacterResponse(
+              content,
+              selectedCharacters[0],
+              conversationHistory
+            );
+
+            await dispatch(saveMessage(
+              conversation.id,
+              'assistant',
+              aiResponse,
+              selectedCharacters[0]
+            ) as any);
           }
         } catch (aiError: any) {
           console.error('AI generation error:', aiError);
