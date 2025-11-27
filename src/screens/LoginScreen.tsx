@@ -169,18 +169,6 @@ export default function LoginScreen() {
               size="lg"
               style={{ marginTop: 8 }}
             />
-
-            {/* Skip Login Button */}
-            <Button
-              title="Skip Login, Use Demo Account"
-              onPress={skipLoginWithDemo}
-              disabled={loading}
-              variant="outline"
-              fullWidth
-              size="md"
-              icon="play-circle-outline"
-              style={{ marginTop: 12 }}
-            />
           </View>
         </View>
       </ScrollView>

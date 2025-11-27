@@ -46,7 +46,7 @@ const getRandomAnimation = (): AnimationState => {
 
 export default function LibraryScreen() {
   const navigation = useNavigation();
-  const { showAlert } = useCustomAlert();
+  const { showAlert, AlertComponent } = useCustomAlert();
   const [characters, setCharacters] = useState<CustomWakattor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -135,6 +135,18 @@ export default function LibraryScreen() {
 
     setAdding(true);
     try {
+      // Check if user has reached the 20 character limit
+      const currentWakattors = await getCustomWakattors();
+      if (currentWakattors.length >= 20) {
+        showAlert(
+          'Limit Reached',
+          'You can have a maximum of 20 Wakattors. Please remove some characters before adding new ones.',
+          [{ text: 'OK' }]
+        );
+        setAdding(false);
+        return;
+      }
+
       const result = await addCharacterToWakattors(selectedCharacter);
 
       if (result.alreadyExists) {
@@ -203,6 +215,7 @@ export default function LibraryScreen() {
 
   return (
     <View style={styles.container}>
+      <AlertComponent />
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>

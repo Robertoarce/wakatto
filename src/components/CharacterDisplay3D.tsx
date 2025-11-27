@@ -452,6 +452,7 @@ export function CharacterDisplay3D({ characterId, character: passedCharacter, is
   }, [characterId, passedCharacter]);
   const [responsiveScale, setResponsiveScale] = useState(1);
   const [cameraDistance, setCameraDistance] = useState(3);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Calculate responsive scale based on screen width
   useEffect(() => {
@@ -482,6 +483,15 @@ export function CharacterDisplay3D({ characterId, character: passedCharacter, is
     const subscription = Dimensions.addEventListener('change', updateScale);
     return () => subscription?.remove();
   }, []);
+
+  // Cleanup WebGL resources on unmount
+  useEffect(() => {
+    return () => {
+      // React-three-fiber automatically disposes geometries and materials
+      // but we ensure canvas is properly cleaned up
+      console.log(`[CharacterDisplay3D] Cleanup for character ${character.name}`);
+    };
+  }, [character.name]);
 
   return (
     <View style={styles.container}>

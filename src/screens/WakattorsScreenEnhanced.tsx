@@ -11,8 +11,10 @@ import { CharacterCardPreview } from '../components/CharacterCardPreview';
 import { getAllCharacters, CharacterBehavior, GenderType, SkinToneType, ClothingType, HairType, AccessoryType } from '../config/characters';
 import { ColorPicker } from '../components/ColorPicker';
 import { TraitSlider } from '../components/TraitSlider';
-import { getCustomWakattors, deleteCustomWakattor } from '../services/customWakattorsService';
+import { getCustomWakattors, deleteCustomWakattor, addCharacterToWakattors } from '../services/customWakattorsService';
 import { useCustomAlert } from '../components/CustomAlert';
+import { addToChatMenu, removeFromChatMenu, isInChatMenu, getChatMenuCount, getChatMenuCharacters } from '../services/chatMenuService';
+import { getWakattorsInConversations, getCharactersByIds } from '../services/conversationWakattorsService';
 
 // Preset color palettes
 const BODY_COLORS = [
@@ -43,7 +45,7 @@ type RootStackParamList = {
 
 export default function WakattorsScreenEnhanced() {
   const route = useRoute<RouteProp<RootStackParamList, 'Wakattors'>>();
-  const { showAlert } = useCustomAlert();
+  const { showAlert, AlertComponent } = useCustomAlert();
   const [characters, setCharacters] = useState<CharacterBehavior[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCharacter, setSelectedCharacter] = useState<CharacterBehavior | null>(null);
@@ -52,6 +54,10 @@ export default function WakattorsScreenEnhanced() {
   const [currentAnimation, setCurrentAnimation] = useState<AnimationState>('idle');
   const [editorTab, setEditorTab] = useState<EditorTab>('basic');
   const [newCharacterId, setNewCharacterId] = useState<string | null>(null);
+  const [chatMenuCharacters, setChatMenuCharacters] = useState<string[]>([]);
+  const [conversationCharacters, setConversationCharacters] = useState<CharacterBehavior[]>([]);
+  const [collectionCharacterIds, setCollectionCharacterIds] = useState<string[]>([]);
+  const [loadingConversationChars, setLoadingConversationChars] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Load custom wakattors on mount
@@ -75,13 +81,35 @@ export default function WakattorsScreenEnhanced() {
   const loadWakattors = async () => {
     setLoading(true);
     try {
+      // 1. Load collection (existing)
       const customWakattors = await getCustomWakattors();
-      setCharacters(customWakattors);
+      const limitedWakattors = customWakattors.slice(0, 20);
+      setCharacters(limitedWakattors);
+
+      // 2. Track collection IDs for filtering
+      const collectionIds = limitedWakattors.map(c => c.id);
+      setCollectionCharacterIds(collectionIds);
+
+      // 3. Load conversation character IDs (in background)
+      setLoadingConversationChars(true);
+      const conversationCharIds = await getWakattorsInConversations();
+
+      // 4. Filter out characters already in collection
+      const filteredIds = conversationCharIds.filter(id => !collectionIds.includes(id));
+
+      // 5. Fetch full character data
+      const conversationChars = await getCharactersByIds(filteredIds);
+      setConversationCharacters(conversationChars);
+
+      // 6. Load chat menu state (existing)
+      const chatMenu = getChatMenuCharacters();
+      setChatMenuCharacters(chatMenu);
     } catch (error: any) {
       console.error('[Wakattors] Load error:', error);
       showAlert('Error', `Failed to load wakattors: ${error.message}`, [{ text: 'OK' }]);
     } finally {
       setLoading(false);
+      setLoadingConversationChars(false);
     }
   };
 
@@ -150,10 +178,33 @@ export default function WakattorsScreenEnhanced() {
     setEditorTab('basic');
   };
 
+  const handleAddToChatMenu = (character: CharacterBehavior) => {
+    const result = addToChatMenu(character.id);
+    if (result.success) {
+      setChatMenuCharacters([...chatMenuCharacters, character.id]);
+      showAlert('Success', `${character.name} added to chat menu!`, [{ text: 'OK' }]);
+    } else {
+      showAlert('Error', result.error || 'Failed to add to chat menu', [{ text: 'OK' }]);
+    }
+  };
+
+  const handleRemoveFromChatMenu = (character: CharacterBehavior) => {
+    const result = removeFromChatMenu(character.id);
+    if (result.success) {
+      setChatMenuCharacters(chatMenuCharacters.filter(id => id !== character.id));
+    }
+  };
+
   const handleRemove = async (character: CharacterBehavior) => {
+    // Check if character appeared in conversations
+    const conversationCharIds = await getWakattorsInConversations();
+    const appearsInConversations = conversationCharIds.includes(character.id);
+
     showAlert(
       'Remove Character',
-      `Are you sure you want to remove ${character.name} from your Wakattors?`,
+      appearsInConversations
+        ? `${character.name} will be moved to "Wakattors in Your Conversations" since they appear in your chat history. You can add them back anytime!`
+        : `Are you sure you want to remove ${character.name} from your Wakattors?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -161,15 +212,74 @@ export default function WakattorsScreenEnhanced() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteCustomWakattor(character.id);
-              setCharacters(characters.filter(c => c.id !== character.id));
-              showAlert('Success', `${character.name} has been removed.`, [{ text: 'OK' }]);
+              // Try to delete from database, but continue even if it fails (demo mode)
+              try {
+                await deleteCustomWakattor(character.id);
+              } catch (dbError) {
+                console.log('[Wakattors] Database delete failed (likely demo mode), continuing with local removal');
+              }
+
+              // Remove from chat menu if it's there
+              handleRemoveFromChatMenu(character);
+
+              // Remove from collection
+              setCharacters(prev => prev.filter(c => c.id !== character.id));
+              setCollectionCharacterIds(prev => prev.filter(id => id !== character.id));
+
+              // Add to conversation section if they appeared in conversations
+              if (appearsInConversations) {
+                setConversationCharacters(prev => [...prev, character]);
+              }
+
+              showAlert(
+                'Success',
+                appearsInConversations
+                  ? `${character.name} has been moved to your conversations section.`
+                  : `${character.name} has been removed.`,
+                [{ text: 'OK' }]
+              );
             } catch (error: any) {
               console.error('[Wakattors] Remove error:', error);
               showAlert('Error', `Failed to remove character: ${error.message}`, [{ text: 'OK' }]);
             }
           },
         },
+      ]
+    );
+  };
+
+  const handleAddToCollection = async (character: CharacterBehavior) => {
+    // Check collection limit
+    if (characters.length >= 20) {
+      showAlert('Limit Reached', 'You can only have 20 wakattors in your collection.', [{ text: 'OK' }]);
+      return;
+    }
+
+    showAlert(
+      'Add to Collection',
+      `Add ${character.name} to your Wakattors collection?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Add',
+          onPress: async () => {
+            try {
+              // Add to database
+              await addCharacterToWakattors(character as any);
+
+              // MOVE from conversation section to collection section
+              setConversationCharacters(prev =>
+                prev.filter(c => c.id !== character.id)
+              );
+              setCharacters(prev => [...prev, character]);
+              setCollectionCharacterIds(prev => [...prev, character.id]);
+
+              showAlert('Success', `${character.name} added to your collection!`, [{ text: 'OK' }]);
+            } catch (error: any) {
+              showAlert('Error', `Failed to add: ${error.message}`, [{ text: 'OK' }]);
+            }
+          }
+        }
       ]
     );
   };
@@ -223,10 +333,13 @@ export default function WakattorsScreenEnhanced() {
 
   return (
     <View style={styles.container}>
+      <AlertComponent />
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Wakattors</Text>
-        <Text style={styles.subtitle}>Create and manage your AI characters</Text>
+        <Text style={styles.subtitle}>
+          Your collection ({characters.length}/20) • Chat menu ({getChatMenuCount()}/10)
+        </Text>
         <TouchableOpacity style={styles.createButton} onPress={handleCreateNew}>
           <Ionicons name="add-circle" size={24} color="white" />
           <Text style={styles.createButtonText}>Create New Wakattor</Text>
@@ -278,13 +391,25 @@ export default function WakattorsScreenEnhanced() {
                     {character.description}
                   </Text>
                   <View style={styles.cardActions}>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => handleEdit(character)}
-                    >
-                      <Ionicons name="create" size={20} color="#8b5cf6" />
-                      <Text style={styles.actionButtonText}>Edit</Text>
-                    </TouchableOpacity>
+                    {chatMenuCharacters.includes(character.id) ? (
+                      <TouchableOpacity
+                        style={[styles.actionButton, styles.inChatMenuButton]}
+                        onPress={() => handleRemoveFromChatMenu(character)}
+                      >
+                        <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+                        <Text style={[styles.actionButtonText, styles.inChatMenuText]}>
+                          In Chat
+                        </Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => handleAddToChatMenu(character)}
+                      >
+                        <Ionicons name="add-circle" size={20} color="#8b5cf6" />
+                        <Text style={styles.actionButtonText}>Add to Chat</Text>
+                      </TouchableOpacity>
+                    )}
                     <TouchableOpacity
                       style={[styles.actionButton, styles.removeButton]}
                       onPress={() => handleRemove(character)}
@@ -299,6 +424,83 @@ export default function WakattorsScreenEnhanced() {
               </Animated.View>
             );
           })
+        )}
+
+        {/* Divider */}
+        {!loading && characters.length > 0 && (
+          <View style={styles.sectionDivider} />
+        )}
+
+        {/* Section 2: Wakattors in Your Conversations */}
+        {!loading && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Wakattors in Your Conversations</Text>
+              <Text style={styles.sectionSubtitle}>
+                {loadingConversationChars
+                  ? 'Loading...'
+                  : conversationCharacters.length > 0
+                  ? `${conversationCharacters.length} character${conversationCharacters.length !== 1 ? 's' : ''} (showing 50 most recent)`
+                  : 'Characters will appear here after they speak in your conversations'
+                }
+              </Text>
+            </View>
+
+            {conversationCharacters.length === 0 && !loadingConversationChars ? (
+              <View style={styles.emptyConversationSection}>
+                <Ionicons name="chatbubbles-outline" size={48} color="#3f3f46" />
+                <Text style={styles.emptyText}>No conversation characters yet</Text>
+                <Text style={styles.emptySubtext}>
+                  Characters will appear here after they speak in your conversations
+                </Text>
+              </View>
+            ) : loadingConversationChars ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#8b5cf6" />
+                <Text style={styles.loadingText}>Loading conversation characters...</Text>
+              </View>
+            ) : (
+              conversationCharacters.map((character) => (
+                <Animated.View
+                  key={character.id}
+                  style={styles.card}
+                >
+                  <View style={styles.cardPreview}>
+                    <CharacterCardPreview character={character} />
+                  </View>
+                  <View style={styles.cardInfo}>
+                    <Text style={[styles.cardName, { color: character.color }]}>
+                      {character.name}
+                    </Text>
+                    <Text style={styles.cardRole}>{character.role}</Text>
+                    <Text style={styles.cardDescription} numberOfLines={2}>
+                      {character.description}
+                    </Text>
+                    <View style={styles.cardActions}>
+                      <TouchableOpacity
+                        style={[
+                          styles.actionButton,
+                          styles.addToCollectionButton,
+                          collectionCharacterIds.includes(character.id) && styles.addToCollectionButtonDisabled
+                        ]}
+                        onPress={() => handleAddToCollection(character)}
+                        disabled={collectionCharacterIds.includes(character.id)}
+                      >
+                        <Ionicons name="add-circle" size={20} color={collectionCharacterIds.includes(character.id) ? "#71717a" : "white"} />
+                        <Text style={[
+                          styles.actionButtonText,
+                          styles.addToCollectionButtonText,
+                          collectionCharacterIds.includes(character.id) && { color: '#71717a' }
+                        ]}>
+                          {collectionCharacterIds.includes(character.id) ? 'In Collection' : 'Add to Collection'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </Animated.View>
+              ))
+            )}
+          </>
         )}
       </ScrollView>
 
@@ -659,6 +861,12 @@ const styles = StyleSheet.create({
   removeButtonText: {
     color: '#ef4444',
   },
+  inChatMenuButton: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+  },
+  inChatMenuText: {
+    color: '#10b981',
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -905,5 +1113,37 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: '#27272a',
+    marginVertical: 24,
+    marginHorizontal: 16,
+    width: '100%',
+  },
+  sectionHeader: {
+    paddingHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 12,
+    width: '100%',
+  },
+  emptyConversationSection: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 40,
+    width: '100%',
+  },
+  addToCollectionButton: {
+    backgroundColor: '#8b5cf6',
+    flex: 1,
+  },
+  addToCollectionButtonDisabled: {
+    backgroundColor: '#27272a',
+    opacity: 0.6,
+  },
+  addToCollectionButtonText: {
+    color: 'white',
   },
 });

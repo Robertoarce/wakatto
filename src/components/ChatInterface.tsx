@@ -5,6 +5,8 @@ import { useCustomAlert } from './CustomAlert';
 import { CharacterDisplay3D } from './CharacterDisplay3D';
 import { AnimatedArrowPointer } from './AnimatedArrowPointer';
 import { DEFAULT_CHARACTER, getAllCharacters, getCharacter } from '../config/characters';
+import { getCustomWakattors } from '../services/customWakattorsService';
+import { getChatMenuCharacters } from '../services/chatMenuService';
 import { getVoiceRecorder, RecordingState } from '../services/voiceRecording';
 import { transcribeAudio, isWebSpeechSupported } from '../services/speechToText';
 import { LiveSpeechRecognition, LiveTranscriptionResult } from '../services/speechToTextLive';
@@ -87,14 +89,74 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       return Math.floor(height * 0.35); // 35% on desktop
     }
   });
-  const [selectedCharacters, setSelectedCharacters] = useState<string[]>([DEFAULT_CHARACTER]); // Up to 5 characters
+  const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]); // Up to 10 characters, start empty
   const [showCharacterSelector, setShowCharacterSelector] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
   const [showCharacterNames, setShowCharacterNames] = useState(true); // Show names at start
   const [nameKey, setNameKey] = useState(0); // Key to trigger re-animation
   const [showArrowPointer, setShowArrowPointer] = useState(true); // Show arrow pointer initially
+  const [availableCharacters, setAvailableCharacters] = useState(getAllCharacters()); // Load from Wakattors database
+  const [isLoadingCharacters, setIsLoadingCharacters] = useState(true);
 
-  const availableCharacters = getAllCharacters();
+  // Load characters from chat menu
+  useEffect(() => {
+    const loadChatMenuCharacters = async () => {
+      try {
+        // Get chat menu character IDs
+        const chatMenuIds = getChatMenuCharacters();
+
+        if (chatMenuIds.length === 0) {
+          // No characters in chat menu - fallback to default characters
+          setAvailableCharacters(getAllCharacters());
+          setIsLoadingCharacters(false);
+          return;
+        }
+
+        // Load all custom wakattors
+        const customWakattors = await getCustomWakattors();
+
+        // Filter to only include characters in chat menu
+        const chatMenuCharacters = customWakattors.filter(char =>
+          chatMenuIds.includes(char.id)
+        );
+
+        if (chatMenuCharacters.length > 0) {
+          setAvailableCharacters(chatMenuCharacters);
+        } else {
+          // Fallback to default characters if no matches
+          setAvailableCharacters(getAllCharacters());
+        }
+      } catch (error) {
+        console.error('[ChatInterface] Failed to load chat menu characters:', error);
+        // Fallback to default characters on error
+        setAvailableCharacters(getAllCharacters());
+      } finally {
+        setIsLoadingCharacters(false);
+      }
+    };
+
+    loadChatMenuCharacters();
+
+    // Listen for custom events when chat menu changes
+    const handleChatMenuUpdate = () => {
+      console.log('[ChatInterface] Chat menu updated, reloading characters...');
+      loadChatMenuCharacters();
+    };
+
+    window.addEventListener('chatMenuUpdated', handleChatMenuUpdate);
+
+    return () => {
+      window.removeEventListener('chatMenuUpdated', handleChatMenuUpdate);
+    };
+  }, []);
+
+  // Don't auto-select any wakattor - let user choose
+  // useEffect(() => {
+  //   if (!isLoadingCharacters && availableCharacters.length > 0 && selectedCharacters.length === 0) {
+  //     // Select the first available character by default
+  //     setSelectedCharacters([availableCharacters[0].id]);
+  //   }
+  // }, [isLoadingCharacters, availableCharacters, selectedCharacters.length]);
 
   // Update character height and mobile view on window resize
   useEffect(() => {
@@ -175,12 +237,8 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
           setSelectedCharacters(uniqueCharacterIds);
         }
       }
-    } else {
-      // New conversation - reset to default character
-      if (selectedCharacters.length !== 1 || selectedCharacters[0] !== DEFAULT_CHARACTER) {
-        setSelectedCharacters([DEFAULT_CHARACTER]);
-      }
     }
+    // Don't auto-select any character for new conversations - let user choose
   }, [messages]);
 
   // Show character names when characters change or at conversation start
@@ -472,11 +530,13 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         if (prev.length === 1) return prev;
         return prev.filter(id => id !== characterId);
       } else {
-        // Don't allow more than 5 characters
-        if (prev.length >= 5) {
-          showAlert('Maximum Reached', 'You can select up to 5 characters maximum.');
+        // Don't allow more than 10 characters
+        if (prev.length >= 10) {
+          showAlert('Maximum Reached', 'You can select up to 10 Wakattors maximum.', [{ text: 'OK' }]);
           return prev;
         }
+        // Defensive check: ensure no duplicates (should never happen, but extra safety)
+        if (prev.includes(characterId)) return prev;
         return [...prev, characterId];
       }
     });
@@ -555,7 +615,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         >
           <Ionicons name="people" size={20} color="#ff6b35" />
           <Text style={styles.characterSelectorText}>
-            {selectedCharacters.length} Character{selectedCharacters.length !== 1 ? 's' : ''}
+            {selectedCharacters.length} Wakattor{selectedCharacters.length !== 1 ? 's' : ''}
           </Text>
         </TouchableOpacity>
 
@@ -566,7 +626,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
             isMobileView && styles.characterSelectorPanelMobile
           ]}>
             <View style={styles.characterSelectorHeader}>
-              <Text style={styles.characterSelectorTitle}>Select Characters (Max 5)</Text>
+              <Text style={styles.characterSelectorTitle}>Select Wakattors (Max 10)</Text>
               {isMobileView && (
                 <TouchableOpacity onPress={() => setShowCharacterSelector(false)}>
                   <Ionicons name="close" size={24} color="#ff6b35" />
@@ -599,27 +659,35 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
         {/* Multiple Character Display */}
         <View style={styles.charactersRow}>
-          {selectedCharacters.map((characterId, index) => {
-            const character = getCharacter(characterId);
-            return (
-              <View key={characterId} style={[styles.characterWrapper, { flex: 1 / selectedCharacters.length }]}>
-                <CharacterDisplay3D
-                  characterId={characterId}
-                  isActive={isLoading}
-                  isTalking={isLoading}
-                  showName={showCharacterNames}
-                  nameKey={nameKey}
-                />
-                {/* Character Name Label with Fade Animation */}
-                <CharacterNameLabel
-                  key={`name-${nameKey}`}
-                  name={character.name}
-                  color={character.color}
-                  visible={showCharacterNames}
-                />
-              </View>
-            );
-          })}
+          {selectedCharacters.length === 0 ? (
+            <View style={styles.emptyCharacterState}>
+              <Ionicons name="person-add" size={48} color="#666" />
+              <Text style={styles.emptyCharacterText}>Click "0 Wakattors" to select characters</Text>
+            </View>
+          ) : (
+            Array.from(new Set(selectedCharacters)).map((characterId, index) => {
+              // Get character from availableCharacters (includes custom wakattors) or fallback to built-in
+              const character = availableCharacters.find(c => c.id === characterId) || getCharacter(characterId);
+              return (
+                <View key={characterId} style={[styles.characterWrapper, { flex: 1 / selectedCharacters.length }]}>
+                  <CharacterDisplay3D
+                    character={character}
+                    isActive={isLoading}
+                    isTalking={isLoading}
+                    showName={showCharacterNames}
+                    nameKey={nameKey}
+                  />
+                  {/* Character Name Label with Fade Animation */}
+                  <CharacterNameLabel
+                    key={`name-${nameKey}`}
+                    name={character.name}
+                    color={character.color}
+                    visible={showCharacterNames}
+                  />
+                </View>
+              );
+            })
+          )}
         </View>
       </View>
 
@@ -1157,5 +1225,16 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
+  },
+  emptyCharacterState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  emptyCharacterText: {
+    color: '#666',
+    fontSize: 16,
+    textAlign: 'center',
   },
 });

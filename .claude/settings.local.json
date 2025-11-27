@@ -83,7 +83,13 @@
       "Bash(cd /Users/robertoarce/00\\ All/02\\ Projects/04\\ wakatto:*)",
       "Bash(cd:*)",
       "WebFetch(domain:github.com)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(scoop --version:*)",
+      "Bash(npx supabase:*)",
+      "Bash(test:*)",
+      "Bash(ping:*)",
+      "Bash(set NODE_ENV=production)",
+      "Bash(npx expo export:web)"
     ],
     "deny": [],
     "ask": []

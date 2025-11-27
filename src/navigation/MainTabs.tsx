@@ -112,6 +112,14 @@ export default function MainTabs() {
   const [isLoadingAI, setIsLoadingAI] = React.useState(false);
 
   const handleSendMessage = async (content: string, selectedCharacters: string[]) => {
+    console.log('[MainTabs] handleSendMessage called with selectedCharacters:', selectedCharacters);
+
+    // Validate that at least one character is selected
+    if (!selectedCharacters || selectedCharacters.length === 0) {
+      showAlert('No Wakattors Selected', 'Please select at least one Wakattor before sending a message.');
+      return;
+    }
+
     setIsLoadingAI(true);
     try {
       // If no current conversation, create one
@@ -220,6 +228,7 @@ export default function MainTabs() {
             tabBarActiveTintColor: '#8b5cf6',
             tabBarInactiveTintColor: '#a1a1aa',
             tabBarLabelStyle: styles.tabBarLabel,
+            unmountOnBlur: true, // Unmount inactive screens to stop 3D rendering
           }}
         >
           <Tab.Screen 
