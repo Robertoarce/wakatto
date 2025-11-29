@@ -542,12 +542,48 @@ Otherwise, favor concise, impactful insights.`,
 
 export const DEFAULT_CHARACTER = 'jung';
 
+// Runtime registry for custom Wakattors
+// This allows multiCharacterConversation service to access custom characters
+let customCharactersRegistry: Record<string, CharacterBehavior> = {};
+
+/**
+ * Register custom characters for runtime lookup
+ * Call this from ChatInterface when custom wakattors are loaded
+ */
+export function registerCustomCharacters(characters: CharacterBehavior[]) {
+  customCharactersRegistry = {};
+  characters.forEach(char => {
+    customCharactersRegistry[char.id] = char;
+  });
+  console.log('[Characters] Registered custom characters:', Object.keys(customCharactersRegistry));
+}
+
+/**
+ * Clear custom characters registry
+ */
+export function clearCustomCharacters() {
+  customCharactersRegistry = {};
+}
+
 // Get character by ID or return default
 export function getCharacter(id?: string): CharacterBehavior {
-  if (!id || !CHARACTERS[id]) {
+  if (!id) {
     return CHARACTERS[DEFAULT_CHARACTER];
   }
-  return CHARACTERS[id];
+
+  // First check custom characters registry
+  if (customCharactersRegistry[id]) {
+    return customCharactersRegistry[id];
+  }
+
+  // Then check built-in characters
+  if (CHARACTERS[id]) {
+    return CHARACTERS[id];
+  }
+
+  // Fallback to default
+  console.warn(`[Characters] Character not found: ${id}, falling back to default`);
+  return CHARACTERS[DEFAULT_CHARACTER];
 }
 
 // Get all characters as array

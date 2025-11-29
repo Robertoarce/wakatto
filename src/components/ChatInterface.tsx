@@ -107,7 +107,8 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
         if (chatMenuIds.length === 0) {
           // No characters in chat menu - fallback to default characters
-          setAvailableCharacters(getAllCharacters());
+          const defaultChars = getAllCharacters();
+          setAvailableCharacters(defaultChars);
           setIsLoadingCharacters(false);
           return;
         }
@@ -122,6 +123,11 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
         if (chatMenuCharacters.length > 0) {
           setAvailableCharacters(chatMenuCharacters);
+          // IMPORTANT: Register custom characters so multiCharacterConversation can find them
+          const { registerCustomCharacters } = await import('../config/characters');
+          console.log('[ChatInterface] About to register custom characters:', chatMenuCharacters.map(c => ({ id: c.id, name: c.name })));
+          registerCustomCharacters(chatMenuCharacters);
+          console.log('[ChatInterface] Registered', chatMenuCharacters.length, 'custom characters for AI generation');
         } else {
           // Fallback to default characters if no matches
           setAvailableCharacters(getAllCharacters());
@@ -219,8 +225,13 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   }, [messages.length, showCharacterSelector, selectedCharacters]);
 
   // Restore characters from messages when conversation is loaded
+  // But DON'T override if user has manually selected characters
+  const userHasSelectedCharacters = useRef(false);
+
   useEffect(() => {
-    if (messages.length > 0) {
+    // Only restore from messages if it's a new conversation load (initial mount or conversation switch)
+    // and user hasn't manually selected characters yet
+    if (messages.length > 0 && !userHasSelectedCharacters.current && selectedCharacters.length === 0) {
       // Extract unique character IDs from assistant messages
       const characterIds = messages
         .filter(msg => msg.role === 'assistant' && msg.characterId)
@@ -228,18 +239,14 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
       const uniqueCharacterIds = Array.from(new Set(characterIds));
 
-      // Only update if we found characters and they're different from current selection
+      // Restore characters from conversation history
       if (uniqueCharacterIds.length > 0) {
-        const currentIds = [...selectedCharacters].sort().join(',');
-        const newIds = [...uniqueCharacterIds].sort().join(',');
-
-        if (currentIds !== newIds) {
-          setSelectedCharacters(uniqueCharacterIds);
-        }
+        console.log('[ChatInterface] Restoring characters from conversation history:', uniqueCharacterIds);
+        setSelectedCharacters(uniqueCharacterIds);
       }
     }
     // Don't auto-select any character for new conversations - let user choose
-  }, [messages]);
+  }, [messages.length]);
 
   // Show character names when characters change or at conversation start
   useEffect(() => {
@@ -524,6 +531,9 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   };
 
   const toggleCharacter = (characterId: string) => {
+    // Mark that user has manually selected characters
+    userHasSelectedCharacters.current = true;
+
     setSelectedCharacters(prev => {
       if (prev.includes(characterId)) {
         // Don't allow removing if only one left

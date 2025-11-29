@@ -32,6 +32,8 @@ export function determineRespondingCharacters(
   messageHistory: ConversationMessage[],
   lastSpeaker?: string
 ): string[] {
+  console.log('[MultiChar] determineRespondingCharacters called with:', selectedCharacters);
+
   if (!MULTI_CHARACTER_CONFIG.enabled || selectedCharacters.length === 1) {
     return selectedCharacters;
   }
@@ -44,6 +46,7 @@ export function determineRespondingCharacters(
     // First response: pick a random character to start
     const randomIdx = Math.floor(Math.random() * selectedCharacters.length);
     respondingCharacters.push(selectedCharacters[randomIdx]);
+    console.log('[MultiChar] First message, selected character:', selectedCharacters[randomIdx]);
   } else {
     // Subsequent responses: multiple characters may respond
 
@@ -201,7 +204,10 @@ export async function generateMultiCharacterResponses(
 
   for (let i = 0; i < respondingCharacters.length; i++) {
     const charId = respondingCharacters[i];
+    console.log(`[MultiChar] Generating response for character ID: ${charId}`);
+
     const character = getCharacter(charId);
+    console.log(`[MultiChar] Retrieved character:`, character.name, character.id);
 
     // Build context including other characters
     const systemPrompt = buildCharacterContext(

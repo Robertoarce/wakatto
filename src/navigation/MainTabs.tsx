@@ -155,6 +155,7 @@ export default function MainTabs() {
 
             // Save each character's response
             for (const response of characterResponses) {
+              console.log(`[Chat] Saving message for character ${response.characterId}:`, response.content.substring(0, 50) + '...');
               await dispatch(saveMessage(
                 conversation.id,
                 'assistant',
@@ -163,7 +164,7 @@ export default function MainTabs() {
               ) as any);
             }
 
-            console.log(`[Chat] Generated ${characterResponses.length} responses`);
+            console.log(`[Chat] Generated ${characterResponses.length} responses from characters:`, characterResponses.map(r => r.characterId));
           } else {
             // Single character mode: traditional response
             console.log('[Chat] Using single character mode:', selectedCharacters[0]);
