@@ -9,8 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { CharacterDisplay3D, AnimationState } from '../components/CharacterDisplay3D';
 import { CharacterCardPreview } from '../components/CharacterCardPreview';
 import { CharacterCreationWizard } from '../components/CharacterCreationWizard';
-import { getAllCharacters, CharacterBehavior, CHARACTERS, PromptStyleId } from '../config/characters';
-import { PROMPT_STYLES } from '../prompts';
+import { getAllCharacters, CharacterBehavior, CHARACTERS } from '../config/characters';
 import { getCustomWakattors, deleteCustomWakattor } from '../services/customWakattorsService';
 
 export default function WakattorsScreen() {
@@ -101,14 +100,6 @@ export default function WakattorsScreen() {
     }
   };
 
-  const updateTrait = (trait: keyof CharacterBehavior['traits'], value: number) => {
-    if (editedCharacter) {
-      setEditedCharacter({
-        ...editedCharacter,
-        traits: { ...editedCharacter.traits, [trait]: value },
-      });
-    }
-  };
 
   const updateModel3D = (field: keyof CharacterBehavior['model3D'], value: any) => {
     if (editedCharacter) {
@@ -150,20 +141,7 @@ export default function WakattorsScreen() {
               <Text style={styles.cardDescription} numberOfLines={2}>
                 {character.description}
               </Text>
-              <View style={styles.cardTraits}>
-                <View style={styles.trait}>
-                  <Text style={styles.traitLabel}>Empathy</Text>
-                  <View style={styles.traitBar}>
-                    <View style={[styles.traitFill, { width: `${character.traits.empathy * 10}%` }]} />
-                  </View>
-                </View>
-                <View style={styles.trait}>
-                  <Text style={styles.traitLabel}>Directness</Text>
-                  <View style={styles.traitBar}>
-                    <View style={[styles.traitFill, { width: `${character.traits.directness * 10}%` }]} />
-                  </View>
-                </View>
-              </View>
+              <Text style={styles.cardRole}>{character.role}</Text>
               <View style={styles.cardActions}>
                 <TouchableOpacity
                   style={styles.actionButton}
@@ -272,81 +250,18 @@ export default function WakattorsScreen() {
                     />
                   </View>
 
-                  {/* Therapeutic Prompt Style Selector */}
                   <View style={styles.formSection}>
-                    <Text style={styles.formLabel}>Therapeutic Approach</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.promptStyleScroll}>
-                      <View style={styles.promptStyleRow}>
-                        {PROMPT_STYLES.map((style) => (
-                          <TouchableOpacity
-                            key={style.id}
-                            style={[
-                              styles.promptStyleButton,
-                              editedCharacter.promptStyle === style.id && styles.promptStyleButtonActive,
-                            ]}
-                            onPress={() => updateCharacterField('promptStyle', style.id as PromptStyleId)}
-                          >
-                            <Text style={styles.promptStyleIcon}>{style.icon}</Text>
-                            <Text style={[
-                              styles.promptStyleButtonText,
-                              editedCharacter.promptStyle === style.id && styles.promptStyleButtonTextActive,
-                            ]}>
-                              {style.name}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </ScrollView>
-                    <Text style={styles.promptStyleDescription}>
-                      {PROMPT_STYLES.find(s => s.id === editedCharacter.promptStyle)?.description}
-                    </Text>
-                  </View>
-
-                  <View style={styles.formSection}>
-                    <Text style={styles.formLabel}>Custom System Prompt (Optional)</Text>
-                    <Text style={styles.formHint}>Leave blank to use the therapeutic style above</Text>
+                    <Text style={styles.formLabel}>System Prompt</Text>
+                    <Text style={styles.formHint}>Define how the character should behave and respond</Text>
                     <TextInput
                       style={[styles.input, styles.textArea]}
                       value={editedCharacter.systemPrompt}
                       onChangeText={(value) => updateCharacterField('systemPrompt', value)}
-                      placeholder="Optional: Define custom behavior"
+                      placeholder="Define character behavior and response style"
                       placeholderTextColor="#71717a"
                       multiline
                       numberOfLines={6}
                     />
-                  </View>
-
-                  {/* Personality Traits */}
-                  <View style={styles.formSection}>
-                    <Text style={styles.formLabel}>Personality Traits (1-10)</Text>
-                    {Object.entries(editedCharacter.traits).map(([key, value]) => (
-                      <View key={key} style={styles.sliderContainer}>
-                        <Text style={styles.sliderLabel}>
-                          {key.charAt(0).toUpperCase() + key.slice(1)}: {value}
-                        </Text>
-                        <View style={styles.sliderButtons}>
-                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                            <TouchableOpacity
-                              key={num}
-                              style={[
-                                styles.sliderButton,
-                                value === num && styles.sliderButtonActive,
-                              ]}
-                              onPress={() => updateTrait(key as keyof CharacterBehavior['traits'], num)}
-                            >
-                              <Text
-                                style={[
-                                  styles.sliderButtonText,
-                                  value === num && styles.sliderButtonTextActive,
-                                ]}
-                              >
-                                {num}
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      </View>
-                    ))}
                   </View>
 
                   {/* 3D Model Customization */}
@@ -481,28 +396,13 @@ const styles = StyleSheet.create({
   cardDescription: {
     fontSize: 14,
     color: '#a1a1aa',
+    marginBottom: 8,
+  },
+  cardRole: {
+    fontSize: 13,
+    color: '#8b5cf6',
+    fontWeight: '600',
     marginBottom: 12,
-  },
-  cardTraits: {
-    gap: 8,
-    marginBottom: 16,
-  },
-  trait: {
-    gap: 4,
-  },
-  traitLabel: {
-    fontSize: 12,
-    color: '#71717a',
-  },
-  traitBar: {
-    height: 4,
-    backgroundColor: '#27272a',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  traitFill: {
-    height: '100%',
-    backgroundColor: '#8b5cf6',
   },
   cardActions: {
     flexDirection: 'row',
@@ -617,39 +517,6 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: 'top',
   },
-  sliderContainer: {
-    marginBottom: 20,
-  },
-  sliderLabel: {
-    fontSize: 14,
-    color: '#d4d4d8',
-    marginBottom: 8,
-  },
-  sliderButtons: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  sliderButton: {
-    flex: 1,
-    paddingVertical: 8,
-    backgroundColor: '#27272a',
-    borderRadius: 6,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#3f3f46',
-  },
-  sliderButtonActive: {
-    backgroundColor: '#8b5cf6',
-    borderColor: '#8b5cf6',
-  },
-  sliderButtonText: {
-    color: '#a1a1aa',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  sliderButtonTextActive: {
-    color: 'white',
-  },
   colorRow: {
     flexDirection: 'row',
     gap: 12,
@@ -718,45 +585,6 @@ const styles = StyleSheet.create({
   },
   animButtonTextActive: {
     color: 'white',
-  },
-  promptStyleScroll: {
-    marginBottom: 12,
-  },
-  promptStyleRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  promptStyleButton: {
-    minWidth: 140,
-    padding: 12,
-    backgroundColor: '#27272a',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#3f3f46',
-    alignItems: 'center',
-  },
-  promptStyleButtonActive: {
-    backgroundColor: '#1e1b4b',
-    borderColor: '#8b5cf6',
-  },
-  promptStyleIcon: {
-    fontSize: 28,
-    marginBottom: 6,
-  },
-  promptStyleButtonText: {
-    color: '#a1a1aa',
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  promptStyleButtonTextActive: {
-    color: '#c4b5fd',
-  },
-  promptStyleDescription: {
-    fontSize: 13,
-    color: '#71717a',
-    fontStyle: 'italic',
-    lineHeight: 18,
   },
   formHint: {
     fontSize: 12,

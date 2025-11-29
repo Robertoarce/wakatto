@@ -22,7 +22,7 @@ function loadEnv() {
   return {};
 }
 
-module.exports = async function (env, argv) {
+module.exports = async function (env = {}, argv = {}) {
   // Force fresh build - cache buster
   console.log('🔥 CUSTOM WEBPACK CONFIG LOADED - Build time:', new Date().toISOString());
 
@@ -30,9 +30,14 @@ module.exports = async function (env, argv) {
   const envVars = loadEnv();
   console.log('📦 Loaded environment variables:', Object.keys(envVars).join(', '));
 
+  // Ensure mode is set correctly for Expo
+  const mode = argv.mode || env.mode || process.env.NODE_ENV || 'development';
+  console.log('🎯 Build mode:', mode);
+
   const config = await createExpoWebpackConfigAsync(
     {
       ...env,
+      mode: mode,
       babel: {
         dangerouslyAddModulePathsToTranspile: [
           '@expo/vector-icons',
@@ -46,7 +51,10 @@ module.exports = async function (env, argv) {
   
   // Disable webpack caching completely
   config.cache = false;
-  
+
+  // Enable source maps for debugging in VSCode
+  config.devtool = 'source-map';
+
   // Override entry point for more control
   config.entry = path.resolve(__dirname, 'index.web.js');
   

@@ -6,7 +6,7 @@
  */
 
 import { generateAIResponse } from './aiService';
-import { CharacterBehavior, PromptStyleId } from '../config/characters';
+import { CharacterBehavior } from '../config/characters';
 
 // Step 2: LLM analyzes character name
 export interface CharacterAnalysis {
@@ -91,16 +91,6 @@ Response format (JSON only, no markdown):
   "name": "Character Name",
   "description": "Brief description (1-2 sentences)",
   "role": "Character's role",
-  "traits": {
-    "empathy": 1-10,
-    "directness": 1-10,
-    "formality": 1-10,
-    "humor": 1-10,
-    "creativity": 1-10,
-    "patience": 1-10,
-    "wisdom": 1-10,
-    "energy": 1-10
-  },
   "customization": {
     "gender": "male/female/neutral",
     "skinTone": "light/medium/tan/dark",
@@ -112,8 +102,7 @@ Response format (JSON only, no markdown):
     "hairColor": "#hex"
   },
   "color": "#hex",
-  "responseStyle": "one word style",
-  "promptStyle": "compassionate/psychoanalytic/jungian/etc"
+  "responseStyle": "one word style"
 }`;
 
   const traitsText = description.keyTraits.join(', ');
@@ -125,11 +114,9 @@ ${descText ? `Additional description: ${descText}` : ''}
 Generate a complete character configuration including:
 1. Description (1-2 sentences capturing their essence)
 2. Role (what they represent or do)
-3. Personality traits (1-10 scale for empathy, directness, formality, humor, creativity, patience, wisdom, energy)
-4. Physical appearance (gender, skin tone, clothing style, hair, accessories)
-5. Colors (primary color, body color, accessory color, hair color - all as hex codes)
-6. Response style (one word: analytical, playful, wise, fierce, compassionate, etc.)
-7. Prompt style (choose most fitting: compassionate, psychoanalytic, jungian, cognitive, mindfulness, socratic, creative, adlerian, existential, positive, narrative)
+3. Physical appearance (gender, skin tone, clothing style, hair, accessories)
+4. Colors (primary color, body color, accessory color, hair color - all as hex codes)
+5. Response style (one word: analytical, playful, wise, fierce, compassionate, etc.)
 
 Respond with ONLY valid JSON, no markdown formatting.`;
 
@@ -167,19 +154,7 @@ export function buildCharacterBehavior(
     description: partialConfig.description || 'A custom AI character',
     color: partialConfig.color || '#8b5cf6',
     role: partialConfig.role || 'Assistant',
-    promptStyle: (partialConfig.promptStyle as PromptStyleId) || 'compassionate',
-    systemPrompt: partialConfig.systemPrompt,
-    traits: {
-      empathy: 5,
-      directness: 5,
-      formality: 5,
-      humor: 5,
-      creativity: 5,
-      patience: 5,
-      wisdom: 5,
-      energy: 5,
-      ...partialConfig.traits,
-    },
+    systemPrompt: partialConfig.systemPrompt || 'You are a helpful AI assistant.',
     responseStyle: partialConfig.responseStyle || 'balanced',
     model3D: {
       bodyColor: partialConfig.model3D?.bodyColor || partialConfig.customization?.bodyColor || '#8b5cf6',
@@ -215,15 +190,6 @@ export function validateCharacterConfig(character: CharacterBehavior): string[] 
   if (!character.role || character.role.trim().length === 0) {
     errors.push('Character role is required');
   }
-
-  // Validate trait values (1-10)
-  const traitKeys = ['empathy', 'directness', 'formality', 'humor', 'creativity', 'patience', 'wisdom', 'energy'] as const;
-  traitKeys.forEach(key => {
-    const value = character.traits[key];
-    if (value < 1 || value > 10) {
-      errors.push(`Trait "${key}" must be between 1 and 10`);
-    }
-  });
 
   // Validate color hex codes
   const hexPattern = /^#[0-9A-Fa-f]{6}$/;

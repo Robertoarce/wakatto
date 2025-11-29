@@ -92,7 +92,12 @@
       "Bash(npx expo export:web)",
       "Bash(npx tsc:*)",
       "Bash(lsof:*)",
-      "Bash(xargs kill -9)"
+      "Bash(xargs kill -9)",
+      "Bash(cat:*)",
+      "Bash(perl:*)",
+      "Bash(supabase migration repair --status reverted 20241111000000)",
+      "Bash(supabase migration repair --status reverted 20241111000000 --linked)",
+      "Bash(open http://localhost:8080)"
     ],
     "deny": [],
     "ask": []

@@ -15,10 +15,8 @@ export interface CustomWakattor {
   description: string;
   color: string;
   role: string;
-  prompt_style: string;
-  system_prompt?: string;
+  system_prompt: string;
   response_style: string;
-  traits: Record<string, number>;
   customization: Record<string, any>;
   model3d: Record<string, any>;
   is_public: boolean;
@@ -37,10 +35,8 @@ function characterToDBFormat(character: CharacterBehavior, userId: string): Omit
     description: character.description,
     color: character.color,
     role: character.role,
-    prompt_style: character.promptStyle,
     system_prompt: character.systemPrompt,
     response_style: character.responseStyle,
-    traits: character.traits,
     customization: character.customization,
     model3d: character.model3D,
     is_public: false,
@@ -57,9 +53,7 @@ function dbToCharacterFormat(dbRecord: CustomWakattor): CharacterBehavior {
     description: dbRecord.description,
     color: dbRecord.color,
     role: dbRecord.role,
-    promptStyle: dbRecord.prompt_style as any,
     systemPrompt: dbRecord.system_prompt,
-    traits: dbRecord.traits as any,
     responseStyle: dbRecord.response_style,
     model3D: dbRecord.model3d as any,
     customization: dbRecord.customization as any,
@@ -230,10 +224,8 @@ export async function addCharacterToWakattors(libraryCharacter: CustomWakattor):
     description: libraryCharacter.description,
     color: libraryCharacter.color,
     role: libraryCharacter.role,
-    prompt_style: libraryCharacter.prompt_style,
     system_prompt: libraryCharacter.system_prompt,
     response_style: libraryCharacter.response_style,
-    traits: libraryCharacter.traits,
     customization: libraryCharacter.customization,
     model3d: libraryCharacter.model3d,
     is_public: false,

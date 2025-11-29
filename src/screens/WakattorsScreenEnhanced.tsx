@@ -10,7 +10,6 @@ import { CharacterDisplay3D, AnimationState } from '../components/CharacterDispl
 import { CharacterCardPreview } from '../components/CharacterCardPreview';
 import { getAllCharacters, CharacterBehavior, GenderType, SkinToneType, ClothingType, HairType, AccessoryType } from '../config/characters';
 import { ColorPicker } from '../components/ColorPicker';
-import { TraitSlider } from '../components/TraitSlider';
 import { getCustomWakattors, deleteCustomWakattor, addCharacterToWakattors } from '../services/customWakattorsService';
 import { useCustomAlert } from '../components/CustomAlert';
 import { addToChatMenu, removeFromChatMenu, isInChatMenu, getChatMenuCount, getChatMenuCharacters } from '../services/chatMenuService';
@@ -138,18 +137,7 @@ export default function WakattorsScreenEnhanced() {
       description: 'A new AI character',
       color: '#8b5cf6',
       role: 'Friend',
-      promptStyle: 'compassionate',
       systemPrompt: 'You are a helpful AI assistant.',
-      traits: {
-        empathy: 5,
-        directness: 5,
-        formality: 5,
-        humor: 5,
-        creativity: 5,
-        patience: 5,
-        wisdom: 5,
-        energy: 5,
-      },
       responseStyle: 'balanced',
       model3D: {
         bodyColor: '#8b5cf6',
@@ -304,14 +292,6 @@ export default function WakattorsScreenEnhanced() {
     }
   };
 
-  const updateTrait = (trait: keyof CharacterBehavior['traits'], value: number) => {
-    if (editedCharacter) {
-      setEditedCharacter({
-        ...editedCharacter,
-        traits: { ...editedCharacter.traits, [trait]: value },
-      });
-    }
-  };
 
   const updateCustomization = (field: keyof CharacterBehavior['customization'], value: any) => {
     if (editedCharacter) {
@@ -631,49 +611,20 @@ export default function WakattorsScreenEnhanced() {
                   {/* Personality Tab */}
                   {editorTab === 'personality' && (
                     <View style={styles.tabContent}>
-                      <Text style={styles.sectionTitle}>Personality Traits</Text>
-                      <Text style={styles.sectionSubtitle}>Adjust how your Wakattor behaves and responds</Text>
+                      <Text style={styles.sectionTitle}>System Prompt</Text>
+                      <Text style={styles.sectionSubtitle}>Define how your Wakattor behaves and responds</Text>
 
-                      <TraitSlider
-                        label="Empathy"
-                        value={editedCharacter.traits.empathy}
-                        onChange={(value) => updateTrait('empathy', value)}
-                      />
-                      <TraitSlider
-                        label="Directness"
-                        value={editedCharacter.traits.directness}
-                        onChange={(value) => updateTrait('directness', value)}
-                      />
-                      <TraitSlider
-                        label="Formality"
-                        value={editedCharacter.traits.formality}
-                        onChange={(value) => updateTrait('formality', value)}
-                      />
-                      <TraitSlider
-                        label="Humor"
-                        value={editedCharacter.traits.humor}
-                        onChange={(value) => updateTrait('humor', value)}
-                      />
-                      <TraitSlider
-                        label="Creativity"
-                        value={editedCharacter.traits.creativity}
-                        onChange={(value) => updateTrait('creativity', value)}
-                      />
-                      <TraitSlider
-                        label="Patience"
-                        value={editedCharacter.traits.patience}
-                        onChange={(value) => updateTrait('patience', value)}
-                      />
-                      <TraitSlider
-                        label="Wisdom"
-                        value={editedCharacter.traits.wisdom}
-                        onChange={(value) => updateTrait('wisdom', value)}
-                      />
-                      <TraitSlider
-                        label="Energy"
-                        value={editedCharacter.traits.energy}
-                        onChange={(value) => updateTrait('energy', value)}
-                      />
+                      <View style={styles.formSection}>
+                        <TextInput
+                          style={[styles.input, styles.textArea]}
+                          value={editedCharacter.systemPrompt}
+                          onChangeText={(value) => updateCharacterField('systemPrompt', value)}
+                          placeholder="Define character behavior and personality..."
+                          placeholderTextColor="#71717a"
+                          multiline
+                          numberOfLines={12}
+                        />
+                      </View>
                     </View>
                   )}
 

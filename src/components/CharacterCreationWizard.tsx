@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CharacterDisplay3D } from './CharacterDisplay3D';
-import { CharacterBehavior, PromptStyleId } from '../config/characters';
+import { CharacterBehavior } from '../config/characters';
 import {
   analyzeCharacterName,
   generateCharacterFromDescription,
@@ -114,15 +114,6 @@ export function CharacterCreationWizard({ onComplete, onCancel }: Props) {
     }
   };
 
-  // Update generated character traits
-  const updateTrait = (key: keyof CharacterBehavior['traits'], value: number) => {
-    if (generatedCharacter) {
-      setGeneratedCharacter({
-        ...generatedCharacter,
-        traits: { ...generatedCharacter.traits, [key]: value },
-      });
-    }
-  };
 
   // Render step content
   const renderStepContent = () => {
@@ -175,7 +166,7 @@ export function CharacterCreationWizard({ onComplete, onCancel }: Props) {
                 <View style={styles.previewContainer}>
                   <CharacterDisplay3D character={generatedCharacter} isActive={true} />
                 </View>
-                <ScrollView style={styles.traitsScroll}>
+                <ScrollView style={styles.infoContainer}>
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Name:</Text>
                     <Text style={styles.infoValue}>{generatedCharacter.name}</Text>
@@ -189,35 +180,10 @@ export function CharacterCreationWizard({ onComplete, onCancel }: Props) {
                     <Text style={styles.infoValue}>{generatedCharacter.description}</Text>
                   </View>
 
-                  <Text style={styles.traitsTitle}>Personality Traits</Text>
-                  {Object.entries(generatedCharacter.traits).map(([key, value]) => (
-                    <View key={key} style={styles.traitRow}>
-                      <Text style={styles.traitLabel}>
-                        {key.charAt(0).toUpperCase() + key.slice(1)}: {value}
-                      </Text>
-                      <View style={styles.traitButtons}>
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                          <TouchableOpacity
-                            key={num}
-                            style={[
-                              styles.traitButton,
-                              value === num && styles.traitButtonActive,
-                            ]}
-                            onPress={() => updateTrait(key as any, num)}
-                          >
-                            <Text
-                              style={[
-                                styles.traitButtonText,
-                                value === num && styles.traitButtonTextActive,
-                              ]}
-                            >
-                              {num}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </View>
-                  ))}
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>System Prompt:</Text>
+                    <Text style={styles.infoValue}>{generatedCharacter.systemPrompt}</Text>
+                  </View>
                 </ScrollView>
                 {error && <Text style={styles.errorText}>{error}</Text>}
                 <TouchableOpacity style={styles.primaryButton} onPress={handleSaveCharacter}>
@@ -302,7 +268,7 @@ export function CharacterCreationWizard({ onComplete, onCancel }: Props) {
                 <View style={styles.previewContainer}>
                   <CharacterDisplay3D character={generatedCharacter} isActive={true} />
                 </View>
-                <ScrollView style={styles.traitsScroll}>
+                <ScrollView style={styles.infoContainer}>
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Name:</Text>
                     <Text style={styles.infoValue}>{generatedCharacter.name}</Text>
@@ -316,35 +282,10 @@ export function CharacterCreationWizard({ onComplete, onCancel }: Props) {
                     <Text style={styles.infoValue}>{generatedCharacter.description}</Text>
                   </View>
 
-                  <Text style={styles.traitsTitle}>Personality Traits</Text>
-                  {Object.entries(generatedCharacter.traits).map(([key, value]) => (
-                    <View key={key} style={styles.traitRow}>
-                      <Text style={styles.traitLabel}>
-                        {key.charAt(0).toUpperCase() + key.slice(1)}: {value}
-                      </Text>
-                      <View style={styles.traitButtons}>
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                          <TouchableOpacity
-                            key={num}
-                            style={[
-                              styles.traitButton,
-                              value === num && styles.traitButtonActive,
-                            ]}
-                            onPress={() => updateTrait(key as any, num)}
-                          >
-                            <Text
-                              style={[
-                                styles.traitButtonText,
-                                value === num && styles.traitButtonTextActive,
-                              ]}
-                            >
-                              {num}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </View>
-                  ))}
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>System Prompt:</Text>
+                    <Text style={styles.infoValue}>{generatedCharacter.systemPrompt}</Text>
+                  </View>
                 </ScrollView>
                 {error && <Text style={styles.errorText}>{error}</Text>}
                 <TouchableOpacity style={styles.primaryButton} onPress={handleSaveCharacter}>
@@ -518,7 +459,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     overflow: 'hidden',
   },
-  traitsScroll: {
+  infoContainer: {
     width: '100%',
     maxHeight: 300,
     marginBottom: 16,
@@ -538,45 +479,5 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: '#d4d4d8',
-  },
-  traitsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#8b5cf6',
-    marginTop: 16,
-    marginBottom: 12,
-  },
-  traitRow: {
-    marginBottom: 16,
-  },
-  traitLabel: {
-    fontSize: 14,
-    color: '#d4d4d8',
-    marginBottom: 8,
-  },
-  traitButtons: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  traitButton: {
-    flex: 1,
-    paddingVertical: 8,
-    backgroundColor: '#27272a',
-    borderRadius: 6,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#3f3f46',
-  },
-  traitButtonActive: {
-    backgroundColor: '#8b5cf6',
-    borderColor: '#8b5cf6',
-  },
-  traitButtonText: {
-    color: '#a1a1aa',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  traitButtonTextActive: {
-    color: 'white',
   },
 });
