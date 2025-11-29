@@ -49,6 +49,14 @@ serve(async (req) => {
 
     console.log(`[AI-Chat] User: ${user.id}, Provider: ${provider}, Messages: ${messages.length}`)
     console.log(`[AI-Chat] Parameters:`, parameters)
+    console.log('[AI-Chat] Full prompt being sent:')
+    console.log('=== PROMPT START ===')
+    messages.forEach((msg: any, idx: number) => {
+      console.log(`[${idx}] ${msg.role.toUpperCase()}:`)
+      console.log(msg.content)
+      console.log('---')
+    })
+    console.log('=== PROMPT END ===')
 
     // Call the appropriate AI provider
     let response
@@ -63,6 +71,11 @@ serve(async (req) => {
     } else {
       throw new Error(`Unsupported provider: ${provider}`)
     }
+
+    console.log('[AI-Chat] Response received:')
+    console.log('=== RESPONSE START ===')
+    console.log(response)
+    console.log('=== RESPONSE END ===')
 
     return new Response(
       JSON.stringify({ content: response }),

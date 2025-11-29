@@ -19,7 +19,6 @@ import {
   updateMessage,
   deleteMessage
 } from '../store/actions/conversationActions';
-import { generateAIResponse, DIARY_SYSTEM_PROMPT } from '../services/aiService';
 import { getCharacter } from '../config/characters';
 import {
   generateMultiCharacterResponses,

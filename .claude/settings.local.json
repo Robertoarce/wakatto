@@ -89,7 +89,10 @@
       "Bash(test:*)",
       "Bash(ping:*)",
       "Bash(set NODE_ENV=production)",
-      "Bash(npx expo export:web)"
+      "Bash(npx expo export:web)",
+      "Bash(npx tsc:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill -9)"
     ],
     "deny": [],
     "ask": []

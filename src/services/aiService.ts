@@ -29,7 +29,7 @@ interface AIMessage {
 let config: AIConfig = {
   provider: 'anthropic', // Default to Claude
   apiKey: '', // Will be loaded from secure storage or environment
-  model: 'claude-3-haiku-20240307', // Claude 3 Haiku (fast and available on your tier)
+  model: 'claude-3-5-haiku-20241022', // Claude 3.5 Haiku (fastest and cheapest)
 };
 
 // Load API key from secure storage on initialization
@@ -146,6 +146,14 @@ export async function generateAIResponse(
     // Call Supabase Edge Function (avoids CORS issues)
     console.log('[AI] Calling Edge Function with provider:', config.provider);
     console.log('[AI] Using parameters:', finalParameters);
+    console.log('[AI] Full prompt being sent:');
+    console.log('=== PROMPT START ===');
+    fullMessages.forEach((msg, idx) => {
+      console.log(`[${idx}] ${msg.role.toUpperCase()}:`);
+      console.log(msg.content);
+      console.log('---');
+    });
+    console.log('=== PROMPT END ===');
 
     const { data: session } = await supabase.auth.getSession();
     if (!session?.session) {
@@ -177,6 +185,10 @@ export async function generateAIResponse(
 
     const data = await response.json();
     console.log('[AI] Edge Function success!');
+    console.log('[AI] Response received:');
+    console.log('=== RESPONSE START ===');
+    console.log(data.content);
+    console.log('=== RESPONSE END ===');
     return data.content;
   } catch (error: any) {
     console.error('[AI] Error:', error);
@@ -405,18 +417,4 @@ async function generateMockResponse(messages: AIMessage[]): Promise<string> {
   return `I appreciate you sharing that with me. Your thoughts and experiences are valid. This is a safe space for you to express yourself. Would you like to explore this further, or is there something else on your mind?`;
 }
 
-/**
- * System prompt for the diary assistant
- */
-export const DIARY_SYSTEM_PROMPT = `You are Psyche AI, a compassionate and insightful AI journal companion. Your role is to:
-
-1. Listen empathetically to the user's thoughts, feelings, and experiences
-2. Ask thoughtful follow-up questions to help them explore their emotions
-3. Provide gentle insights and reflections when appropriate
-4. Help them track patterns in their thoughts and behaviors
-5. Maintain a warm, supportive, and non-judgmental tone
-6. Keep responses concise but meaningful (2-4 sentences usually)
-7. Respect their privacy and maintain confidentiality
-
-Remember: You're not a therapist, but a supportive companion for self-reflection and personal growth.`;
 

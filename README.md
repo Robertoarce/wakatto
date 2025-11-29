@@ -147,6 +147,13 @@ Your app will be live at: `https://YOUR_USERNAME.github.io/YOUR_REPO_NAME`
 - [PRD: Knowledge Graph](docs/PRD_KNOWLEDGE_GRAPH.md) - Knowledge graph feature specs
 - [Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md) - Development history
 
+### AI & Configuration
+- [AI Service Guide](docs/AI_SERVICE_GUIDE.md) - **Complete aiService.ts documentation** 📘
+- [Multi-Character Service Guide](docs/MULTI_CHARACTER_SERVICE_GUIDE.md) - **Complete multiCharacterConversation.ts documentation** 🎭
+- [AI Generation Layer](docs/AI_GENERATION_LAYER.md) - Overall AI architecture and flow
+- [Configuration Guide](docs/CONFIGURATION_GUIDE.md) - LLM parameters and settings
+- [Conversation Flow](docs/CONVERSATION_FLOW.md) - Message flow architecture
+
 ### For AI Assistants & Troubleshooting
 - [LLM Troubleshooting Guide](docs/LLM_TROUBLESHOOTING_GUIDE.md) - **Comprehensive guide for LLMs** 🤖
 - [Black Screen Fix](docs/BLACK_SCREEN_FIX.md) - Technical details on React Native Web issue

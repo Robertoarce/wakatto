@@ -115,6 +115,8 @@ The AI Generation Layer is the core intelligence system of Wakatto that handles 
 
 This service orchestrates complex multi-character conversations with intelligent character selection, cross-character awareness, and natural dialogue flow.
 
+> 🎭 **Complete Documentation:** See [Multi-Character Service Guide](MULTI_CHARACTER_SERVICE_GUIDE.md) for comprehensive documentation including all functions, decision logic, usage examples, and troubleshooting.
+
 #### Key Functions
 
 ##### `determineRespondingCharacters()`
@@ -346,6 +348,8 @@ async function generateSingleCharacterResponse(
 **File:** `src/services/aiService.ts`
 
 Central service for AI provider integration, configuration management, and request orchestration.
+
+> 📘 **Complete Documentation:** See [AI Service Guide](AI_SERVICE_GUIDE.md) for comprehensive documentation of aiService.ts including all functions, parameters, usage examples, and troubleshooting.
 
 #### Configuration Management
 
@@ -1770,11 +1774,12 @@ if (charId === lastSpeaker && selectedCharacters.length > 1) {
 
 ## Related Documentation
 
-- **Conversation Flow:** `docs/CONVERSATION_FLOW.md`
-- **Configuration Guide:** `docs/CONFIGURATION_GUIDE.md`
-- **Prompts System:** `docs/PROMPTS_README.md`
-- **Edge Function Deployment:** `docs/EDGE_FUNCTION_DEPLOY.md`
-- **Character System:** `docs/MULTI_CHARACTER_SETUP.md`
+- **AI Service Guide:** [AI_SERVICE_GUIDE.md](AI_SERVICE_GUIDE.md) - Complete aiService.ts documentation 📘
+- **Multi-Character Service Guide:** [MULTI_CHARACTER_SERVICE_GUIDE.md](MULTI_CHARACTER_SERVICE_GUIDE.md) - Complete multiCharacterConversation.ts documentation 🎭
+- **Configuration Guide:** [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) - LLM parameters and settings
+- **Conversation Flow:** [CONVERSATION_FLOW.md](CONVERSATION_FLOW.md) - Message flow architecture
+- **Adaptive Response Length:** [ADAPTIVE_RESPONSE_LENGTH.md](ADAPTIVE_RESPONSE_LENGTH.md) - Dynamic response sizing
+- **LLM Interaction Flow:** [llm-interaction-flow.md](llm-interaction-flow.md) - Request/response flow diagrams
 
 ---
 

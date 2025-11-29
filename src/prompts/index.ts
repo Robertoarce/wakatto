@@ -119,12 +119,6 @@ export function getPromptById(id: string): string {
   return style?.prompt || COMPASSIONATE_PROMPT;
 }
 
-/**
- * Default prompt (Compassionate Companion)
- * Maintained for backward compatibility
- */
-export const DIARY_SYSTEM_PROMPT = COMPASSIONATE_PROMPT;
-
 // Named exports for direct import
 export {
   COMPASSIONATE_PROMPT,

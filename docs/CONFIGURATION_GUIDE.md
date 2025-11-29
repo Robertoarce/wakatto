@@ -382,15 +382,15 @@ const response = await generateAIResponse(
 
 ## Files Reference
 
-| File | Purpose |
-|------|---------|
-| `src/config/llmConfig.ts` | LLM parameters, multi-character settings |
-| `src/config/characters.ts` | Character definitions, prompts, traits |
-| `src/prompts/index.ts` | Therapeutic style prompts registry |
-| `src/prompts/*.ts` | Individual prompt templates |
-| `src/services/aiService.ts` | AI API integration |
-| `src/services/multiCharacterConversation.ts` | Multi-character logic |
-| `supabase/functions/ai-chat/index.ts` | Edge function (backend) |
+| File | Purpose | Documentation |
+|------|---------|---------------|
+| `src/config/llmConfig.ts` | LLM parameters, multi-character settings | This guide |
+| `src/config/characters.ts` | Character definitions, prompts, traits | This guide |
+| `src/prompts/index.ts` | Therapeutic style prompts registry | This guide |
+| `src/prompts/*.ts` | Individual prompt templates | This guide |
+| `src/services/aiService.ts` | AI API integration | [AI Service Guide](AI_SERVICE_GUIDE.md) 📘 |
+| `src/services/multiCharacterConversation.ts` | Multi-character orchestration | [Multi-Character Service Guide](MULTI_CHARACTER_SERVICE_GUIDE.md) 🎭 |
+| `supabase/functions/ai-chat/index.ts` | Edge function (backend) | [AI Generation Layer](AI_GENERATION_LAYER.md) |
 
 ---
 
@@ -400,6 +400,15 @@ const response = await generateAIResponse(
 - **Want to test changes?** Restart the app and try a conversation
 - **Characters not behaving as expected?** Check the `systemPrompt` and `temperature` settings
 - **Multi-character not working?** Ensure `enabled: true` in `MULTI_CHARACTER_CONFIG`
+- **AI Service issues?** See [AI Service Guide](AI_SERVICE_GUIDE.md) for detailed troubleshooting
+
+## Related Documentation
+
+- **[AI Service Guide](AI_SERVICE_GUIDE.md)** - Complete aiService.ts documentation with examples and troubleshooting 📘
+- **[Multi-Character Service Guide](MULTI_CHARACTER_SERVICE_GUIDE.md)** - Complete multiCharacterConversation.ts documentation 🎭
+- **[AI Generation Layer](AI_GENERATION_LAYER.md)** - Overall AI architecture and system design
+- **[Adaptive Response Length](ADAPTIVE_RESPONSE_LENGTH.md)** - Dynamic response length system
+- **[Conversation Flow](CONVERSATION_FLOW.md)** - Message flow and state management
 
 ---
 
