@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, TextInput } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCustomAlert } from './CustomAlert';
 
@@ -205,14 +205,18 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
         
         <View style={styles.conversationsContainer}>
           {!isCollapsed && <Text style={styles.recentText}>Recent</Text>}
-          {filteredConversations.length === 0 && searchQuery.length > 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="search" size={32} color="#52525b" />
-              <Text style={styles.emptyStateText}>No conversations found</Text>
-              <Text style={styles.emptyStateSubtext}>Try a different search term</Text>
-            </View>
-          ) : (
-            filteredConversations.map((conv) => (
+          <ScrollView
+            style={styles.conversationsScrollView}
+            showsVerticalScrollIndicator={false}
+          >
+            {filteredConversations.length === 0 && searchQuery.length > 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="search" size={32} color="#52525b" />
+                <Text style={styles.emptyStateText}>No conversations found</Text>
+                <Text style={styles.emptyStateSubtext}>Try a different search term</Text>
+              </View>
+            ) : (
+              filteredConversations.map((conv) => (
             <View
               key={conv.id}
               style={[
@@ -321,6 +325,7 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
             </View>
             ))
           )}
+          </ScrollView>
         </View>
       </View>
     </>
@@ -419,6 +424,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 8,
     paddingBottom: 16,
+  },
+  conversationsScrollView: {
+    flex: 1,
   },
   recentText: {
     fontSize: 12,

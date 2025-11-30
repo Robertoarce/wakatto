@@ -6,6 +6,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Animated, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute, RouteProp } from '@react-navigation/native';
+import { useSelector } from 'react-redux';
+import { RootState } from '../store';
 import { CharacterDisplay3D, AnimationState } from '../components/CharacterDisplay3D';
 import { CharacterCardPreview } from '../components/CharacterCardPreview';
 import { getAllCharacters, CharacterBehavior, GenderType, SkinToneType, ClothingType, HairType, AccessoryType } from '../config/characters';
@@ -45,6 +47,7 @@ type RootStackParamList = {
 export default function WakattorsScreenEnhanced() {
   const route = useRoute<RouteProp<RootStackParamList, 'Wakattors'>>();
   const { showAlert, AlertComponent } = useCustomAlert();
+  const { messages } = useSelector((state: RootState) => state.conversations);
   const [characters, setCharacters] = useState<CharacterBehavior[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCharacter, setSelectedCharacter] = useState<CharacterBehavior | null>(null);
@@ -54,6 +57,7 @@ export default function WakattorsScreenEnhanced() {
   const [editorTab, setEditorTab] = useState<EditorTab>('basic');
   const [newCharacterId, setNewCharacterId] = useState<string | null>(null);
   const [chatMenuCharacters, setChatMenuCharacters] = useState<string[]>([]);
+  const [currentConversationCharacterIds, setCurrentConversationCharacterIds] = useState<string[]>([]);
   const [conversationCharacters, setConversationCharacters] = useState<CharacterBehavior[]>([]);
   const [collectionCharacterIds, setCollectionCharacterIds] = useState<string[]>([]);
   const [loadingConversationChars, setLoadingConversationChars] = useState(false);
@@ -63,6 +67,16 @@ export default function WakattorsScreenEnhanced() {
   useEffect(() => {
     loadWakattors();
   }, []);
+
+  // Extract characters from current conversation
+  useEffect(() => {
+    const characterIds = messages
+      .filter(msg => msg.role === 'assistant' && msg.characterId)
+      .map(msg => msg.characterId as string);
+    const uniqueCharacterIds = Array.from(new Set(characterIds));
+    setCurrentConversationCharacterIds(uniqueCharacterIds);
+    console.log('[WakattorsScreen] Current conversation characters:', uniqueCharacterIds);
+  }, [messages]);
 
   // Handle new character from navigation
   useEffect(() => {
@@ -389,6 +403,12 @@ export default function WakattorsScreenEnhanced() {
                         <Ionicons name="add-circle" size={20} color="#8b5cf6" />
                         <Text style={styles.actionButtonText}>Add to Chat</Text>
                       </TouchableOpacity>
+                    )}
+                    {currentConversationCharacterIds.includes(character.id) && (
+                      <View style={styles.activeConversationBadge}>
+                        <Ionicons name="chatbubble" size={14} color="#ff6b35" />
+                        <Text style={styles.activeConversationText}>Active</Text>
+                      </View>
                     )}
                     <TouchableOpacity
                       style={[styles.actionButton, styles.removeButton]}
@@ -817,6 +837,22 @@ const styles = StyleSheet.create({
   },
   inChatMenuText: {
     color: '#10b981',
+  },
+  activeConversationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 107, 53, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.3)',
+  },
+  activeConversationText: {
+    color: '#ff6b35',
+    fontSize: 12,
+    fontWeight: '600',
   },
   loadingContainer: {
     flex: 1,

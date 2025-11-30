@@ -26,6 +26,7 @@ import {
 } from '../services/multiCharacterConversation';
 import { generateHybridResponse } from '../services/hybridOrchestration';
 import { ORCHESTRATION_CONFIG } from '../config/llmConfig';
+import { generateConversationTitle } from '../services/conversationTitleGenerator';
 import SettingsScreen from '../screens/SettingsScreen';
 import LibraryScreen from '../screens/LibraryScreen';
 import WakattorsScreenEnhanced from '../screens/WakattorsScreenEnhanced';
@@ -129,8 +130,24 @@ export default function MainTabs() {
       }
 
       if (conversation) {
+        // Check if this is the first user message (for title generation)
+        const isFirstMessage = messages.length === 0;
+
         // Save user message (no character ID for user messages)
         await dispatch(saveMessage(conversation.id, 'user', content) as any);
+
+        // Generate conversation title from first message
+        if (isFirstMessage && conversation.title === 'New Conversation') {
+          console.log('[Chat] Generating title for new conversation from first message');
+          try {
+            const generatedTitle = await generateConversationTitle(content);
+            console.log('[Chat] Generated title:', generatedTitle);
+            await dispatch(renameConversation(conversation.id, generatedTitle) as any);
+          } catch (titleError) {
+            console.error('[Chat] Failed to generate title, keeping default:', titleError);
+            // Continue with conversation even if title generation fails
+          }
+        }
 
         // Prepare conversation history for multi-character service
         const conversationHistory: ConversationMessage[] = messages.map(msg => ({

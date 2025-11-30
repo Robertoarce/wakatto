@@ -225,13 +225,24 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   }, [messages.length, showCharacterSelector, selectedCharacters]);
 
   // Restore characters from messages when conversation is loaded
-  // But DON'T override if user has manually selected characters
   const userHasSelectedCharacters = useRef(false);
+  const previousMessagesRef = useRef(messages);
 
   useEffect(() => {
-    // Only restore from messages if it's a new conversation load (initial mount or conversation switch)
-    // and user hasn't manually selected characters yet
-    if (messages.length > 0 && !userHasSelectedCharacters.current && selectedCharacters.length === 0) {
+    // Detect conversation change: first message ID changed or message array replaced
+    const conversationChanged =
+      messages.length > 0 &&
+      previousMessagesRef.current.length > 0 &&
+      messages[0]?.id !== previousMessagesRef.current[0]?.id;
+
+    // Update when:
+    // 1. Conversation switched (different first message)
+    // 2. Loading a conversation for the first time (has messages but no characters selected)
+    const shouldRestoreCharacters =
+      conversationChanged ||
+      (messages.length > 0 && selectedCharacters.length === 0 && !userHasSelectedCharacters.current);
+
+    if (shouldRestoreCharacters) {
       // Extract unique character IDs from assistant messages
       const characterIds = messages
         .filter(msg => msg.role === 'assistant' && msg.characterId)
@@ -243,10 +254,31 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       if (uniqueCharacterIds.length > 0) {
         console.log('[ChatInterface] Restoring characters from conversation history:', uniqueCharacterIds);
         setSelectedCharacters(uniqueCharacterIds);
+        // Reset manual selection flag when switching conversations
+        if (conversationChanged) {
+          userHasSelectedCharacters.current = false;
+        }
+      } else if (conversationChanged) {
+        // New empty conversation - set default character
+        console.log('[ChatInterface] Switching to empty conversation, setting default character');
+        const defaultChar = availableCharacters.length > 0 ? availableCharacters[0].id : DEFAULT_CHARACTER;
+        setSelectedCharacters([defaultChar]);
+        userHasSelectedCharacters.current = false;
       }
     }
-    // Don't auto-select any character for new conversations - let user choose
-  }, [messages.length]);
+
+    // Update previous messages reference
+    previousMessagesRef.current = messages;
+  }, [messages, availableCharacters]);
+
+  // Set default character for brand new conversations (no messages at all)
+  useEffect(() => {
+    if (messages.length === 0 && selectedCharacters.length === 0 && availableCharacters.length > 0) {
+      console.log('[ChatInterface] New conversation with no messages, setting default character');
+      const defaultChar = availableCharacters[0].id;
+      setSelectedCharacters([defaultChar]);
+    }
+  }, [messages.length, selectedCharacters.length, availableCharacters]);
 
   // Show character names when characters change or at conversation start
   useEffect(() => {
