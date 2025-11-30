@@ -610,6 +610,15 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
       >
+      {/* Full-screen backdrop for character selector */}
+      {showCharacterSelector && (
+        <TouchableOpacity
+          style={styles.characterSelectorBackdrop}
+          activeOpacity={1}
+          onPress={() => setShowCharacterSelector(false)}
+        />
+      )}
+
       {/* 3D Character Display - Resizable */}
       <View style={[styles.characterDisplayContainer, { height: characterHeight }]}>
         {/* 3D Animated Arrow Pointer - Positioned near character selector button */}
@@ -629,7 +638,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
           </Text>
         </TouchableOpacity>
 
-        {/* Character Selector Modal */}
+        {/* Character Selector Panel */}
         {showCharacterSelector && (
           <View style={[
             styles.characterSelectorPanel,
@@ -1097,6 +1106,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  characterSelectorBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 50,
+    backgroundColor: 'transparent',
+  },
   characterSelectorPanel: {
     position: 'absolute',
     top: 50,
@@ -1107,7 +1125,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#27272a',
     padding: 12,
-    zIndex: 10,
+    zIndex: 60,
   },
   characterSelectorPanelMobile: {
     position: 'absolute',

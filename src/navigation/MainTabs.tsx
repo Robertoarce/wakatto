@@ -21,10 +21,11 @@ import {
 } from '../store/actions/conversationActions';
 import { getCharacter } from '../config/characters';
 import {
-  generateMultiCharacterResponses,
   generateSingleCharacterResponse,
   ConversationMessage
 } from '../services/multiCharacterConversation';
+import { generateHybridResponse } from '../services/hybridOrchestration';
+import { ORCHESTRATION_CONFIG } from '../config/llmConfig';
 import SettingsScreen from '../screens/SettingsScreen';
 import LibraryScreen from '../screens/LibraryScreen';
 import WakattorsScreenEnhanced from '../screens/WakattorsScreenEnhanced';
@@ -141,20 +142,32 @@ export default function MainTabs() {
         }));
 
         try {
-          // Use multi-character conversation service for intelligent responses
+          // Use hybrid orchestration for all multi-character conversations
           if (selectedCharacters.length > 1) {
-            // Multi-character mode: characters can interrupt and react
-            console.log('[Chat] Using multi-character mode with:', selectedCharacters);
+            // Multi-character mode: Hybrid orchestration (single-call by default with fallback)
+            console.log('[Chat] Using hybrid orchestration mode with:', selectedCharacters);
+            console.log('[Chat] Orchestration config:', {
+              mode: ORCHESTRATION_CONFIG.mode,
+              maxResponders: ORCHESTRATION_CONFIG.singleCall.maxResponders,
+              includeGestures: ORCHESTRATION_CONFIG.singleCall.includeGestures,
+              includeInterruptions: ORCHESTRATION_CONFIG.singleCall.includeInterruptions
+            });
 
-            const characterResponses = await generateMultiCharacterResponses(
+            const characterResponses = await generateHybridResponse(
               content,
               selectedCharacters,
               conversationHistory
             );
 
-            // Save each character's response
+            // Save each character's response with gesture information
             for (const response of characterResponses) {
-              console.log(`[Chat] Saving message for character ${response.characterId}:`, response.content.substring(0, 50) + '...');
+              console.log(`[Chat] Saving message for character ${response.characterId}:`, {
+                content: response.content.substring(0, 50) + '...',
+                gesture: response.gesture,
+                isInterruption: response.isInterruption,
+                isReaction: response.isReaction
+              });
+
               await dispatch(saveMessage(
                 conversation.id,
                 'assistant',

@@ -22,6 +22,8 @@ export interface CharacterResponse {
   content: string;
   isInterruption: boolean;
   isReaction: boolean;
+  gesture?: string; // Optional gesture ID from characterGestures.ts
+  timing?: 'immediate' | 'delayed'; // Response timing (for single-call orchestration)
 }
 
 /**

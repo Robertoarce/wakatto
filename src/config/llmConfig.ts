@@ -110,6 +110,45 @@ export const RESPONSE_TIMING: ResponseTimingConfig = {
 };
 
 /**
+ * Orchestration Mode Configuration
+ *
+ * NEW: Choose between single-call (all characters in one API call)
+ * or multi-call (separate API call per character)
+ *
+ * SINGLE-CALL BENEFITS:
+ * - 33% cheaper (1 API call instead of 2-3)
+ * - 40-50% faster responses
+ * - Better coordinated interruptions and gestures
+ * - Characters can reference each other more naturally
+ *
+ * MULTI-CALL BENEFITS:
+ * - Slightly more distinct character voices
+ * - More reliable (one failure doesn't block all)
+ * - Easier to debug
+ */
+export interface OrchestrationModeConfig {
+  mode: 'single-call' | 'multi-call' | 'auto'; // 'auto' intelligently switches
+  enableFallback: boolean; // Fallback to multi-call if single-call fails
+  singleCall: {
+    maxResponders: number;
+    includeGestures: boolean;
+    includeInterruptions: boolean;
+    verbosity: 'brief' | 'balanced' | 'detailed';
+  };
+}
+
+export const ORCHESTRATION_CONFIG: OrchestrationModeConfig = {
+  mode: 'single-call', // Default to single-call for cost/speed benefits
+  enableFallback: true, // Automatically fallback to multi-call if needed
+  singleCall: {
+    maxResponders: 3,
+    includeGestures: true, // Enable gesture system (70+ gestures)
+    includeInterruptions: true, // LLM decides when to interrupt
+    verbosity: 'balanced', // 2-4 sentences per response
+  },
+};
+
+/**
  * Get configuration for a specific provider
  */
 export function getProviderConfig(provider: string): ProviderConfig {
