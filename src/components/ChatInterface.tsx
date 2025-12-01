@@ -672,10 +672,14 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
         {/* Character Selector Panel */}
         {showCharacterSelector && (
-          <View style={[
-            styles.characterSelectorPanel,
-            isMobileView && styles.characterSelectorPanelMobile
-          ]}>
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            style={[
+              styles.characterSelectorPanel,
+              isMobileView && styles.characterSelectorPanelMobile
+            ]}
+          >
             <View style={styles.characterSelectorHeader}>
               <Text style={styles.characterSelectorTitle}>Select Wakattors (Max 10)</Text>
               {isMobileView && (
@@ -694,7 +698,10 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
                       styles.characterSelectorCard,
                       isSelected && styles.characterSelectorCardActive,
                     ]}
-                    onPress={() => toggleCharacter(character.id)}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      toggleCharacter(character.id);
+                    }}
                   >
                     <View style={[styles.characterSelectorIndicator, { backgroundColor: character.color }]} />
                     <Text style={[styles.characterSelectorName, isSelected && styles.characterSelectorNameActive]}>
@@ -705,7 +712,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
                 );
               })}
             </ScrollView>
-          </View>
+          </TouchableOpacity>
         )}
 
         {/* Multiple Character Display */}
