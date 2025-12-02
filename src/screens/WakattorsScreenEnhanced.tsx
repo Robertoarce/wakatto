@@ -13,7 +13,6 @@ import { getAllCharacters, CharacterBehavior, GenderType, SkinToneType, Clothing
 import { ColorPicker } from '../components/ColorPicker';
 import { getCustomWakattors, deleteCustomWakattor, addCharacterToWakattors } from '../services/customWakattorsService';
 import { useCustomAlert } from '../components/CustomAlert';
-import { addToChatMenu, removeFromChatMenu, isInChatMenu, getChatMenuCount, getChatMenuCharacters } from '../services/chatMenuService';
 import { getWakattorsInConversations, getCharactersByIds } from '../services/conversationWakattorsService';
 
 // Preset color palettes
@@ -55,7 +54,6 @@ export default function WakattorsScreenEnhanced() {
   const [currentAnimation, setCurrentAnimation] = useState<AnimationState>('idle');
   const [editorTab, setEditorTab] = useState<EditorTab>('basic');
   const [newCharacterId, setNewCharacterId] = useState<string | null>(null);
-  const [chatMenuCharacters, setChatMenuCharacters] = useState<string[]>([]);
   const [participatedCharacterIds, setParticipatedCharacterIds] = useState<string[]>([]);
   const [conversationCharacters, setConversationCharacters] = useState<CharacterBehavior[]>([]);
   const [collectionCharacterIds, setCollectionCharacterIds] = useState<string[]>([]);
@@ -113,10 +111,6 @@ export default function WakattorsScreenEnhanced() {
       // 5. Fetch full character data
       const conversationChars = await getCharactersByIds(filteredIds);
       setConversationCharacters(conversationChars);
-
-      // 6. Load chat menu state (existing)
-      const chatMenu = getChatMenuCharacters();
-      setChatMenuCharacters(chatMenu);
     } catch (error: any) {
       console.error('[Wakattors] Load error:', error);
       showAlert('Error', `Failed to load wakattors: ${error.message}`, [{ text: 'OK' }]);
@@ -144,110 +138,53 @@ export default function WakattorsScreenEnhanced() {
     ).start();
   };
 
-  const handleCreateNew = () => {
-    const newCharacter: CharacterBehavior = {
-      id: `custom_${Date.now()}`,
-      name: 'New Wakattor',
-      description: 'A new AI character',
-      color: '#8b5cf6',
-      role: 'Friend',
-      systemPrompt: 'You are a helpful AI assistant.',
-      responseStyle: 'balanced',
-      model3D: {
-        bodyColor: '#8b5cf6',
-        accessoryColor: '#6d28d9',
-        position: [0, 0, 0],
-      },
-      customization: {
-        gender: 'neutral',
-        skinTone: 'medium',
-        clothing: 'casual',
-        hair: 'short',
-        accessory: 'none',
-        bodyColor: '#8b5cf6',
-        accessoryColor: '#6d28d9',
-        hairColor: '#1a1a1a',
-      },
-    };
-    setEditedCharacter(newCharacter);
-    setIsEditing(true);
-    setEditorTab('basic');
-  };
-
   const handleEdit = (character: CharacterBehavior) => {
     setEditedCharacter({ ...character });
     setIsEditing(true);
     setEditorTab('basic');
   };
 
-  const handleAddToChatMenu = (character: CharacterBehavior) => {
-    const result = addToChatMenu(character.id);
-    if (result.success) {
-      setChatMenuCharacters([...chatMenuCharacters, character.id]);
-      showAlert('Success', `${character.name} added to chat menu!`, [{ text: 'OK' }]);
-    } else {
-      showAlert('Error', result.error || 'Failed to add to chat menu', [{ text: 'OK' }]);
-    }
-  };
-
-  const handleRemoveFromChatMenu = (character: CharacterBehavior) => {
-    const result = removeFromChatMenu(character.id);
-    if (result.success) {
-      setChatMenuCharacters(chatMenuCharacters.filter(id => id !== character.id));
-    }
-  };
+  const [removingCharacterId, setRemovingCharacterId] = useState<string | null>(null);
+  const flipAnim = useRef(new Animated.Value(0)).current;
 
   const handleRemove = async (character: CharacterBehavior) => {
-    // Check if character appeared in conversations
+    // Start removal animation
+    setRemovingCharacterId(character.id);
+    flipAnim.setValue(0);
+    
+    // Check if character appeared in conversations (in background)
     const conversationCharIds = await getWakattorsInConversations();
     const appearsInConversations = conversationCharIds.includes(character.id);
 
-    showAlert(
-      'Remove Character',
-      appearsInConversations
-        ? `${character.name} will be moved to "Wakattors in Your Conversations" since they appear in your chat history. You can add them back anytime!`
-        : `Are you sure you want to remove ${character.name} from your Wakattors?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Try to delete from database, but continue even if it fails (demo mode)
-              try {
-                await deleteCustomWakattor(character.id);
-              } catch (dbError) {
-                console.log('[Wakattors] Database delete failed (likely demo mode), continuing with local removal');
-              }
+    // Run flip animation
+    Animated.timing(flipAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start(async () => {
+      try {
+        // Try to delete from database, but continue even if it fails (demo mode)
+        try {
+          await deleteCustomWakattor(character.id);
+        } catch (dbError) {
+          console.log('[Wakattors] Database delete failed (likely demo mode), continuing with local removal');
+        }
 
-              // Remove from chat menu if it's there
-              handleRemoveFromChatMenu(character);
+        // Remove from collection
+        setCharacters(prev => prev.filter(c => c.id !== character.id));
+        setCollectionCharacterIds(prev => prev.filter(id => id !== character.id));
 
-              // Remove from collection
-              setCharacters(prev => prev.filter(c => c.id !== character.id));
-              setCollectionCharacterIds(prev => prev.filter(id => id !== character.id));
-
-              // Add to conversation section if they appeared in conversations
-              if (appearsInConversations) {
-                setConversationCharacters(prev => [...prev, character]);
-              }
-
-              showAlert(
-                'Success',
-                appearsInConversations
-                  ? `${character.name} has been moved to your conversations section.`
-                  : `${character.name} has been removed.`,
-                [{ text: 'OK' }]
-              );
-            } catch (error: any) {
-              console.error('[Wakattors] Remove error:', error);
-              showAlert('Error', `Failed to remove character: ${error.message}`, [{ text: 'OK' }]);
-            }
-          },
-        },
-      ]
-    );
+        // Add to conversation section if they appeared in conversations
+        if (appearsInConversations) {
+          setConversationCharacters(prev => [...prev, character]);
+        }
+      } catch (error: any) {
+        console.error('[Wakattors] Remove error:', error);
+      } finally {
+        setRemovingCharacterId(null);
+        flipAnim.setValue(0);
+      }
+    });
   };
 
   const handleAddToCollection = async (character: CharacterBehavior) => {
@@ -330,14 +267,10 @@ export default function WakattorsScreenEnhanced() {
       <AlertComponent />
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Wakattors</Text>
+        <Text style={styles.title}>Wakattors to select in chat</Text>
         <Text style={styles.subtitle}>
-          Your collection ({characters.length}/20) • Chat menu ({getChatMenuCount()}/10)
+          Your collection ({characters.length}/20)
         </Text>
-        <TouchableOpacity style={styles.createButton} onPress={handleCreateNew}>
-          <Ionicons name="add-circle" size={24} color="white" />
-          <Text style={styles.createButtonText}>Create New Wakattor</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Character Grid */}
@@ -358,6 +291,22 @@ export default function WakattorsScreenEnhanced() {
         ) : (
           characters.map((character) => {
             const isNewlyAdded = newCharacterId === character.id;
+            const isRemoving = removingCharacterId === character.id;
+            
+            // Flip animation interpolations
+            const flipRotation = flipAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: ['0deg', '90deg'],
+            });
+            const flipScale = flipAnim.interpolate({
+              inputRange: [0, 0.5, 1],
+              outputRange: [1, 1.05, 0],
+            });
+            const flipOpacity = flipAnim.interpolate({
+              inputRange: [0, 0.7, 1],
+              outputRange: [1, 0.5, 0],
+            });
+            
             return (
               <Animated.View
                 key={character.id}
@@ -370,6 +319,14 @@ export default function WakattorsScreenEnhanced() {
                     shadowOpacity: 0.6,
                     shadowRadius: 16,
                     elevation: 12,
+                  },
+                  isRemoving && {
+                    transform: [
+                      { perspective: 1000 },
+                      { rotateY: flipRotation },
+                      { scale: flipScale },
+                    ],
+                    opacity: flipOpacity,
                   },
                 ]}
               >
@@ -384,25 +341,6 @@ export default function WakattorsScreenEnhanced() {
                     {character.description}
                   </Text>
                   <View style={styles.cardActions}>
-                    {chatMenuCharacters.includes(character.id) ? (
-                      <TouchableOpacity
-                        style={[styles.actionButton, styles.inChatMenuButton]}
-                        onPress={() => handleRemoveFromChatMenu(character)}
-                      >
-                        <Ionicons name="checkmark-circle" size={16} color="#10b981" />
-                        <Text style={[styles.actionButtonText, styles.inChatMenuText]}>
-                          In Chat
-                        </Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => handleAddToChatMenu(character)}
-                      >
-                        <Ionicons name="add-circle" size={16} color="#8b5cf6" />
-                        <Text style={styles.actionButtonText}>Add to Chat</Text>
-                      </TouchableOpacity>
-                    )}
                     {activeSelectedCharacters.includes(character.id) && (
                       <View style={[styles.actionButton, styles.activeButton]}>
                         <Ionicons name="radio-button-on" size={14} color="#ff6b35" />
@@ -419,7 +357,7 @@ export default function WakattorsScreenEnhanced() {
                       style={[styles.actionButton, styles.removeButton]}
                       onPress={() => handleRemove(character)}
                     >
-                      <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                      <Text style={[styles.actionButtonText, styles.removeButtonText]}>Remove</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -752,21 +690,6 @@ const styles = StyleSheet.create({
     color: '#a1a1aa',
     marginBottom: 16,
   },
-  createButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#8b5cf6',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    gap: 8,
-    alignSelf: 'flex-start',
-  },
-  createButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
   scrollView: {
     flex: 1,
   },
@@ -833,12 +756,6 @@ const styles = StyleSheet.create({
   },
   removeButtonText: {
     color: '#ef4444',
-  },
-  inChatMenuButton: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-  },
-  inChatMenuText: {
-    color: '#10b981',
   },
   activeButton: {
     backgroundColor: 'rgba(255, 107, 53, 0.15)',

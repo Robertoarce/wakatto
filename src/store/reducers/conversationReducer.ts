@@ -34,7 +34,7 @@ export const conversationReducer = (state = initialState, action: any): Conversa
       const isSelected = state.selectedCharacters.includes(characterId);
       if (isSelected) {
         return { ...state, selectedCharacters: state.selectedCharacters.filter(id => id !== characterId) };
-      } else if (state.selectedCharacters.length < 10) {
+      } else if (state.selectedCharacters.length < 5) {
         return { ...state, selectedCharacters: [...state.selectedCharacters, characterId] };
       }
       return state;

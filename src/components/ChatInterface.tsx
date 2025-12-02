@@ -6,7 +6,6 @@ import { CharacterDisplay3D } from './CharacterDisplay3D';
 import { AnimatedArrowPointer } from './AnimatedArrowPointer';
 import { DEFAULT_CHARACTER, getAllCharacters, getCharacter } from '../config/characters';
 import { getCustomWakattors } from '../services/customWakattorsService';
-import { getChatMenuCharacters } from '../services/chatMenuService';
 import { getVoiceRecorder, RecordingState } from '../services/voiceRecording';
 import { transcribeAudio, isWebSpeechSupported } from '../services/speechToText';
 import { LiveSpeechRecognition, LiveTranscriptionResult } from '../services/speechToTextLive';
@@ -89,7 +88,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       return Math.floor(height * 0.35); // 35% on desktop
     }
   });
-  const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]); // Up to 10 characters, start empty
+  const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]); // Up to 5 characters, start empty
   const [showCharacterSelector, setShowCharacterSelector] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
   const [showCharacterNames, setShowCharacterNames] = useState(true); // Show names at start
@@ -98,42 +97,27 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [availableCharacters, setAvailableCharacters] = useState(getAllCharacters()); // Load from Wakattors database
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(true);
 
-  // Load characters from chat menu
+  // Load characters from user's Wakattors collection (up to 20)
   useEffect(() => {
-    const loadChatMenuCharacters = async () => {
+    const loadWakattorsCollection = async () => {
       try {
-        // Get chat menu character IDs
-        const chatMenuIds = getChatMenuCharacters();
-
-        if (chatMenuIds.length === 0) {
-          // No characters in chat menu - fallback to default characters
-          const defaultChars = getAllCharacters();
-          setAvailableCharacters(defaultChars);
-          setIsLoadingCharacters(false);
-          return;
-        }
-
-        // Load all custom wakattors
+        // Load all custom wakattors from user's collection
         const customWakattors = await getCustomWakattors();
 
-        // Filter to only include characters in chat menu
-        const chatMenuCharacters = customWakattors.filter(char =>
-          chatMenuIds.includes(char.id)
-        );
-
-        if (chatMenuCharacters.length > 0) {
-          setAvailableCharacters(chatMenuCharacters);
+        if (customWakattors.length > 0) {
+          setAvailableCharacters(customWakattors);
           // IMPORTANT: Register custom characters so multiCharacterConversation can find them
           const { registerCustomCharacters } = await import('../config/characters');
-          console.log('[ChatInterface] About to register custom characters:', chatMenuCharacters.map(c => ({ id: c.id, name: c.name })));
-          registerCustomCharacters(chatMenuCharacters);
-          console.log('[ChatInterface] Registered', chatMenuCharacters.length, 'custom characters for AI generation');
+          console.log('[ChatInterface] About to register custom characters:', customWakattors.map(c => ({ id: c.id, name: c.name })));
+          registerCustomCharacters(customWakattors);
+          console.log('[ChatInterface] Registered', customWakattors.length, 'custom characters for AI generation');
         } else {
-          // Fallback to default characters if no matches
-          setAvailableCharacters(getAllCharacters());
+          // Fallback to default characters if no custom wakattors
+          const defaultChars = getAllCharacters();
+          setAvailableCharacters(defaultChars);
         }
       } catch (error) {
-        console.error('[ChatInterface] Failed to load chat menu characters:', error);
+        console.error('[ChatInterface] Failed to load wakattors collection:', error);
         // Fallback to default characters on error
         setAvailableCharacters(getAllCharacters());
       } finally {
@@ -141,18 +125,18 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       }
     };
 
-    loadChatMenuCharacters();
+    loadWakattorsCollection();
 
-    // Listen for custom events when chat menu changes
-    const handleChatMenuUpdate = () => {
-      console.log('[ChatInterface] Chat menu updated, reloading characters...');
-      loadChatMenuCharacters();
+    // Listen for custom events when wakattors collection changes
+    const handleWakattorsUpdate = () => {
+      console.log('[ChatInterface] Wakattors collection updated, reloading...');
+      loadWakattorsCollection();
     };
 
-    window.addEventListener('chatMenuUpdated', handleChatMenuUpdate);
+    window.addEventListener('wakattorsUpdated', handleWakattorsUpdate);
 
     return () => {
-      window.removeEventListener('chatMenuUpdated', handleChatMenuUpdate);
+      window.removeEventListener('wakattorsUpdated', handleWakattorsUpdate);
     };
   }, []);
 
@@ -572,9 +556,9 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         if (prev.length === 1) return prev;
         return prev.filter(id => id !== characterId);
       } else {
-        // Don't allow more than 10 characters
-        if (prev.length >= 10) {
-          showAlert('Maximum Reached', 'You can select up to 10 Wakattors maximum.', [{ text: 'OK' }]);
+        // Don't allow more than 5 characters
+        if (prev.length >= 5) {
+          showAlert('Maximum Reached', 'You can select up to 5 Wakattors maximum.', [{ text: 'OK' }]);
           return prev;
         }
         // Defensive check: ensure no duplicates (should never happen, but extra safety)
@@ -661,7 +645,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
           pointerEvents="box-none"
         >
           <View style={styles.characterSelectorHeader}>
-            <Text style={styles.characterSelectorTitle}>Select Wakattors (Max 10)</Text>
+            <Text style={styles.characterSelectorTitle}>Select Wakattors (Max 5)</Text>
             {isMobileView && (
               <TouchableOpacity onPress={() => setShowCharacterSelector(false)}>
                 <Ionicons name="close" size={24} color="#ff6b35" />
