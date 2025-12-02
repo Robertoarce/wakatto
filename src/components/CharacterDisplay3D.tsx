@@ -1,9 +1,13 @@
 import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { getCharacter, CharacterBehavior } from '../config/characters';
+
+// ============================================
+// TYPE DEFINITIONS
+// ============================================
 
 export type AnimationState = 
   | 'idle' 
@@ -17,7 +21,6 @@ export type AnimationState =
   | 'jump' 
   | 'surprise_jump' 
   | 'surprise_happy'
-  // New animations for missing gestures
   | 'lean_back'
   | 'lean_forward'
   | 'cross_arms'
@@ -29,18 +32,240 @@ export type AnimationState =
   | 'clap'
   | 'bow';
 
+// Look direction types
+export type LookDirection = 'center' | 'left' | 'right' | 'up' | 'down' | 'at_left_character' | 'at_right_character';
+
+// Eye state types
+export type EyeState = 'open' | 'closed' | 'wink_left' | 'wink_right' | 'blink';
+
+// Mouth state types
+export type MouthState = 'closed' | 'open' | 'smile' | 'wide_smile' | 'surprised';
+
+// Visual effect types
+export type VisualEffect = 'none' | 'confetti' | 'spotlight' | 'sparkles' | 'hearts';
+
+// Complementary animation configuration
+export interface ComplementaryAnimation {
+  lookDirection?: LookDirection;
+  eyeState?: EyeState;
+  mouthState?: MouthState;
+  effect?: VisualEffect;
+  effectColor?: string;
+  speed?: number; // 0.1 to 3.0, default 1.0
+  transitionDuration?: number; // milliseconds to transition
+}
+
+// Full props interface
 interface CharacterDisplay3DProps {
   characterId?: string;
-  character?: CharacterBehavior; // Optional: pass character directly for custom/temporary characters
+  character?: CharacterBehavior;
   isActive?: boolean;
   animation?: AnimationState;
   isTalking?: boolean;
   showName?: boolean;
   nameKey?: number;
+  // New complementary animation props
+  complementary?: ComplementaryAnimation;
+  onAnimationComplete?: () => void;
+}
+
+// ============================================
+// VISUAL EFFECTS COMPONENTS
+// ============================================
+
+// Confetti particle effect
+function ConfettiEffect({ color = '#8b5cf6', speed = 1 }: { color?: string; speed?: number }) {
+  const particlesRef = useRef<THREE.Points>(null);
+  const particleCount = 100;
+  
+  const positions = useMemo(() => {
+    const pos = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 4;
+      pos[i * 3 + 1] = Math.random() * 4 + 1;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 2;
+    }
+    return pos;
+  }, []);
+
+  const colors = useMemo(() => {
+    const cols = new Float32Array(particleCount * 3);
+    const confettiColors = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff', '#5f27cd', color];
+    for (let i = 0; i < particleCount; i++) {
+      const c = new THREE.Color(confettiColors[Math.floor(Math.random() * confettiColors.length)]);
+      cols[i * 3] = c.r;
+      cols[i * 3 + 1] = c.g;
+      cols[i * 3 + 2] = c.b;
+    }
+    return cols;
+  }, [color]);
+
+  useFrame((_, delta) => {
+    if (!particlesRef.current) return;
+    const positions = particlesRef.current.geometry.attributes.position.array as Float32Array;
+    
+    for (let i = 0; i < particleCount; i++) {
+      // Fall down
+      positions[i * 3 + 1] -= delta * 2 * speed;
+      // Sway side to side
+      positions[i * 3] += Math.sin(Date.now() * 0.003 * speed + i) * delta * 0.5;
+      
+      // Reset if below ground
+      if (positions[i * 3 + 1] < -1) {
+        positions[i * 3 + 1] = 4;
+        positions[i * 3] = (Math.random() - 0.5) * 4;
+      }
+    }
+    particlesRef.current.geometry.attributes.position.needsUpdate = true;
+  });
+
+  return (
+    <points ref={particlesRef}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" count={particleCount} array={positions} itemSize={3} />
+        <bufferAttribute attach="attributes-color" count={particleCount} array={colors} itemSize={3} />
+      </bufferGeometry>
+      <pointsMaterial size={0.08} vertexColors transparent opacity={0.9} />
+    </points>
+  );
+}
+
+// Spotlight/concert light effect
+function SpotlightEffect({ color = '#ffd700', speed = 1 }: { color?: string; speed?: number }) {
+  const lightRef = useRef<THREE.SpotLight>(null);
+  const coneRef = useRef<THREE.Mesh>(null);
+  
+  useFrame(() => {
+    const time = Date.now() * 0.001 * speed;
+    if (lightRef.current) {
+      lightRef.current.position.x = Math.sin(time * 0.5) * 1.5;
+      lightRef.current.intensity = 2 + Math.sin(time * 2) * 0.5;
+    }
+    if (coneRef.current) {
+      coneRef.current.rotation.z = Math.sin(time * 0.5) * 0.3;
+      coneRef.current.position.x = Math.sin(time * 0.5) * 1.5;
+    }
+  });
+
+  return (
+    <group>
+      <spotLight
+        ref={lightRef}
+        position={[0, 5, 2]}
+        angle={0.4}
+        penumbra={0.8}
+        intensity={2.5}
+        color={color}
+        target-position={[0, 0, 0]}
+        castShadow
+      />
+      {/* Visible light cone */}
+      <mesh ref={coneRef} position={[0, 3, 1]} rotation={[Math.PI / 6, 0, 0]}>
+        <coneGeometry args={[1.5, 4, 32, 1, true]} />
+        <meshBasicMaterial color={color} transparent opacity={0.15} side={THREE.DoubleSide} />
+      </mesh>
+    </group>
+  );
+}
+
+// Sparkles effect
+function SparklesEffect({ color = '#ffd700', speed = 1 }: { color?: string; speed?: number }) {
+  const particlesRef = useRef<THREE.Points>(null);
+  const particleCount = 50;
+  
+  const positions = useMemo(() => {
+    const pos = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 0.5 + Math.random() * 1.5;
+      pos[i * 3] = Math.cos(angle) * radius;
+      pos[i * 3 + 1] = Math.random() * 2;
+      pos[i * 3 + 2] = Math.sin(angle) * radius;
+    }
+    return pos;
+  }, []);
+
+  useFrame(() => {
+    if (!particlesRef.current) return;
+    const positions = particlesRef.current.geometry.attributes.position.array as Float32Array;
+    const time = Date.now() * 0.002 * speed;
+    
+    for (let i = 0; i < particleCount; i++) {
+      const baseAngle = time + i * 0.5;
+      const radius = 0.5 + Math.sin(time + i) * 0.5 + 1;
+      positions[i * 3] = Math.cos(baseAngle) * radius;
+      positions[i * 3 + 1] = 0.5 + Math.sin(time * 2 + i) * 0.8 + Math.sin(i) * 0.5;
+      positions[i * 3 + 2] = Math.sin(baseAngle) * radius * 0.5;
+    }
+    particlesRef.current.geometry.attributes.position.needsUpdate = true;
+  });
+
+  return (
+    <points ref={particlesRef}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" count={particleCount} array={positions} itemSize={3} />
+      </bufferGeometry>
+      <pointsMaterial size={0.1} color={color} transparent opacity={0.8} />
+    </points>
+  );
+}
+
+// Hearts effect
+function HeartsEffect({ color = '#ff6b6b', speed = 1 }: { color?: string; speed?: number }) {
+  const groupRef = useRef<THREE.Group>(null);
+  const heartCount = 8;
+  
+  const heartPositions = useMemo(() => {
+    return Array.from({ length: heartCount }, (_, i) => ({
+      x: (Math.random() - 0.5) * 2,
+      y: Math.random() * 0.5,
+      z: (Math.random() - 0.5) * 1,
+      speed: 0.5 + Math.random() * 0.5,
+      phase: Math.random() * Math.PI * 2,
+    }));
+  }, []);
+
+  useFrame((_, delta) => {
+    if (!groupRef.current) return;
+    groupRef.current.children.forEach((child, i) => {
+      const data = heartPositions[i];
+      child.position.y += delta * data.speed * speed;
+      child.position.x = data.x + Math.sin(Date.now() * 0.002 * speed + data.phase) * 0.3;
+      child.rotation.z = Math.sin(Date.now() * 0.003 * speed + data.phase) * 0.2;
+      
+      if (child.position.y > 3) {
+        child.position.y = -0.5;
+      }
+    });
+  });
+
+  return (
+    <group ref={groupRef}>
+      {heartPositions.map((pos, i) => (
+        <mesh key={i} position={[pos.x, pos.y, pos.z]} scale={0.15}>
+          <sphereGeometry args={[1, 8, 8]} />
+          <meshBasicMaterial color={color} transparent opacity={0.7} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+// ============================================
+// MAIN CHARACTER COMPONENT
+// ============================================
+
+interface CharacterProps {
+  character: CharacterBehavior;
+  isActive: boolean;
+  animation?: AnimationState;
+  isTalking?: boolean;
+  scale?: number;
+  complementary?: ComplementaryAnimation;
 }
 
 // Blocky Minecraft-style character component
-function Character({ character, isActive, animation = 'idle', isTalking = false, scale = 1 }: { character: CharacterBehavior; isActive: boolean; animation?: AnimationState; isTalking?: boolean; scale?: number }) {
+function Character({ character, isActive, animation = 'idle', isTalking = false, scale = 1, complementary }: CharacterProps) {
   const meshRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Group>(null);
   const leftArmRef = useRef<THREE.Mesh>(null);
@@ -48,6 +273,12 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
   const leftLegRef = useRef<THREE.Mesh>(null);
   const rightLegRef = useRef<THREE.Mesh>(null);
   const mouthRef = useRef<THREE.Mesh>(null);
+  const leftEyeRef = useRef<THREE.Mesh>(null);
+  const rightEyeRef = useRef<THREE.Mesh>(null);
+  const smileMeshRef = useRef<THREE.Mesh>(null);
+  
+  // Animation speed from complementary settings
+  const animSpeed = complementary?.speed ?? 1.0;
 
   // Animation system
   React.useEffect(() => {
@@ -55,10 +286,13 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
 
     let animationId: number;
     const animate = () => {
-      const time = Date.now() * 0.001;
+      const time = Date.now() * 0.001 * animSpeed;
 
       // Reset to default positions
-      if (meshRef.current) meshRef.current.position.y = 0;
+      if (meshRef.current) {
+        meshRef.current.position.y = 0;
+        meshRef.current.rotation.x = 0;
+      }
       if (headRef.current) {
         headRef.current.rotation.x = 0;
         headRef.current.rotation.y = 0;
@@ -75,23 +309,107 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       if (leftLegRef.current) leftLegRef.current.rotation.x = 0;
       if (rightLegRef.current) rightLegRef.current.rotation.x = 0;
 
-      // Independent mouth animation when talking
+      // Reset eye scales (for blink/wink)
+      if (leftEyeRef.current) leftEyeRef.current.scale.y = 1;
+      if (rightEyeRef.current) rightEyeRef.current.scale.y = 1;
+
+      // =========================================
+      // COMPLEMENTARY: Look Direction
+      // =========================================
+      let lookYOffset = 0;
+      let lookXOffset = 0;
+      
+      switch (complementary?.lookDirection) {
+        case 'left':
+          lookYOffset = 0.5;
+          break;
+        case 'right':
+          lookYOffset = -0.5;
+          break;
+        case 'up':
+          lookXOffset = -0.3;
+          break;
+        case 'down':
+          lookXOffset = 0.3;
+          break;
+        case 'at_left_character':
+          lookYOffset = 0.7;
+          lookXOffset = 0.1;
+          break;
+        case 'at_right_character':
+          lookYOffset = -0.7;
+          lookXOffset = 0.1;
+          break;
+      }
+
+      // =========================================
+      // COMPLEMENTARY: Eye State
+      // =========================================
+      switch (complementary?.eyeState) {
+        case 'closed':
+          if (leftEyeRef.current) leftEyeRef.current.scale.y = 0.1;
+          if (rightEyeRef.current) rightEyeRef.current.scale.y = 0.1;
+          break;
+        case 'wink_left':
+          if (leftEyeRef.current) leftEyeRef.current.scale.y = 0.1;
+          break;
+        case 'wink_right':
+          if (rightEyeRef.current) rightEyeRef.current.scale.y = 0.1;
+          break;
+        case 'blink':
+          const blinkPhase = Math.sin(time * 8);
+          if (blinkPhase > 0.9) {
+            if (leftEyeRef.current) leftEyeRef.current.scale.y = 0.1;
+            if (rightEyeRef.current) rightEyeRef.current.scale.y = 0.1;
+          }
+          break;
+      }
+
+      // =========================================
+      // COMPLEMENTARY: Mouth State (when not talking)
+      // =========================================
+      if (!isTalking && mouthRef.current) {
+        switch (complementary?.mouthState) {
+          case 'open':
+            mouthRef.current.scale.y = 1.2;
+            mouthRef.current.scale.x = 1.0;
+            break;
+          case 'smile':
+            mouthRef.current.scale.y = 0.4;
+            mouthRef.current.scale.x = 1.8;
+            break;
+          case 'wide_smile':
+            mouthRef.current.scale.y = 0.6;
+            mouthRef.current.scale.x = 2.2;
+            break;
+          case 'surprised':
+            mouthRef.current.scale.y = 1.5;
+            mouthRef.current.scale.x = 1.2;
+            break;
+          case 'closed':
+          default:
+            mouthRef.current.scale.y = 0.3;
+            mouthRef.current.scale.x = 1.5;
+            break;
+        }
+      }
+
+      // Independent mouth animation when talking (overrides mouthState)
       if (mouthRef.current && isTalking) {
-        // Mouth opens and closes 3 times per second
         const mouthCycle = Math.sin(time * 6 * Math.PI);
-        // Scale from 0.3 (almost closed) to 1.0 (fully open)
         const mouthScale = 0.3 + (mouthCycle * 0.5 + 0.5) * 0.7;
         mouthRef.current.scale.y = mouthScale;
       }
 
-      // Apply animation based on state
+      // Apply animation based on state (with complementary look direction applied)
       switch (animation) {
         case 'idle':
           if (meshRef.current) {
             meshRef.current.position.y = Math.sin(time * 0.5) * 0.05;
           }
-          if (headRef.current && isActive) {
-            headRef.current.rotation.y = Math.sin(time * 1.5) * 0.15;
+          if (headRef.current) {
+            headRef.current.rotation.y = (isActive ? Math.sin(time * 1.5) * 0.15 : 0) + lookYOffset;
+            headRef.current.rotation.x = lookXOffset;
           }
           break;
 
@@ -102,7 +420,8 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           }
           if (headRef.current) {
             headRef.current.rotation.z = Math.sin(time * 0.5) * 0.1 - 0.2;
-            headRef.current.rotation.y = -0.3;
+            headRef.current.rotation.y = -0.3 + lookYOffset;
+            headRef.current.rotation.x = lookXOffset;
           }
           if (rightArmRef.current) {
             rightArmRef.current.rotation.x = -1.5;
@@ -116,7 +435,8 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
             meshRef.current.position.y = Math.sin(time * 2) * 0.02;
           }
           if (headRef.current) {
-            headRef.current.rotation.x = Math.sin(time * 4) * 0.1;
+            headRef.current.rotation.x = Math.sin(time * 4) * 0.1 + lookXOffset;
+            headRef.current.rotation.y = lookYOffset;
           }
           if (leftArmRef.current) {
             leftArmRef.current.rotation.x = Math.sin(time * 3) * 0.3 - 0.3;
@@ -130,7 +450,8 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           // Head tilting side to side, scratching head
           if (headRef.current) {
             headRef.current.rotation.z = Math.sin(time * 2) * 0.3;
-            headRef.current.rotation.y = Math.sin(time * 1.5) * 0.2;
+            headRef.current.rotation.y = Math.sin(time * 1.5) * 0.2 + lookYOffset;
+            headRef.current.rotation.x = lookXOffset;
           }
           if (rightArmRef.current) {
             rightArmRef.current.rotation.x = -1.8 + Math.sin(time * 3) * 0.2;
@@ -145,6 +466,8 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           }
           if (headRef.current) {
             headRef.current.rotation.z = Math.sin(time * 2) * 0.15;
+            headRef.current.rotation.y = lookYOffset;
+            headRef.current.rotation.x = lookXOffset;
           }
           if (leftArmRef.current) {
             leftArmRef.current.rotation.z = -0.3 + Math.sin(time * 2) * 0.2;
@@ -160,7 +483,8 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
             meshRef.current.position.y = Math.abs(Math.sin(time * 5)) * 0.2;
           }
           if (headRef.current) {
-            headRef.current.rotation.y = Math.sin(time * 4) * 0.2;
+            headRef.current.rotation.y = Math.sin(time * 4) * 0.2 + lookYOffset;
+            headRef.current.rotation.x = lookXOffset;
           }
           if (leftArmRef.current) {
             leftArmRef.current.rotation.x = Math.sin(time * 6) * 0.5 - 0.5;
@@ -477,7 +801,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
     return () => {
       if (animationId) cancelAnimationFrame(animationId);
     };
-  }, [isActive, animation, isTalking]);
+  }, [isActive, animation, isTalking, animSpeed, complementary?.lookDirection, complementary?.eyeState, complementary?.mouthState]);
 
   // Get customization from character config
   const customization = character.customization;
@@ -600,12 +924,12 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           </>
         )}
 
-        {/* Eyes */}
-        <mesh position={[-0.12, 0.05, 0.26]}>
+        {/* Eyes with refs for blink/wink animations */}
+        <mesh ref={leftEyeRef} position={[-0.12, 0.05, 0.26]}>
           <boxGeometry args={[0.08, 0.08, 0.01]} />
           <meshBasicMaterial color="#3a3a3a" />
         </mesh>
-        <mesh position={[0.12, 0.05, 0.26]}>
+        <mesh ref={rightEyeRef} position={[0.12, 0.05, 0.26]}>
           <boxGeometry args={[0.08, 0.08, 0.01]} />
           <meshBasicMaterial color="#3a3a3a" />
         </mesh>
@@ -637,10 +961,16 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           <meshStandardMaterial color={skinColor} roughness={0.6} />
         </mesh>
 
-        {/* Mouth - visible and animated when talking */}
-        {isTalking && (
-          <mesh ref={mouthRef} position={[0, -0.18, 0.26]} scale={[1.5, 0.6, 1]}>
-            <circleGeometry args={[0.08, 16]} />
+        {/* Mouth - always visible, controlled by complementary mouthState or isTalking */}
+        <mesh ref={mouthRef} position={[0, -0.18, 0.26]} scale={[1.5, 0.3, 1]}>
+          <circleGeometry args={[0.08, 16]} />
+          <meshBasicMaterial color="#2a2a2a" />
+        </mesh>
+        
+        {/* Smile curve - shown when smile mouth state is active */}
+        {(complementary?.mouthState === 'smile' || complementary?.mouthState === 'wide_smile') && (
+          <mesh ref={smileMeshRef} position={[0, -0.16, 0.27]} rotation={[0, 0, Math.PI]}>
+            <torusGeometry args={[0.08, 0.015, 8, 16, Math.PI]} />
             <meshBasicMaterial color="#2a2a2a" />
           </mesh>
         )}
@@ -654,7 +984,15 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
   );
 }
 
-export function CharacterDisplay3D({ characterId, character: passedCharacter, isActive = false, animation = 'idle', isTalking = false }: CharacterDisplay3DProps) {
+export function CharacterDisplay3D({ 
+  characterId, 
+  character: passedCharacter, 
+  isActive = false, 
+  animation = 'idle', 
+  isTalking = false,
+  complementary,
+  onAnimationComplete
+}: CharacterDisplay3DProps) {
   // Use passed character or fetch by ID
   const character = useMemo(() => {
     if (passedCharacter) return passedCharacter;
@@ -664,6 +1002,9 @@ export function CharacterDisplay3D({ characterId, character: passedCharacter, is
   const [responsiveScale, setResponsiveScale] = useState(1);
   const [cameraDistance, setCameraDistance] = useState(3);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Effect color with fallback
+  const effectColor = complementary?.effectColor || character.color;
 
   // Calculate responsive scale based on screen width
   useEffect(() => {
@@ -719,7 +1060,28 @@ export function CharacterDisplay3D({ characterId, character: passedCharacter, is
         {/* Frontal light for face illumination */}
         <directionalLight position={[0, 2, 5]} intensity={1.2} color="#ffffff" />
 
-        <Character character={character} isActive={isActive} animation={animation} isTalking={isTalking} scale={responsiveScale} />
+        <Character 
+          character={character} 
+          isActive={isActive} 
+          animation={animation} 
+          isTalking={isTalking} 
+          scale={responsiveScale}
+          complementary={complementary}
+        />
+
+        {/* Visual Effects */}
+        {complementary?.effect === 'confetti' && (
+          <ConfettiEffect color={effectColor} speed={complementary?.speed} />
+        )}
+        {complementary?.effect === 'spotlight' && (
+          <SpotlightEffect color={effectColor} speed={complementary?.speed} />
+        )}
+        {complementary?.effect === 'sparkles' && (
+          <SparklesEffect color={effectColor} speed={complementary?.speed} />
+        )}
+        {complementary?.effect === 'hearts' && (
+          <HeartsEffect color={effectColor} speed={complementary?.speed} />
+        )}
 
         <OrbitControls
           enableZoom={false}
