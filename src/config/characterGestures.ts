@@ -44,6 +44,7 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     name: 'Look Away Thoughtfully',
     category: 'thinking',
     description: 'Looks away briefly while considering the question',
+    animation: 'thinking',
     intensity: 'subtle'
   },
   {
@@ -59,6 +60,7 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     name: 'Pause to Collect Thoughts',
     category: 'thinking',
     description: 'Brief pause before speaking, collecting thoughts',
+    animation: 'thinking',
     intensity: 'subtle'
   },
   {
@@ -66,6 +68,7 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     name: 'Lean Back Thoughtfully',
     category: 'thinking',
     description: 'Leans back in contemplation',
+    animation: 'lean_back',
     intensity: 'moderate'
   },
   {
@@ -115,6 +118,7 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     name: 'Lean Forward in Agreement',
     category: 'agreeing',
     description: 'Leans forward showing engagement and agreement',
+    animation: 'lean_forward',
     intensity: 'moderate'
   },
   {
@@ -148,6 +152,7 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     name: 'Lean Back Skeptically',
     category: 'disagreeing',
     description: 'Leans back with slight skepticism',
+    animation: 'lean_back',
     intensity: 'subtle'
   },
   {
@@ -163,6 +168,7 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     name: 'Cross Arms',
     category: 'disagreeing',
     description: 'Crosses arms showing reservation',
+    animation: 'cross_arms',
     intensity: 'moderate'
   },
   {
@@ -204,6 +210,7 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     name: 'Lean Forward Inquiringly',
     category: 'questioning',
     description: 'Leans forward with curiosity',
+    animation: 'lean_forward',
     intensity: 'moderate'
   },
   {
@@ -237,6 +244,7 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     name: 'Lean Forward Intently',
     category: 'emphasizing',
     description: 'Leans forward to emphasize importance',
+    animation: 'lean_forward',
     intensity: 'strong'
   },
   {
@@ -252,6 +260,7 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     name: 'Tap Table for Emphasis',
     category: 'emphasizing',
     description: 'Taps table/surface to emphasize',
+    animation: 'point',
     intensity: 'strong'
   },
   {
@@ -285,6 +294,7 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     name: 'Lean In to Listen',
     category: 'listening',
     description: 'Leans in showing interest',
+    animation: 'lean_forward',
     intensity: 'moderate'
   },
   {
@@ -300,6 +310,7 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     name: 'Maintain Eye Contact',
     category: 'listening',
     description: 'Maintains steady eye contact',
+    animation: 'idle',
     intensity: 'subtle'
   },
 
@@ -341,6 +352,7 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     name: 'Eyes Widen',
     category: 'reacting',
     description: 'Eyes widen in realization',
+    animation: 'surprise_happy',
     intensity: 'subtle'
   },
   {
@@ -348,6 +360,7 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     name: 'Small Gasp',
     category: 'reacting',
     description: 'Small gasp of realization',
+    animation: 'surprise_jump',
     intensity: 'subtle'
   },
 
@@ -365,6 +378,7 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     name: 'Lean Forward to Interject',
     category: 'interrupting',
     description: 'Leans forward to interject',
+    animation: 'lean_forward',
     intensity: 'strong'
   },
   {
@@ -380,6 +394,7 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     name: 'Clear Throat',
     category: 'interrupting',
     description: 'Clears throat to get attention',
+    animation: 'talking',
     intensity: 'subtle'
   },
   {
@@ -405,6 +420,7 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     name: 'Lean Back Having Concluded',
     category: 'concluding',
     description: 'Leans back satisfied with conclusion',
+    animation: 'lean_back',
     intensity: 'moderate'
   },
   {
@@ -420,6 +436,7 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     name: 'Bring Hands Together',
     category: 'concluding',
     description: 'Brings hands together showing completion',
+    animation: 'clap',
     intensity: 'moderate'
   },
 
@@ -471,6 +488,7 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     name: 'Sigh',
     category: 'reacting',
     description: 'Sighs in response',
+    animation: 'lean_back',
     intensity: 'subtle'
   },
   {
@@ -510,6 +528,7 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     name: 'Look at Another Character',
     category: 'listening',
     description: 'Looks at another character while they speak',
+    animation: 'idle',
     intensity: 'subtle'
   },
   {

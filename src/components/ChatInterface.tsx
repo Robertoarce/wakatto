@@ -232,6 +232,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [showArrowPointer, setShowArrowPointer] = useState(true); // Show arrow pointer initially
   const [availableCharacters, setAvailableCharacters] = useState(getAllCharacters()); // Load from Wakattors database
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(true);
+  const [talkingCharacterId, setTalkingCharacterId] = useState<string | null>(null); // Track which character is currently talking
 
   // Load characters from user's Wakattors collection (up to 20)
   useEffect(() => {
@@ -315,6 +316,29 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       setShowCharacterSelector(false);
     }
   }, [isMobileView]);
+
+  // Track which character is currently talking
+  const previousMessagesLengthRef = useRef(messages.length);
+  
+  useEffect(() => {
+    if (isLoading) {
+      // Check if a NEW message was just added (not just loading started)
+      if (messages.length > previousMessagesLengthRef.current) {
+        // A new message was added - find the most recent assistant message
+        const lastAssistantMessage = [...messages].reverse().find(m => m.role === 'assistant');
+        if (lastAssistantMessage?.characterId) {
+          setTalkingCharacterId(lastAssistantMessage.characterId);
+        }
+      }
+      // If loading just started but no new message yet, don't animate anyone
+    } else {
+      // Clear talking state when not loading
+      setTalkingCharacterId(null);
+    }
+    
+    // Update the ref for next comparison
+    previousMessagesLengthRef.current = messages.length;
+  }, [isLoading, messages]);
 
   // Arrow pointer logic: hide after 20 seconds, or when user has conversation, or interacts with characters
   useEffect(() => {
@@ -889,8 +913,8 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
                 >
                   <CharacterDisplay3D
                     character={character}
-                    isActive={isLoading}
-                    isTalking={isLoading}
+                    isActive={isLoading && talkingCharacterId === character.id}
+                    isTalking={isLoading && talkingCharacterId === character.id}
                     showName={showCharacterNames}
                     nameKey={nameKey}
                   />

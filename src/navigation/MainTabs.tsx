@@ -30,6 +30,7 @@ import { generateConversationTitle } from '../services/conversationTitleGenerato
 import SettingsScreen from '../screens/SettingsScreen';
 import LibraryScreen from '../screens/LibraryScreen';
 import WakattorsScreenEnhanced from '../screens/WakattorsScreenEnhanced';
+import AnimationsScreen from '../screens/AnimationsScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -296,6 +297,15 @@ export default function MainTabs() {
             options={{
               tabBarIcon: ({ color, size }) => (
                 <MaterialCommunityIcons name="emoticon-happy-outline" color={color} size={size} />
+              ),
+            }}
+          />
+          <Tab.Screen
+            name="Animations"
+            component={AnimationsScreen}
+            options={{
+              tabBarIcon: ({ color, size }) => (
+                <MaterialCommunityIcons name="animation-play-outline" color={color} size={size} />
               ),
             }}
           />
