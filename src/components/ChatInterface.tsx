@@ -651,6 +651,47 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         />
       )}
 
+      {/* Character Selector Panel - Must be sibling to backdrop for zIndex to work */}
+      {showCharacterSelector && (
+        <View
+          style={[
+            styles.characterSelectorPanel,
+            isMobileView && styles.characterSelectorPanelMobile
+          ]}
+          pointerEvents="box-none"
+        >
+          <View style={styles.characterSelectorHeader}>
+            <Text style={styles.characterSelectorTitle}>Select Wakattors (Max 10)</Text>
+            {isMobileView && (
+              <TouchableOpacity onPress={() => setShowCharacterSelector(false)}>
+                <Ionicons name="close" size={24} color="#ff6b35" />
+              </TouchableOpacity>
+            )}
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.characterSelectorScroll}>
+            {availableCharacters.map((character) => {
+              const isSelected = selectedCharacters.includes(character.id);
+              return (
+                <TouchableOpacity
+                  key={character.id}
+                  style={[
+                    styles.characterSelectorCard,
+                    isSelected && styles.characterSelectorCardActive,
+                  ]}
+                  onPress={() => toggleCharacter(character.id)}
+                >
+                  <View style={[styles.characterSelectorIndicator, { backgroundColor: character.color }]} />
+                  <Text style={[styles.characterSelectorName, isSelected && styles.characterSelectorNameActive]}>
+                    {character.name}
+                  </Text>
+                  {isSelected && <Ionicons name="checkmark-circle" size={20} color={character.color} />}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
       {/* 3D Character Display - Resizable */}
       <View style={[styles.characterDisplayContainer, { height: characterHeight }]}>
         {/* 3D Animated Arrow Pointer - Positioned near character selector button */}
@@ -669,51 +710,6 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
             {selectedCharacters.length} Wakattor{selectedCharacters.length !== 1 ? 's' : ''}
           </Text>
         </TouchableOpacity>
-
-        {/* Character Selector Panel */}
-        {showCharacterSelector && (
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={(e) => e.stopPropagation()}
-            style={[
-              styles.characterSelectorPanel,
-              isMobileView && styles.characterSelectorPanelMobile
-            ]}
-          >
-            <View style={styles.characterSelectorHeader}>
-              <Text style={styles.characterSelectorTitle}>Select Wakattors (Max 10)</Text>
-              {isMobileView && (
-                <TouchableOpacity onPress={() => setShowCharacterSelector(false)}>
-                  <Ionicons name="close" size={24} color="#ff6b35" />
-                </TouchableOpacity>
-              )}
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.characterSelectorScroll}>
-              {availableCharacters.map((character) => {
-                const isSelected = selectedCharacters.includes(character.id);
-                return (
-                  <TouchableOpacity
-                    key={character.id}
-                    style={[
-                      styles.characterSelectorCard,
-                      isSelected && styles.characterSelectorCardActive,
-                    ]}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      toggleCharacter(character.id);
-                    }}
-                  >
-                    <View style={[styles.characterSelectorIndicator, { backgroundColor: character.color }]} />
-                    <Text style={[styles.characterSelectorName, isSelected && styles.characterSelectorNameActive]}>
-                      {character.name}
-                    </Text>
-                    {isSelected && <Ionicons name="checkmark-circle" size={20} color={character.color} />}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </TouchableOpacity>
-        )}
 
         {/* Multiple Character Display */}
         <View style={styles.charactersRow}>
@@ -1165,6 +1161,7 @@ const styles = StyleSheet.create({
     borderColor: '#27272a',
     padding: 12,
     zIndex: 60,
+    elevation: 60,
   },
   characterSelectorPanelMobile: {
     position: 'absolute',
@@ -1176,6 +1173,7 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     padding: 20,
     zIndex: 100,
+    elevation: 100,
     justifyContent: 'center',
   },
   characterSelectorHeader: {
