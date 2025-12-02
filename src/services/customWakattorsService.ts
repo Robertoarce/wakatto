@@ -201,33 +201,43 @@ export async function characterIdExists(characterId: string): Promise<boolean> {
 
 /**
  * Add a character from the library to user's wakattors
- * Converts CustomWakattor (library format) to user's collection
+ * Handles both CustomWakattor (library format) and CharacterBehavior (conversation format)
  */
-export async function addCharacterToWakattors(libraryCharacter: CustomWakattor): Promise<{ success: boolean; characterId: string; alreadyExists?: boolean }> {
+export async function addCharacterToWakattors(character: CustomWakattor | CharacterBehavior): Promise<{ success: boolean; characterId: string; alreadyExists?: boolean }> {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
     throw new Error('User not authenticated');
   }
 
-  // Check if character already exists in user's collection
-  const exists = await characterIdExists(libraryCharacter.character_id);
-  if (exists) {
-    return { success: true, characterId: libraryCharacter.character_id, alreadyExists: true };
+  // Handle both CustomWakattor (character_id) and CharacterBehavior (id) formats
+  const characterId = (character as any).character_id || (character as any).id;
+  
+  if (!characterId) {
+    throw new Error('Character ID is missing');
   }
 
-  // Add character to user's collection
+  // Check if character already exists in user's collection
+  const exists = await characterIdExists(characterId);
+  if (exists) {
+    return { success: true, characterId, alreadyExists: true };
+  }
+
+  // Normalize the character data to handle both formats
+  // CustomWakattor uses snake_case, CharacterBehavior uses camelCase
   const dbData = {
     user_id: user.id,
-    character_id: libraryCharacter.character_id,
-    name: libraryCharacter.name,
-    description: libraryCharacter.description,
-    color: libraryCharacter.color,
-    role: libraryCharacter.role,
-    system_prompt: libraryCharacter.system_prompt,
-    response_style: libraryCharacter.response_style,
-    customization: libraryCharacter.customization,
-    model3d: libraryCharacter.model3d,
+    character_id: characterId,
+    name: character.name,
+    description: character.description,
+    color: character.color,
+    role: character.role,
+    // Handle both snake_case and camelCase
+    system_prompt: (character as any).system_prompt || (character as any).systemPrompt || '',
+    response_style: (character as any).response_style || (character as any).responseStyle || 'balanced',
+    customization: character.customization,
+    // Handle both model3d (snake) and model3D (camel)
+    model3d: (character as any).model3d || (character as any).model3D || {},
     is_public: false,
   };
 
@@ -242,5 +252,5 @@ export async function addCharacterToWakattors(libraryCharacter: CustomWakattor):
     throw new Error(`Failed to add character: ${error.message}`);
   }
 
-  return { success: true, characterId: libraryCharacter.character_id };
+  return { success: true, characterId };
 }

@@ -11,6 +11,8 @@ export const SET_MESSAGES = 'SET_MESSAGES';
 export const ADD_MESSAGE = 'ADD_MESSAGE';
 export const CREATE_CONVERSATION = 'CREATE_CONVERSATION';
 export const ADD_CONVERSATION = 'ADD_CONVERSATION';
+export const SET_SELECTED_CHARACTERS = 'SET_SELECTED_CHARACTERS';
+export const TOGGLE_CHARACTER = 'TOGGLE_CHARACTER';
 
 export const setConversations = (conversations: any[]) => ({
   type: SET_CONVERSATIONS,
@@ -35,6 +37,16 @@ export const addMessage = (message: any) => ({
 export const addConversation = (conversation: any) => ({
   type: ADD_CONVERSATION,
   payload: conversation,
+});
+
+export const setSelectedCharacters = (characterIds: string[]) => ({
+  type: SET_SELECTED_CHARACTERS,
+  payload: characterIds,
+});
+
+export const toggleCharacter = (characterId: string) => ({
+  type: TOGGLE_CHARACTER,
+  payload: characterId,
 });
 
 // Async action to load conversations from Supabase

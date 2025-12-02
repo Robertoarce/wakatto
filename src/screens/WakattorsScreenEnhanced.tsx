@@ -9,7 +9,6 @@ import { useRoute, RouteProp } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import { CharacterDisplay3D, AnimationState } from '../components/CharacterDisplay3D';
-import { CharacterCardPreview } from '../components/CharacterCardPreview';
 import { getAllCharacters, CharacterBehavior, GenderType, SkinToneType, ClothingType, HairType, AccessoryType } from '../config/characters';
 import { ColorPicker } from '../components/ColorPicker';
 import { getCustomWakattors, deleteCustomWakattor, addCharacterToWakattors } from '../services/customWakattorsService';
@@ -47,7 +46,7 @@ type RootStackParamList = {
 export default function WakattorsScreenEnhanced() {
   const route = useRoute<RouteProp<RootStackParamList, 'Wakattors'>>();
   const { showAlert, AlertComponent } = useCustomAlert();
-  const { messages } = useSelector((state: RootState) => state.conversations);
+  const { messages, selectedCharacters: activeSelectedCharacters } = useSelector((state: RootState) => state.conversations);
   const [characters, setCharacters] = useState<CharacterBehavior[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCharacter, setSelectedCharacter] = useState<CharacterBehavior | null>(null);
@@ -57,7 +56,7 @@ export default function WakattorsScreenEnhanced() {
   const [editorTab, setEditorTab] = useState<EditorTab>('basic');
   const [newCharacterId, setNewCharacterId] = useState<string | null>(null);
   const [chatMenuCharacters, setChatMenuCharacters] = useState<string[]>([]);
-  const [currentConversationCharacterIds, setCurrentConversationCharacterIds] = useState<string[]>([]);
+  const [participatedCharacterIds, setParticipatedCharacterIds] = useState<string[]>([]);
   const [conversationCharacters, setConversationCharacters] = useState<CharacterBehavior[]>([]);
   const [collectionCharacterIds, setCollectionCharacterIds] = useState<string[]>([]);
   const [loadingConversationChars, setLoadingConversationChars] = useState(false);
@@ -68,15 +67,16 @@ export default function WakattorsScreenEnhanced() {
     loadWakattors();
   }, []);
 
-  // Extract characters from current conversation
+  // Extract characters that have participated in current conversation (sent messages)
   useEffect(() => {
     const characterIds = messages
       .filter(msg => msg.role === 'assistant' && msg.characterId)
       .map(msg => msg.characterId as string);
     const uniqueCharacterIds = Array.from(new Set(characterIds));
-    setCurrentConversationCharacterIds(uniqueCharacterIds);
-    console.log('[WakattorsScreen] Current conversation characters:', uniqueCharacterIds);
-  }, [messages]);
+    setParticipatedCharacterIds(uniqueCharacterIds);
+    console.log('[WakattorsScreen] Participated characters:', uniqueCharacterIds);
+    console.log('[WakattorsScreen] Currently selected characters:', activeSelectedCharacters);
+  }, [messages, activeSelectedCharacters]);
 
   // Handle new character from navigation
   useEffect(() => {
@@ -373,9 +373,8 @@ export default function WakattorsScreenEnhanced() {
                   },
                 ]}
               >
-                <View style={styles.cardPreview}>
-                  <CharacterCardPreview character={character} />
-                </View>
+                {/* Color accent bar */}
+                <View style={[styles.cardAccent, { backgroundColor: character.color }]} />
                 <View style={styles.cardInfo}>
                   <Text style={[styles.cardName, { color: character.color }]}>
                     {character.name}
@@ -390,7 +389,7 @@ export default function WakattorsScreenEnhanced() {
                         style={[styles.actionButton, styles.inChatMenuButton]}
                         onPress={() => handleRemoveFromChatMenu(character)}
                       >
-                        <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+                        <Ionicons name="checkmark-circle" size={16} color="#10b981" />
                         <Text style={[styles.actionButtonText, styles.inChatMenuText]}>
                           In Chat
                         </Text>
@@ -400,24 +399,27 @@ export default function WakattorsScreenEnhanced() {
                         style={styles.actionButton}
                         onPress={() => handleAddToChatMenu(character)}
                       >
-                        <Ionicons name="add-circle" size={20} color="#8b5cf6" />
+                        <Ionicons name="add-circle" size={16} color="#8b5cf6" />
                         <Text style={styles.actionButtonText}>Add to Chat</Text>
                       </TouchableOpacity>
                     )}
-                    {currentConversationCharacterIds.includes(character.id) && (
-                      <View style={styles.activeConversationBadge}>
-                        <Ionicons name="chatbubble" size={14} color="#ff6b35" />
-                        <Text style={styles.activeConversationText}>Active</Text>
+                    {activeSelectedCharacters.includes(character.id) && (
+                      <View style={[styles.actionButton, styles.activeButton]}>
+                        <Ionicons name="radio-button-on" size={14} color="#ff6b35" />
+                        <Text style={[styles.actionButtonText, styles.activeButtonText]}>Active</Text>
+                      </View>
+                    )}
+                    {participatedCharacterIds.includes(character.id) && !activeSelectedCharacters.includes(character.id) && (
+                      <View style={[styles.actionButton, styles.participatedButton]}>
+                        <Ionicons name="chatbubble-ellipses" size={12} color="#71717a" />
+                        <Text style={[styles.actionButtonText, styles.participatedButtonText]}>Participated</Text>
                       </View>
                     )}
                     <TouchableOpacity
                       style={[styles.actionButton, styles.removeButton]}
                       onPress={() => handleRemove(character)}
                     >
-                      <Ionicons name="trash-outline" size={20} color="#ef4444" />
-                      <Text style={[styles.actionButtonText, styles.removeButtonText]}>
-                        Remove
-                      </Text>
+                      <Ionicons name="trash-outline" size={16} color="#ef4444" />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -465,9 +467,8 @@ export default function WakattorsScreenEnhanced() {
                   key={character.id}
                   style={styles.card}
                 >
-                  <View style={styles.cardPreview}>
-                    <CharacterCardPreview character={character} />
-                  </View>
+                  {/* Color accent bar */}
+                  <View style={[styles.cardAccent, { backgroundColor: character.color }]} />
                   <View style={styles.cardInfo}>
                     <Text style={[styles.cardName, { color: character.color }]}>
                       {character.name}
@@ -486,13 +487,13 @@ export default function WakattorsScreenEnhanced() {
                         onPress={() => handleAddToCollection(character)}
                         disabled={collectionCharacterIds.includes(character.id)}
                       >
-                        <Ionicons name="add-circle" size={20} color={collectionCharacterIds.includes(character.id) ? "#71717a" : "white"} />
+                        <Ionicons name="add-circle" size={16} color={collectionCharacterIds.includes(character.id) ? "#71717a" : "white"} />
                         <Text style={[
                           styles.actionButtonText,
                           styles.addToCollectionButtonText,
                           collectionCharacterIds.includes(character.id) && { color: '#71717a' }
                         ]}>
-                          {collectionCharacterIds.includes(character.id) ? 'In Collection' : 'Add to Collection'}
+                          {collectionCharacterIds.includes(character.id) ? 'In Collection' : 'Add'}
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -784,10 +785,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#27272a',
   },
-  cardPreview: {
-    height: 140,
-    backgroundColor: '#0a0a0a',
-    padding: 12,
+  cardAccent: {
+    height: 4,
+    width: '100%',
   },
   cardInfo: {
     padding: 12,
@@ -810,20 +810,22 @@ const styles = StyleSheet.create({
   },
   cardActions: {
     flexDirection: 'row',
-    gap: 8,
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
     borderRadius: 6,
     backgroundColor: '#27272a',
   },
   actionButtonText: {
     color: '#d4d4d8',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
   },
   removeButton: {
@@ -838,21 +840,21 @@ const styles = StyleSheet.create({
   inChatMenuText: {
     color: '#10b981',
   },
-  activeConversationBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255, 107, 53, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+  activeButton: {
+    backgroundColor: 'rgba(255, 107, 53, 0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 53, 0.3)',
+    borderColor: 'rgba(255, 107, 53, 0.4)',
   },
-  activeConversationText: {
+  activeButtonText: {
     color: '#ff6b35',
-    fontSize: 12,
-    fontWeight: '600',
+  },
+  participatedButton: {
+    backgroundColor: 'rgba(113, 113, 122, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(113, 113, 122, 0.3)',
+  },
+  participatedButtonText: {
+    color: '#71717a',
   },
   loadingContainer: {
     flex: 1,
