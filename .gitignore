@@ -19,6 +19,9 @@ public/
 web-build/
 dist/
 
+.playwright-mcp/*
+
+
 # Environment variables
 .env
 .env.local

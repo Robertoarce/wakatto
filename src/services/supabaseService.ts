@@ -9,10 +9,17 @@ export async function signIn(email: string, password: string) {
   return data;
 }
 
-export async function signUp(email: string, password: string) {
+export async function signUp(
+  email: string,
+  password: string,
+  metadata?: { name?: string; phone?: string }
+) {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      data: metadata || {},
+    },
   });
   if (error) throw error;
   return data;

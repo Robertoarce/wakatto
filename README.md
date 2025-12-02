@@ -1,6 +1,6 @@
-# AI Diary 📔🤖
+# Wakatto 📔🤖✨
 
-An AI-powered personal diary application with intelligent conversation management, entity extraction, and knowledge graph visualization.
+An AI-powered personal diary application with interactive 3D characters (Wakattors), intelligent conversation management, and advanced visualization features.
 
 ## 🌐 Live Demo
 
@@ -8,12 +8,20 @@ An AI-powered personal diary application with intelligent conversation managemen
 
 ## ✨ Features
 
+### 🎭 Interactive 3D Wakattors
+- **Blocky 3D Characters** - Minecraft-style AI assistants with personality
+- **7-State Animation System** - idle, thinking, talking, confused, happy, excited, winning
+- **Character Customization** - Create and customize your own Wakattors
+- **Personality Tuning** - Adjust empathy, directness, formality, and humor
+- **Real-time Animation Testing** - Test animations while conversing
+- **Multi-Character Support** - Up to 5 characters in conversation
+
+### 💬 Core Features
 - 🔐 **Secure Authentication** - Powered by Supabase
-- 💬 **AI Chat Interface** - Multi-provider support (OpenAI, Anthropic, Gemini)
+- 🤖 **Multi-AI Provider Support** - OpenAI, Anthropic Claude, Google Gemini
 - 📝 **Conversation Management** - Create, rename, search, and organize
 - 🎯 **Entity Extraction** - Automatically identify people, places, and organizations
 - 🔍 **Smart Search** - Find conversations instantly
-- 📊 **Characters Screen** - Visualize extracted entities and relationships
 - 🎨 **Modern UI** - Dark theme with responsive design
 - 📱 **Cross-Platform** - iOS, Android, and Web
 
@@ -24,6 +32,8 @@ An AI-powered personal diary application with intelligent conversation managemen
 - [TypeScript](https://www.typescriptlang.org/)
 - [Redux](https://redux.js.org/) + Redux Thunk
 - [React Navigation](https://reactnavigation.org/)
+- [Three.js](https://threejs.org/) - 3D graphics with React Three Fiber
+- [expo-three](https://github.com/expo/expo-three) & [expo-gl](https://docs.expo.dev/versions/latest/sdk/gl-view/) - 3D rendering
 
 ### Backend & Services
 - [Supabase](https://supabase.com/) - Authentication & PostgreSQL Database
@@ -137,6 +147,13 @@ Your app will be live at: `https://YOUR_USERNAME.github.io/YOUR_REPO_NAME`
 - [PRD: Knowledge Graph](docs/PRD_KNOWLEDGE_GRAPH.md) - Knowledge graph feature specs
 - [Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md) - Development history
 
+### AI & Configuration
+- [AI Service Guide](docs/AI_SERVICE_GUIDE.md) - **Complete aiService.ts documentation** 📘
+- [Multi-Character Service Guide](docs/MULTI_CHARACTER_SERVICE_GUIDE.md) - **Complete multiCharacterConversation.ts documentation** 🎭
+- [AI Generation Layer](docs/AI_GENERATION_LAYER.md) - Overall AI architecture and flow
+- [Configuration Guide](docs/CONFIGURATION_GUIDE.md) - LLM parameters and settings
+- [Conversation Flow](docs/CONVERSATION_FLOW.md) - Message flow architecture
+
 ### For AI Assistants & Troubleshooting
 - [LLM Troubleshooting Guide](docs/LLM_TROUBLESHOOTING_GUIDE.md) - **Comprehensive guide for LLMs** 🤖
 - [Black Screen Fix](docs/BLACK_SCREEN_FIX.md) - Technical details on React Native Web issue
@@ -190,18 +207,23 @@ docs/               # Documentation
 
 - [x] Authentication & user management
 - [x] AI chat interface with multi-provider support
+- [x] **3D Wakattor character system with animations**
+- [x] **Character customization and management**
+- [x] **7-state animation system**
+- [x] **Resizable character display**
 - [x] Conversation CRUD operations
 - [x] Entity extraction from diary entries
-- [x] Characters screen visualization
+- [x] Wakattors screen visualization
 - [x] Search functionality
 - [x] Message editing/deletion
 - [x] AI connection testing
 - [ ] Knowledge graph visualization
+- [ ] Entity cards (people/places mentioned in diary)
 - [ ] Export conversations
 - [ ] Dark/light theme toggle
 - [ ] Mobile app deployment (iOS/Android)
 - [ ] Offline support
-- [ ] Voice input
+- [ ] Voice input with transcription
 
 ---
 

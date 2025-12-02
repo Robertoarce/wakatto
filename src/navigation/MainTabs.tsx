@@ -2,11 +2,12 @@ import React, { useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ChatInterface } from '../components/ChatInterface';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
 import { Header } from '../components/Header';
 import { ChatSidebar } from '../components/ChatSidebar';
+import { useCustomAlert } from '../components/CustomAlert';
 import { toggleSidebar, toggleSidebarCollapse } from '../store/actions/uiActions';
 import { 
   loadConversations, 
@@ -18,21 +19,23 @@ import {
   updateMessage,
   deleteMessage
 } from '../store/actions/conversationActions';
-import { generateAIResponse, DIARY_SYSTEM_PROMPT } from '../services/aiService';
+import { getCharacter } from '../config/characters';
+import {
+  generateSingleCharacterResponse,
+  ConversationMessage
+} from '../services/multiCharacterConversation';
+import { generateHybridResponse } from '../services/hybridOrchestration';
+import { ORCHESTRATION_CONFIG } from '../config/llmConfig';
+import { generateConversationTitle } from '../services/conversationTitleGenerator';
 import SettingsScreen from '../screens/SettingsScreen';
-import CharactersScreen from '../screens/CharactersScreen';
+import LibraryScreen from '../screens/LibraryScreen';
+import WakattorsScreenEnhanced from '../screens/WakattorsScreenEnhanced';
 
 const Tab = createBottomTabNavigator();
 
-const GraphScreen = () => (
-  <View style={styles.screenContainer}>
-    <Text style={styles.screenText}>Knowledge Graph Visualization</Text>
-    <Text style={styles.screenSubtext}>Coming soon...</Text>
-  </View>
-);
-
 export default function MainTabs() {
   const dispatch = useDispatch();
+  const { showAlert, AlertComponent } = useCustomAlert();
   const { conversations, currentConversation, messages } = useSelector((state: RootState) => state.conversations);
   const { showSidebar, sidebarCollapsed } = useSelector((state: RootState) => state.ui);
 
@@ -64,7 +67,7 @@ export default function MainTabs() {
     try {
       await dispatch(createConversation('New Conversation') as any);
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to create conversation: ' + error.message);
+      showAlert('Error', 'Failed to create conversation: ' + error.message);
     }
   };
 
@@ -72,7 +75,7 @@ export default function MainTabs() {
     try {
       await dispatch(renameConversation(conversationId, newTitle) as any);
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to rename conversation: ' + error.message);
+      showAlert('Error', 'Failed to rename conversation: ' + error.message);
     }
   };
 
@@ -83,8 +86,8 @@ export default function MainTabs() {
       console.log('[MainTabs] Delete complete');
     } catch (error: any) {
       console.error('[MainTabs] Delete failed:', error);
-      Alert.alert(
-        'Delete Failed', 
+      showAlert(
+        'Delete Failed',
         error.message || 'Failed to delete conversation. Please try again.',
         [{ text: 'OK' }]
       );
@@ -95,7 +98,7 @@ export default function MainTabs() {
     try {
       await dispatch(updateMessage(messageId, newContent) as any);
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to edit message: ' + error.message);
+      showAlert('Error', 'Failed to edit message: ' + error.message);
     }
   };
 
@@ -103,13 +106,21 @@ export default function MainTabs() {
     try {
       await dispatch(deleteMessage(messageId) as any);
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to delete message: ' + error.message);
+      showAlert('Error', 'Failed to delete message: ' + error.message);
     }
   };
 
   const [isLoadingAI, setIsLoadingAI] = React.useState(false);
-  
-  const handleSendMessage = async (content: string) => {
+
+  const handleSendMessage = async (content: string, selectedCharacters: string[]) => {
+    console.log('[MainTabs] handleSendMessage called with selectedCharacters:', selectedCharacters);
+
+    // Validate that at least one character is selected
+    if (!selectedCharacters || selectedCharacters.length === 0) {
+      showAlert('No Wakattors Selected', 'Please select at least one Wakattor before sending a message.');
+      return;
+    }
+
     setIsLoadingAI(true);
     try {
       // If no current conversation, create one
@@ -119,37 +130,100 @@ export default function MainTabs() {
       }
 
       if (conversation) {
-        // Save user message
-        await dispatch(saveMessage(conversation.id, 'user', content) as any);
-        
-        // Generate AI response
-        try {
-          // Prepare conversation history for AI
-          const conversationHistory = messages.map(msg => ({
-            role: msg.role as 'user' | 'assistant' | 'system',
-            content: msg.content,
-          }));
-          
-          // Add the new user message
-          conversationHistory.push({ role: 'user', content });
+        // Check if this is the first user message (for title generation)
+        const isFirstMessage = messages.length === 0;
 
-          // Generate AI response
-          const aiResponse = await generateAIResponse(conversationHistory, DIARY_SYSTEM_PROMPT);
-          
-          // Save AI response
-          await dispatch(saveMessage(conversation.id, 'assistant', aiResponse) as any);
+        // Save user message (no character ID for user messages)
+        await dispatch(saveMessage(conversation.id, 'user', content) as any);
+
+        // Generate conversation title from first message
+        if (isFirstMessage && conversation.title === 'New Conversation') {
+          console.log('[Chat] Generating title for new conversation from first message');
+          try {
+            const generatedTitle = await generateConversationTitle(content);
+            console.log('[Chat] Generated title:', generatedTitle);
+            await dispatch(renameConversation(conversation.id, generatedTitle) as any);
+          } catch (titleError) {
+            console.error('[Chat] Failed to generate title, keeping default:', titleError);
+            // Continue with conversation even if title generation fails
+          }
+        }
+
+        // Prepare conversation history for multi-character service
+        const conversationHistory: ConversationMessage[] = messages.map(msg => ({
+          id: msg.id,
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content,
+          characterId: msg.characterId,
+          timestamp: new Date(msg.created_at || Date.now()).getTime(),
+        }));
+
+        try {
+          // Use hybrid orchestration for all multi-character conversations
+          if (selectedCharacters.length > 1) {
+            // Multi-character mode: Hybrid orchestration (single-call by default with fallback)
+            console.log('[Chat] Using hybrid orchestration mode with:', selectedCharacters);
+            console.log('[Chat] Orchestration config:', {
+              mode: ORCHESTRATION_CONFIG.mode,
+              maxResponders: ORCHESTRATION_CONFIG.singleCall.maxResponders,
+              includeGestures: ORCHESTRATION_CONFIG.singleCall.includeGestures,
+              includeInterruptions: ORCHESTRATION_CONFIG.singleCall.includeInterruptions
+            });
+
+            const characterResponses = await generateHybridResponse(
+              content,
+              selectedCharacters,
+              conversationHistory
+            );
+
+            // Save each character's response with gesture information
+            for (const response of characterResponses) {
+              console.log(`[Chat] Saving message for character ${response.characterId}:`, {
+                content: response.content.substring(0, 50) + '...',
+                gesture: response.gesture,
+                isInterruption: response.isInterruption,
+                isReaction: response.isReaction
+              });
+
+              await dispatch(saveMessage(
+                conversation.id,
+                'assistant',
+                response.content,
+                response.characterId
+              ) as any);
+            }
+
+            console.log(`[Chat] Generated ${characterResponses.length} responses from characters:`, characterResponses.map(r => r.characterId));
+          } else {
+            // Single character mode: traditional response
+            console.log('[Chat] Using single character mode:', selectedCharacters[0]);
+
+            const aiResponse = await generateSingleCharacterResponse(
+              content,
+              selectedCharacters[0],
+              conversationHistory
+            );
+
+            await dispatch(saveMessage(
+              conversation.id,
+              'assistant',
+              aiResponse,
+              selectedCharacters[0]
+            ) as any);
+          }
         } catch (aiError: any) {
           console.error('AI generation error:', aiError);
-          // Save a fallback message if AI fails
+          // Save a fallback message if AI fails completely
           await dispatch(saveMessage(
-            conversation.id, 
-            'assistant', 
-            "I'm having trouble connecting right now. Your message has been saved, and I'll be back soon!"
+            conversation.id,
+            'assistant',
+            "I'm having trouble connecting right now. Your message has been saved, and I'll be back soon!",
+            selectedCharacters[0] // Use first selected character for fallback
           ) as any);
         }
       }
     } catch (error: any) {
-      Alert.alert('Error', 'Failed to send message: ' + error.message);
+      showAlert('Error', 'Failed to send message: ' + error.message);
     } finally {
       setIsLoadingAI(false);
     }
@@ -157,6 +231,7 @@ export default function MainTabs() {
 
   return (
     <View style={styles.fullContainer}>
+      <AlertComponent />
       <Header />
       <View style={styles.contentContainer}>
         <ChatSidebar 
@@ -183,6 +258,7 @@ export default function MainTabs() {
             tabBarActiveTintColor: '#8b5cf6',
             tabBarInactiveTintColor: '#a1a1aa',
             tabBarLabelStyle: styles.tabBarLabel,
+            unmountOnBlur: true, // Unmount inactive screens to stop 3D rendering
           }}
         >
           <Tab.Screen 
@@ -205,21 +281,21 @@ export default function MainTabs() {
               />
             )}
           </Tab.Screen>
-          <Tab.Screen 
-            name="Characters"
-            component={CharactersScreen}
+          <Tab.Screen
+            name="Library"
+            component={LibraryScreen}
             options={{
               tabBarIcon: ({ color, size }) => (
-                <MaterialCommunityIcons name="account-group-outline" color={color} size={size} />
+                <Ionicons name="library" color={color} size={size} />
               ),
             }}
           />
-          <Tab.Screen 
-            name="Graph"
-            component={GraphScreen}
+          <Tab.Screen
+            name="Wakattors"
+            component={WakattorsScreenEnhanced}
             options={{
               tabBarIcon: ({ color, size }) => (
-                <MaterialCommunityIcons name="graph-outline" color={color} size={size} />
+                <MaterialCommunityIcons name="emoticon-happy-outline" color={color} size={size} />
               ),
             }}
           />
@@ -259,21 +335,6 @@ const styles = StyleSheet.create({
   },
   mainContentWithCollapsedSidebar: {
     marginLeft: 56, // Width of collapsed sidebar
-  },
-  screenContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0f0f0f',
-  },
-  screenText: {
-    color: 'white',
-    fontSize: 24,
-    marginBottom: 8,
-  },
-  screenSubtext: {
-    color: '#a1a1aa',
-    fontSize: 16,
   },
   tabBar: {
     backgroundColor: '#171717',

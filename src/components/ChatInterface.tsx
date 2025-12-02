@@ -1,17 +1,28 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, PanResponder, Dimensions, Animated } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useCustomAlert } from './CustomAlert';
+import { CharacterDisplay3D } from './CharacterDisplay3D';
+import { AnimatedArrowPointer } from './AnimatedArrowPointer';
+import { DEFAULT_CHARACTER, getAllCharacters, getCharacter } from '../config/characters';
+import { getCustomWakattors } from '../services/customWakattorsService';
+import { getChatMenuCharacters } from '../services/chatMenuService';
+import { getVoiceRecorder, RecordingState } from '../services/voiceRecording';
+import { transcribeAudio, isWebSpeechSupported } from '../services/speechToText';
+import { LiveSpeechRecognition, LiveTranscriptionResult } from '../services/speechToTextLive';
+import { detectBrowser, getBrowserGuidance, isVoiceSupported } from '../utils/browserDetection';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   created_at?: string;
+  characterId?: string; // Which character is speaking (for assistant messages)
 }
 
 interface ChatInterfaceProps {
   messages: Message[];
-  onSendMessage: (content: string) => void;
+  onSendMessage: (content: string, selectedCharacters: string[]) => void;
   showSidebar: boolean;
   onToggleSidebar: () => void;
   isLoading?: boolean;
@@ -19,12 +30,304 @@ interface ChatInterfaceProps {
   onDeleteMessage?: (messageId: string) => void;
 }
 
+// Character name label component with fade animation
+function CharacterNameLabel({ name, color, visible }: { name: string; color: string; visible: boolean }) {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      // Fade in quickly
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+
+      // Then fade out slowly after 2 seconds (3 second fade duration)
+      setTimeout(() => {
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 3000,
+          useNativeDriver: true,
+        }).start();
+      }, 2000);
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <Animated.View style={[styles.characterNameLabel, { opacity: fadeAnim }]}>
+      <Text style={[styles.characterNameText, { color }]}>
+        {name}
+      </Text>
+    </Animated.View>
+  );
+}
+
 export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage }: ChatInterfaceProps) {
+  const { showAlert, AlertComponent } = useCustomAlert();
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [liveTranscript, setLiveTranscript] = useState('');
   const scrollViewRef = useRef<ScrollView>(null);
+  const voiceRecorderRef = useRef(getVoiceRecorder());
+  const liveSpeechRef = useRef<LiveSpeechRecognition | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
+  // Set initial height based on screen size
+  const [characterHeight, setCharacterHeight] = useState(() => {
+    const { height, width } = Dimensions.get('window');
+    // Mobile: smaller height, Desktop: larger height
+    if (width < 768) {
+      return Math.floor(height * 0.25); // 25% on mobile
+    } else if (width < 1024) {
+      return Math.floor(height * 0.3); // 30% on tablet
+    } else {
+      return Math.floor(height * 0.35); // 35% on desktop
+    }
+  });
+  const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]); // Up to 10 characters, start empty
+  const [showCharacterSelector, setShowCharacterSelector] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(false);
+  const [showCharacterNames, setShowCharacterNames] = useState(true); // Show names at start
+  const [nameKey, setNameKey] = useState(0); // Key to trigger re-animation
+  const [showArrowPointer, setShowArrowPointer] = useState(true); // Show arrow pointer initially
+  const [availableCharacters, setAvailableCharacters] = useState(getAllCharacters()); // Load from Wakattors database
+  const [isLoadingCharacters, setIsLoadingCharacters] = useState(true);
+
+  // Load characters from chat menu
+  useEffect(() => {
+    const loadChatMenuCharacters = async () => {
+      try {
+        // Get chat menu character IDs
+        const chatMenuIds = getChatMenuCharacters();
+
+        if (chatMenuIds.length === 0) {
+          // No characters in chat menu - fallback to default characters
+          const defaultChars = getAllCharacters();
+          setAvailableCharacters(defaultChars);
+          setIsLoadingCharacters(false);
+          return;
+        }
+
+        // Load all custom wakattors
+        const customWakattors = await getCustomWakattors();
+
+        // Filter to only include characters in chat menu
+        const chatMenuCharacters = customWakattors.filter(char =>
+          chatMenuIds.includes(char.id)
+        );
+
+        if (chatMenuCharacters.length > 0) {
+          setAvailableCharacters(chatMenuCharacters);
+          // IMPORTANT: Register custom characters so multiCharacterConversation can find them
+          const { registerCustomCharacters } = await import('../config/characters');
+          console.log('[ChatInterface] About to register custom characters:', chatMenuCharacters.map(c => ({ id: c.id, name: c.name })));
+          registerCustomCharacters(chatMenuCharacters);
+          console.log('[ChatInterface] Registered', chatMenuCharacters.length, 'custom characters for AI generation');
+        } else {
+          // Fallback to default characters if no matches
+          setAvailableCharacters(getAllCharacters());
+        }
+      } catch (error) {
+        console.error('[ChatInterface] Failed to load chat menu characters:', error);
+        // Fallback to default characters on error
+        setAvailableCharacters(getAllCharacters());
+      } finally {
+        setIsLoadingCharacters(false);
+      }
+    };
+
+    loadChatMenuCharacters();
+
+    // Listen for custom events when chat menu changes
+    const handleChatMenuUpdate = () => {
+      console.log('[ChatInterface] Chat menu updated, reloading characters...');
+      loadChatMenuCharacters();
+    };
+
+    window.addEventListener('chatMenuUpdated', handleChatMenuUpdate);
+
+    return () => {
+      window.removeEventListener('chatMenuUpdated', handleChatMenuUpdate);
+    };
+  }, []);
+
+  // Don't auto-select any wakattor - let user choose
+  // useEffect(() => {
+  //   if (!isLoadingCharacters && availableCharacters.length > 0 && selectedCharacters.length === 0) {
+  //     // Select the first available character by default
+  //     setSelectedCharacters([availableCharacters[0].id]);
+  //   }
+  // }, [isLoadingCharacters, availableCharacters, selectedCharacters.length]);
+
+  // Update character height and mobile view on window resize
+  useEffect(() => {
+    const updateResponsiveSettings = () => {
+      const { width, height } = Dimensions.get('window');
+
+      // Update mobile view state
+      const isMobile = width < 768;
+      setIsMobileView(isMobile);
+
+      // Update character height based on screen size
+      let heightPercentage = 0.35; // Default desktop
+      if (width < 768) {
+        heightPercentage = 0.25; // Mobile
+      } else if (width < 1024) {
+        heightPercentage = 0.3; // Tablet
+      }
+      const newHeight = Math.floor(height * heightPercentage);
+      setCharacterHeight(newHeight);
+    };
+
+    updateResponsiveSettings();
+    const subscription = Dimensions.addEventListener('change', updateResponsiveSettings);
+    return () => subscription?.remove();
+  }, []);
+
+  // Auto-hide character selector when switching to mobile view
+  useEffect(() => {
+    if (isMobileView && showCharacterSelector) {
+      setShowCharacterSelector(false);
+    }
+  }, [isMobileView]);
+
+  // Arrow pointer logic: hide after 20 seconds, or when user has conversation, or interacts with characters
+  useEffect(() => {
+    // Hide arrow if user has messages (conversation started)
+    if (messages.length > 0) {
+      setShowArrowPointer(false);
+      return;
+    }
+
+    // Hide arrow if user opened character selector
+    if (showCharacterSelector) {
+      setShowArrowPointer(false);
+      return;
+    }
+
+    // Hide arrow if user changed characters (not just the initial default)
+    if (selectedCharacters.length !== 1 || selectedCharacters[0] !== DEFAULT_CHARACTER) {
+      setShowArrowPointer(false);
+      return;
+    }
+
+    // Hide arrow after 20 seconds
+    const timer = setTimeout(() => {
+      setShowArrowPointer(false);
+    }, 20000); // 20 seconds
+
+    return () => clearTimeout(timer);
+  }, [messages.length, showCharacterSelector, selectedCharacters]);
+
+  // Restore characters from messages when conversation is loaded
+  const userHasSelectedCharacters = useRef(false);
+  const previousMessagesRef = useRef(messages);
+
+  useEffect(() => {
+    // Detect conversation change: first message ID changed or message array replaced
+    const conversationChanged =
+      messages.length > 0 &&
+      previousMessagesRef.current.length > 0 &&
+      messages[0]?.id !== previousMessagesRef.current[0]?.id;
+
+    // Update when:
+    // 1. Conversation switched (different first message)
+    // 2. Loading a conversation for the first time (has messages but no characters selected)
+    const shouldRestoreCharacters =
+      conversationChanged ||
+      (messages.length > 0 && selectedCharacters.length === 0 && !userHasSelectedCharacters.current);
+
+    if (shouldRestoreCharacters) {
+      // Extract unique character IDs from assistant messages
+      const characterIds = messages
+        .filter(msg => msg.role === 'assistant' && msg.characterId)
+        .map(msg => msg.characterId as string);
+
+      const uniqueCharacterIds = Array.from(new Set(characterIds));
+
+      // Restore characters from conversation history
+      if (uniqueCharacterIds.length > 0) {
+        console.log('[ChatInterface] Restoring characters from conversation history:', uniqueCharacterIds);
+        setSelectedCharacters(uniqueCharacterIds);
+        // Reset manual selection flag when switching conversations
+        if (conversationChanged) {
+          userHasSelectedCharacters.current = false;
+        }
+      } else if (conversationChanged) {
+        // New empty conversation - set default character
+        console.log('[ChatInterface] Switching to empty conversation, setting default character');
+        const defaultChar = availableCharacters.length > 0 ? availableCharacters[0].id : DEFAULT_CHARACTER;
+        setSelectedCharacters([defaultChar]);
+        userHasSelectedCharacters.current = false;
+      }
+    }
+
+    // Update previous messages reference
+    previousMessagesRef.current = messages;
+  }, [messages, availableCharacters]);
+
+  // Set default character for brand new conversations (no messages at all)
+  useEffect(() => {
+    if (messages.length === 0 && selectedCharacters.length === 0 && availableCharacters.length > 0) {
+      console.log('[ChatInterface] New conversation with no messages, setting default character');
+      const defaultChar = availableCharacters[0].id;
+      setSelectedCharacters([defaultChar]);
+    }
+  }, [messages.length, selectedCharacters.length, availableCharacters]);
+
+  // Show character names when characters change or at conversation start
+  useEffect(() => {
+    setShowCharacterNames(true);
+    setNameKey(prev => prev + 1); // Trigger re-animation
+
+    // Keep visible for 5 seconds total (2s display + 3s fade)
+    const timer = setTimeout(() => {
+      setShowCharacterNames(false);
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [selectedCharacters]);
+
+  // Pan responder for resizable divider
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderMove: (_, gestureState) => {
+        const newHeight = characterHeight + gestureState.dy;
+        const { height: windowHeight, width: windowWidth } = Dimensions.get('window');
+        // Responsive min/max constraints based on screen size
+        let minPercent = 0.15;
+        let maxPercent = 0.5;
+        if (windowWidth < 768) {
+          // Mobile: smaller range
+          minPercent = 0.15;
+          maxPercent = 0.4;
+        } else if (windowWidth < 1024) {
+          // Tablet
+          minPercent = 0.2;
+          maxPercent = 0.5;
+        } else {
+          // Desktop
+          minPercent = 0.2;
+          maxPercent = 0.6;
+        }
+        const minHeight = Math.floor(windowHeight * minPercent);
+        const maxHeight = Math.floor(windowHeight * maxPercent);
+        if (newHeight >= minHeight && newHeight <= maxHeight) {
+          setCharacterHeight(newHeight);
+        }
+      },
+      onPanResponderRelease: () => {
+        // Optionally save to localStorage/AsyncStorage here
+      },
+    })
+  ).current;
 
   const formatTimestamp = (dateString: string) => {
     const date = new Date(dateString);
@@ -48,16 +351,188 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     }
   }, [messages]);
 
+  // Cancel editing when AI starts responding to prevent race conditions
+  useEffect(() => {
+    if (isLoading && editingMessageId) {
+      setEditingMessageId(null);
+      setEditingContent('');
+    }
+  }, [isLoading, editingMessageId]);
+
+  // Setup voice recorder and live speech recognition
+  useEffect(() => {
+    const voiceRecorder = voiceRecorderRef.current;
+
+    voiceRecorder.setOnStateChange((state: RecordingState) => {
+      setIsRecording(state.isRecording);
+      setRecordingDuration(state.duration);
+    });
+
+    // Initialize live speech recognition if supported
+    if (isWebSpeechSupported()) {
+      const liveSpeech = new LiveSpeechRecognition();
+
+      liveSpeech.setOnResult((result: LiveTranscriptionResult) => {
+        setLiveTranscript(result.transcript);
+      });
+
+      liveSpeech.setOnError((error: Error) => {
+        console.error('[ChatInterface] Live speech error:', error);
+        // Don't show alert for interim errors, wait for final result
+      });
+
+      liveSpeechRef.current = liveSpeech;
+    }
+
+    return () => {
+      voiceRecorder.dispose();
+      if (liveSpeechRef.current) {
+        liveSpeechRef.current.abort();
+      }
+    };
+  }, []);
+
   const handleSendMessagePress = () => {
     if (input.trim()) {
-      onSendMessage(input);
+      onSendMessage(input, selectedCharacters);
       setInput('');
     }
   };
 
-  const toggleRecording = () => {
-    setIsRecording(!isRecording);
-    // In a real app, this would start/stop voice recording
+  const handleKeyPress = (e: any) => {
+    // Check for Ctrl+Enter (PC) or Cmd+Enter (Mac)
+    if (e.nativeEvent.key === 'Enter' && (e.nativeEvent.ctrlKey || e.nativeEvent.metaKey)) {
+      e.preventDefault();
+      handleSendMessagePress();
+    }
+  };
+
+  const handleTranscription = async (audioBlob: Blob) => {
+    setIsTranscribing(true);
+
+    try {
+      console.log('[ChatInterface] Transcribing audio with Whisper API...');
+
+      // Use Whisper API for recorded audio (fallback when live speech fails)
+      const result = await transcribeAudio(audioBlob, 'whisper', false);
+
+      console.log('[ChatInterface] Transcription result:', result);
+
+      if (result.text.trim()) {
+        // Add transcribed text to input
+        setInput((prev) => {
+          const separator = prev.trim() ? ' ' : '';
+          return prev + separator + result.text.trim();
+        });
+
+        showAlert(
+          'Transcription Complete',
+          'Transcribed using OpenAI Whisper API'
+        );
+      } else {
+        showAlert(
+          'No Speech Detected',
+          'Could not detect any speech in the recording. Please try again and speak clearly.'
+        );
+      }
+    } catch (error: any) {
+      console.error('[ChatInterface] Transcription error:', error);
+      showAlert('Transcription Failed', error.message || 'Failed to transcribe audio. Please check your OpenAI API key in Settings.');
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const toggleRecording = async () => {
+    const voiceRecorder = voiceRecorderRef.current;
+    const liveSpeech = liveSpeechRef.current;
+
+    // Check browser compatibility
+    const voiceSupport = isVoiceSupported();
+    if (!voiceSupport.supported) {
+      showAlert('Not Supported', voiceSupport.message);
+      return;
+    }
+
+    if (!voiceRecorder.isSupported()) {
+      const browser = detectBrowser();
+      showAlert(
+        'Not Supported',
+        `Voice recording is not supported in ${browser.name}. Please use Chrome, Edge, Brave, Firefox, or Safari.`
+      );
+      return;
+    }
+
+    if (isRecording) {
+      // Stop recording
+      voiceRecorder.stopRecording();
+
+      // Stop live speech recognition if active
+      let finalTranscript = '';
+      if (liveSpeech && liveSpeech.isSupported()) {
+        finalTranscript = liveSpeech.stop();
+      }
+
+      // Use live transcript if available, otherwise transcribe recorded audio
+      if (finalTranscript.trim()) {
+        // We got live transcription - use it directly
+        setInput((prev) => {
+          const separator = prev.trim() ? ' ' : '';
+          return prev + separator + finalTranscript.trim();
+        });
+        setLiveTranscript('');
+
+        showAlert(
+          'Transcription Complete',
+          'Transcribed using Web Speech API (live)'
+        );
+      } else {
+        // Fall back to Whisper API with recorded audio
+        const state = voiceRecorder.getState();
+        if (state.audioBlob) {
+          await handleTranscription(state.audioBlob);
+        }
+      }
+    } else {
+      // Start recording
+      try {
+        setLiveTranscript('');
+        await voiceRecorder.startRecording();
+
+        // Start live speech recognition if available
+        if (liveSpeech && liveSpeech.isSupported()) {
+          try {
+            liveSpeech.start();
+            const browser = detectBrowser();
+            console.log(`[ChatInterface] Started live speech recognition (${browser.name})`);
+          } catch (error: any) {
+            console.error('[ChatInterface] Failed to start live speech:', error);
+            // Continue with audio recording even if live speech fails
+            const browser = detectBrowser();
+            console.log(`[ChatInterface] Will use Whisper API fallback (${browser.name})`);
+          }
+        } else {
+          const browser = detectBrowser();
+          console.log(`[ChatInterface] Live speech not available in ${browser.name}, will use Whisper API`);
+        }
+      } catch (error: any) {
+        const guidance = getBrowserGuidance('microphone');
+        showAlert('Recording Error', `${error.message}\n\n${guidance}`);
+      }
+    }
+  };
+
+  const cancelRecording = () => {
+    const voiceRecorder = voiceRecorderRef.current;
+    const liveSpeech = liveSpeechRef.current;
+
+    voiceRecorder.cancelRecording();
+
+    if (liveSpeech) {
+      liveSpeech.abort();
+    }
+
+    setLiveTranscript('');
   };
 
   const startEditingMessage = (message: Message) => {
@@ -66,6 +541,15 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   };
 
   const saveEditedMessage = () => {
+    // Prevent saving edits when AI is responding to avoid race conditions
+    if (isLoading) {
+      showAlert(
+        'Cannot Save Edit',
+        'Please wait for the AI to finish responding before saving your edit.'
+      );
+      return;
+    }
+
     if (editingMessageId && editingContent.trim() && onEditMessage) {
       onEditMessage(editingMessageId, editingContent.trim());
       setEditingMessageId(null);
@@ -78,8 +562,30 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     setEditingContent('');
   };
 
+  const toggleCharacter = (characterId: string) => {
+    // Mark that user has manually selected characters
+    userHasSelectedCharacters.current = true;
+
+    setSelectedCharacters(prev => {
+      if (prev.includes(characterId)) {
+        // Don't allow removing if only one left
+        if (prev.length === 1) return prev;
+        return prev.filter(id => id !== characterId);
+      } else {
+        // Don't allow more than 10 characters
+        if (prev.length >= 10) {
+          showAlert('Maximum Reached', 'You can select up to 10 Wakattors maximum.', [{ text: 'OK' }]);
+          return prev;
+        }
+        // Defensive check: ensure no duplicates (should never happen, but extra safety)
+        if (prev.includes(characterId)) return prev;
+        return [...prev, characterId];
+      }
+    });
+  };
+
   const confirmDeleteMessage = (messageId: string) => {
-    Alert.alert(
+    showAlert(
       'Delete Message',
       'Are you sure you want to delete this message?',
       [
@@ -93,15 +599,23 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
             }
           },
         },
-      ],
-      { cancelable: true }
+      ]
     );
   };
 
   const handleLongPress = (message: Message) => {
+    // Prevent editing/deleting when AI is responding to avoid race conditions
+    if (isLoading) {
+      showAlert(
+        'Action Not Available',
+        'Please wait for the AI to finish responding before editing or deleting messages.'
+      );
+      return;
+    }
+
     // Only allow editing user messages
     if (message.role === 'user') {
-      Alert.alert(
+      showAlert(
         'Message Options',
         'What would you like to do?',
         [
@@ -115,73 +629,206 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
             style: 'destructive',
             onPress: () => confirmDeleteMessage(message.id),
           },
-        ],
-        { cancelable: true }
+        ]
       );
     }
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
-    >
-      <ScrollView 
+    <>
+      <AlertComponent />
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+      >
+      {/* Full-screen backdrop for character selector */}
+      {showCharacterSelector && (
+        <TouchableOpacity
+          style={styles.characterSelectorBackdrop}
+          activeOpacity={1}
+          onPress={() => setShowCharacterSelector(false)}
+        />
+      )}
+
+      {/* 3D Character Display - Resizable */}
+      <View style={[styles.characterDisplayContainer, { height: characterHeight }]}>
+        {/* 3D Animated Arrow Pointer - Positioned near character selector button */}
+        <AnimatedArrowPointer
+          visible={showArrowPointer}
+          message="Add more characters!"
+        />
+
+        {/* Character Selector Button */}
+        <TouchableOpacity
+          style={styles.characterSelectorButton}
+          onPress={() => setShowCharacterSelector(!showCharacterSelector)}
+        >
+          <Ionicons name="people" size={20} color="#ff6b35" />
+          <Text style={styles.characterSelectorText}>
+            {selectedCharacters.length} Wakattor{selectedCharacters.length !== 1 ? 's' : ''}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Character Selector Panel */}
+        {showCharacterSelector && (
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            style={[
+              styles.characterSelectorPanel,
+              isMobileView && styles.characterSelectorPanelMobile
+            ]}
+          >
+            <View style={styles.characterSelectorHeader}>
+              <Text style={styles.characterSelectorTitle}>Select Wakattors (Max 10)</Text>
+              {isMobileView && (
+                <TouchableOpacity onPress={() => setShowCharacterSelector(false)}>
+                  <Ionicons name="close" size={24} color="#ff6b35" />
+                </TouchableOpacity>
+              )}
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.characterSelectorScroll}>
+              {availableCharacters.map((character) => {
+                const isSelected = selectedCharacters.includes(character.id);
+                return (
+                  <TouchableOpacity
+                    key={character.id}
+                    style={[
+                      styles.characterSelectorCard,
+                      isSelected && styles.characterSelectorCardActive,
+                    ]}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      toggleCharacter(character.id);
+                    }}
+                  >
+                    <View style={[styles.characterSelectorIndicator, { backgroundColor: character.color }]} />
+                    <Text style={[styles.characterSelectorName, isSelected && styles.characterSelectorNameActive]}>
+                      {character.name}
+                    </Text>
+                    {isSelected && <Ionicons name="checkmark-circle" size={20} color={character.color} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </TouchableOpacity>
+        )}
+
+        {/* Multiple Character Display */}
+        <View style={styles.charactersRow}>
+          {selectedCharacters.length === 0 ? (
+            <View style={styles.emptyCharacterState}>
+              <Ionicons name="person-add" size={48} color="#666" />
+              <Text style={styles.emptyCharacterText}>Click "0 Wakattors" to select characters</Text>
+            </View>
+          ) : (
+            Array.from(new Set(selectedCharacters)).map((characterId, index) => {
+              // Get character from availableCharacters (includes custom wakattors) or fallback to built-in
+              const character = availableCharacters.find(c => c.id === characterId) || getCharacter(characterId);
+              return (
+                <View key={characterId} style={[styles.characterWrapper, { flex: 1 / selectedCharacters.length }]}>
+                  <CharacterDisplay3D
+                    character={character}
+                    isActive={isLoading}
+                    isTalking={isLoading}
+                    showName={showCharacterNames}
+                    nameKey={nameKey}
+                  />
+                  {/* Character Name Label with Fade Animation */}
+                  <CharacterNameLabel
+                    key={`name-${nameKey}`}
+                    name={character.name}
+                    color={character.color}
+                    visible={showCharacterNames}
+                  />
+                </View>
+              );
+            })
+          )}
+        </View>
+      </View>
+
+      {/* Resizable Divider */}
+      <View
+        {...panResponder.panHandlers}
+        style={styles.divider}
+      >
+        <View style={styles.dividerHandle} />
+      </View>
+
+      {/* Chat Messages - Remaining space */}
+      <ScrollView
         ref={scrollViewRef}
         contentContainerStyle={styles.messagesContainer}
+        style={styles.chatScrollView}
         onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
       >
         <View style={styles.messagesContent}>
-          {messages.map((message) => (
-            <TouchableOpacity
-              key={message.id}
-              onLongPress={() => handleLongPress(message)}
-              activeOpacity={message.role === 'user' ? 0.7 : 1}
-              style={[
-                styles.messageBubbleContainer,
-                message.role === 'user' ? styles.userMessageContainer : styles.assistantMessageContainer,
-              ]}
-            >
+          {messages.map((message, index) => {
+            const character = message.characterId ? getCharacter(message.characterId) : null;
+            // Alternate character positions: even index = left, odd = right
+            const characterPosition = message.role === 'assistant' ? (index % 2 === 0 ? 'left' : 'right') : null;
+
+            return (
               <View
+                key={message.id}
                 style={[
-                  styles.messageBubble,
-                  message.role === 'user' ? styles.userMessageBubble : styles.assistantMessageBubble,
+                  styles.messageBubbleContainer,
+                  message.role === 'user' && styles.userMessageContainer,
+                  characterPosition === 'left' && styles.assistantMessageLeft,
+                  characterPosition === 'right' && styles.assistantMessageRight,
                 ]}
               >
-                {editingMessageId === message.id ? (
-                  <View style={styles.editingMessageContainer}>
-                    <TextInput
-                      style={styles.editMessageInput}
-                      value={editingContent}
-                      onChangeText={setEditingContent}
-                      multiline
-                      autoFocus
-                      placeholder="Edit message..."
-                      placeholderTextColor="#71717a"
-                    />
-                    <View style={styles.editActions}>
-                      <TouchableOpacity onPress={cancelEditing} style={styles.editActionButton}>
-                        <Text style={styles.cancelText}>Cancel</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={saveEditedMessage} style={[styles.editActionButton, styles.saveButton]}>
-                        <Text style={styles.saveText}>Save</Text>
-                      </TouchableOpacity>
+                <TouchableOpacity
+                  onLongPress={() => handleLongPress(message)}
+                  activeOpacity={message.role === 'user' ? 0.7 : 1}
+                  style={[
+                    styles.messageBubble,
+                    message.role === 'user' && styles.userMessageBubble,
+                    message.role === 'assistant' && character && { backgroundColor: character.color + '20', borderColor: character.color, borderWidth: 2 },
+                  ]}
+                >
+                  {editingMessageId === message.id ? (
+                    <View style={styles.editingMessageContainer}>
+                      <TextInput
+                        style={styles.editMessageInput}
+                        value={editingContent}
+                        onChangeText={setEditingContent}
+                        multiline
+                        autoFocus
+                        placeholder="Edit message..."
+                        placeholderTextColor="#71717a"
+                      />
+                      <View style={styles.editActions}>
+                        <TouchableOpacity onPress={cancelEditing} style={styles.editActionButton}>
+                          <Text style={styles.cancelText}>Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={saveEditedMessage} style={[styles.editActionButton, styles.saveButton]}>
+                          <Text style={styles.saveText}>Save</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                  </View>
-                ) : (
-                  <>
-                <Text style={styles.messageText}>{message.content}</Text>
-                    {message.created_at && (
-                      <Text style={styles.messageTimestamp}>
-                        {formatTimestamp(message.created_at)}
-                      </Text>
-                    )}
-                  </>
-                )}
+                  ) : (
+                    <>
+                      {/* Character Name for Assistant Messages */}
+                      {message.role === 'assistant' && character && (
+                        <Text style={[styles.characterName, { color: character.color }]}>
+                          {character.name}
+                        </Text>
+                      )}
+                      <Text style={styles.messageText}>{message.content}</Text>
+                      {message.created_at && (
+                        <Text style={styles.messageTimestamp}>
+                          {formatTimestamp(message.created_at)}
+                        </Text>
+                      )}
+                    </>
+                  )}
+                </TouchableOpacity>
               </View>
-            </TouchableOpacity>
-          ))}
+            );
+          })}
           
           {isLoading && (
             <View style={[styles.messageBubbleContainer, styles.assistantMessageContainer]}>
@@ -195,22 +842,54 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       </ScrollView>
 
       <View style={styles.inputContainer}>
+        {/* Recording Status & Live Transcript */}
+        {(isRecording || liveTranscript || isTranscribing) && (
+          <View style={styles.recordingStatusContainer}>
+            {isRecording && (
+              <View style={styles.recordingStatus}>
+                <View style={styles.recordingDot} />
+                <Text style={styles.recordingText}>
+                  Recording... {Math.floor(recordingDuration / 60)}:{String(recordingDuration % 60).padStart(2, '0')}
+                </Text>
+                <TouchableOpacity onPress={cancelRecording} style={styles.cancelButton}>
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {isTranscribing && (
+              <View style={styles.transcribingStatus}>
+                <ActivityIndicator size="small" color="#8b5cf6" />
+                <Text style={styles.transcribingText}>Transcribing...</Text>
+              </View>
+            )}
+            {liveTranscript && (
+              <View style={styles.liveTranscriptContainer}>
+                <Text style={styles.liveTranscriptLabel}>Live:</Text>
+                <Text style={styles.liveTranscriptText}>{liveTranscript}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
         <View style={styles.inputWrapper}>
           <TextInput
             value={input}
             onChangeText={setInput}
-            placeholder="Type your message or use voice..."
+            placeholder="Type your message or use voice... (Ctrl+Enter to send)"
             placeholderTextColor="#a1a1aa"
             style={styles.textInput}
             multiline
             onFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+            onKeyPress={handleKeyPress}
           />
           <View style={styles.actionButtons}>
             <TouchableOpacity
               onPress={toggleRecording}
+              disabled={isTranscribing}
               style={[
                 styles.iconButton,
                 isRecording ? styles.recordButtonActive : styles.recordButtonInactive,
+                isTranscribing && styles.buttonDisabled,
               ]}
             >
               {isRecording ? <MaterialCommunityIcons name="microphone-off" size={24} color="white" /> : <MaterialCommunityIcons name="microphone" size={24} color="#a1a1aa" />}
@@ -234,6 +913,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         </View>
       </View>
     </KeyboardAvoidingView>
+    </>
   );
 }
 
@@ -241,6 +921,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f0f0f',
+  },
+  characterDisplayContainer: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#27272a',
+  },
+  divider: {
+    height: 12,
+    backgroundColor: '#171717',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#27272a',
+  },
+  dividerHandle: {
+    width: 40,
+    height: 2,
+    backgroundColor: '#52525b',
+    borderRadius: 2,
+  },
+  chatScrollView: {
+    flex: 1,
   },
   messagesContainer: {
     flexGrow: 1,
@@ -250,18 +952,30 @@ const styles = StyleSheet.create({
   },
   messagesContent: {
     width: '100%',
-    maxWidth: 768,
+    maxWidth: '100%', // Full width, bubbles constrain themselves
     alignSelf: 'center',
     gap: 16,
   },
   messageBubbleContainer: {
     flexDirection: 'row',
+    marginBottom: 12,
   },
   userMessageContainer: {
-    justifyContent: 'flex-end',
+    justifyContent: 'center', // Center user messages
+  },
+  assistantMessageLeft: {
+    justifyContent: 'flex-start', // Character messages on left
+  },
+  assistantMessageRight: {
+    justifyContent: 'flex-end', // Character messages on right
   },
   assistantMessageContainer: {
     justifyContent: 'flex-start',
+  },
+  characterName: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
   },
   messageBubble: {
     maxWidth: '85%',
@@ -383,5 +1097,211 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontWeight: '600',
+  },
+  charactersRow: {
+    flexDirection: 'row',
+    flex: 1,
+  },
+  characterWrapper: {
+    height: '100%',
+    position: 'relative',
+  },
+  characterNameLabel: {
+    position: 'absolute',
+    top: 20,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  characterNameText: {
+    fontSize: 16,
+    fontWeight: '700',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  characterSelectorButton: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(15, 15, 15, 0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#27272a',
+    zIndex: 10,
+  },
+  characterSelectorText: {
+    color: '#ff6b35',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  characterSelectorBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 50,
+    backgroundColor: 'transparent',
+  },
+  characterSelectorPanel: {
+    position: 'absolute',
+    top: 50,
+    left: 8,
+    right: 8,
+    backgroundColor: '#171717',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#27272a',
+    padding: 12,
+    zIndex: 60,
+  },
+  characterSelectorPanelMobile: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(23, 23, 23, 0.98)',
+    borderRadius: 0,
+    padding: 20,
+    zIndex: 100,
+    justifyContent: 'center',
+  },
+  characterSelectorHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  characterSelectorTitle: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  characterSelectorScroll: {
+    maxHeight: 120,
+  },
+  characterSelectorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginRight: 8,
+    backgroundColor: '#27272a',
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  characterSelectorCardActive: {
+    backgroundColor: '#3f3f46',
+  },
+  characterSelectorIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  characterSelectorName: {
+    color: '#a1a1aa',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  characterSelectorNameActive: {
+    color: 'white',
+  },
+  recordingStatusContainer: {
+    marginBottom: 8,
+    gap: 8,
+  },
+  recordingStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#dc2626',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  recordingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'white',
+  },
+  recordingText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
+  cancelButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 4,
+  },
+  cancelButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  transcribingStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#27272a',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  transcribingText: {
+    color: '#8b5cf6',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  liveTranscriptContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#27272a',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  liveTranscriptLabel: {
+    color: '#8b5cf6',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  liveTranscriptText: {
+    color: '#a1a1aa',
+    fontSize: 14,
+    flex: 1,
+    fontStyle: 'italic',
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  emptyCharacterState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  emptyCharacterText: {
+    color: '#666',
+    fontSize: 16,
+    textAlign: 'center',
   },
 });
