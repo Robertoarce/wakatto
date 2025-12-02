@@ -64,10 +64,24 @@ function CharacterNameLabel({ name, color, visible }: { name: string; color: str
   );
 }
 
-// Floating animation wrapper for characters
-function FloatingCharacterWrapper({ children, index, style }: { children: React.ReactNode; index: number; style?: any }) {
+// Floating animation wrapper for characters with hover name display
+function FloatingCharacterWrapper({ 
+  children, 
+  index, 
+  style, 
+  characterName, 
+  characterColor 
+}: { 
+  children: React.ReactNode; 
+  index: number; 
+  style?: any;
+  characterName: string;
+  characterColor: string;
+}) {
   const floatAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const hoverAnim = useRef(new Animated.Value(0)).current;
+  const [isHovered, setIsHovered] = useState(false);
   
   useEffect(() => {
     // Different durations for different rhythms (2.5s to 4s based on index)
@@ -120,6 +134,15 @@ function FloatingCharacterWrapper({ children, index, style }: { children: React.
     };
   }, [index]);
   
+  // Handle hover animation
+  useEffect(() => {
+    Animated.timing(hoverAnim, {
+      toValue: isHovered ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [isHovered]);
+  
   // Interpolate values
   const translateY = floatAnim.interpolate({
     inputRange: [0, 1],
@@ -129,6 +152,16 @@ function FloatingCharacterWrapper({ children, index, style }: { children: React.
   const rotateZ = rotateAnim.interpolate({
     inputRange: [-1, 0, 1],
     outputRange: ['-3deg', '0deg', '3deg'], // Pivot up to 3 degrees
+  });
+  
+  const nameOpacity = hoverAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+  
+  const nameTranslateY = hoverAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-10, 0], // Slide down from above
   });
   
   return (
@@ -143,8 +176,26 @@ function FloatingCharacterWrapper({ children, index, style }: { children: React.
           ],
         },
       ]}
+      // @ts-ignore - web-specific props
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       {children}
+      {/* Hover name tooltip */}
+      <Animated.View
+        style={[
+          styles.hoverNameContainer,
+          {
+            opacity: nameOpacity,
+            transform: [{ translateY: nameTranslateY }],
+          },
+        ]}
+        pointerEvents="none"
+      >
+        <View style={[styles.hoverNameBubble, { backgroundColor: characterColor }]}>
+          <Text style={styles.hoverNameText}>{characterName}</Text>
+        </View>
+      </Animated.View>
     </Animated.View>
   );
 }
@@ -822,6 +873,8 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
                 <FloatingCharacterWrapper
                   key={characterId}
                   index={index}
+                  characterName={character.name}
+                  characterColor={character.color}
                   style={[
                     styles.characterWrapper,
                     {
@@ -1231,6 +1284,30 @@ const styles = StyleSheet.create({
     textShadowRadius: 4,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     paddingHorizontal: 12,
+  },
+  hoverNameContainer: {
+    position: 'absolute',
+    top: 5,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  hoverNameBubble: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  hoverNameText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
     paddingVertical: 6,
     borderRadius: 8,
   },
