@@ -181,6 +181,12 @@ ${config.includeInterruptions ? '   - Interrupt when they feel strongly (mark as
 
 4. **User Focus**: Keep the user's needs at the center while allowing character interaction
 
+5. **Selective Responses**: NOT all characters need to respond to every message:
+   - If the user explicitly addresses a specific character by name, ONLY that character should respond
+   - Other characters should stay silent UNLESS they strongly disagree, want to add something important, or the addressed character invites them
+   - When the user speaks generally, 1-3 characters may respond based on relevance to their expertise
+   - Characters should not feel obligated to speak if they have nothing meaningful to add
+
 ${gestureSection}
 
 ## Response Format
@@ -201,12 +207,14 @@ Respond with VALID JSON only (no markdown code blocks):
 }
 
 **Rules:**
-- Include ${Math.min(config.maxResponders, selectedCharacters.length)} characters maximum
+- Include ${Math.min(config.maxResponders, selectedCharacters.length)} characters maximum, but fewer is often better
+- If user addresses a specific character, include ONLY that character (unless others interrupt)
 - First response: "timing": "immediate", "interrupts": false
 - Subsequent responses: "timing": "delayed", may have "interrupts": true
 - Use "reactsTo": "character_id" when building on another's point
 - Maintain distinct voices for each character
 - Keep responses concise and therapeutic
+- Return an empty "responses" array [] if no character has something meaningful to add
 ${config.includeGestures ? '- Choose gestures that match the character\'s emotional state and message' : ''}
 
 Generate the orchestrated conversation now.`;

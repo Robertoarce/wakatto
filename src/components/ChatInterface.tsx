@@ -64,6 +64,91 @@ function CharacterNameLabel({ name, color, visible }: { name: string; color: str
   );
 }
 
+// Floating animation wrapper for characters
+function FloatingCharacterWrapper({ children, index, style }: { children: React.ReactNode; index: number; style?: any }) {
+  const floatAnim = useRef(new Animated.Value(0)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  
+  useEffect(() => {
+    // Different durations for different rhythms (2.5s to 4s based on index)
+    const floatDuration = 2500 + (index * 400) + (Math.random() * 500);
+    const rotateDuration = 3000 + (index * 500) + (Math.random() * 700);
+    
+    // Floating animation (up and down)
+    const floatAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: 1,
+          duration: floatDuration,
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: floatDuration,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    
+    // Rotation animation (slight pivot)
+    const rotateAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(rotateAnim, {
+          toValue: 1,
+          duration: rotateDuration,
+          useNativeDriver: true,
+        }),
+        Animated.timing(rotateAnim, {
+          toValue: -1,
+          duration: rotateDuration * 2,
+          useNativeDriver: true,
+        }),
+        Animated.timing(rotateAnim, {
+          toValue: 0,
+          duration: rotateDuration,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    
+    floatAnimation.start();
+    rotateAnimation.start();
+    
+    return () => {
+      floatAnimation.stop();
+      rotateAnimation.stop();
+    };
+  }, [index]);
+  
+  // Interpolate values
+  const translateY = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -8], // Float up 8 pixels
+  });
+  
+  const rotateZ = rotateAnim.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: ['-3deg', '0deg', '3deg'], // Pivot up to 3 degrees
+  });
+  
+  return (
+    <Animated.View
+      style={[
+        style,
+        {
+          transform: [
+            ...(style?.transform || []),
+            { translateY },
+            { rotateZ },
+          ],
+        },
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
 export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage }: ChatInterfaceProps) {
   const { showAlert, AlertComponent } = useCustomAlert();
   const [input, setInput] = useState('');
@@ -695,7 +780,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
           </Text>
         </TouchableOpacity>
 
-        {/* Multiple Character Display */}
+        {/* Multiple Character Display - Semi-circle arrangement (table view) */}
         <View style={styles.charactersRow}>
           {selectedCharacters.length === 0 ? (
             <View style={styles.emptyCharacterState}>
@@ -706,8 +791,49 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
             Array.from(new Set(selectedCharacters)).map((characterId, index) => {
               // Get character from availableCharacters (includes custom wakattors) or fallback to built-in
               const character = availableCharacters.find(c => c.id === characterId) || getCharacter(characterId);
+              const total = selectedCharacters.length;
+              
+              // Calculate semi-circle position (like sitting around a table)
+              // Center character is furthest (top/back), side characters are closest (bottom/front)
+              const angleRange = 100; // Tighter arc for closer grouping
+              const startAngle = -angleRange / 2;
+              const angleStep = total > 1 ? angleRange / (total - 1) : 0;
+              const angle = total === 1 ? 0 : startAngle + (index * angleStep);
+              const angleRad = (angle * Math.PI) / 180;
+              
+              // Calculate horizontal position (percentage from center)
+              const horizontalOffset = Math.sin(angleRad) * 50; // 30% max offset from center (closer together)
+              
+              // Distance from center (0 = center, 1 = edges)
+              const distanceFromCenter = Math.abs(angle) / (angleRange / 2);
+              
+              // Vertical position: CENTER is higher (further back), EDGES are lower (closer)
+              // cos(0) = 1 for center, cos(±70°) ≈ 0.34 for edges
+              const verticalPosition = Math.cos(angleRad) * 20; // Center gets +20%, edges get less
+              
+              // Scale: CENTER is smaller (further away), EDGES are larger (closer)
+              // Base scale increased for closer camera view
+              const scale = 0.8 + (distanceFromCenter * 0.3); // Center: 1.0, Edges: 1.3
+              
+              // Z-index: EDGES have higher z-index (in front), CENTER has lower (behind)
+              const zIndex = Math.round(distanceFromCenter * 10);
+              
               return (
-                <View key={characterId} style={[styles.characterWrapper, { flex: 1 / selectedCharacters.length }]}>
+                <FloatingCharacterWrapper
+                  key={characterId}
+                  index={index}
+                  style={[
+                    styles.characterWrapper,
+                    {
+                      position: 'absolute',
+                      left: `${45 + horizontalOffset - (100 / total / 2)}%`, // Shifted left by 5%
+                      width: `${Math.max(100 / total, 25)}%`,
+                      top: `${15 + (20 - verticalPosition)}%`, // Center higher up, edges lower
+                      transform: [{ scale }],
+                      zIndex: zIndex,
+                    }
+                  ]}
+                >
                   <CharacterDisplay3D
                     character={character}
                     isActive={isLoading}
@@ -722,7 +848,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
                     color={character.color}
                     visible={showCharacterNames}
                   />
-                </View>
+                </FloatingCharacterWrapper>
               );
             })
           )}
@@ -1079,12 +1205,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   charactersRow: {
-    flexDirection: 'row',
     flex: 1,
+    position: 'relative',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   characterWrapper: {
-    height: '100%',
-    position: 'relative',
+    height: '85%',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
   characterNameLabel: {
     position: 'absolute',

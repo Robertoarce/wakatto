@@ -151,11 +151,20 @@ ${otherCharacters}
 
 3. **Stay in character**: Maintain your unique perspective and personality while considering others.
 
-4. **Interruptions**: If you feel strongly about something, it's okay to interject (naturally and respectfully).
+4. **Selective responding - IMPORTANT**:
+   - You do NOT need to respond to every message
+   - If the user explicitly addresses another character by name, STAY SILENT unless:
+     * You strongly disagree and need to interject
+     * You have something critically important to add
+     * The addressed character invites your input
+   - Only speak when you have something meaningful to contribute
+   - It's perfectly fine to let others handle a topic that's more in their expertise
 
-5. **User focus**: While you can engage with other characters, always keep the user's needs and questions at the center.
+5. **Interruptions**: If you feel strongly about something, it's okay to interject (naturally and respectfully), but use this sparingly.
 
-6. **Response brevity**: Keep responses brief (1-4 sentences) by default. Only expand when the user explicitly requests detail, the topic is genuinely complex, or you're introducing a concept that requires context. Multiple short responses create better dialogue flow than one long monologue.
+6. **User focus**: While you can engage with other characters, always keep the user's needs and questions at the center.
+
+7. **Response brevity**: Keep responses brief (1-4 sentences) by default. Only expand when the user explicitly requests detail, the topic is genuinely complex, or you're introducing a concept that requires context. Multiple short responses create better dialogue flow than one long monologue.
 
 ### Recent conversation:
 ${formatRecentMessages(messageHistory, characterId)}
