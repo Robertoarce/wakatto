@@ -5,12 +5,19 @@
  * The LLM orchestrates the entire conversation including interruptions, gestures,
  * and character interactions.
  *
+ * Now includes ANIMATED SCENE ORCHESTRATION:
+ * - LLM generates precise animation timelines
+ * - Multi-segment animations per character
+ * - Real-time choreography with ms timing
+ * - Non-verbal cues and facial expressions
+ *
  * BENEFITS:
  * - Cost efficient (1 API call instead of 2-3)
  * - Faster (no sequential delays)
  * - Better coordination (LLM plans entire conversation)
  * - Natural interruptions
  * - Coordinated gestures between characters
+ * - Cinematic animation sequences
  *
  * TRADE-OFFS:
  * - Less distinct character voices (single context)
@@ -22,19 +29,32 @@ import { generateAIResponse } from './aiService';
 import { getCharacter, getCharacterPrompt } from '../config/characters';
 import { formatGesturesForPrompt } from '../config/characterGestures';
 import { ConversationMessage, CharacterResponse } from './multiCharacterConversation';
+import {
+  OrchestrationScene,
+  parseOrchestrationScene,
+  createFallbackScene,
+  fillGapsForNonSpeakers,
+  getAnimationsList,
+  getLookDirectionsList,
+  getEyeStatesList,
+  getMouthStatesList,
+  getTimingGuidelines
+} from './animationOrchestration';
 
 export interface OrchestrationConfig {
   maxResponders: number; // Max characters that can respond
   includeGestures: boolean; // Include gesture system
   includeInterruptions: boolean; // Allow interruptions
   verbosity: 'brief' | 'balanced' | 'detailed'; // Response length
+  enableAnimatedScene: boolean; // Use new animated scene format
 }
 
 const DEFAULT_CONFIG: OrchestrationConfig = {
   maxResponders: 3,
   includeGestures: true,
   includeInterruptions: true,
-  verbosity: 'balanced'
+  verbosity: 'balanced',
+  enableAnimatedScene: true // Default to new animated format
 };
 
 interface OrchestrationResponse {
@@ -116,8 +136,253 @@ export async function generateSingleCallOrchestration(
   }
 }
 
+// ============================================
+// ANIMATED SCENE ORCHESTRATION
+// ============================================
+
 /**
- * Build the orchestration system prompt
+ * Generate multi-character animated scene in a single LLM call
+ * Returns a fully choreographed scene with animation timelines
+ */
+export async function generateAnimatedSceneOrchestration(
+  userMessage: string,
+  selectedCharacters: string[],
+  messageHistory: ConversationMessage[],
+  config: Partial<OrchestrationConfig> = {}
+): Promise<{ scene: OrchestrationScene; responses: CharacterResponse[] }> {
+  const finalConfig = { ...DEFAULT_CONFIG, ...config, enableAnimatedScene: true };
+
+  // Set available characters for parsing
+  setAvailableCharactersForParsing(selectedCharacters);
+
+  // Build the animated scene prompt
+  const animatedPrompt = buildAnimatedScenePrompt(
+    selectedCharacters,
+    messageHistory,
+    finalConfig
+  );
+
+  // Format message history for context
+  const conversationMessages = formatConversationHistory(messageHistory);
+
+  // Add user's current message
+  conversationMessages.push({
+    role: 'user',
+    content: userMessage
+  });
+
+  console.log('[AnimatedOrch] Generating animated scene for', selectedCharacters.length, 'characters');
+
+  try {
+    // Single API call generates the entire scene
+    const rawResponse = await generateAIResponse(
+      conversationMessages,
+      animatedPrompt,
+      'orchestrator'
+    );
+
+    console.log('[AnimatedOrch] Raw response:', rawResponse.substring(0, 500) + '...');
+
+    // Try to parse as animated scene
+    let scene = parseOrchestrationScene(rawResponse, selectedCharacters);
+
+    if (!scene) {
+      console.warn('[AnimatedOrch] Failed to parse animated scene, falling back to simple format');
+      
+      // Try to parse as old format and convert
+      const oldFormatResult = parseOrchestrationResponse(rawResponse);
+      const responses = oldFormatResult.responses.map(resp => ({
+        characterId: resp.character,
+        content: resp.content
+      }));
+      
+      scene = createFallbackScene(responses, selectedCharacters);
+    }
+
+    // Fill gaps for non-speaking characters
+    scene = fillGapsForNonSpeakers(scene, selectedCharacters);
+
+    // Extract CharacterResponse for backward compatibility
+    const characterResponses: CharacterResponse[] = scene.timelines.map(timeline => ({
+      characterId: timeline.characterId,
+      content: timeline.content,
+      gesture: timeline.segments[0]?.animation,
+      isInterruption: false,
+      isReaction: false,
+      timing: timeline.startDelay === 0 ? 'immediate' : 'delayed'
+    }));
+
+    console.log('[AnimatedOrch] Generated scene with', scene.timelines.length, 'timelines, duration:', scene.sceneDuration, 'ms');
+
+    return { scene, responses: characterResponses };
+
+  } catch (error) {
+    console.error('[AnimatedOrch] Orchestration failed:', error);
+    throw new Error(`Failed to generate animated scene: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/**
+ * Build the animated scene prompt for LLM
+ */
+function buildAnimatedScenePrompt(
+  selectedCharacters: string[],
+  messageHistory: ConversationMessage[],
+  config: OrchestrationConfig
+): string {
+  // Get character profiles
+  const characterProfiles = selectedCharacters.map((charId, index) => {
+    const character = getCharacter(charId);
+    const basePrompt = getCharacterPrompt(character);
+    return `
+### ${character.name} (ID: ${charId}, Position: ${index === 0 ? 'left' : index === 1 ? 'center' : 'right'})
+${character.description}
+
+Therapeutic Approach:
+${basePrompt}
+`;
+  }).join('\n');
+
+  const verbosityGuide = {
+    brief: '1-2 sentences per response (~40-80 characters)',
+    balanced: '2-4 sentences per response (~80-200 characters)',
+    detailed: '3-5 sentences per response (~150-300 characters)'
+  }[config.verbosity];
+
+  // Build character change notification
+  const characterChangeNote = buildCharacterChangeNotification(messageHistory, selectedCharacters);
+
+  return `# Animated Multi-Character Scene Orchestrator
+
+You are directing an ANIMATED conversation scene between multiple AI characters and a user.
+Your output will control 3D character animations in real-time!
+
+## Characters in This Scene
+${characterProfiles}
+${characterChangeNote}
+
+## Animation System
+
+### Available Body Animations
+${getAnimationsList()}
+
+### Look Directions (where eyes/head point)
+${getLookDirectionsList()}
+
+### Eye States
+${getEyeStatesList()}
+
+### Mouth States (when not talking)
+${getMouthStatesList()}
+
+### Timing Guidelines
+${getTimingGuidelines()}
+
+## Your Task
+
+Create a CINEMATIC conversation scene with precise animation choreography:
+
+1. **Character Voice**: Maintain unique perspectives, CASUAL and conversational
+2. **Casual Tone**: Like friends chatting - use contractions, be warm and natural
+3. **Animation Flow**: 
+   - Start with a reaction/thinking animation before speaking
+   - Use "talking" animation when revealing text
+   - End with a subtle expression (nod, smile, idle)
+4. **Timing**: Calculate durations based on text length (~80ms per character when talking)
+5. **Non-verbal Cues**: Use look directions and expressions to show attention
+6. **Response Length**: ${verbosityGuide}
+
+## CRITICAL: Output Format
+
+Respond with VALID JSON only (no markdown code blocks, no extra text):
+
+{
+  "scene": {
+    "totalDuration": 12000,
+    "characters": [
+      {
+        "character": "character_id_here",
+        "content": "The full text response without character name prefix",
+        "startDelay": 0,
+        "timeline": [
+          {
+            "animation": "thinking",
+            "duration": 1500,
+            "look": "up",
+            "eyes": "open",
+            "mouth": "closed"
+          },
+          {
+            "animation": "talking",
+            "duration": 4000,
+            "talking": true,
+            "textRange": [0, 50],
+            "look": "center"
+          },
+          {
+            "animation": "idle",
+            "duration": 1000,
+            "mouth": "smile",
+            "look": "at_right_character"
+          }
+        ]
+      },
+      {
+        "character": "second_character_id",
+        "content": "Second character's response text",
+        "startDelay": 6500,
+        "timeline": [
+          {
+            "animation": "lean_forward",
+            "duration": 800,
+            "look": "at_left_character"
+          },
+          {
+            "animation": "talking",
+            "duration": 3000,
+            "talking": true,
+            "textRange": [0, 35]
+          },
+          {
+            "animation": "nod",
+            "duration": 700,
+            "mouth": "smile"
+          }
+        ]
+      }
+    ]
+  }
+}
+
+## Animation Rules
+
+1. **"character" field**: Must be the CHARACTER ID (like "freud" or "jung"), NOT the display name
+2. **"content" field**: Full response text - NO character name prefix like "[Freud]:"
+3. **"startDelay"**: Milliseconds before this character starts (0 for first speaker)
+4. **"timeline"**: Array of animation segments that play sequentially
+5. **"textRange"**: [startIndex, endIndex] of text revealed during "talking" segments
+6. **"talking": true**: Only on segments where mouth should animate for speech
+7. **"look"**: Where character looks - use "at_left_character" or "at_right_character" for other characters
+8. **Duration calculation**: 
+   - Thinking: 1000-2000ms
+   - Talking: ~80ms × text length
+   - Reactions: 500-1500ms
+
+## Scene Guidelines
+
+- Include ${Math.min(config.maxResponders, selectedCharacters.length)} characters maximum
+- First character starts at "startDelay": 0
+- Add 500-1000ms gap between character responses
+- Total scene duration = last character's startDelay + their timeline duration
+- If user addresses specific character, ONLY that character responds
+- Characters should look at whoever is speaking
+${config.includeInterruptions ? '- Characters can interrupt by overlapping startDelay (use carefully!)' : ''}
+
+Generate the animated scene now.`;
+}
+
+/**
+ * Build the orchestration system prompt (LEGACY - kept for backward compatibility)
  */
 function buildOrchestrationPrompt(
   selectedCharacters: string[],

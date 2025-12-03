@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ChatInterface } from '../components/ChatInterface';
@@ -25,6 +25,8 @@ import {
   ConversationMessage
 } from '../services/multiCharacterConversation';
 import { generateHybridResponse } from '../services/hybridOrchestration';
+import { generateAnimatedSceneOrchestration } from '../services/singleCallOrchestration';
+import { OrchestrationScene, createFallbackScene, fillGapsForNonSpeakers } from '../services/animationOrchestration';
 import { ORCHESTRATION_CONFIG } from '../config/llmConfig';
 import { generateConversationTitle } from '../services/conversationTitleGenerator';
 import SettingsScreen from '../screens/SettingsScreen';
@@ -112,6 +114,7 @@ export default function MainTabs() {
   };
 
   const [isLoadingAI, setIsLoadingAI] = React.useState(false);
+  const [animationScene, setAnimationScene] = useState<OrchestrationScene | null>(null);
 
   const handleSendMessage = async (content: string, selectedCharacters: string[]) => {
     console.log('[MainTabs] handleSendMessage called with selectedCharacters:', selectedCharacters);
@@ -160,10 +163,13 @@ export default function MainTabs() {
         }));
 
         try {
-          // Use hybrid orchestration for all multi-character conversations
+          // Clear previous animation scene
+          setAnimationScene(null);
+
+          // Use animated scene orchestration for all multi-character conversations
           if (selectedCharacters.length > 1) {
-            // Multi-character mode: Hybrid orchestration (single-call by default with fallback)
-            console.log('[Chat] Using hybrid orchestration mode with:', selectedCharacters);
+            // Multi-character mode: Animated scene orchestration
+            console.log('[Chat] Using animated scene orchestration with:', selectedCharacters);
             console.log('[Chat] Orchestration config:', {
               mode: ORCHESTRATION_CONFIG.mode,
               maxResponders: ORCHESTRATION_CONFIG.singleCall.maxResponders,
@@ -171,32 +177,73 @@ export default function MainTabs() {
               includeInterruptions: ORCHESTRATION_CONFIG.singleCall.includeInterruptions
             });
 
-            const characterResponses = await generateHybridResponse(
-              content,
-              selectedCharacters,
-              conversationHistory
-            );
+            try {
+              // Generate animated scene with timelines
+              const { scene, responses: characterResponses } = await generateAnimatedSceneOrchestration(
+                content,
+                selectedCharacters,
+                conversationHistory
+              );
 
-            // Save each character's response with gesture information
-            for (const response of characterResponses) {
-              console.log(`[Chat] Saving message for character ${response.characterId}:`, {
-                content: response.content.substring(0, 50) + '...',
-                gesture: response.gesture,
-                isInterruption: response.isInterruption,
-                isReaction: response.isReaction
+              console.log('[Chat] Generated animated scene:', {
+                duration: scene.sceneDuration,
+                timelines: scene.timelines.length,
+                nonSpeakers: Object.keys(scene.nonSpeakerBehavior).length
               });
 
-              await dispatch(saveMessage(
-                conversation.id,
-                'assistant',
-                response.content,
-                response.characterId
-              ) as any);
-            }
+              // Start animation playback
+              setAnimationScene(scene);
 
-            console.log(`[Chat] Generated ${characterResponses.length} responses from characters:`, characterResponses.map(r => r.characterId));
+              // Save each character's response
+              for (const response of characterResponses) {
+                console.log(`[Chat] Saving message for character ${response.characterId}:`, {
+                  content: response.content.substring(0, 50) + '...',
+                  gesture: response.gesture
+                });
+
+                await dispatch(saveMessage(
+                  conversation.id,
+                  'assistant',
+                  response.content,
+                  response.characterId
+                ) as any);
+              }
+
+              console.log(`[Chat] Generated ${characterResponses.length} animated responses`);
+
+            } catch (animError) {
+              console.warn('[Chat] Animated orchestration failed, falling back to hybrid:', animError);
+              
+              // Fallback to hybrid orchestration
+              const characterResponses = await generateHybridResponse(
+                content,
+                selectedCharacters,
+                conversationHistory
+              );
+
+              // Create fallback scene for animation
+              const fallbackResponses = characterResponses.map(r => ({
+                characterId: r.characterId,
+                content: r.content
+              }));
+              const fallbackScene = fillGapsForNonSpeakers(
+                createFallbackScene(fallbackResponses, selectedCharacters),
+                selectedCharacters
+              );
+              setAnimationScene(fallbackScene);
+
+              // Save responses
+              for (const response of characterResponses) {
+                await dispatch(saveMessage(
+                  conversation.id,
+                  'assistant',
+                  response.content,
+                  response.characterId
+                ) as any);
+              }
+            }
           } else {
-            // Single character mode: traditional response
+            // Single character mode: traditional response with simple animation
             console.log('[Chat] Using single character mode:', selectedCharacters[0]);
 
             const aiResponse = await generateSingleCharacterResponse(
@@ -204,6 +251,13 @@ export default function MainTabs() {
               selectedCharacters[0],
               conversationHistory
             );
+
+            // Create simple animation scene for single character
+            const singleCharScene = fillGapsForNonSpeakers(
+              createFallbackScene([{ characterId: selectedCharacters[0], content: aiResponse }], selectedCharacters),
+              selectedCharacters
+            );
+            setAnimationScene(singleCharScene);
 
             await dispatch(saveMessage(
               conversation.id,
@@ -279,6 +333,7 @@ export default function MainTabs() {
                 isLoading={isLoadingAI}
                 onEditMessage={onEditMessage}
                 onDeleteMessage={onDeleteMessage}
+                animationScene={animationScene}
               />
             )}
           </Tab.Screen>

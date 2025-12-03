@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, PanResponder, Dimensions, Animated } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCustomAlert } from './CustomAlert';
-import { CharacterDisplay3D } from './CharacterDisplay3D';
+import { CharacterDisplay3D, AnimationState, ComplementaryAnimation } from './CharacterDisplay3D';
 import { AnimatedArrowPointer } from './AnimatedArrowPointer';
 import { DEFAULT_CHARACTER, getAllCharacters, getCharacter } from '../config/characters';
 import { getCustomWakattors } from '../services/customWakattorsService';
@@ -10,6 +10,8 @@ import { getVoiceRecorder, RecordingState } from '../services/voiceRecording';
 import { transcribeAudio, isWebSpeechSupported } from '../services/speechToText';
 import { LiveSpeechRecognition, LiveTranscriptionResult } from '../services/speechToTextLive';
 import { detectBrowser, getBrowserGuidance, isVoiceSupported } from '../utils/browserDetection';
+import { getPlaybackEngine, PlaybackState, PlaybackStatus } from '../services/animationPlaybackEngine';
+import { CharacterAnimationState, OrchestrationScene } from '../services/animationOrchestration';
 
 interface Message {
   id: string;
@@ -27,6 +29,20 @@ interface ChatInterfaceProps {
   isLoading?: boolean;
   onEditMessage?: (messageId: string, newContent: string) => void;
   onDeleteMessage?: (messageId: string) => void;
+  // Animation orchestration
+  animationScene?: OrchestrationScene | null;
+}
+
+// Export function to start animation playback from external components
+export function startAnimationPlayback(scene: OrchestrationScene): void {
+  const engine = getPlaybackEngine();
+  engine.play(scene);
+}
+
+// Export function to stop animation playback
+export function stopAnimationPlayback(): void {
+  const engine = getPlaybackEngine();
+  engine.stop();
 }
 
 // Character name label component with fade animation
@@ -200,7 +216,7 @@ function FloatingCharacterWrapper({
   );
 }
 
-export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage }: ChatInterfaceProps) {
+export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage, animationScene }: ChatInterfaceProps) {
   const { showAlert, AlertComponent } = useCustomAlert();
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -233,6 +249,81 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [availableCharacters, setAvailableCharacters] = useState(getAllCharacters()); // Load from Wakattors database
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(true);
   const [talkingCharacterId, setTalkingCharacterId] = useState<string | null>(null); // Track which character is currently talking
+  
+  // Animation playback state
+  const [playbackState, setPlaybackState] = useState<{
+    isPlaying: boolean;
+    characterStates: Map<string, CharacterAnimationState>;
+  }>({ isPlaying: false, characterStates: new Map() });
+  const playbackEngineRef = useRef(getPlaybackEngine());
+  
+  // Track which messages are being animated (by characterId -> messageId)
+  const [animatingMessages, setAnimatingMessages] = useState<Map<string, string>>(new Map());
+
+  // Subscribe to animation playback engine
+  useEffect(() => {
+    const engine = playbackEngineRef.current;
+    
+    const unsubscribe = engine.subscribe((state: PlaybackState) => {
+      setPlaybackState({
+        isPlaying: state.status === 'playing',
+        characterStates: state.characterStates
+      });
+      
+      // When playback completes, ensure we have all text revealed
+      if (state.status === 'complete') {
+        console.log('[ChatInterface] Animation playback complete');
+      }
+    });
+    
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  // Start animation playback when a new scene is provided
+  useEffect(() => {
+    if (animationScene) {
+      console.log('[ChatInterface] Starting animation scene playback', {
+        duration: animationScene.sceneDuration,
+        timelines: animationScene.timelines.length
+      });
+      playbackEngineRef.current.play(animationScene);
+    }
+  }, [animationScene]);
+
+  // Track which messages are being animated based on the current scene
+  useEffect(() => {
+    if (animationScene && messages.length > 0) {
+      // Find the most recent messages for each character in the scene
+      const newAnimatingMessages = new Map<string, string>();
+      
+      for (const timeline of animationScene.timelines) {
+        // Find the most recent message from this character
+        const charMessages = [...messages]
+          .reverse()
+          .filter(m => m.role === 'assistant' && m.characterId === timeline.characterId);
+        
+        if (charMessages.length > 0) {
+          newAnimatingMessages.set(timeline.characterId, charMessages[0].id);
+          console.log(`[ChatInterface] Animating message ${charMessages[0].id} for ${timeline.characterId}`);
+        }
+      }
+      
+      setAnimatingMessages(newAnimatingMessages);
+    }
+  }, [animationScene, messages]);
+
+  // Clear animating messages when playback completes
+  useEffect(() => {
+    if (!playbackState.isPlaying && animatingMessages.size > 0) {
+      // Give a small delay to ensure final state is rendered
+      const timeout = setTimeout(() => {
+        setAnimatingMessages(new Map());
+      }, 500);
+      return () => clearTimeout(timeout);
+    }
+  }, [playbackState.isPlaying, animatingMessages.size]);
 
   // Load characters from user's Wakattors collection (up to 20)
   useEffect(() => {
@@ -813,6 +904,30 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
             )}
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.characterSelectorScroll}>
+            {/* First show selected characters that are NOT in the collection (conversation-only) */}
+            {selectedCharacters
+              .filter(charId => !availableCharacters.some(c => c.id === charId))
+              .map((characterId) => {
+                const character = getCharacter(characterId);
+                return (
+                  <TouchableOpacity
+                    key={characterId}
+                    style={[
+                      styles.characterSelectorCard,
+                      styles.characterSelectorCardActive,
+                      styles.characterSelectorCardConversationOnly,
+                    ]}
+                    onPress={() => toggleCharacter(characterId)}
+                  >
+                    <View style={[styles.characterSelectorIndicator, { backgroundColor: character.color }]} />
+                    <Text style={[styles.characterSelectorName, styles.characterSelectorNameActive]}>
+                      {character.name}
+                    </Text>
+                    <Ionicons name="close-circle" size={20} color="#ef4444" />
+                  </TouchableOpacity>
+                );
+              })}
+            {/* Then show all characters from the collection */}
             {availableCharacters.map((character) => {
               const isSelected = selectedCharacters.includes(character.id);
               return (
@@ -911,13 +1026,23 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
                     }
                   ]}
                 >
-                  <CharacterDisplay3D
-                    character={character}
-                    isActive={isLoading && talkingCharacterId === character.id}
-                    isTalking={isLoading && talkingCharacterId === character.id}
-                    showName={showCharacterNames}
-                    nameKey={nameKey}
-                  />
+                  {(() => {
+                    // Check if we have playback state for this character
+                    const charPlaybackState = playbackState.characterStates.get(characterId);
+                    const usePlayback = playbackState.isPlaying && charPlaybackState;
+                    
+                    return (
+                      <CharacterDisplay3D
+                        character={character}
+                        isActive={usePlayback ? charPlaybackState.isActive : (isLoading && talkingCharacterId === character.id)}
+                        animation={usePlayback ? charPlaybackState.animation : undefined}
+                        isTalking={usePlayback ? charPlaybackState.isTalking : (isLoading && talkingCharacterId === character.id)}
+                        complementary={usePlayback ? charPlaybackState.complementary : undefined}
+                        showName={showCharacterNames}
+                        nameKey={nameKey}
+                      />
+                    );
+                  })()}
                   {/* Character Name Label with Fade Animation */}
                   <CharacterNameLabel
                     key={`name-${nameKey}`}
@@ -1000,7 +1125,28 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
                           {character.name}
                         </Text>
                       )}
-                      <Text style={styles.messageText}>{message.content}</Text>
+                      {(() => {
+                        // Check if this message is being animated
+                        const isAnimating = message.characterId && 
+                          animatingMessages.get(message.characterId) === message.id &&
+                          playbackState.isPlaying;
+                        
+                        if (isAnimating && message.characterId) {
+                          // Get revealed text from playback engine
+                          const revealedText = playbackEngineRef.current.getRevealedText(message.characterId);
+                          // Show cursor if text is still being revealed
+                          const showCursor = revealedText.length < message.content.length;
+                          return (
+                            <Text style={styles.messageText}>
+                              {revealedText || ' '}
+                              {showCursor && <Text style={styles.typingCursor}>|</Text>}
+                            </Text>
+                          );
+                        }
+                        
+                        // Show full text when not animating
+                        return <Text style={styles.messageText}>{message.content}</Text>;
+                      })()}
                       {message.created_at && (
                         <Text style={styles.messageTimestamp}>
                           {formatTimestamp(message.created_at)}
@@ -1176,6 +1322,11 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     marginBottom: 4,
+  },
+  typingCursor: {
+    color: '#8b5cf6',
+    fontWeight: 'bold',
+    opacity: 0.8,
   },
   messageTimestamp: {
     color: 'rgba(255, 255, 255, 0.5)',
@@ -1418,6 +1569,10 @@ const styles = StyleSheet.create({
   },
   characterSelectorCardActive: {
     backgroundColor: '#3f3f46',
+  },
+  characterSelectorCardConversationOnly: {
+    borderColor: '#ef4444',
+    borderStyle: 'dashed',
   },
   characterSelectorIndicator: {
     width: 8,
