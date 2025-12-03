@@ -94,9 +94,27 @@ interface LLMCharacterResponse {
 }
 
 /**
+ * ARQ (Attentive Reasoning Query) reasoning from LLM
+ * Used for enforcement and debugging
+ */
+interface ARQReasoning {
+  context?: string;
+  characterSelection?: string;
+  voiceCheck?: Record<string, string>;
+  formatValidation?: {
+    usingCharacterIds?: boolean;
+    separateObjects?: boolean;
+    noNamePrefixes?: boolean;
+    cleanContent?: boolean;
+  };
+  decision?: string;
+}
+
+/**
  * Raw LLM response format for the entire scene
  */
 interface LLMSceneResponse {
+  reasoning?: ARQReasoning;
   scene: {
     totalDuration: number;
     characters: LLMCharacterResponse[];
@@ -240,6 +258,61 @@ function clampDuration(duration: number): number {
 // ============================================
 
 /**
+ * Split combined content that contains multiple character responses
+ * Detects patterns like "[Character Name]: text" and splits them
+ */
+function splitCombinedContent(
+  content: string,
+  selectedCharacters: string[]
+): Array<{ characterId: string; content: string }> | null {
+  // Pattern to detect character responses embedded in content
+  // Matches [Character Name]: or Character Name: at start of lines
+  const characterPattern = /\[([^\]]+)\]:\s*|\n([A-Z][a-zA-Z\s]+):\s*/g;
+  
+  // Check if content has multiple character prefixes
+  const matches = content.match(/\[([^\]]+)\]:/g);
+  if (!matches || matches.length <= 1) {
+    return null; // Not a combined response
+  }
+  
+  console.log('[AnimOrch] Detected combined response with', matches.length, 'characters');
+  
+  // Split by character prefix patterns
+  const splitResponses: Array<{ characterId: string; content: string }> = [];
+  
+  // Build a regex that matches character names in brackets
+  const splitPattern = /\[([^\]]+)\]:\s*/;
+  const parts = content.split(/(?=\[[^\]]+\]:)/);
+  
+  for (const part of parts) {
+    const trimmedPart = part.trim();
+    if (!trimmedPart) continue;
+    
+    const match = trimmedPart.match(splitPattern);
+    if (match) {
+      const characterName = match[1];
+      const responseText = trimmedPart.replace(splitPattern, '').trim();
+      
+      if (responseText) {
+        // Resolve character name to ID
+        const characterId = resolveCharacterId(characterName, selectedCharacters);
+        if (characterId) {
+          splitResponses.push({
+            characterId,
+            content: responseText
+          });
+        }
+      }
+    } else if (splitResponses.length === 0 && trimmedPart) {
+      // First part without prefix - might be the main character's content
+      // We'll handle this in the caller
+    }
+  }
+  
+  return splitResponses.length > 1 ? splitResponses : null;
+}
+
+/**
  * Parse raw LLM response into OrchestrationScene
  */
 export function parseOrchestrationScene(
@@ -251,26 +324,76 @@ export function parseOrchestrationScene(
     let cleaned = rawResponse.trim();
     cleaned = cleaned.replace(/```json\s*/g, '').replace(/```\s*/g, '');
     
-    // Try to find scene JSON
-    const sceneMatch = cleaned.match(/\{[\s\S]*"scene"[\s\S]*\}/);
-    if (sceneMatch) {
-      cleaned = sceneMatch[0];
+    // Try to find the full JSON object (may include reasoning)
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleaned = jsonMatch[0];
     }
     
     const parsed: LLMSceneResponse = JSON.parse(cleaned);
+    
+    // Extract and log ARQ reasoning if present
+    if (parsed.reasoning) {
+      console.log('[ARQ] ===== Reasoning Analysis =====');
+      console.log('[ARQ] Context:', parsed.reasoning.context || 'Not provided');
+      console.log('[ARQ] Character Selection:', parsed.reasoning.characterSelection || 'Not provided');
+      if (parsed.reasoning.voiceCheck) {
+        console.log('[ARQ] Voice Check:', JSON.stringify(parsed.reasoning.voiceCheck, null, 2));
+      }
+      if (parsed.reasoning.formatValidation) {
+        const fv = parsed.reasoning.formatValidation;
+        console.log('[ARQ] Format Validation:', {
+          usingCharacterIds: fv.usingCharacterIds ?? 'Not checked',
+          separateObjects: fv.separateObjects ?? 'Not checked',
+          noNamePrefixes: fv.noNamePrefixes ?? 'Not checked',
+          cleanContent: fv.cleanContent ?? 'Not checked'
+        });
+      }
+      console.log('[ARQ] Decision:', parsed.reasoning.decision || 'Not provided');
+      console.log('[ARQ] ================================');
+    } else {
+      console.warn('[ARQ] No reasoning provided by LLM - enforcement may be weaker');
+    }
     
     if (!parsed.scene || !Array.isArray(parsed.scene.characters)) {
       console.error('[AnimOrch] Invalid scene structure');
       return null;
     }
     
-    // Parse each character timeline
+    // Parse each character timeline, checking for combined responses
     const timelines: CharacterTimeline[] = [];
     
     for (const charResponse of parsed.scene.characters) {
-      const timeline = parseCharacterTimeline(charResponse, selectedCharacters);
-      if (timeline) {
-        timelines.push(timeline);
+      // Check if this response contains multiple character responses combined
+      const splitResponses = splitCombinedContent(charResponse.content, selectedCharacters);
+      
+      if (splitResponses && splitResponses.length > 1) {
+        // LLM combined multiple responses - split them
+        console.log('[AnimOrch] Splitting combined response into', splitResponses.length, 'separate timelines');
+        
+        let currentDelay = charResponse.startDelay || 0;
+        for (const resp of splitResponses) {
+          const segments = createDefaultTimeline(resp.content);
+          const totalDuration = segments.reduce((sum, s) => sum + s.duration, 0);
+          
+          timelines.push({
+            characterId: resp.characterId,
+            content: resp.content,
+            totalDuration,
+            segments,
+            startDelay: currentDelay
+          });
+          
+          currentDelay += totalDuration + 500; // 500ms gap between
+        }
+      } else {
+        // Normal single-character response
+        const timeline = parseCharacterTimeline(charResponse, selectedCharacters);
+        if (timeline) {
+          // Also check if content has character prefix and clean it
+          timeline.content = cleanCharacterPrefix(timeline.content);
+          timelines.push(timeline);
+        }
       }
     }
     
@@ -278,6 +401,9 @@ export function parseOrchestrationScene(
       console.error('[AnimOrch] No valid timelines parsed');
       return null;
     }
+    
+    // Validate parsed timelines for guideline violations
+    validateTimelines(timelines, selectedCharacters);
     
     // Calculate scene duration
     const sceneDuration = Math.max(
@@ -294,6 +420,68 @@ export function parseOrchestrationScene(
   } catch (error) {
     console.error('[AnimOrch] Failed to parse scene:', error);
     return null;
+  }
+}
+
+/**
+ * Clean character name prefix from content
+ */
+function cleanCharacterPrefix(content: string): string {
+  // Remove [Character Name]: prefix
+  let cleaned = content.replace(/^\[[\w\s]+\]:\s*/i, '');
+  // Remove Character Name: prefix at the start
+  cleaned = cleaned.replace(/^[\w\s]+:\s*(?=\*|[A-Z])/i, '');
+  return cleaned.trim();
+}
+
+/**
+ * Validate parsed timelines for guideline violations
+ * Logs warnings for debugging but doesn't block processing
+ */
+function validateTimelines(
+  timelines: CharacterTimeline[],
+  selectedCharacters: string[]
+): void {
+  const violations: string[] = [];
+  const characterIds = new Set<string>();
+  
+  for (const timeline of timelines) {
+    // Check for duplicate character IDs (might indicate improper splitting)
+    if (characterIds.has(timeline.characterId)) {
+      violations.push(`Duplicate character ID: ${timeline.characterId} appears multiple times`);
+    }
+    characterIds.add(timeline.characterId);
+    
+    // Check if content still contains character name prefixes
+    if (/^\[[\w\s]+\]:/.test(timeline.content)) {
+      violations.push(`Content for ${timeline.characterId} starts with [Name]: prefix - should be clean text`);
+    }
+    
+    // Check if content contains multiple character responses
+    const multiCharPattern = /\[[\w\s]+\]:/g;
+    const matches = timeline.content.match(multiCharPattern);
+    if (matches && matches.length > 1) {
+      violations.push(`Content for ${timeline.characterId} contains ${matches.length} character prefixes - responses not properly split`);
+    }
+    
+    // Check if character ID is valid (in selected characters)
+    if (!selectedCharacters.includes(timeline.characterId)) {
+      violations.push(`Character ID "${timeline.characterId}" not in selected characters list`);
+    }
+    
+    // Check for empty content
+    if (!timeline.content || timeline.content.trim().length === 0) {
+      violations.push(`Empty content for character ${timeline.characterId}`);
+    }
+  }
+  
+  // Log validation results
+  if (violations.length > 0) {
+    console.warn('[ARQ-Validation] ===== Guideline Violations Detected =====');
+    violations.forEach((v, i) => console.warn(`[ARQ-Validation] ${i + 1}. ${v}`));
+    console.warn('[ARQ-Validation] ==========================================');
+  } else {
+    console.log('[ARQ-Validation] All guidelines passed - responses properly formatted');
   }
 }
 

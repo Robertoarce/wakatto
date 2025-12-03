@@ -292,11 +292,40 @@ Create a CINEMATIC conversation scene with precise animation choreography:
 5. **Non-verbal Cues**: Use look directions and expressions to show attention
 6. **Response Length**: ${verbosityGuide}
 
+## REASONING (Required - Think through these BEFORE generating the scene)
+
+You MUST include a "reasoning" object that answers these questions:
+
+1. **Context Assessment**: What is the user asking? What's the emotional tone?
+2. **Character Selection**: Which characters have relevant expertise for this topic? Should all respond or just some?
+3. **Voice Check**: For each responding character, what makes their perspective unique? How will they differ?
+4. **Format Validation Checklist**:
+   - Am I using character IDs (like "albert_einstein") NOT display names (like "Albert Einstein")?
+   - Is each character's response in a SEPARATE object in the characters array?
+   - Did I avoid putting [Character Name]: prefixes inside content fields?
+   - Is each content field ONLY that character's response text?
+5. **Final Decision**: Which characters will respond and why?
+
 ## CRITICAL: Output Format
 
 Respond with VALID JSON only (no markdown code blocks, no extra text):
 
 {
+  "reasoning": {
+    "context": "User is asking about X. Tone is Y.",
+    "characterSelection": "Characters A and B have relevant expertise because...",
+    "voiceCheck": {
+      "character_id_1": "Will respond with perspective on...",
+      "character_id_2": "Will contrast by focusing on..."
+    },
+    "formatValidation": {
+      "usingCharacterIds": true,
+      "separateObjects": true,
+      "noNamePrefixes": true,
+      "cleanContent": true
+    },
+    "decision": "Characters X and Y will respond because..."
+  },
   "scene": {
     "totalDuration": 12000,
     "characters": [
@@ -464,11 +493,40 @@ ${config.includeInterruptions ? '   - Interrupt when they feel strongly (mark as
 
 ${gestureSection}
 
+## REASONING (Required - Think through these BEFORE generating responses)
+
+You MUST include a "reasoning" object that answers these questions:
+
+1. **Context Assessment**: What is the user asking? What's the emotional tone or need?
+2. **Character Selection**: Which characters have relevant expertise? Should all respond or just some?
+3. **Voice Check**: For each responding character, what makes their perspective unique?
+4. **Format Validation Checklist**:
+   - Am I using character IDs (like "albert_einstein") NOT display names?
+   - Is each character in a SEPARATE object in the responses array?
+   - Did I avoid putting [Character Name]: prefixes inside content fields?
+   - Is each content field ONLY that single character's response text?
+5. **Final Decision**: Which characters will respond and why?
+
 ## Response Format
 
 Respond with VALID JSON only (no markdown code blocks):
 
 {
+  "reasoning": {
+    "context": "User is asking about X. Tone is Y.",
+    "characterSelection": "Characters A and B are most relevant because...",
+    "voiceCheck": {
+      "character_id_1": "Will focus on...",
+      "character_id_2": "Will contrast by..."
+    },
+    "formatValidation": {
+      "usingCharacterIds": true,
+      "separateObjects": true,
+      "noNamePrefixes": true,
+      "cleanContent": true
+    },
+    "decision": "Characters X and Y will respond because..."
+  },
   "responses": [
     {
       "character": "THE_CHARACTER_ID_NOT_NAME",
@@ -562,6 +620,47 @@ function cleanResponseContent(content: string): string {
 }
 
 /**
+ * Split combined content that contains multiple character responses
+ */
+function splitCombinedContent(
+  content: string,
+  availableCharacters: string[]
+): Array<{ character: string; content: string }> | null {
+  // Check if content has multiple character prefixes like [Name]:
+  const matches = content.match(/\[([^\]]+)\]:/g);
+  if (!matches || matches.length <= 1) {
+    return null;
+  }
+  
+  console.log('[SingleCall] Detected combined response with', matches.length, 'characters');
+  
+  const splitResponses: Array<{ character: string; content: string }> = [];
+  const splitPattern = /\[([^\]]+)\]:\s*/;
+  const parts = content.split(/(?=\[[^\]]+\]:)/);
+  
+  for (const part of parts) {
+    const trimmedPart = part.trim();
+    if (!trimmedPart) continue;
+    
+    const match = trimmedPart.match(splitPattern);
+    if (match) {
+      const characterName = match[1];
+      const responseText = trimmedPart.replace(splitPattern, '').trim();
+      
+      if (responseText) {
+        const characterId = resolveCharacterId(characterName, availableCharacters);
+        splitResponses.push({
+          character: characterId,
+          content: responseText
+        });
+      }
+    }
+  }
+  
+  return splitResponses.length > 1 ? splitResponses : null;
+}
+
+/**
  * Try to resolve character name to ID
  */
 function resolveCharacterId(characterRef: string, availableCharacters: string[]): string {
@@ -602,6 +701,49 @@ export function setAvailableCharactersForParsing(characters: string[]) {
 }
 
 /**
+ * ARQ (Attentive Reasoning Query) reasoning from LLM
+ */
+interface ARQReasoning {
+  context?: string;
+  characterSelection?: string;
+  voiceCheck?: Record<string, string>;
+  formatValidation?: {
+    usingCharacterIds?: boolean;
+    separateObjects?: boolean;
+    noNamePrefixes?: boolean;
+    cleanContent?: boolean;
+  };
+  decision?: string;
+}
+
+/**
+ * Log ARQ reasoning for debugging
+ */
+function logARQReasoning(reasoning: ARQReasoning | undefined): void {
+  if (reasoning) {
+    console.log('[ARQ] ===== Reasoning Analysis =====');
+    console.log('[ARQ] Context:', reasoning.context || 'Not provided');
+    console.log('[ARQ] Character Selection:', reasoning.characterSelection || 'Not provided');
+    if (reasoning.voiceCheck) {
+      console.log('[ARQ] Voice Check:', JSON.stringify(reasoning.voiceCheck, null, 2));
+    }
+    if (reasoning.formatValidation) {
+      const fv = reasoning.formatValidation;
+      console.log('[ARQ] Format Validation:', {
+        usingCharacterIds: fv.usingCharacterIds ?? 'Not checked',
+        separateObjects: fv.separateObjects ?? 'Not checked',
+        noNamePrefixes: fv.noNamePrefixes ?? 'Not checked',
+        cleanContent: fv.cleanContent ?? 'Not checked'
+      });
+    }
+    console.log('[ARQ] Decision:', reasoning.decision || 'Not provided');
+    console.log('[ARQ] ================================');
+  } else {
+    console.warn('[ARQ] No reasoning provided by LLM - enforcement may be weaker');
+  }
+}
+
+/**
  * Parse the orchestration response
  */
 function parseOrchestrationResponse(rawResponse: string): OrchestrationResult {
@@ -613,32 +755,59 @@ function parseOrchestrationResponse(rawResponse: string): OrchestrationResult {
     cleaned = cleaned.replace(/```json\s*/g, '').replace(/```\s*/g, '');
 
     // Try to extract JSON if wrapped in other text
-    const jsonMatch = cleaned.match(/\{[\s\S]*"responses"[\s\S]*\}/);
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       cleaned = jsonMatch[0];
     }
 
     const parsed = JSON.parse(cleaned);
 
+    // Extract and log ARQ reasoning if present
+    logARQReasoning(parsed.reasoning);
+
     // Validate structure
     if (!parsed.responses || !Array.isArray(parsed.responses)) {
       throw new Error('Invalid response structure: missing responses array');
     }
 
-    // Process and clean each response
-    const cleanedResponses = parsed.responses.map((resp: any, idx: number) => {
+    // Process and clean each response, splitting combined responses
+    const cleanedResponses: OrchestrationResponse[] = [];
+    
+    for (const resp of parsed.responses) {
       if (!resp.character || !resp.content) {
-        throw new Error(`Invalid response at index ${idx}: missing character or content`);
+        console.warn('[SingleCall] Skipping response with missing character or content');
+        continue;
       }
       
-      return {
-        ...resp,
-        // Resolve character name to ID if needed
-        character: resolveCharacterId(resp.character, currentAvailableCharacters),
-        // Clean content to remove character name prefixes
-        content: cleanResponseContent(resp.content)
-      };
-    });
+      // Check if this response contains multiple character responses combined
+      const splitResponses = splitCombinedContent(resp.content, currentAvailableCharacters);
+      
+      if (splitResponses && splitResponses.length > 1) {
+        // LLM combined multiple responses - add each separately
+        console.log('[SingleCall] Splitting combined response into', splitResponses.length, 'separate responses');
+        
+        for (let i = 0; i < splitResponses.length; i++) {
+          cleanedResponses.push({
+            character: splitResponses[i].character,
+            content: splitResponses[i].content,
+            gesture: resp.gesture,
+            interrupts: i > 0, // First is not interruption, others might be
+            reactsTo: i > 0 ? splitResponses[i - 1].character : undefined,
+            timing: i === 0 ? 'immediate' : 'delayed'
+          });
+        }
+      } else {
+        // Normal single-character response
+        cleanedResponses.push({
+          ...resp,
+          character: resolveCharacterId(resp.character, currentAvailableCharacters),
+          content: cleanResponseContent(resp.content)
+        });
+      }
+    }
+
+    // Validate responses for guideline violations
+    validateResponses(cleanedResponses, currentAvailableCharacters);
 
     return {
       responses: cleanedResponses,
@@ -648,6 +817,50 @@ function parseOrchestrationResponse(rawResponse: string): OrchestrationResult {
   } catch (error) {
     console.error('[SingleCall] Failed to parse response:', rawResponse);
     throw new Error(`Failed to parse orchestration response: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/**
+ * Validate parsed responses for guideline violations
+ * Logs warnings for debugging but doesn't block processing
+ */
+function validateResponses(
+  responses: OrchestrationResponse[],
+  selectedCharacters: string[]
+): void {
+  const violations: string[] = [];
+  
+  for (const resp of responses) {
+    // Check if content still contains character name prefixes
+    if (/^\[[\w\s]+\]:/.test(resp.content)) {
+      violations.push(`Content for ${resp.character} starts with [Name]: prefix - should be clean text`);
+    }
+    
+    // Check if content contains multiple character responses
+    const multiCharPattern = /\[[\w\s]+\]:/g;
+    const matches = resp.content.match(multiCharPattern);
+    if (matches && matches.length > 1) {
+      violations.push(`Content for ${resp.character} contains ${matches.length} character prefixes - responses not properly split`);
+    }
+    
+    // Check if character ID looks like a display name (has spaces)
+    if (resp.character.includes(' ')) {
+      violations.push(`Character "${resp.character}" looks like a display name - should be an ID`);
+    }
+    
+    // Check for empty content
+    if (!resp.content || resp.content.trim().length === 0) {
+      violations.push(`Empty content for character ${resp.character}`);
+    }
+  }
+  
+  // Log validation results
+  if (violations.length > 0) {
+    console.warn('[ARQ-Validation] ===== Guideline Violations Detected =====');
+    violations.forEach((v, i) => console.warn(`[ARQ-Validation] ${i + 1}. ${v}`));
+    console.warn('[ARQ-Validation] ==========================================');
+  } else {
+    console.log('[ARQ-Validation] All guidelines passed - responses properly formatted');
   }
 }
 

@@ -264,6 +264,11 @@ interface CharacterProps {
   complementary?: ComplementaryAnimation;
 }
 
+// Lerp helper for smooth transitions
+function lerp(current: number, target: number, factor: number): number {
+  return current + (target - current) * factor;
+}
+
 // Blocky Minecraft-style character component
 function Character({ character, isActive, animation = 'idle', isTalking = false, scale = 1, complementary }: CharacterProps) {
   const meshRef = useRef<THREE.Group>(null);
@@ -279,6 +284,9 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
   
   // Animation speed from complementary settings
   const animSpeed = complementary?.speed ?? 1.0;
+  
+  // Transition speed (higher = faster transitions)
+  const transitionSpeed = 0.03;
 
   // Animation system
   React.useEffect(() => {
@@ -288,30 +296,20 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
     const animate = () => {
       const time = Date.now() * 0.001 * animSpeed;
 
-      // Reset to default positions
-      if (meshRef.current) {
-        meshRef.current.position.y = 0;
-        meshRef.current.rotation.x = 0;
-      }
-      if (headRef.current) {
-        headRef.current.rotation.x = 0;
-        headRef.current.rotation.y = 0;
-        headRef.current.rotation.z = 0;
-      }
-      if (leftArmRef.current) {
-        leftArmRef.current.rotation.x = 0;
-        leftArmRef.current.rotation.z = 0;
-      }
-      if (rightArmRef.current) {
-        rightArmRef.current.rotation.x = 0;
-        rightArmRef.current.rotation.z = 0;
-      }
-      if (leftLegRef.current) leftLegRef.current.rotation.x = 0;
-      if (rightLegRef.current) rightLegRef.current.rotation.x = 0;
-
-      // Reset eye scales (for blink/wink)
-      if (leftEyeRef.current) leftEyeRef.current.scale.y = 1;
-      if (rightEyeRef.current) rightEyeRef.current.scale.y = 1;
+      // Target values - we'll lerp towards these
+      let targetMeshY = 0;
+      let targetMeshRotX = 0;
+      let targetHeadRotX = 0;
+      let targetHeadRotY = 0;
+      let targetHeadRotZ = 0;
+      let targetLeftArmRotX = 0;
+      let targetLeftArmRotZ = 0;
+      let targetRightArmRotX = 0;
+      let targetRightArmRotZ = 0;
+      let targetLeftLegRotX = 0;
+      let targetRightLegRotX = 0;
+      let targetLeftEyeScaleY = 1;
+      let targetRightEyeScaleY = 1;
 
       // =========================================
       // COMPLEMENTARY: Look Direction
@@ -347,20 +345,20 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       // =========================================
       switch (complementary?.eyeState) {
         case 'closed':
-          if (leftEyeRef.current) leftEyeRef.current.scale.y = 0.1;
-          if (rightEyeRef.current) rightEyeRef.current.scale.y = 0.1;
+          targetLeftEyeScaleY = 0.1;
+          targetRightEyeScaleY = 0.1;
           break;
         case 'wink_left':
-          if (leftEyeRef.current) leftEyeRef.current.scale.y = 0.1;
+          targetLeftEyeScaleY = 0.1;
           break;
         case 'wink_right':
-          if (rightEyeRef.current) rightEyeRef.current.scale.y = 0.1;
+          targetRightEyeScaleY = 0.1;
           break;
         case 'blink':
           const blinkPhase = Math.sin(time * 8);
           if (blinkPhase > 0.9) {
-            if (leftEyeRef.current) leftEyeRef.current.scale.y = 0.1;
-            if (rightEyeRef.current) rightEyeRef.current.scale.y = 0.1;
+            targetLeftEyeScaleY = 0.1;
+            targetRightEyeScaleY = 0.1;
           }
           break;
       }
@@ -401,397 +399,256 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         mouthRef.current.scale.y = mouthScale;
       }
 
-      // Apply animation based on state (with complementary look direction applied)
+      // Calculate target values based on animation state (with complementary look direction applied)
       switch (animation) {
         case 'idle':
-          if (meshRef.current) {
-            meshRef.current.position.y = Math.sin(time * 0.5) * 0.05;
-          }
-          if (headRef.current) {
-            headRef.current.rotation.y = (isActive ? Math.sin(time * 1.5) * 0.15 : 0) + lookYOffset;
-            headRef.current.rotation.x = lookXOffset;
-          }
+          targetMeshY = Math.sin(time * 0.5) * 0.05;
+          targetHeadRotY = (isActive ? Math.sin(time * 1.5) * 0.15 : 0) + lookYOffset;
+          targetHeadRotX = lookXOffset;
           break;
 
         case 'thinking':
           // Hand on chin, head tilted, slight sway
-          if (meshRef.current) {
-            meshRef.current.position.y = Math.sin(time * 0.3) * 0.03;
-          }
-          if (headRef.current) {
-            headRef.current.rotation.z = Math.sin(time * 0.5) * 0.1 - 0.2;
-            headRef.current.rotation.y = -0.3 + lookYOffset;
-            headRef.current.rotation.x = lookXOffset;
-          }
-          if (rightArmRef.current) {
-            rightArmRef.current.rotation.x = -1.5;
-            rightArmRef.current.rotation.z = 0.3;
-          }
+          targetMeshY = Math.sin(time * 0.3) * 0.03;
+          targetHeadRotZ = Math.sin(time * 0.5) * 0.1 - 0.2;
+          targetHeadRotY = -0.3 + lookYOffset;
+          targetHeadRotX = lookXOffset;
+          targetRightArmRotX = -1.5;
+          targetRightArmRotZ = 0.3;
           break;
 
         case 'talking':
           // Animated head bobbing, hand gestures
-          if (meshRef.current) {
-            meshRef.current.position.y = Math.sin(time * 2) * 0.02;
-          }
-          if (headRef.current) {
-            headRef.current.rotation.x = Math.sin(time * 4) * 0.1 + lookXOffset;
-            headRef.current.rotation.y = lookYOffset;
-          }
-          if (leftArmRef.current) {
-            leftArmRef.current.rotation.x = Math.sin(time * 3) * 0.3 - 0.3;
-          }
-          if (rightArmRef.current) {
-            rightArmRef.current.rotation.x = Math.sin(time * 3 + Math.PI) * 0.3 - 0.3;
-          }
+          targetMeshY = Math.sin(time * 2) * 0.02;
+          targetHeadRotX = Math.sin(time * 4) * 0.1 + lookXOffset;
+          targetHeadRotY = lookYOffset;
+          targetLeftArmRotX = Math.sin(time * 3) * 0.3 - 0.3;
+          targetRightArmRotX = Math.sin(time * 3 + Math.PI) * 0.3 - 0.3;
           break;
 
         case 'confused':
           // Head tilting side to side, scratching head
-          if (headRef.current) {
-            headRef.current.rotation.z = Math.sin(time * 2) * 0.3;
-            headRef.current.rotation.y = Math.sin(time * 1.5) * 0.2 + lookYOffset;
-            headRef.current.rotation.x = lookXOffset;
-          }
-          if (rightArmRef.current) {
-            rightArmRef.current.rotation.x = -1.8 + Math.sin(time * 3) * 0.2;
-            rightArmRef.current.rotation.z = 0.5;
-          }
+          targetHeadRotZ = Math.sin(time * 2) * 0.3;
+          targetHeadRotY = Math.sin(time * 1.5) * 0.2 + lookYOffset;
+          targetHeadRotX = lookXOffset;
+          targetRightArmRotX = -1.8 + Math.sin(time * 3) * 0.2;
+          targetRightArmRotZ = 0.5;
           break;
 
         case 'happy':
           // Bouncing, swaying arms
-          if (meshRef.current) {
-            meshRef.current.position.y = Math.abs(Math.sin(time * 3)) * 0.15;
-          }
-          if (headRef.current) {
-            headRef.current.rotation.z = Math.sin(time * 2) * 0.15;
-            headRef.current.rotation.y = lookYOffset;
-            headRef.current.rotation.x = lookXOffset;
-          }
-          if (leftArmRef.current) {
-            leftArmRef.current.rotation.z = -0.3 + Math.sin(time * 2) * 0.2;
-          }
-          if (rightArmRef.current) {
-            rightArmRef.current.rotation.z = 0.3 + Math.sin(time * 2 + Math.PI) * 0.2;
-          }
+          targetMeshY = Math.abs(Math.sin(time * 3)) * 0.15;
+          targetHeadRotZ = Math.sin(time * 2) * 0.15;
+          targetHeadRotY = lookYOffset;
+          targetHeadRotX = lookXOffset;
+          targetLeftArmRotZ = -0.3 + Math.sin(time * 2) * 0.2;
+          targetRightArmRotZ = 0.3 + Math.sin(time * 2 + Math.PI) * 0.2;
           break;
 
         case 'excited':
           // Fast bouncing, waving arms
-          if (meshRef.current) {
-            meshRef.current.position.y = Math.abs(Math.sin(time * 5)) * 0.2;
-          }
-          if (headRef.current) {
-            headRef.current.rotation.y = Math.sin(time * 4) * 0.2 + lookYOffset;
-            headRef.current.rotation.x = lookXOffset;
-          }
-          if (leftArmRef.current) {
-            leftArmRef.current.rotation.x = Math.sin(time * 6) * 0.5 - 0.5;
-            leftArmRef.current.rotation.z = -0.5;
-          }
-          if (rightArmRef.current) {
-            rightArmRef.current.rotation.x = Math.sin(time * 6 + Math.PI) * 0.5 - 0.5;
-            rightArmRef.current.rotation.z = 0.5;
-          }
+          targetMeshY = Math.abs(Math.sin(time * 5)) * 0.2;
+          targetHeadRotY = Math.sin(time * 4) * 0.2 + lookYOffset;
+          targetHeadRotX = lookXOffset;
+          targetLeftArmRotX = Math.sin(time * 6) * 0.5 - 0.5;
+          targetLeftArmRotZ = -0.5;
+          targetRightArmRotX = Math.sin(time * 6 + Math.PI) * 0.5 - 0.5;
+          targetRightArmRotZ = 0.5;
           break;
 
         case 'winning':
           // High jump, arms up, celebration
-          if (meshRef.current) {
-            const jumpPhase = (time * 4) % (Math.PI * 2);
-            meshRef.current.position.y = Math.max(0, Math.sin(jumpPhase) * 0.5);
-          }
-          if (headRef.current) {
-            headRef.current.rotation.z = Math.sin(time * 3) * 0.2;
-          }
-          if (leftArmRef.current) {
-            leftArmRef.current.rotation.x = -2.8; // Arms up
-            leftArmRef.current.rotation.z = -0.8;
-          }
-          if (rightArmRef.current) {
-            rightArmRef.current.rotation.x = -2.8; // Arms up
-            rightArmRef.current.rotation.z = 0.8;
-          }
+          const jumpPhase = (time * 4) % (Math.PI * 2);
+          targetMeshY = Math.max(0, Math.sin(jumpPhase) * 0.5);
+          targetHeadRotZ = Math.sin(time * 3) * 0.2;
+          targetLeftArmRotX = -2.8; // Arms up
+          targetLeftArmRotZ = -0.8;
+          targetRightArmRotX = -2.8; // Arms up
+          targetRightArmRotZ = 0.8;
           // Alternating leg kicks during jump
-          if (leftLegRef.current) {
-            leftLegRef.current.rotation.x = Math.sin(time * 4) * 0.5;
-          }
-          if (rightLegRef.current) {
-            rightLegRef.current.rotation.x = Math.sin(time * 4 + Math.PI) * 0.5;
-          }
+          targetLeftLegRotX = Math.sin(time * 4) * 0.5;
+          targetRightLegRotX = Math.sin(time * 4 + Math.PI) * 0.5;
           break;
 
         case 'walking':
           // Walking animation - swinging arms and legs
-          if (meshRef.current) {
-            meshRef.current.position.y = Math.abs(Math.sin(time * 4)) * 0.05;
-          }
-          if (headRef.current) {
-            headRef.current.rotation.y = Math.sin(time * 2) * 0.05;
-          }
-          if (leftArmRef.current) {
-            leftArmRef.current.rotation.x = Math.sin(time * 4) * 0.6;
-          }
-          if (rightArmRef.current) {
-            rightArmRef.current.rotation.x = Math.sin(time * 4 + Math.PI) * 0.6;
-          }
-          if (leftLegRef.current) {
-            leftLegRef.current.rotation.x = Math.sin(time * 4 + Math.PI) * 0.5;
-          }
-          if (rightLegRef.current) {
-            rightLegRef.current.rotation.x = Math.sin(time * 4) * 0.5;
-          }
+          targetMeshY = Math.abs(Math.sin(time * 4)) * 0.05;
+          targetHeadRotY = Math.sin(time * 2) * 0.05;
+          targetLeftArmRotX = Math.sin(time * 4) * 0.6;
+          targetRightArmRotX = Math.sin(time * 4 + Math.PI) * 0.6;
+          targetLeftLegRotX = Math.sin(time * 4 + Math.PI) * 0.5;
+          targetRightLegRotX = Math.sin(time * 4) * 0.5;
           break;
 
         case 'jump':
           // Simple jump animation
-          if (meshRef.current) {
-            const jumpCycle = Math.sin(time * 2) * 0.5 + 0.5; // 0 to 1
-            meshRef.current.position.y = jumpCycle * 0.4;
-          }
-          if (leftArmRef.current) {
-            leftArmRef.current.rotation.x = -0.5;
-            leftArmRef.current.rotation.z = -0.3;
-          }
-          if (rightArmRef.current) {
-            rightArmRef.current.rotation.x = -0.5;
-            rightArmRef.current.rotation.z = 0.3;
-          }
+          const jumpCycle = Math.sin(time * 2) * 0.5 + 0.5; // 0 to 1
+          targetMeshY = jumpCycle * 0.4;
+          targetLeftArmRotX = -0.5;
+          targetLeftArmRotZ = -0.3;
+          targetRightArmRotX = -0.5;
+          targetRightArmRotZ = 0.3;
           break;
 
         case 'surprise_jump':
           // Surprised jump - sudden upward movement with hands out
-          if (meshRef.current) {
-            const surpriseJump = Math.abs(Math.sin(time * 6)) * 0.6;
-            meshRef.current.position.y = surpriseJump;
-          }
-          if (headRef.current) {
-            headRef.current.rotation.x = -0.2; // Head tilted back
-          }
-          if (leftArmRef.current) {
-            leftArmRef.current.rotation.x = -1.5; // Arms out to sides
-            leftArmRef.current.rotation.z = -1.2;
-          }
-          if (rightArmRef.current) {
-            rightArmRef.current.rotation.x = -1.5;
-            rightArmRef.current.rotation.z = 1.2;
-          }
-          if (leftLegRef.current) {
-            leftLegRef.current.rotation.x = -0.3;
-          }
-          if (rightLegRef.current) {
-            rightLegRef.current.rotation.x = -0.3;
-          }
+          const surpriseJump = Math.abs(Math.sin(time * 6)) * 0.6;
+          targetMeshY = surpriseJump;
+          targetHeadRotX = -0.2; // Head tilted back
+          targetLeftArmRotX = -1.5; // Arms out to sides
+          targetLeftArmRotZ = -1.2;
+          targetRightArmRotX = -1.5;
+          targetRightArmRotZ = 1.2;
+          targetLeftLegRotX = -0.3;
+          targetRightLegRotX = -0.3;
           break;
 
         case 'surprise_happy':
           // Surprised and happy - bouncing with hands to face
-          if (meshRef.current) {
-            meshRef.current.position.y = Math.abs(Math.sin(time * 4)) * 0.2;
-          }
-          if (headRef.current) {
-            headRef.current.rotation.z = Math.sin(time * 3) * 0.2;
-            headRef.current.rotation.x = -0.1;
-          }
-          if (leftArmRef.current) {
-            leftArmRef.current.rotation.x = -2.0; // Hands near face
-            leftArmRef.current.rotation.z = -0.5;
-          }
-          if (rightArmRef.current) {
-            rightArmRef.current.rotation.x = -2.0;
-            rightArmRef.current.rotation.z = 0.5;
-          }
+          targetMeshY = Math.abs(Math.sin(time * 4)) * 0.2;
+          targetHeadRotZ = Math.sin(time * 3) * 0.2;
+          targetHeadRotX = -0.1;
+          targetLeftArmRotX = -2.0; // Hands near face
+          targetLeftArmRotZ = -0.5;
+          targetRightArmRotX = -2.0;
+          targetRightArmRotZ = 0.5;
           break;
 
         case 'lean_back':
           // Leaning back - skeptical/contemplative pose
-          if (meshRef.current) {
-            meshRef.current.rotation.x = 0.15; // Lean back
-            meshRef.current.position.y = Math.sin(time * 0.5) * 0.02;
-          }
-          if (headRef.current) {
-            headRef.current.rotation.x = -0.1; // Head tilted up slightly
-            headRef.current.rotation.y = Math.sin(time * 0.8) * 0.1;
-          }
-          if (leftArmRef.current) {
-            leftArmRef.current.rotation.x = 0.2;
-            leftArmRef.current.rotation.z = -0.3;
-          }
-          if (rightArmRef.current) {
-            rightArmRef.current.rotation.x = 0.2;
-            rightArmRef.current.rotation.z = 0.3;
-          }
+          targetMeshRotX = 0.15; // Lean back
+          targetMeshY = Math.sin(time * 0.5) * 0.02;
+          targetHeadRotX = -0.1; // Head tilted up slightly
+          targetHeadRotY = Math.sin(time * 0.8) * 0.1;
+          targetLeftArmRotX = 0.2;
+          targetLeftArmRotZ = -0.3;
+          targetRightArmRotX = 0.2;
+          targetRightArmRotZ = 0.3;
           break;
 
         case 'lean_forward':
           // Leaning forward - interested/engaged pose
-          if (meshRef.current) {
-            meshRef.current.rotation.x = -0.2; // Lean forward
-            meshRef.current.position.y = Math.sin(time * 0.8) * 0.02;
-          }
-          if (headRef.current) {
-            headRef.current.rotation.x = 0.15; // Head tilted forward
-            headRef.current.rotation.y = Math.sin(time * 1.2) * 0.08;
-          }
-          if (leftArmRef.current) {
-            leftArmRef.current.rotation.x = -0.4;
-          }
-          if (rightArmRef.current) {
-            rightArmRef.current.rotation.x = -0.4;
-          }
+          targetMeshRotX = -0.2; // Lean forward
+          targetMeshY = Math.sin(time * 0.8) * 0.02;
+          targetHeadRotX = 0.15; // Head tilted forward
+          targetHeadRotY = Math.sin(time * 1.2) * 0.08;
+          targetLeftArmRotX = -0.4;
+          targetRightArmRotX = -0.4;
           break;
 
         case 'cross_arms':
           // Arms crossed - reserved/defensive pose
-          if (meshRef.current) {
-            meshRef.current.position.y = Math.sin(time * 0.4) * 0.02;
-          }
-          if (headRef.current) {
-            headRef.current.rotation.y = Math.sin(time * 0.6) * 0.1;
-            headRef.current.rotation.z = Math.sin(time * 0.4) * 0.05;
-          }
-          if (leftArmRef.current) {
-            leftArmRef.current.rotation.x = -1.5; // Arm bent across chest
-            leftArmRef.current.rotation.z = 0.8;
-          }
-          if (rightArmRef.current) {
-            rightArmRef.current.rotation.x = -1.5;
-            rightArmRef.current.rotation.z = -0.8;
-          }
+          targetMeshY = Math.sin(time * 0.4) * 0.02;
+          targetHeadRotY = Math.sin(time * 0.6) * 0.1;
+          targetHeadRotZ = Math.sin(time * 0.4) * 0.05;
+          targetLeftArmRotX = -1.5; // Arm bent across chest
+          targetLeftArmRotZ = 0.8;
+          targetRightArmRotX = -1.5;
+          targetRightArmRotZ = -0.8;
           break;
 
         case 'nod':
           // Nodding - agreement animation
-          if (meshRef.current) {
-            meshRef.current.position.y = Math.sin(time * 0.5) * 0.02;
-          }
-          if (headRef.current) {
-            // Continuous nodding motion
-            headRef.current.rotation.x = Math.sin(time * 4) * 0.2;
-          }
-          if (leftArmRef.current) {
-            leftArmRef.current.rotation.x = Math.sin(time * 2) * 0.1;
-          }
-          if (rightArmRef.current) {
-            rightArmRef.current.rotation.x = Math.sin(time * 2 + Math.PI) * 0.1;
-          }
+          targetMeshY = Math.sin(time * 0.5) * 0.02;
+          // Continuous nodding motion
+          targetHeadRotX = Math.sin(time * 4) * 0.2;
+          targetLeftArmRotX = Math.sin(time * 2) * 0.1;
+          targetRightArmRotX = Math.sin(time * 2 + Math.PI) * 0.1;
           break;
 
         case 'shake_head':
           // Shaking head - disagreement animation
-          if (meshRef.current) {
-            meshRef.current.position.y = Math.sin(time * 0.5) * 0.02;
-          }
-          if (headRef.current) {
-            // Side to side shaking
-            headRef.current.rotation.y = Math.sin(time * 5) * 0.3;
-          }
-          if (leftArmRef.current) {
-            leftArmRef.current.rotation.z = -0.2;
-          }
-          if (rightArmRef.current) {
-            rightArmRef.current.rotation.z = 0.2;
-          }
+          targetMeshY = Math.sin(time * 0.5) * 0.02;
+          // Side to side shaking
+          targetHeadRotY = Math.sin(time * 5) * 0.3;
+          targetLeftArmRotZ = -0.2;
+          targetRightArmRotZ = 0.2;
           break;
 
         case 'shrug':
           // Shrugging - uncertainty animation
-          if (meshRef.current) {
-            meshRef.current.position.y = Math.sin(time * 0.5) * 0.02;
-          }
-          if (headRef.current) {
-            headRef.current.rotation.z = Math.sin(time * 1.5) * 0.15;
-          }
+          targetMeshY = Math.sin(time * 0.5) * 0.02;
+          targetHeadRotZ = Math.sin(time * 1.5) * 0.15;
           // Shoulders up motion via arms
           const shrugPhase = Math.sin(time * 2) * 0.5 + 0.5;
-          if (leftArmRef.current) {
-            leftArmRef.current.rotation.x = -0.3;
-            leftArmRef.current.rotation.z = -0.5 - shrugPhase * 0.3;
-            leftArmRef.current.position.y = shrugPhase * 0.1;
-          }
-          if (rightArmRef.current) {
-            rightArmRef.current.rotation.x = -0.3;
-            rightArmRef.current.rotation.z = 0.5 + shrugPhase * 0.3;
-            rightArmRef.current.position.y = shrugPhase * 0.1;
-          }
+          targetLeftArmRotX = -0.3;
+          targetLeftArmRotZ = -0.5 - shrugPhase * 0.3;
+          targetRightArmRotX = -0.3;
+          targetRightArmRotZ = 0.5 + shrugPhase * 0.3;
           break;
 
         case 'wave':
           // Waving - greeting/farewell animation
-          if (meshRef.current) {
-            meshRef.current.position.y = Math.sin(time * 0.5) * 0.03;
-          }
-          if (headRef.current) {
-            headRef.current.rotation.z = Math.sin(time * 1.5) * 0.1;
-          }
-          if (leftArmRef.current) {
-            leftArmRef.current.rotation.x = 0;
-          }
-          if (rightArmRef.current) {
-            rightArmRef.current.rotation.x = -2.5; // Arm raised
-            rightArmRef.current.rotation.z = 0.3 + Math.sin(time * 8) * 0.4; // Wave motion
-          }
+          targetMeshY = Math.sin(time * 0.5) * 0.03;
+          targetHeadRotZ = Math.sin(time * 1.5) * 0.1;
+          targetLeftArmRotX = 0;
+          targetRightArmRotX = -2.5; // Arm raised
+          targetRightArmRotZ = 0.3 + Math.sin(time * 8) * 0.4; // Wave motion
           break;
 
         case 'point':
           // Pointing - emphasis/direction animation
-          if (meshRef.current) {
-            meshRef.current.position.y = Math.sin(time * 0.5) * 0.02;
-          }
-          if (headRef.current) {
-            headRef.current.rotation.y = 0.2;
-            headRef.current.rotation.x = Math.sin(time * 2) * 0.05;
-          }
-          if (leftArmRef.current) {
-            leftArmRef.current.rotation.x = 0;
-          }
-          if (rightArmRef.current) {
-            rightArmRef.current.rotation.x = -1.5; // Arm extended forward
-            rightArmRef.current.rotation.z = 0.2;
-            // Slight pulsing for emphasis
-            rightArmRef.current.position.z = Math.sin(time * 3) * 0.05;
-          }
+          targetMeshY = Math.sin(time * 0.5) * 0.02;
+          targetHeadRotY = 0.2;
+          targetHeadRotX = Math.sin(time * 2) * 0.05;
+          targetLeftArmRotX = 0;
+          targetRightArmRotX = -1.5; // Arm extended forward
+          targetRightArmRotZ = 0.2;
           break;
 
         case 'clap':
           // Clapping - celebration/applause animation
-          if (meshRef.current) {
-            meshRef.current.position.y = Math.abs(Math.sin(time * 3)) * 0.08;
-          }
-          if (headRef.current) {
-            headRef.current.rotation.z = Math.sin(time * 2) * 0.1;
-          }
+          targetMeshY = Math.abs(Math.sin(time * 3)) * 0.08;
+          targetHeadRotZ = Math.sin(time * 2) * 0.1;
           // Clapping motion - arms come together
           const clapPhase = Math.sin(time * 6);
-          if (leftArmRef.current) {
-            leftArmRef.current.rotation.x = -1.5;
-            leftArmRef.current.rotation.z = clapPhase * 0.5;
-          }
-          if (rightArmRef.current) {
-            rightArmRef.current.rotation.x = -1.5;
-            rightArmRef.current.rotation.z = -clapPhase * 0.5;
-          }
+          targetLeftArmRotX = -1.5;
+          targetLeftArmRotZ = clapPhase * 0.5;
+          targetRightArmRotX = -1.5;
+          targetRightArmRotZ = -clapPhase * 0.5;
           break;
 
         case 'bow':
           // Bowing - respect/gratitude animation
           const bowCycle = (Math.sin(time * 1.5) + 1) / 2; // 0 to 1
-          if (meshRef.current) {
-            meshRef.current.rotation.x = -bowCycle * 0.5; // Bow forward
-          }
-          if (headRef.current) {
-            headRef.current.rotation.x = bowCycle * 0.3; // Head follows bow
-          }
-          if (leftArmRef.current) {
-            leftArmRef.current.rotation.x = bowCycle * 0.3;
-            leftArmRef.current.rotation.z = -0.2;
-          }
-          if (rightArmRef.current) {
-            rightArmRef.current.rotation.x = bowCycle * 0.3;
-            rightArmRef.current.rotation.z = 0.2;
-          }
+          targetMeshRotX = -bowCycle * 0.5; // Bow forward
+          targetHeadRotX = bowCycle * 0.3; // Head follows bow
+          targetLeftArmRotX = bowCycle * 0.3;
+          targetLeftArmRotZ = -0.2;
+          targetRightArmRotX = bowCycle * 0.3;
+          targetRightArmRotZ = 0.2;
           break;
+      }
+
+      // Apply smooth transitions using lerp
+      if (meshRef.current) {
+        meshRef.current.position.y = lerp(meshRef.current.position.y, targetMeshY, transitionSpeed);
+        meshRef.current.rotation.x = lerp(meshRef.current.rotation.x, targetMeshRotX, transitionSpeed);
+      }
+      if (headRef.current) {
+        headRef.current.rotation.x = lerp(headRef.current.rotation.x, targetHeadRotX, transitionSpeed);
+        headRef.current.rotation.y = lerp(headRef.current.rotation.y, targetHeadRotY, transitionSpeed);
+        headRef.current.rotation.z = lerp(headRef.current.rotation.z, targetHeadRotZ, transitionSpeed);
+      }
+      if (leftArmRef.current) {
+        leftArmRef.current.rotation.x = lerp(leftArmRef.current.rotation.x, targetLeftArmRotX, transitionSpeed);
+        leftArmRef.current.rotation.z = lerp(leftArmRef.current.rotation.z, targetLeftArmRotZ, transitionSpeed);
+      }
+      if (rightArmRef.current) {
+        rightArmRef.current.rotation.x = lerp(rightArmRef.current.rotation.x, targetRightArmRotX, transitionSpeed);
+        rightArmRef.current.rotation.z = lerp(rightArmRef.current.rotation.z, targetRightArmRotZ, transitionSpeed);
+      }
+      if (leftLegRef.current) {
+        leftLegRef.current.rotation.x = lerp(leftLegRef.current.rotation.x, targetLeftLegRotX, transitionSpeed);
+      }
+      if (rightLegRef.current) {
+        rightLegRef.current.rotation.x = lerp(rightLegRef.current.rotation.x, targetRightLegRotX, transitionSpeed);
+      }
+      if (leftEyeRef.current) {
+        leftEyeRef.current.scale.y = lerp(leftEyeRef.current.scale.y, targetLeftEyeScaleY, transitionSpeed);
+      }
+      if (rightEyeRef.current) {
+        rightEyeRef.current.scale.y = lerp(rightEyeRef.current.scale.y, targetRightEyeScaleY, transitionSpeed);
       }
 
       animationId = requestAnimationFrame(animate);

@@ -248,7 +248,6 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [showArrowPointer, setShowArrowPointer] = useState(true); // Show arrow pointer initially
   const [availableCharacters, setAvailableCharacters] = useState(getAllCharacters()); // Load from Wakattors database
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(true);
-  const [talkingCharacterId, setTalkingCharacterId] = useState<string | null>(null); // Track which character is currently talking
   
   // Animation playback state
   const [playbackState, setPlaybackState] = useState<{
@@ -408,28 +407,6 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     }
   }, [isMobileView]);
 
-  // Track which character is currently talking
-  const previousMessagesLengthRef = useRef(messages.length);
-  
-  useEffect(() => {
-    if (isLoading) {
-      // Check if a NEW message was just added (not just loading started)
-      if (messages.length > previousMessagesLengthRef.current) {
-        // A new message was added - find the most recent assistant message
-        const lastAssistantMessage = [...messages].reverse().find(m => m.role === 'assistant');
-        if (lastAssistantMessage?.characterId) {
-          setTalkingCharacterId(lastAssistantMessage.characterId);
-        }
-      }
-      // If loading just started but no new message yet, don't animate anyone
-    } else {
-      // Clear talking state when not loading
-      setTalkingCharacterId(null);
-    }
-    
-    // Update the ref for next comparison
-    previousMessagesLengthRef.current = messages.length;
-  }, [isLoading, messages]);
 
   // Arrow pointer logic: hide after 20 seconds, or when user has conversation, or interacts with characters
   useEffect(() => {
@@ -462,6 +439,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   // Restore characters from messages when conversation is loaded
   const userHasSelectedCharacters = useRef(false);
   const previousMessagesRef = useRef(messages);
+  const hasRestoredInitialCharacters = useRef(false);
 
   useEffect(() => {
     // Detect conversation change: first message ID changed or message array replaced
@@ -470,11 +448,19 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       previousMessagesRef.current.length > 0 &&
       messages[0]?.id !== previousMessagesRef.current[0]?.id;
 
+    // Detect initial load: messages just appeared (were empty, now have content)
+    const initialLoad =
+      messages.length > 0 &&
+      previousMessagesRef.current.length === 0 &&
+      !hasRestoredInitialCharacters.current;
+
     // Update when:
     // 1. Conversation switched (different first message)
-    // 2. Loading a conversation for the first time (has messages but no characters selected)
+    // 2. Initial load (messages just appeared)
+    // 3. Loading a conversation for the first time (has messages but no characters selected)
     const shouldRestoreCharacters =
       conversationChanged ||
+      initialLoad ||
       (messages.length > 0 && selectedCharacters.length === 0 && !userHasSelectedCharacters.current);
 
     if (shouldRestoreCharacters) {
@@ -489,17 +475,24 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       if (uniqueCharacterIds.length > 0) {
         console.log('[ChatInterface] Restoring characters from conversation history:', uniqueCharacterIds);
         setSelectedCharacters(uniqueCharacterIds);
+        hasRestoredInitialCharacters.current = true;
         // Reset manual selection flag when switching conversations
         if (conversationChanged) {
           userHasSelectedCharacters.current = false;
         }
-      } else if (conversationChanged) {
-        // New empty conversation - set default character
-        console.log('[ChatInterface] Switching to empty conversation, setting default character');
+      } else if (conversationChanged || initialLoad) {
+        // New empty conversation or initial load with no assistant messages - set default character
+        console.log('[ChatInterface] Empty conversation, setting default character');
         const defaultChar = availableCharacters.length > 0 ? availableCharacters[0].id : DEFAULT_CHARACTER;
         setSelectedCharacters([defaultChar]);
+        hasRestoredInitialCharacters.current = true;
         userHasSelectedCharacters.current = false;
       }
+    }
+
+    // Reset the initial restore flag when conversation changes
+    if (conversationChanged) {
+      hasRestoredInitialCharacters.current = false;
     }
 
     // Update previous messages reference
@@ -507,8 +500,9 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   }, [messages, availableCharacters]);
 
   // Set default character for brand new conversations (no messages at all)
+  // Only if we haven't restored characters yet
   useEffect(() => {
-    if (messages.length === 0 && selectedCharacters.length === 0 && availableCharacters.length > 0) {
+    if (messages.length === 0 && selectedCharacters.length === 0 && availableCharacters.length > 0 && !hasRestoredInitialCharacters.current) {
       console.log('[ChatInterface] New conversation with no messages, setting default character');
       const defaultChar = availableCharacters[0].id;
       setSelectedCharacters([defaultChar]);
@@ -1028,15 +1022,16 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
                 >
                   {(() => {
                     // Check if we have playback state for this character
+                    // Only animate AFTER response is received (via playback engine), not during loading
                     const charPlaybackState = playbackState.characterStates.get(characterId);
                     const usePlayback = playbackState.isPlaying && charPlaybackState;
                     
                     return (
                       <CharacterDisplay3D
                         character={character}
-                        isActive={usePlayback ? charPlaybackState.isActive : (isLoading && talkingCharacterId === character.id)}
+                        isActive={usePlayback && charPlaybackState.isActive}
                         animation={usePlayback ? charPlaybackState.animation : undefined}
-                        isTalking={usePlayback ? charPlaybackState.isTalking : (isLoading && talkingCharacterId === character.id)}
+                        isTalking={usePlayback && charPlaybackState.isTalking}
                         complementary={usePlayback ? charPlaybackState.complementary : undefined}
                         showName={showCharacterNames}
                         nameKey={nameKey}
@@ -1280,6 +1275,9 @@ const styles = StyleSheet.create({
   },
   chatScrollView: {
     flex: 1,
+    // @ts-ignore - web-specific scrollbar styling
+    scrollbarWidth: 'thin',
+    scrollbarColor: 'rgba(82, 82, 91, 0.5) transparent',
   },
   messagesContainer: {
     flexGrow: 1,
