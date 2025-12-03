@@ -1078,6 +1078,21 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
             // Alternate character positions: even index = left, odd = right
             const characterPosition = message.role === 'assistant' ? (index % 2 === 0 ? 'left' : 'right') : null;
 
+            // Check if this message is being animated and has no revealed text yet
+            const isAnimating = message.characterId && 
+              animatingMessages.get(message.characterId) === message.id &&
+              playbackState.isPlaying;
+            
+            // Get revealed text for animated messages
+            const revealedText = isAnimating && message.characterId 
+              ? playbackEngineRef.current.getRevealedText(message.characterId) 
+              : null;
+            
+            // Hide bubble completely if animating but no text revealed yet
+            if (isAnimating && (!revealedText || revealedText.length === 0)) {
+              return null;
+            }
+
             return (
               <View
                 key={message.id}
@@ -1126,19 +1141,12 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
                         </Text>
                       )}
                       {(() => {
-                        // Check if this message is being animated
-                        const isAnimating = message.characterId && 
-                          animatingMessages.get(message.characterId) === message.id &&
-                          playbackState.isPlaying;
-                        
-                        if (isAnimating && message.characterId) {
-                          // Get revealed text from playback engine
-                          const revealedText = playbackEngineRef.current.getRevealedText(message.characterId);
+                        if (isAnimating && revealedText !== null) {
                           // Show cursor if text is still being revealed
                           const showCursor = revealedText.length < message.content.length;
                           return (
                             <Text style={styles.messageText}>
-                              {revealedText || ' '}
+                              {revealedText}
                               {showCursor && <Text style={styles.typingCursor}>|</Text>}
                             </Text>
                           );
