@@ -87,7 +87,8 @@ function CharacterSpeechBubble({
   characterColor, 
   position, 
   isTyping,
-  isSpeaking 
+  isSpeaking,
+  isSingleCharacter = false
 }: { 
   text: string; 
   characterName: string;
@@ -95,6 +96,7 @@ function CharacterSpeechBubble({
   position: 'left' | 'right'; 
   isTyping: boolean;
   isSpeaking: boolean;
+  isSingleCharacter?: boolean;
 }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [shouldRender, setShouldRender] = useState(false);
@@ -149,27 +151,42 @@ function CharacterSpeechBubble({
 
   if (!shouldRender && !text) return null;
 
-  const displayText = text || lastTextRef.current;
+  const fullText = text || lastTextRef.current;
+  // Truncate from beginning if text is too long - show only last 150 chars
+  const maxChars = 150;
+  const displayText = fullText.length > maxChars 
+    ? '...' + fullText.slice(-maxChars) 
+    : fullText;
   const showCursor = isTyping && displayText.length > 0;
 
   return (
     <Animated.View 
       style={[
         styles.speechBubble,
-        position === 'left' ? styles.speechBubbleLeft : styles.speechBubbleRight,
+        isSingleCharacter 
+          ? styles.speechBubbleSingle 
+          : (position === 'left' ? styles.speechBubbleLeft : styles.speechBubbleRight),
         { opacity: fadeAnim, borderColor: characterColor }
       ]}
       pointerEvents="none"
     >
-      {/* Speech bubble tail */}
-      <View 
-        style={[
-          styles.speechBubbleTail,
-          position === 'left' ? styles.speechBubbleTailLeft : styles.speechBubbleTailRight,
-        ]} 
-      >
-        <View style={[styles.speechBubbleTailInner, { borderLeftColor: position === 'right' ? characterColor : 'transparent', borderRightColor: position === 'left' ? characterColor : 'transparent' }]} />
-      </View>
+      {/* Speech bubble tail - hide for single character (bubble is above) */}
+      {!isSingleCharacter && (
+        <View 
+          style={[
+            styles.speechBubbleTail,
+            position === 'left' ? styles.speechBubbleTailLeft : styles.speechBubbleTailRight,
+          ]} 
+        >
+          <View style={[styles.speechBubbleTailInner, { borderLeftColor: position === 'right' ? characterColor : 'transparent', borderRightColor: position === 'left' ? characterColor : 'transparent' }]} />
+        </View>
+      )}
+      {/* Bottom tail for single character */}
+      {isSingleCharacter && (
+        <View style={styles.speechBubbleTailBottom}>
+          <View style={[styles.speechBubbleTailBottomInner, { borderTopColor: characterColor }]} />
+        </View>
+      )}
       <Text style={[styles.speechBubbleName, { color: characterColor }]}>{characterName}</Text>
       <Text style={styles.speechBubbleText}>
         {displayText}
@@ -1203,7 +1220,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
                     color={character.color}
                     visible={showCharacterNames}
                   />
-                  {/* Speech Bubble - Comic book style, to the side of character */}
+                  {/* Speech Bubble - Comic book style, to the side of character (or above if single) */}
                   <CharacterSpeechBubble
                     text={revealedText || ''}
                     characterName={character.name}
@@ -1211,6 +1228,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
                     position={bubblePosition}
                     isTyping={!!isTyping}
                     isSpeaking={!!isSpeaking}
+                    isSingleCharacter={total === 1}
                   />
                 </FloatingCharacterWrapper>
               );
@@ -1965,6 +1983,12 @@ const styles = StyleSheet.create({
   speechBubbleRight: {
     left: 80,
   },
+  speechBubbleSingle: {
+    // For single character - position bubble above and to the left
+    top: -20,
+    left: -140,
+    maxWidth: 200,
+  },
   speechBubbleTail: {
     position: 'absolute',
     top: 15,
@@ -1974,6 +1998,20 @@ const styles = StyleSheet.create({
   },
   speechBubbleTailRight: {
     left: -16,
+  },
+  speechBubbleTailBottom: {
+    position: 'absolute',
+    bottom: -14,
+    right: 20,
+  },
+  speechBubbleTailBottomInner: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 8,
+    borderLeftColor: 'transparent',
+    borderRightWidth: 8,
+    borderRightColor: 'transparent',
+    borderTopWidth: 10,
   },
   speechBubbleTailInner: {
     width: 0,
