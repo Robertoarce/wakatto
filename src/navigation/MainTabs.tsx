@@ -2,13 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ChatInterface } from '../components/ChatInterface';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
 import { Header } from '../components/Header';
 import { ChatSidebar } from '../components/ChatSidebar';
 import { useCustomAlert } from '../components/CustomAlert';
-import { toggleSidebar, toggleSidebarCollapse } from '../store/actions/uiActions';
+import { toggleSidebar, toggleSidebarCollapse, setSidebarOpen } from '../store/actions/uiActions';
 import { 
   loadConversations, 
   selectConversation, 
@@ -41,6 +41,15 @@ export default function MainTabs() {
   const { showAlert, AlertComponent } = useCustomAlert();
   const { conversations, currentConversation, messages } = useSelector((state: RootState) => state.conversations);
   const { showSidebar, sidebarCollapsed } = useSelector((state: RootState) => state.ui);
+
+  // Hide sidebar on mobile by default
+  useEffect(() => {
+    const { width } = Dimensions.get('window');
+    const isMobile = width < 768;
+    if (isMobile) {
+      dispatch(setSidebarOpen(false));
+    }
+  }, [dispatch]);
 
   // Load conversations on mount
   useEffect(() => {
