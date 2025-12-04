@@ -80,6 +80,105 @@ function CharacterNameLabel({ name, color, visible }: { name: string; color: str
   );
 }
 
+// Character speech bubble component with typing animation and fade-out
+function CharacterSpeechBubble({ 
+  text, 
+  characterName,
+  characterColor, 
+  position, 
+  isTyping,
+  isSpeaking 
+}: { 
+  text: string; 
+  characterName: string;
+  characterColor: string; 
+  position: 'left' | 'right'; 
+  isTyping: boolean;
+  isSpeaking: boolean;
+}) {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [shouldRender, setShouldRender] = useState(false);
+  const fadeOutTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasStartedFadeOut = useRef(false);
+  const lastTextRef = useRef('');
+
+  useEffect(() => {
+    // Clear any existing fade out timer when speaking starts again
+    if (isSpeaking || isTyping) {
+      if (fadeOutTimerRef.current) {
+        clearTimeout(fadeOutTimerRef.current);
+        fadeOutTimerRef.current = null;
+      }
+      hasStartedFadeOut.current = false;
+    }
+
+    // Show bubble when there's text and character is speaking/typing
+    if (text && text.length > 0 && (isSpeaking || isTyping)) {
+      setShouldRender(true);
+      lastTextRef.current = text;
+      // Fade in quickly
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+    // Start fade out when speaking stops (but only if we haven't already started)
+    else if (!isSpeaking && !isTyping && lastTextRef.current && !hasStartedFadeOut.current) {
+      hasStartedFadeOut.current = true;
+      // Keep visible for 2 seconds, then fade out over 3 seconds
+      fadeOutTimerRef.current = setTimeout(() => {
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 3000,
+          useNativeDriver: true,
+        }).start(() => {
+          setShouldRender(false);
+          lastTextRef.current = '';
+          hasStartedFadeOut.current = false;
+        });
+      }, 2000);
+    }
+
+    return () => {
+      if (fadeOutTimerRef.current) {
+        clearTimeout(fadeOutTimerRef.current);
+      }
+    };
+  }, [text, isSpeaking, isTyping, fadeAnim]);
+
+  if (!shouldRender && !text) return null;
+
+  const displayText = text || lastTextRef.current;
+  const showCursor = isTyping && displayText.length > 0;
+
+  return (
+    <Animated.View 
+      style={[
+        styles.speechBubble,
+        position === 'left' ? styles.speechBubbleLeft : styles.speechBubbleRight,
+        { opacity: fadeAnim, borderColor: characterColor }
+      ]}
+      pointerEvents="none"
+    >
+      {/* Speech bubble tail */}
+      <View 
+        style={[
+          styles.speechBubbleTail,
+          position === 'left' ? styles.speechBubbleTailLeft : styles.speechBubbleTailRight,
+        ]} 
+      >
+        <View style={[styles.speechBubbleTailInner, { borderLeftColor: position === 'right' ? characterColor : 'transparent', borderRightColor: position === 'left' ? characterColor : 'transparent' }]} />
+      </View>
+      <Text style={[styles.speechBubbleName, { color: characterColor }]}>{characterName}</Text>
+      <Text style={styles.speechBubbleText}>
+        {displayText}
+        {showCursor && <Text style={[styles.speechBubbleCursor, { color: characterColor }]}>|</Text>}
+      </Text>
+    </Animated.View>
+  );
+}
+
 // Floating animation wrapper for characters with hover name display
 function FloatingCharacterWrapper({ 
   children, 
@@ -220,6 +319,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const { showAlert, AlertComponent } = useCustomAlert();
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState('');
@@ -248,6 +348,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [showArrowPointer, setShowArrowPointer] = useState(true); // Show arrow pointer initially
   const [availableCharacters, setAvailableCharacters] = useState(getAllCharacters()); // Load from Wakattors database
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(true);
+  const [showChatHistory, setShowChatHistory] = useState(false); // Hidden by default
   
   // Animation playback state
   const [playbackState, setPlaybackState] = useState<{
@@ -384,12 +485,14 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       const isMobile = width < 768;
       setIsMobileView(isMobile);
 
-      // Update character height based on screen size
-      let heightPercentage = 0.35; // Default desktop
+      // Update character height based on screen size and chat history visibility
+      // When chat history is OPEN, characters get only 10% (chat gets 90%)
+      // When chat history is CLOSED, characters fill the space
+      let heightPercentage = showChatHistory ? 0.10 : 0.60; // Default desktop
       if (width < 768) {
-        heightPercentage = 0.25; // Mobile
+        heightPercentage = showChatHistory ? 0.10 : 0.50; // Mobile
       } else if (width < 1024) {
-        heightPercentage = 0.3; // Tablet
+        heightPercentage = showChatHistory ? 0.10 : 0.55; // Tablet
       }
       const newHeight = Math.floor(height * heightPercentage);
       setCharacterHeight(newHeight);
@@ -398,7 +501,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     updateResponsiveSettings();
     const subscription = Dimensions.addEventListener('change', updateResponsiveSettings);
     return () => subscription?.remove();
-  }, []);
+  }, [showChatHistory]);
 
   // Auto-hide character selector when switching to mobile view
   useEffect(() => {
@@ -594,6 +697,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
     voiceRecorder.setOnStateChange((state: RecordingState) => {
       setIsRecording(state.isRecording);
+      setIsPaused(state.isPaused);
       setRecordingDuration(state.duration);
     });
 
@@ -653,11 +757,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
           const separator = prev.trim() ? ' ' : '';
           return prev + separator + result.text.trim();
         });
-
-        showAlert(
-          'Transcription Complete',
-          'Transcribed using OpenAI Whisper API'
-        );
+        // Transcription successful - no alert needed
       } else {
         showAlert(
           'No Speech Detected',
@@ -702,21 +802,24 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         finalTranscript = liveSpeech.stop();
       }
 
+      // Also check the liveTranscript state (shown in "Live:" card)
+      // This ensures we capture text even if liveSpeech.stop() returns empty
+      if (!finalTranscript.trim() && liveTranscript.trim()) {
+        finalTranscript = liveTranscript;
+      }
+
       // Use live transcript if available, otherwise transcribe recorded audio
       if (finalTranscript.trim()) {
-        // We got live transcription - use it directly
+        // We got live transcription - add it to the input field
         setInput((prev) => {
           const separator = prev.trim() ? ' ' : '';
           return prev + separator + finalTranscript.trim();
         });
         setLiveTranscript('');
-
-        showAlert(
-          'Transcription Complete',
-          'Transcribed using Web Speech API (live)'
-        );
+        // Transcription successful - no alert needed
       } else {
         // Fall back to Whisper API with recorded audio
+        setLiveTranscript('');
         const state = voiceRecorder.getState();
         if (state.audioBlob) {
           await handleTranscription(state.audioBlob);
@@ -762,6 +865,44 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     }
 
     setLiveTranscript('');
+  };
+
+  const restartRecording = async () => {
+    const voiceRecorder = voiceRecorderRef.current;
+    const liveSpeech = liveSpeechRef.current;
+
+    // Cancel current recording
+    voiceRecorder.cancelRecording();
+    if (liveSpeech) {
+      liveSpeech.abort();
+    }
+    setLiveTranscript('');
+
+    // Small delay to ensure cleanup
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Start new recording
+    try {
+      await voiceRecorder.startRecording();
+      if (liveSpeech && liveSpeech.isSupported()) {
+        try {
+          liveSpeech.start();
+        } catch (error) {
+          console.error('[ChatInterface] Failed to restart live speech:', error);
+        }
+      }
+    } catch (error: any) {
+      console.error('[ChatInterface] Failed to restart recording:', error);
+    }
+  };
+
+  const togglePause = () => {
+    const voiceRecorder = voiceRecorderRef.current;
+    if (isPaused) {
+      voiceRecorder.resumeRecording();
+    } else {
+      voiceRecorder.pauseRecording();
+    }
   };
 
   const startEditingMessage = (message: Message) => {
@@ -945,8 +1086,11 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         </View>
       )}
 
-      {/* 3D Character Display - Resizable */}
-      <View style={[styles.characterDisplayContainer, { height: characterHeight }]}>
+      {/* 3D Character Display - Resizable when chat shown, flex when hidden */}
+      <View style={[
+        styles.characterDisplayContainer, 
+        showChatHistory ? { height: characterHeight } : { flex: 1 }
+      ]}>
         {/* 3D Animated Arrow Pointer - Positioned near character selector button */}
         <AnimatedArrowPointer
           visible={showArrowPointer}
@@ -963,6 +1107,14 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
             {selectedCharacters.length} Wakattor{selectedCharacters.length !== 1 ? 's' : ''}
           </Text>
         </TouchableOpacity>
+
+        {/* Sending Message Indicator - Top button when loading */}
+        {isLoading && (
+          <View style={styles.sendingMessageButton}>
+            <ActivityIndicator size="small" color="#8b5cf6" />
+            <Text style={styles.sendingMessageText}>Sending message...</Text>
+          </View>
+        )}
 
         {/* Multiple Character Display - Semi-circle arrangement (table view) */}
         <View style={styles.charactersRow}>
@@ -1002,6 +1154,17 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
               // Z-index: EDGES have higher z-index (in front), CENTER has lower (behind)
               const zIndex = Math.round(distanceFromCenter * 10);
               
+              // Determine speech bubble position based on character position in scene
+              // Characters on the left side of center get bubbles on their right, and vice versa
+              const bubblePosition = horizontalOffset < 0 ? 'right' : horizontalOffset > 0 ? 'left' : (index % 2 === 0 ? 'right' : 'left');
+              
+              // Get revealed text for this character's speech bubble
+              const charPlaybackState = playbackState.characterStates.get(characterId);
+              const usePlayback = playbackState.isPlaying && charPlaybackState;
+              const revealedText = usePlayback ? playbackEngineRef.current.getRevealedText(characterId) : '';
+              const isSpeaking = usePlayback && charPlaybackState?.isTalking;
+              const isTyping = usePlayback && revealedText && revealedText.length > 0;
+              
               return (
                 <FloatingCharacterWrapper
                   key={characterId}
@@ -1012,7 +1175,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
                     styles.characterWrapper,
                     {
                       position: 'absolute',
-                      left: `${45 + horizontalOffset - (100 / total / 2)}%`, // Shifted left by 5%
+                      left: `${50 + horizontalOffset - (100 / total / 2)}%`, // Centered
                       width: `${Math.max(100 / total, 25)}%`,
                       top: `${15 + (20 - verticalPosition)}%`, // Center higher up, edges lower
                       transform: [{ scale }],
@@ -1021,11 +1184,6 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
                   ]}
                 >
                   {(() => {
-                    // Check if we have playback state for this character
-                    // Only animate AFTER response is received (via playback engine), not during loading
-                    const charPlaybackState = playbackState.characterStates.get(characterId);
-                    const usePlayback = playbackState.isPlaying && charPlaybackState;
-                    
                     return (
                       <CharacterDisplay3D
                         character={character}
@@ -1045,6 +1203,15 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
                     color={character.color}
                     visible={showCharacterNames}
                   />
+                  {/* Speech Bubble - Comic book style, to the side of character */}
+                  <CharacterSpeechBubble
+                    text={revealedText || ''}
+                    characterName={character.name}
+                    characterColor={character.color}
+                    position={bubblePosition}
+                    isTyping={!!isTyping}
+                    isSpeaking={!!isSpeaking}
+                  />
                 </FloatingCharacterWrapper>
               );
             })
@@ -1052,126 +1219,145 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         </View>
       </View>
 
-      {/* Resizable Divider */}
+      {/* Resizable Divider - 1px line with toggle button overflowing */}
       <View
         {...panResponder.panHandlers}
         style={styles.divider}
       >
-        <View style={styles.dividerHandle} />
-      </View>
-
-      {/* Chat Messages - Remaining space */}
-      <ScrollView
-        ref={scrollViewRef}
-        contentContainerStyle={styles.messagesContainer}
-        style={styles.chatScrollView}
-        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
-      >
-        <View style={styles.messagesContent}>
-          {messages.map((message, index) => {
-            const character = message.characterId ? getCharacter(message.characterId) : null;
-            // Alternate character positions: even index = left, odd = right
-            const characterPosition = message.role === 'assistant' ? (index % 2 === 0 ? 'left' : 'right') : null;
-
-            // Check if this message is being animated and has no revealed text yet
-            const isAnimating = message.characterId && 
-              animatingMessages.get(message.characterId) === message.id &&
-              playbackState.isPlaying;
-            
-            // Get revealed text for animated messages
-            const revealedText = isAnimating && message.characterId 
-              ? playbackEngineRef.current.getRevealedText(message.characterId) 
-              : null;
-            
-            // Hide bubble completely if animating but no text revealed yet
-            if (isAnimating && (!revealedText || revealedText.length === 0)) {
-              return null;
-            }
-
-            return (
-              <View
-                key={message.id}
-                style={[
-                  styles.messageBubbleContainer,
-                  message.role === 'user' && styles.userMessageContainer,
-                  characterPosition === 'left' && styles.assistantMessageLeft,
-                  characterPosition === 'right' && styles.assistantMessageRight,
-                ]}
-              >
-                <TouchableOpacity
-                  onLongPress={() => handleLongPress(message)}
-                  activeOpacity={message.role === 'user' ? 0.7 : 1}
-                  style={[
-                    styles.messageBubble,
-                    message.role === 'user' && styles.userMessageBubble,
-                    message.role === 'assistant' && character && { backgroundColor: character.color + '20', borderColor: character.color, borderWidth: 2 },
-                  ]}
-                >
-                  {editingMessageId === message.id ? (
-                    <View style={styles.editingMessageContainer}>
-                      <TextInput
-                        style={styles.editMessageInput}
-                        value={editingContent}
-                        onChangeText={setEditingContent}
-                        multiline
-                        autoFocus
-                        placeholder="Edit message..."
-                        placeholderTextColor="#71717a"
-                      />
-                      <View style={styles.editActions}>
-                        <TouchableOpacity onPress={cancelEditing} style={styles.editActionButton}>
-                          <Text style={styles.cancelText}>Cancel</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={saveEditedMessage} style={[styles.editActionButton, styles.saveButton]}>
-                          <Text style={styles.saveText}>Save</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ) : (
-                    <>
-                      {/* Character Name for Assistant Messages */}
-                      {message.role === 'assistant' && character && (
-                        <Text style={[styles.characterName, { color: character.color }]}>
-                          {character.name}
-                        </Text>
-                      )}
-                      {(() => {
-                        if (isAnimating && revealedText !== null) {
-                          // Show cursor if text is still being revealed
-                          const showCursor = revealedText.length < message.content.length;
-                          return (
-                            <Text style={styles.messageText}>
-                              {revealedText}
-                              {showCursor && <Text style={styles.typingCursor}>|</Text>}
-                            </Text>
-                          );
-                        }
-                        
-                        // Show full text when not animating
-                        return <Text style={styles.messageText}>{message.content}</Text>;
-                      })()}
-                      {message.created_at && (
-                        <Text style={styles.messageTimestamp}>
-                          {formatTimestamp(message.created_at)}
-                        </Text>
-                      )}
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-            );
-          })}
-          
-          {isLoading && (
-            <View style={[styles.messageBubbleContainer, styles.assistantMessageContainer]}>
-              <View style={[styles.messageBubble, styles.assistantMessageBubble, styles.loadingBubble]}>
-                <ActivityIndicator size="small" color="#8b5cf6" />
-                <Text style={styles.loadingText}>AI is thinking...</Text>
-              </View>
+        {/* Chat History Toggle Button - Centered, overflowing the divider */}
+        <TouchableOpacity
+          onPress={() => setShowChatHistory(!showChatHistory)}
+          style={[
+            styles.dividerToggleButton,
+            showChatHistory && styles.dividerToggleButtonActive,
+          ]}
+        >
+          <Ionicons 
+            name={showChatHistory ? "chevron-down" : "chevron-up"} 
+            size={16} 
+            color={showChatHistory ? "#ffffff" : "#a1a1aa"} 
+          />
+          <Ionicons 
+            name={showChatHistory ? "chatbubbles" : "chatbubbles-outline"} 
+            size={18} 
+            color={showChatHistory ? "#ffffff" : "#a1a1aa"} 
+          />
+          {messages.length > 0 && (
+            <View style={[styles.dividerMessageBadge, showChatHistory && styles.dividerMessageBadgeActive]}>
+              <Text style={[styles.dividerMessageBadgeText, showChatHistory && { color: '#8b5cf6' }]}>
+                {messages.length > 99 ? '99+' : messages.length}
+              </Text>
             </View>
           )}
-        </View>
-      </ScrollView>
+        </TouchableOpacity>
+      </View>
+
+
+      {/* Chat Messages - Only show when showChatHistory is true */}
+      {showChatHistory && (
+        <ScrollView
+          ref={scrollViewRef}
+          contentContainerStyle={styles.messagesContainer}
+          style={styles.chatScrollView}
+          onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+        >
+          <View style={styles.messagesContent}>
+            {messages.map((message, index) => {
+              const character = message.characterId ? getCharacter(message.characterId) : null;
+              // Alternate character positions: even index = left, odd = right
+              const characterPosition = message.role === 'assistant' ? (index % 2 === 0 ? 'left' : 'right') : null;
+
+              // Check if this message is being animated and has no revealed text yet
+              const isAnimating = message.characterId && 
+                animatingMessages.get(message.characterId) === message.id &&
+                playbackState.isPlaying;
+              
+              // Get revealed text for animated messages
+              const revealedText = isAnimating && message.characterId 
+                ? playbackEngineRef.current.getRevealedText(message.characterId) 
+                : null;
+              
+              // Hide bubble completely if animating but no text revealed yet
+              if (isAnimating && (!revealedText || revealedText.length === 0)) {
+                return null;
+              }
+
+              return (
+                <View
+                  key={message.id}
+                  style={[
+                    styles.messageBubbleContainer,
+                    message.role === 'user' && styles.userMessageContainer,
+                    characterPosition === 'left' && styles.assistantMessageLeft,
+                    characterPosition === 'right' && styles.assistantMessageRight,
+                  ]}
+                >
+                  <TouchableOpacity
+                    onLongPress={() => handleLongPress(message)}
+                    activeOpacity={message.role === 'user' ? 0.7 : 1}
+                    style={[
+                      styles.messageBubble,
+                      message.role === 'user' && styles.userMessageBubble,
+                      message.role === 'assistant' && character && { backgroundColor: character.color + '20', borderColor: character.color, borderWidth: 2 },
+                    ]}
+                  >
+                    {editingMessageId === message.id ? (
+                      <View style={styles.editingMessageContainer}>
+                        <TextInput
+                          style={styles.editMessageInput}
+                          value={editingContent}
+                          onChangeText={setEditingContent}
+                          multiline
+                          autoFocus
+                          placeholder="Edit message..."
+                          placeholderTextColor="#71717a"
+                        />
+                        <View style={styles.editActions}>
+                          <TouchableOpacity onPress={cancelEditing} style={styles.editActionButton}>
+                            <Text style={styles.cancelText}>Cancel</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={saveEditedMessage} style={[styles.editActionButton, styles.saveButton]}>
+                            <Text style={styles.saveText}>Save</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ) : (
+                      <>
+                        {/* Character Name for Assistant Messages */}
+                        {message.role === 'assistant' && character && (
+                          <Text style={[styles.characterName, { color: character.color }]}>
+                            {character.name}
+                          </Text>
+                        )}
+                        {(() => {
+                          if (isAnimating && revealedText !== null) {
+                            // Show cursor if text is still being revealed
+                            const showCursor = revealedText.length < message.content.length;
+                            return (
+                              <Text style={styles.messageText}>
+                                {revealedText}
+                                {showCursor && <Text style={styles.typingCursor}>|</Text>}
+                              </Text>
+                            );
+                          }
+                          
+                          // Show full text when not animating
+                          return <Text style={styles.messageText}>{message.content}</Text>;
+                        })()}
+                        {message.created_at && (
+                          <Text style={styles.messageTimestamp}>
+                            {formatTimestamp(message.created_at)}
+                          </Text>
+                        )}
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </View>
+        </ScrollView>
+      )}
 
       <View style={styles.inputContainer}>
         {/* Recording Status & Live Transcript */}
@@ -1179,12 +1365,25 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
           <View style={styles.recordingStatusContainer}>
             {isRecording && (
               <View style={styles.recordingStatus}>
-                <View style={styles.recordingDot} />
+                <View style={[styles.recordingDot, isPaused && styles.recordingDotPaused]} />
                 <Text style={styles.recordingText}>
-                  Recording... {Math.floor(recordingDuration / 60)}:{String(recordingDuration % 60).padStart(2, '0')}
+                  {Math.floor(recordingDuration / 60)}:{String(recordingDuration % 60).padStart(2, '0')}
                 </Text>
-                <TouchableOpacity onPress={cancelRecording} style={styles.cancelButton}>
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                {/* Pause/Resume button */}
+                <TouchableOpacity onPress={togglePause} style={styles.recordingActionButton}>
+                  <Ionicons name={isPaused ? "play" : "pause"} size={18} color="#a1a1aa" />
+                </TouchableOpacity>
+                {/* Restart button */}
+                <TouchableOpacity onPress={restartRecording} style={styles.recordingActionButton}>
+                  <Ionicons name="refresh" size={18} color="#a1a1aa" />
+                </TouchableOpacity>
+                {/* OK/Confirm button */}
+                <TouchableOpacity onPress={toggleRecording} style={styles.recordingConfirmButton}>
+                  <Ionicons name="checkmark" size={20} color="white" />
+                </TouchableOpacity>
+                {/* Delete/Cancel button */}
+                <TouchableOpacity onPress={cancelRecording} style={styles.recordingActionButton}>
+                  <Ionicons name="trash-outline" size={18} color="#a1a1aa" />
                 </TouchableOpacity>
               </View>
             )}
@@ -1207,8 +1406,8 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
           <TextInput
             value={input}
             onChangeText={setInput}
-            placeholder="Type your message or use voice... (Ctrl+Enter to send)"
-            placeholderTextColor="#a1a1aa"
+            placeholder="Type in here.."
+            placeholderTextColor="#71717a"
             style={styles.textInput}
             multiline
             onFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
@@ -1255,23 +1454,73 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f0f0f',
   },
   characterDisplayContainer: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#27272a',
+    borderBottomWidth: 0,
+    overflow: 'visible',
   },
   divider: {
-    height: 12,
-    backgroundColor: '#171717',
+    height: 1,
+    backgroundColor: '#27272a',
     justifyContent: 'center',
     alignItems: 'center',
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#27272a',
+    overflow: 'visible',
+    zIndex: 50,
   },
-  dividerHandle: {
-    width: 40,
-    height: 2,
-    backgroundColor: '#52525b',
-    borderRadius: 2,
+  dividerToggleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#171717',
+    borderWidth: 1,
+    borderColor: '#27272a',
+    position: 'absolute',
+    top: '50%',
+    transform: [{ translateY: -18 }],
+    zIndex: 51,
+  },
+  dividerToggleButtonActive: {
+    backgroundColor: '#8b5cf6',
+    borderColor: '#8b5cf6',
+  },
+  dividerMessageBadge: {
+    backgroundColor: '#8b5cf6',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    marginLeft: 4,
+  },
+  dividerMessageBadgeActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  dividerMessageBadgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  sendingMessageButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(139, 92, 246, 0.2)',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#8b5cf6',
+    zIndex: 10,
+  },
+  sendingMessageText: {
+    color: '#8b5cf6',
+    fontSize: 13,
+    fontWeight: '600',
   },
   chatScrollView: {
     flex: 1,
@@ -1351,32 +1600,34 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   inputContainer: {
-    borderTopWidth: 1,
-    borderTopColor: '#27272a',
+    borderTopWidth: 0,
     padding: 16,
+    marginTop: 16,
+    alignItems: 'center',
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 12,
     backgroundColor: '#171717',
-    borderRadius: 16,
-    padding: 8,
+    borderRadius: 20,
+    padding: 12,
     borderWidth: 1,
     borderColor: '#27272a',
-    maxWidth: 1400,
-    width: '100%',
+    maxWidth: 500,
+    width: '50%',
+    minWidth: 300,
     alignSelf: 'center',
   },
   textInput: {
     flex: 1,
     backgroundColor: 'transparent',
     color: 'white',
-    fontSize: 16,
-    minHeight: 24,
+    fontSize: 15,
+    minHeight: 40,
     maxHeight: 128,
-    paddingHorizontal: 0,
-    paddingVertical: 0,
+    paddingHorizontal: 4,
+    paddingVertical: 8,
   },
   actionButtons: {
     flexDirection: 'row',
@@ -1443,11 +1694,13 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'flex-end',
     justifyContent: 'center',
+    overflow: 'visible',
   },
   characterWrapper: {
     height: '85%',
     alignItems: 'center',
     justifyContent: 'flex-end',
+    overflow: 'visible',
   },
   characterNameLabel: {
     position: 'absolute',
@@ -1600,34 +1853,45 @@ const styles = StyleSheet.create({
   recordingStatus: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#dc2626',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    gap: 10,
+    backgroundColor: '#27272a',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#3f3f46',
   },
   recordingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'white',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#ef4444',
+  },
+  recordingDotPaused: {
+    backgroundColor: '#f59e0b',
+    opacity: 0.6,
   },
   recordingText: {
-    color: 'white',
+    color: '#e5e5e5',
     fontSize: 14,
     fontWeight: '600',
     flex: 1,
   },
-  cancelButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 4,
+  recordingActionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  cancelButtonText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
+  recordingConfirmButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#22c55e',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   transcribingStatus: {
     flexDirection: 'row',
@@ -1676,5 +1940,63 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 16,
     textAlign: 'center',
+  },
+  // Speech bubble styles
+  speechBubble: {
+    position: 'absolute',
+    top: 10,
+    maxWidth: 180,
+    minWidth: 80,
+    backgroundColor: 'rgba(23, 23, 23, 0.95)',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 200,
+  },
+  speechBubbleLeft: {
+    right: 80,
+  },
+  speechBubbleRight: {
+    left: 80,
+  },
+  speechBubbleTail: {
+    position: 'absolute',
+    top: 15,
+  },
+  speechBubbleTailLeft: {
+    right: -16,
+  },
+  speechBubbleTailRight: {
+    left: -16,
+  },
+  speechBubbleTailInner: {
+    width: 0,
+    height: 0,
+    borderTopWidth: 8,
+    borderTopColor: 'transparent',
+    borderBottomWidth: 8,
+    borderBottomColor: 'transparent',
+    borderLeftWidth: 8,
+    borderRightWidth: 8,
+  },
+  speechBubbleName: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  speechBubbleText: {
+    color: '#e5e5e5',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  speechBubbleCursor: {
+    fontWeight: 'bold',
+    opacity: 0.8,
   },
 });

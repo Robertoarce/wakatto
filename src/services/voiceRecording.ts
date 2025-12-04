@@ -7,6 +7,7 @@
 
 export interface RecordingState {
   isRecording: boolean;
+  isPaused: boolean;
   duration: number; // in seconds
   audioBlob?: Blob;
   audioURL?: string;
@@ -21,6 +22,7 @@ export class VoiceRecorder {
   private onStateChange?: (state: RecordingState) => void;
   private currentState: RecordingState = {
     isRecording: false,
+    isPaused: false,
     duration: 0,
   };
 
@@ -118,6 +120,7 @@ export class VoiceRecorder {
 
       this.updateState({
         isRecording: true,
+        isPaused: false,
         duration: 0,
         audioBlob: undefined,
         audioURL: undefined,
@@ -149,6 +152,39 @@ export class VoiceRecorder {
   }
 
   /**
+   * Pause recording
+   */
+  pauseRecording(): void {
+    if (this.mediaRecorder && this.currentState.isRecording && !this.currentState.isPaused) {
+      this.mediaRecorder.pause();
+      if (this.durationInterval) {
+        clearInterval(this.durationInterval);
+        this.durationInterval = null;
+      }
+      this.updateState({ isPaused: true });
+      console.log('[VoiceRecorder] Recording paused');
+    }
+  }
+
+  /**
+   * Resume recording
+   */
+  resumeRecording(): void {
+    if (this.mediaRecorder && this.currentState.isRecording && this.currentState.isPaused) {
+      this.mediaRecorder.resume();
+      // Resume duration timer
+      const pausedDuration = this.currentState.duration;
+      this.startTime = Date.now() - (pausedDuration * 1000);
+      this.durationInterval = setInterval(() => {
+        const duration = Math.floor((Date.now() - this.startTime) / 1000);
+        this.updateState({ duration });
+      }, 100);
+      this.updateState({ isPaused: false });
+      console.log('[VoiceRecorder] Recording resumed');
+    }
+  }
+
+  /**
    * Cancel recording (stop without saving)
    */
   cancelRecording(): void {
@@ -157,6 +193,7 @@ export class VoiceRecorder {
       this.audioChunks = [];
       this.updateState({
         isRecording: false,
+        isPaused: false,
         duration: 0,
         audioBlob: undefined,
         audioURL: undefined,
