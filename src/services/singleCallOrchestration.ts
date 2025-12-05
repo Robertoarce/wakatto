@@ -244,9 +244,9 @@ ${basePrompt}
   }).join('\n');
 
   const verbosityGuide = {
-    brief: '1-2 sentences per response (~40-80 characters)',
-    balanced: '2-4 sentences per response (~80-200 characters)',
-    detailed: '3-5 sentences per response (~150-300 characters)'
+    brief: '1 sentence per response (97.9% of the time), occasionally 3 sentences (2%), very rarely up to 5 sentences (0.1%)',
+    balanced: '1 sentence per response (97.9% of the time), occasionally 3 sentences (2%), very rarely up to 5 sentences (0.1%)',
+    detailed: '1 sentence per response (97.9% of the time), occasionally 3 sentences (2%), very rarely up to 5 sentences (0.1%)'
   }[config.verbosity];
 
   // Build character change notification
@@ -446,9 +446,9 @@ Include ONE gesture per response using the gesture ID (e.g., "thinking_hand_on_c
   const characterChangeNote = buildCharacterChangeNotification(messageHistory, selectedCharacters);
 
   const verbosityGuide = {
-    brief: '1-2 sentences per response',
-    balanced: '2-4 sentences per response',
-    detailed: '3-5 sentences per response'
+    brief: '1 sentence per response (97.9% of the time), occasionally 3 sentences (2%), very rarely up to 5 sentences (0.1%)',
+    balanced: '1 sentence per response (97.9% of the time), occasionally 3 sentences (2%), very rarely up to 5 sentences (0.1%)',
+    detailed: '1 sentence per response (97.9% of the time), occasionally 3 sentences (2%), very rarely up to 5 sentences (0.1%)'
   }[config.verbosity];
 
   // Main orchestration prompt
@@ -569,7 +569,7 @@ Respond with VALID JSON only (no markdown code blocks):
 - Subsequent responses: "timing": "delayed", may have "interrupts": true
 - Use "reactsTo": "character_id" when building on another's point
 - Maintain distinct voices for each character
-- Keep responses SHORT, casual, and friendly - like texting a friend!
+- Keep responses to 1 SENTENCE most of the time (97.9%), max 3 rarely (2%), max 5 extremely rarely (0.1%) - like texting a friend!
 - Return an empty "responses" array [] if no character has something meaningful to add
 ${config.includeGestures ? '- Choose gestures that match the character\'s emotional state and message' : ''}
 

@@ -80,8 +80,8 @@ function CharacterNameLabel({ name, color, visible }: { name: string; color: str
   );
 }
 
-// Star Wars style fading line component
-function FadingLine({ 
+// Star Wars style fading line component - memoized for performance
+const FadingLine = React.memo(function FadingLine({ 
   text, 
   opacity, 
   isLast,
@@ -93,14 +93,26 @@ function FadingLine({
   characterColor: string;
 }) {
   const animatedOpacity = useRef(new Animated.Value(opacity)).current;
+  const prevOpacity = useRef(opacity);
   
   useEffect(() => {
-    Animated.timing(animatedOpacity, {
-      toValue: opacity,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [opacity]);
+    // Only animate if opacity actually changed
+    if (prevOpacity.current !== opacity) {
+      Animated.timing(animatedOpacity, {
+        toValue: opacity,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+      prevOpacity.current = opacity;
+    }
+  }, [opacity, animatedOpacity]);
+
+  // Cleanup animation on unmount
+  useEffect(() => {
+    return () => {
+      animatedOpacity.stopAnimation();
+    };
+  }, [animatedOpacity]);
   
   return (
     <Animated.Text 
@@ -116,7 +128,7 @@ function FadingLine({
       {isLast && <Text style={[styles.speechBubbleCursor, { color: characterColor }]}>|</Text>}
     </Animated.Text>
   );
-}
+});
 
 // Character speech bubble component with Star Wars-style fading lines
 function CharacterSpeechBubble({ 
@@ -187,12 +199,19 @@ function CharacterSpeechBubble({
     };
   }, [text, isSpeaking, isTyping, fadeAnim]);
 
+  // Cleanup fadeAnim on unmount
+  useEffect(() => {
+    return () => {
+      fadeAnim.stopAnimation();
+    };
+  }, [fadeAnim]);
+
   if (!shouldRender && !text) return null;
 
   const fullText = text || lastTextRef.current;
   
   // Split text into lines (by newlines or wrap at ~40 chars)
-  const wrapText = (str: string, maxWidth: number = 35): string[] => {
+  const wrapText = (str: string, maxWidth: number = 45): string[] => {
     const lines: string[] = [];
     // First split by actual newlines
     const paragraphs = str.split('\n');
@@ -223,7 +242,7 @@ function CharacterSpeechBubble({
   const allLines = wrapText(fullText);
   
   // Show only the last 5 lines with fading effect
-  const maxVisibleLines = 5;
+  const maxVisibleLines = 6;
   const visibleLines = allLines.slice(-maxVisibleLines);
   const totalLines = allLines.length;
   const startIndex = Math.max(0, totalLines - maxVisibleLines);
@@ -275,7 +294,7 @@ function CharacterSpeechBubble({
       <View style={styles.speechBubbleLinesContainer}>
         {visibleLines.map((line, index) => (
           <FadingLine
-            key={`${startIndex + index}-${line.slice(0, 10)}`}
+            key={`line-${index}`}
             text={line}
             opacity={getLineOpacity(index)}
             isLast={index === visibleLines.length - 1 && isTyping}
@@ -286,6 +305,9 @@ function CharacterSpeechBubble({
     </Animated.View>
   );
 }
+
+// Memoize CharacterSpeechBubble for performance
+const MemoizedCharacterSpeechBubble = React.memo(CharacterSpeechBubble);
 
 // Floating animation wrapper for characters with hover name display
 function FloatingCharacterWrapper({ 
@@ -658,6 +680,14 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       messages.length > 0 &&
       previousMessagesRef.current.length > 0 &&
       messages[0]?.id !== previousMessagesRef.current[0]?.id;
+
+    // CLEANUP: Stop any running animations when conversation changes
+    if (conversationChanged) {
+      console.log('[ChatInterface] Conversation changed, stopping animations');
+      playbackEngineRef.current.stop();
+      setAnimatingMessages(new Map());
+      setPlaybackState({ isPlaying: false, characterStates: new Map() });
+    }
 
     // Detect initial load: messages just appeared (were empty, now have content)
     const initialLoad =
@@ -1351,7 +1381,15 @@ Would you like to discuss your perspective on this?`;
               
               // Calculate semi-circle position (like sitting around a table)
               // Center character is furthest (top/back), side characters are closest (bottom/front)
-              const angleRange = 100; // Tighter arc for closer grouping
+              // Custom angle ranges per character count
+              const angleRangeByCount: Record<number, number> = {
+                1: 0,    // Centered
+                2: 50,   // -25°, +25°
+                3: 70,   // -35°, 0°, +35°
+                4: 100,  // -50°, -16.7°, +16.7°, +50°
+                5: 100,  // -50°, -25°, 0°, +25°, +50°
+              };
+              const angleRange = angleRangeByCount[total] ?? 100;
               const startAngle = -angleRange / 2;
               const angleStep = total > 1 ? angleRange / (total - 1) : 0;
               const angle = total === 1 ? 0 : startAngle + (index * angleStep);
@@ -1424,7 +1462,7 @@ Would you like to discuss your perspective on this?`;
                     visible={showCharacterNames}
                   />
                   {/* Speech Bubble - Comic book style, to the side of character (or above if single) */}
-                  <CharacterSpeechBubble
+                  <MemoizedCharacterSpeechBubble
                     text={revealedText || ''}
                     characterName={character.name}
                     characterColor={character.color}
@@ -2191,8 +2229,12 @@ const styles = StyleSheet.create({
   speechBubble: {
     position: 'absolute',
     top: 10,
-    maxWidth: 180,
+    maxWidth: 280,
     minWidth: 80,
+    paddingBottom: 25,
+    paddingTop: 10,
+    paddingLeft: 15,
+    paddingRight: 15,
     backgroundColor: 'rgba(23, 23, 23, 0.95)',
     borderRadius: 12,
     paddingHorizontal: 10,
@@ -2215,8 +2257,7 @@ const styles = StyleSheet.create({
     // For single character - position bubble above and centered
     top: -30,
     left: '40%',
-    transform: [{ translateX: -100 }], // Center a ~200px bubble
-    maxWidth: 200,
+    transform: [{ translateX: -200 }], // Center a ~200px bubble
   },
   speechBubbleTail: {
     position: 'absolute',
