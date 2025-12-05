@@ -48,6 +48,22 @@ export function stopAnimationPlayback(): void {
 // Character name label component with fade animation
 function CharacterNameLabel({ name, color, visible }: { name: string; color: string; visible: boolean }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [responsiveFontSize, setResponsiveFontSize] = useState(() => {
+    const { width } = Dimensions.get('window');
+    // Scale font size based on screen width (14px on small mobile, 22px on large desktop)
+    return Math.max(14, Math.min(22, Math.round(width * 0.018)));
+  });
+
+  // Update font size on screen resize
+  useEffect(() => {
+    const updateFontSize = () => {
+      const { width } = Dimensions.get('window');
+      setResponsiveFontSize(Math.max(14, Math.min(22, Math.round(width * 0.018))));
+    };
+
+    const subscription = Dimensions.addEventListener('change', updateFontSize);
+    return () => subscription?.remove();
+  }, []);
 
   useEffect(() => {
     if (visible) {
@@ -73,7 +89,7 @@ function CharacterNameLabel({ name, color, visible }: { name: string; color: str
 
   return (
     <Animated.View style={[styles.characterNameLabel, { opacity: fadeAnim }]}>
-      <Text style={[styles.characterNameText, { color }]}>
+      <Text style={[styles.characterNameText, { color, fontSize: responsiveFontSize }]}>
         {name}
       </Text>
     </Animated.View>
@@ -1972,13 +1988,14 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   characterNameText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     textShadowColor: 'rgba(0, 0, 0, 0.8)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     paddingHorizontal: 12,
+    paddingVertical: 4,
   },
   hoverNameContainer: {
     position: 'absolute',
@@ -2001,7 +2018,7 @@ const styles = StyleSheet.create({
   hoverNameText: {
     fontFamily: 'Poppins-SemiBold',
     color: 'white',
-    fontSize: 14,
+    fontSize: 22,
     textAlign: 'center',
     paddingVertical: 6,
     borderRadius: 8,
@@ -2234,7 +2251,6 @@ const styles = StyleSheet.create({
     paddingBottom: 25,
     paddingTop: 10,
     paddingLeft: 15,
-    paddingRight: 15,
     backgroundColor: 'rgba(23, 23, 23, 0.95)',
     borderRadius: 12,
     paddingHorizontal: 10,
@@ -2248,10 +2264,12 @@ const styles = StyleSheet.create({
     zIndex: 200,
   },
   speechBubbleLeft: {
-    right: 80,
+    right: 70,
+    top: -10,
   },
   speechBubbleRight: {
-    left: 80,
+    left: 70,
+    top: -10,
   },
   speechBubbleSingle: {
     // For single character - position bubble above and centered
@@ -2264,10 +2282,10 @@ const styles = StyleSheet.create({
     top: 15,
   },
   speechBubbleTailLeft: {
-    right: -16,
+    left: -16,
   },
   speechBubbleTailRight: {
-    left: -16,
+    right: -16,
   },
   speechBubbleTailBottom: {
     position: 'absolute',
