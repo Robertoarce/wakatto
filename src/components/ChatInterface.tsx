@@ -1739,9 +1739,9 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   sendingMessageText: {
+    fontFamily: 'Inter-SemiBold',
     color: '#8b5cf6',
     fontSize: 13,
-    fontWeight: '600',
   },
   chatScrollView: {
     flex: 1,
@@ -1778,8 +1778,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   characterName: {
+    fontFamily: 'Poppins-Bold',
     fontSize: 18,
-    fontWeight: '700',
     marginBottom: 4,
   },
   messageBubble: {
@@ -1795,6 +1795,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#27272a',
   },
   messageText: {
+    fontFamily: 'Inter-Regular',
     color: 'white',
     fontSize: 16,
     marginBottom: 4,
@@ -1843,6 +1844,7 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     backgroundColor: 'transparent',
+    fontFamily: 'Inter-Regular',
     color: 'white',
     fontSize: 15,
     minHeight: 40,
@@ -1959,9 +1961,9 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   hoverNameText: {
+    fontFamily: 'Poppins-SemiBold',
     color: 'white',
     fontSize: 14,
-    fontWeight: '600',
     textAlign: 'center',
     paddingVertical: 6,
     borderRadius: 8,
@@ -1982,9 +1984,9 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   characterSelectorText: {
+    fontFamily: 'Poppins-SemiBold',
     color: '#ff6b35',
     fontSize: 14,
-    fontWeight: '600',
   },
   testSpeechButton: {
     position: 'absolute',
@@ -2051,9 +2053,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   characterSelectorTitle: {
+    fontFamily: 'Poppins-SemiBold',
     color: 'white',
     fontSize: 14,
-    fontWeight: '600',
   },
   characterSelectorScroll: {
     maxHeight: 120,
@@ -2083,9 +2085,9 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   characterSelectorName: {
+    fontFamily: 'Poppins-SemiBold',
     color: '#a1a1aa',
     fontSize: 14,
-    fontWeight: '600',
   },
   characterSelectorNameActive: {
     color: 'white',
@@ -2252,14 +2254,15 @@ const styles = StyleSheet.create({
     borderRightWidth: 8,
   },
   speechBubbleName: {
+    fontFamily: 'Poppins-Bold',
     fontSize: 16,
-    fontWeight: '700',
     marginBottom: 2,
   },
   speechBubbleText: {
+    fontFamily: 'SpaceMono-Regular',
     color: '#e5e5e5',
-    fontSize: 14,
-    lineHeight: 16,
+    fontSize: 13,
+    lineHeight: 18,
   },
   speechBubbleLinesContainer: {
     overflow: 'hidden',

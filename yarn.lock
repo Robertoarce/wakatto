@@ -1124,6 +1124,31 @@
   dependencies:
     "@types/hammerjs" "^2.0.36"
 
+"@expo-google-fonts/inter@^0.4.2":
+  version "0.4.2"
+  resolved "https://registry.npmjs.org/@expo-google-fonts/inter/-/inter-0.4.2.tgz"
+  integrity sha512-syfiImMaDmq7cFi0of+waE2M4uSCyd16zgyWxdPOY7fN2VBmSLKEzkfbZgeOjJq61kSqPBNNtXjggiQiSD6gMQ==
+
+"@expo-google-fonts/poppins@^0.4.1":
+  version "0.4.1"
+  resolved "https://registry.npmjs.org/@expo-google-fonts/poppins/-/poppins-0.4.1.tgz"
+  integrity sha512-LiX5oEryJqDt3UmWwr4oqf11hGMz/JEffkkNcZ3UtGwyoMFzXmBmTwcrAWrEttxypxmLNmPykDg+CY2VjKve9A==
+
+"@expo-google-fonts/roboto-mono@^0.4.1":
+  version "0.4.1"
+  resolved "https://registry.npmjs.org/@expo-google-fonts/roboto-mono/-/roboto-mono-0.4.1.tgz"
+  integrity sha512-vVTGi93KBS/ypBvZaM6wxhgV2CWOiZjow6X7F6wMBPdtR1WasLELGrtiptgCTPipPkR5o5xpl2+3teTV1ffJGg==
+
+"@expo-google-fonts/source-sans-pro@^0.2.3":
+  version "0.2.3"
+  resolved "https://registry.npmjs.org/@expo-google-fonts/source-sans-pro/-/source-sans-pro-0.2.3.tgz"
+  integrity sha512-/vDE5/vECqJT4Xdi1QiKG6rL8+mdrvqu3OlSe2dMPB7B9BR+cWsu0fSHTqRa1cQY03bXSPSIwOiHG4fy/CHBJg==
+
+"@expo-google-fonts/space-mono@^0.4.2":
+  version "0.4.2"
+  resolved "https://registry.npmjs.org/@expo-google-fonts/space-mono/-/space-mono-0.4.2.tgz"
+  integrity sha512-soYY/qcKcnY7xjIhuMAVzJYxSdJ3Z8TjrtFHOB5SK7/4MEMGpoaw+CAVyvXnA3fsO7J7waIW+/5Z0Y0i/CfSeg==
+
 "@expo/bunyan@^4.0.0":
   version "4.0.1"
   resolved "https://registry.npmjs.org/@expo/bunyan/-/bunyan-4.0.1.tgz"
