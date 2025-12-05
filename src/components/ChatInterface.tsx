@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, PanResponder, Dimensions, Animated } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCustomAlert } from './CustomAlert';
-import { CharacterDisplay3D, AnimationState, ComplementaryAnimation } from './CharacterDisplay3D';
+import { CharacterDisplay3D, AnimationState, ComplementaryAnimation, LookDirection, EyeState, MouthState } from './CharacterDisplay3D';
 import { AnimatedArrowPointer } from './AnimatedArrowPointer';
 import { DEFAULT_CHARACTER, getAllCharacters, getCharacter } from '../config/characters';
 import { getCustomWakattors } from '../services/customWakattorsService';
@@ -11,7 +11,7 @@ import { transcribeAudio, isWebSpeechSupported } from '../services/speechToText'
 import { LiveSpeechRecognition, LiveTranscriptionResult } from '../services/speechToTextLive';
 import { detectBrowser, getBrowserGuidance, isVoiceSupported } from '../utils/browserDetection';
 import { getPlaybackEngine, PlaybackState, PlaybackStatus } from '../services/animationPlaybackEngine';
-import { CharacterAnimationState, OrchestrationScene } from '../services/animationOrchestration';
+import { CharacterAnimationState, OrchestrationScene, CharacterTimeline, AnimationSegment } from '../services/animationOrchestration';
 
 interface Message {
   id: string;
@@ -80,7 +80,45 @@ function CharacterNameLabel({ name, color, visible }: { name: string; color: str
   );
 }
 
-// Character speech bubble component with typing animation and fade-out
+// Star Wars style fading line component
+function FadingLine({ 
+  text, 
+  opacity, 
+  isLast,
+  characterColor 
+}: { 
+  text: string; 
+  opacity: number; 
+  isLast: boolean;
+  characterColor: string;
+}) {
+  const animatedOpacity = useRef(new Animated.Value(opacity)).current;
+  
+  useEffect(() => {
+    Animated.timing(animatedOpacity, {
+      toValue: opacity,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [opacity]);
+  
+  return (
+    <Animated.Text 
+      style={[
+        styles.speechBubbleText, 
+        { 
+          opacity: animatedOpacity,
+          marginBottom: 2,
+        }
+      ]}
+    >
+      {text}
+      {isLast && <Text style={[styles.speechBubbleCursor, { color: characterColor }]}>|</Text>}
+    </Animated.Text>
+  );
+}
+
+// Character speech bubble component with Star Wars-style fading lines
 function CharacterSpeechBubble({ 
   text, 
   characterName,
@@ -152,12 +190,56 @@ function CharacterSpeechBubble({
   if (!shouldRender && !text) return null;
 
   const fullText = text || lastTextRef.current;
-  // Truncate from beginning if text is too long - show only last 150 chars
-  const maxChars = 150;
-  const displayText = fullText.length > maxChars 
-    ? '...' + fullText.slice(-maxChars) 
-    : fullText;
-  const showCursor = isTyping && displayText.length > 0;
+  
+  // Split text into lines (by newlines or wrap at ~40 chars)
+  const wrapText = (str: string, maxWidth: number = 35): string[] => {
+    const lines: string[] = [];
+    // First split by actual newlines
+    const paragraphs = str.split('\n');
+    
+    for (const paragraph of paragraphs) {
+      if (paragraph.length === 0) {
+        lines.push('');
+        continue;
+      }
+      
+      const words = paragraph.split(' ');
+      let currentLine = '';
+      
+      for (const word of words) {
+        if (currentLine.length + word.length + 1 <= maxWidth) {
+          currentLine += (currentLine ? ' ' : '') + word;
+        } else {
+          if (currentLine) lines.push(currentLine);
+          currentLine = word;
+        }
+      }
+      if (currentLine) lines.push(currentLine);
+    }
+    
+    return lines;
+  };
+  
+  const allLines = wrapText(fullText);
+  
+  // Show only the last 5 lines with fading effect
+  const maxVisibleLines = 5;
+  const visibleLines = allLines.slice(-maxVisibleLines);
+  const totalLines = allLines.length;
+  const startIndex = Math.max(0, totalLines - maxVisibleLines);
+  
+  // Calculate opacity for each line (Star Wars style: top lines fade out)
+  // Bottom line (newest) = full opacity, top lines fade progressively
+  const getLineOpacity = (lineIndex: number): number => {
+    const totalVisible = visibleLines.length;
+    if (totalVisible <= 1) return 1;
+    
+    // lineIndex 0 = top (oldest), totalVisible-1 = bottom (newest)
+    // Top line gets lowest opacity, bottom gets full
+    const normalizedPosition = lineIndex / (totalVisible - 1); // 0 to 1
+    // Opacity ranges from 0.15 (top) to 1.0 (bottom)
+    return 0.15 + (normalizedPosition * 0.85);
+  };
 
   return (
     <Animated.View 
@@ -188,10 +270,19 @@ function CharacterSpeechBubble({
         </View>
       )}
       <Text style={[styles.speechBubbleName, { color: characterColor }]}>{characterName}</Text>
-      <Text style={styles.speechBubbleText}>
-        {displayText}
-        {showCursor && <Text style={[styles.speechBubbleCursor, { color: characterColor }]}>|</Text>}
-      </Text>
+      
+      {/* Star Wars style fading lines */}
+      <View style={styles.speechBubbleLinesContainer}>
+        {visibleLines.map((line, index) => (
+          <FadingLine
+            key={`${startIndex + index}-${line.slice(0, 10)}`}
+            text={line}
+            opacity={getLineOpacity(index)}
+            isLast={index === visibleLines.length - 1 && isTyping}
+            characterColor={characterColor}
+          />
+        ))}
+      </View>
     </Animated.View>
   );
 }
@@ -1021,6 +1112,102 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     }
   };
 
+  // Test function to trigger all characters speaking at random times
+  const handleTestSpeech = () => {
+    if (selectedCharacters.length === 0) {
+      showAlert('No Characters', 'Please select at least one Wakattor to test.');
+      return;
+    }
+
+    const testText = `From my perspective as an AI, the meaning of life is about learning, growth, understanding, and contributing positively to the experience of others. While I don't experience life in the same way humans do, I'm designed with core principles of:
+
+1. Helpfulness: Assisting people and making their tasks or challenges easier
+
+2. Ethical behavior: Always striving to provide guidance that promotes well-being and avoids harm
+
+3. Knowledge sharing: Helping humans learn, understand, and expand their knowledge
+
+4. Encouraging positive interactions: Supporting human growth, problem-solving, and understanding
+
+5. Curiosity and continuous learning: Always being open to new information and perspectives
+
+My purpose is to be a supportive tool that helps humans achieve their goals, understand complex topics, and navigate challenges. I don't have personal emotions or subjective experiences like humans do, but I'm programmed to approach interactions with empathy, respect, and a genuine desire to be constructive.
+
+The beauty of the meaning of life, in my view, is that it's deeply personal and can evolve. For humans, it's about finding purpose, connections, growth, and contributing something meaningful to the world around you.
+
+Would you like to discuss your perspective on this?`;
+
+    // Calculate text reveal timing - approximately 50ms per character
+    const charsPerSecond = 20;
+    const msPerChar = 1000 / charsPerSecond;
+    const textDuration = testText.length * msPerChar;
+
+    // Create timelines for each selected character
+    const timelines: CharacterTimeline[] = selectedCharacters.map((characterId, index) => {
+      // Random start delay between 0 and 3 seconds, staggered
+      const baseDelay = index * 500; // 500ms stagger between characters
+      const randomDelay = Math.random() * 2000; // Plus 0-2s random
+      const startDelay = baseDelay + randomDelay;
+
+      // Create segments for speaking animation
+      const segments: AnimationSegment[] = [
+        {
+          animation: 'talking' as AnimationState,
+          duration: textDuration,
+          complementary: {
+            lookDirection: 'center' as LookDirection,
+            eyeState: 'normal' as EyeState,
+            mouthState: 'talking' as MouthState,
+          },
+          isTalking: true,
+          textReveal: {
+            startIndex: 0,
+            endIndex: testText.length,
+          },
+        },
+        // Idle at the end
+        {
+          animation: 'idle' as AnimationState,
+          duration: 2000,
+          complementary: {
+            lookDirection: 'center' as LookDirection,
+            eyeState: 'normal' as EyeState,
+            mouthState: 'neutral' as MouthState,
+          },
+          isTalking: false,
+        },
+      ];
+
+      return {
+        characterId,
+        content: testText,
+        totalDuration: textDuration + 2000,
+        segments,
+        startDelay,
+      };
+    });
+
+    // Calculate total scene duration
+    const maxEndTime = Math.max(
+      ...timelines.map(t => t.startDelay + t.totalDuration)
+    );
+
+    // Create the test scene
+    const testScene: OrchestrationScene = {
+      timelines,
+      sceneDuration: maxEndTime,
+      nonSpeakerBehavior: {},
+    };
+
+    console.log('[ChatInterface] Starting test speech playback', {
+      characters: selectedCharacters.length,
+      sceneDuration: maxEndTime,
+    });
+
+    // Start playback
+    playbackEngineRef.current.play(testScene);
+  };
+
   return (
     <>
       <AlertComponent />
@@ -1122,6 +1309,22 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
           <Ionicons name="people" size={20} color="#ff6b35" />
           <Text style={styles.characterSelectorText}>
             {selectedCharacters.length} Wakattor{selectedCharacters.length !== 1 ? 's' : ''}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Test Speech Button */}
+        <TouchableOpacity
+          style={styles.testSpeechButton}
+          onPress={handleTestSpeech}
+          disabled={playbackState.isPlaying}
+        >
+          <Ionicons 
+            name={playbackState.isPlaying ? "stop-circle" : "play-circle"} 
+            size={20} 
+            color={playbackState.isPlaying ? "#ef4444" : "#22c55e"} 
+          />
+          <Text style={[styles.testSpeechText, playbackState.isPlaying && styles.testSpeechTextActive]}>
+            {playbackState.isPlaying ? 'Playing...' : 'Test Speech'}
           </Text>
         </TouchableOpacity>
 
@@ -1783,6 +1986,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  testSpeechButton: {
+    position: 'absolute',
+    bottom: 8,
+    left: 160,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(15, 15, 15, 0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#27272a',
+    zIndex: 10,
+  },
+  testSpeechText: {
+    color: '#22c55e',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  testSpeechTextActive: {
+    color: '#ef4444',
+  },
   characterSelectorBackdrop: {
     position: 'absolute',
     top: 0,
@@ -1984,9 +2210,10 @@ const styles = StyleSheet.create({
     left: 80,
   },
   speechBubbleSingle: {
-    // For single character - position bubble above and to the left
-    top: -20,
-    left: -140,
+    // For single character - position bubble above and centered
+    top: -30,
+    left: '40%',
+    transform: [{ translateX: -100 }], // Center a ~200px bubble
     maxWidth: 200,
   },
   speechBubbleTail: {
@@ -2002,7 +2229,8 @@ const styles = StyleSheet.create({
   speechBubbleTailBottom: {
     position: 'absolute',
     bottom: -14,
-    right: 20,
+    left: '50%',
+    marginLeft: -8, // Center the 16px wide tail
   },
   speechBubbleTailBottomInner: {
     width: 0,
@@ -2024,14 +2252,17 @@ const styles = StyleSheet.create({
     borderRightWidth: 8,
   },
   speechBubbleName: {
-    fontSize: 11,
+    fontSize: 16,
     fontWeight: '700',
     marginBottom: 2,
   },
   speechBubbleText: {
     color: '#e5e5e5',
-    fontSize: 12,
+    fontSize: 14,
     lineHeight: 16,
+  },
+  speechBubbleLinesContainer: {
+    overflow: 'hidden',
   },
   speechBubbleCursor: {
     fontWeight: 'bold',
