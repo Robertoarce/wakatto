@@ -4,9 +4,10 @@
  * Uses smooth, rounded geometries (spheres, cylinders) for a cute aesthetic.
  */
 
-import React, { useRef } from 'react';
+import React, { useRef, Suspense } from 'react';
+import { View, Text as RNText, StyleSheet, ActivityIndicator } from 'react-native';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, Text } from '@react-three/drei';
+import { OrbitControls, Text } from '@react-three/drei';
 import * as THREE from 'three';
 
 // Character component representing Freud, Jung, or Adler (Rounded/Toy Style)
@@ -265,10 +266,9 @@ function Character({ position, suitColor, hairColor, hasGlasses, hasBeard, hasMu
       <Text
         position={[0, 3.6, 0]}
         fontSize={0.25}
-        color={blackColor}
+        color="#ffffff"
         anchorX="center"
         anchorY="middle"
-        font="https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff"
       >
         {name}
       </Text>
@@ -286,32 +286,21 @@ function Platform() {
   );
 }
 
-// Main component with Freud, Jung, and Adler
-export default function FreudJung3D() {
+// Scene content - separated for Suspense
+function Scene() {
   return (
-    <Canvas
-      style={{ width: '100%', height: '600px', background: '#e8d4b8' }}
-      gl={{ antialias: true }}
-    >
-      {/* Camera */}
-      <PerspectiveCamera makeDefault position={[0, 2, 10]} fov={50} />
-
-      {/* Lighting - Soft, warm lighting to match reference */}
-      <ambientLight intensity={1.2} color="#ffffff" />
-      <directionalLight
-        position={[5, 8, 5]}
-        intensity={1.8}
-        color="#fff5e6"
-        castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-      />
-      <directionalLight
-        position={[-3, 5, -3]}
-        intensity={0.8}
-        color="#ffefd5"
-      />
-      <pointLight position={[0, 3, 4]} intensity={0.6} color="#ffffff" />
+    <>
+      {/* Background color */}
+      <color attach="background" args={['#e8d4b8']} />
+      
+      {/* Lighting - matching working CharacterDisplay3D pattern */}
+      <ambientLight intensity={0.8} />
+      <spotLight position={[5, 10, 5]} angle={0.3} penumbra={1} intensity={1.5} castShadow />
+      <directionalLight position={[-5, 5, 5]} intensity={0.6} />
+      {/* Top light for better illumination */}
+      <directionalLight position={[0, 10, 0]} intensity={0.8} color="#ffffff" />
+      {/* Frontal light for face illumination */}
+      <directionalLight position={[0, 3, 8]} intensity={0.6} color="#fff5e6" />
 
       {/* Platform */}
       <Platform />
@@ -362,6 +351,60 @@ export default function FreudJung3D() {
         target={[0, 1.5, 0]}
         maxPolarAngle={Math.PI / 2}
       />
-    </Canvas>
+    </>
   );
 }
+
+// Loading fallback component
+function LoadingFallback() {
+  return (
+    <View style={chibiStyles.loadingContainer}>
+      <ActivityIndicator size="large" color="#8b5cf6" />
+      <RNText style={chibiStyles.loadingText}>Loading 3D Models...</RNText>
+    </View>
+  );
+}
+
+// Main component with Freud, Jung, and Adler
+export default function FreudJung3D() {
+  return (
+    <View style={chibiStyles.container}>
+      <Canvas
+        style={chibiStyles.canvas}
+        gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
+        camera={{ position: [0, 2, 12], fov: 50 }}
+        fallback={<LoadingFallback />}
+      >
+        <Suspense fallback={null}>
+          <Scene />
+        </Suspense>
+      </Canvas>
+    </View>
+  );
+}
+
+const chibiStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    minHeight: 400,
+    overflow: 'hidden',
+  },
+  canvas: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#e8d4b8',
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#4a3426',
+    fontSize: 14,
+  },
+});

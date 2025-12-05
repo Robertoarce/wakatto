@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, PanResponder, Dimensions, Animated } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCustomAlert } from './CustomAlert';
@@ -12,6 +12,46 @@ import { LiveSpeechRecognition, LiveTranscriptionResult } from '../services/spee
 import { detectBrowser, getBrowserGuidance, isVoiceSupported } from '../utils/browserDetection';
 import { getPlaybackEngine, PlaybackState, PlaybackStatus } from '../services/animationPlaybackEngine';
 import { CharacterAnimationState, OrchestrationScene, CharacterTimeline, AnimationSegment } from '../services/animationOrchestration';
+
+// Responsive font scaling hook - scales fonts based on screen width
+interface ResponsiveFonts {
+  xs: number;   // 10-12px (badges, timestamps)
+  sm: number;   // 12-14px (secondary text, labels)
+  md: number;   // 14-16px (body text, inputs)
+  lg: number;   // 16-18px (character names, emphasis)
+  xl: number;   // 18-22px (headings, hover names)
+}
+
+function useResponsiveFonts(): ResponsiveFonts {
+  const [fonts, setFonts] = useState<ResponsiveFonts>(() => calculateFonts(Dimensions.get('window').width));
+
+  useEffect(() => {
+    const updateFonts = () => {
+      const { width } = Dimensions.get('window');
+      setFonts(calculateFonts(width));
+    };
+
+    const subscription = Dimensions.addEventListener('change', updateFonts);
+    return () => subscription?.remove();
+  }, []);
+
+  return fonts;
+}
+
+// Calculate font sizes based on screen width
+// Mobile (<480): smaller fonts, Desktop (>1200): larger fonts
+function calculateFonts(width: number): ResponsiveFonts {
+  // Base scale factor: 0.8 on mobile, 1.0 on tablet, 1.15 on desktop
+  const scale = width < 480 ? 0.85 : width < 768 ? 0.92 : width < 1024 ? 1.0 : 1.1;
+  
+  return {
+    xs: Math.round(11 * scale),   // 9-12px
+    sm: Math.round(13 * scale),   // 11-15px
+    md: Math.round(15 * scale),   // 13-17px
+    lg: Math.round(17 * scale),   // 14-19px
+    xl: Math.round(20 * scale),   // 17-22px
+  };
+}
 
 interface Message {
   id: string;
@@ -48,22 +88,7 @@ export function stopAnimationPlayback(): void {
 // Character name label component with fade animation
 function CharacterNameLabel({ name, color, visible }: { name: string; color: string; visible: boolean }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const [responsiveFontSize, setResponsiveFontSize] = useState(() => {
-    const { width } = Dimensions.get('window');
-    // Scale font size based on screen width (14px on small mobile, 22px on large desktop)
-    return Math.max(14, Math.min(22, Math.round(width * 0.018)));
-  });
-
-  // Update font size on screen resize
-  useEffect(() => {
-    const updateFontSize = () => {
-      const { width } = Dimensions.get('window');
-      setResponsiveFontSize(Math.max(14, Math.min(22, Math.round(width * 0.018))));
-    };
-
-    const subscription = Dimensions.addEventListener('change', updateFontSize);
-    return () => subscription?.remove();
-  }, []);
+  const fonts = useResponsiveFonts();
 
   useEffect(() => {
     if (visible) {
@@ -89,7 +114,7 @@ function CharacterNameLabel({ name, color, visible }: { name: string; color: str
 
   return (
     <Animated.View style={[styles.characterNameLabel, { opacity: fadeAnim }]}>
-      <Text style={[styles.characterNameText, { color, fontSize: responsiveFontSize }]}>
+      <Text style={[styles.characterNameText, { color, fontSize: fonts.lg }]}>
         {name}
       </Text>
     </Animated.View>
@@ -110,6 +135,7 @@ const FadingLine = React.memo(function FadingLine({
 }) {
   const animatedOpacity = useRef(new Animated.Value(opacity)).current;
   const prevOpacity = useRef(opacity);
+  const fonts = useResponsiveFonts();
   
   useEffect(() => {
     // Only animate if opacity actually changed
@@ -137,6 +163,7 @@ const FadingLine = React.memo(function FadingLine({
         { 
           opacity: animatedOpacity,
           marginBottom: 2,
+          fontSize: fonts.sm,
         }
       ]}
     >
@@ -169,6 +196,7 @@ function CharacterSpeechBubble({
   const fadeOutTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasStartedFadeOut = useRef(false);
   const lastTextRef = useRef('');
+  const fonts = useResponsiveFonts();
 
   useEffect(() => {
     // Clear any existing fade out timer when speaking starts again
@@ -304,7 +332,7 @@ function CharacterSpeechBubble({
           <View style={[styles.speechBubbleTailBottomInner, { borderTopColor: characterColor }]} />
         </View>
       )}
-      <Text style={[styles.speechBubbleName, { color: characterColor }]}>{characterName}</Text>
+      <Text style={[styles.speechBubbleName, { color: characterColor, fontSize: fonts.lg }]}>{characterName}</Text>
       
       {/* Star Wars style fading lines */}
       <View style={styles.speechBubbleLinesContainer}>
@@ -343,6 +371,7 @@ function FloatingCharacterWrapper({
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const hoverAnim = useRef(new Animated.Value(0)).current;
   const [isHovered, setIsHovered] = useState(false);
+  const fonts = useResponsiveFonts();
   
   useEffect(() => {
     // Different durations for different rhythms (2.5s to 4s based on index)
@@ -454,7 +483,7 @@ function FloatingCharacterWrapper({
         pointerEvents="none"
       >
         <View style={[styles.hoverNameBubble, { backgroundColor: characterColor }]}>
-          <Text style={styles.hoverNameText}>{characterName}</Text>
+          <Text style={[styles.hoverNameText, { fontSize: fonts.xl }]}>{characterName}</Text>
         </View>
       </Animated.View>
     </Animated.View>
@@ -463,6 +492,7 @@ function FloatingCharacterWrapper({
 
 export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage, animationScene }: ChatInterfaceProps) {
   const { showAlert, AlertComponent } = useCustomAlert();
+  const fonts = useResponsiveFonts();
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -1281,7 +1311,7 @@ Would you like to discuss your perspective on this?`;
           pointerEvents="box-none"
         >
           <View style={styles.characterSelectorHeader}>
-            <Text style={styles.characterSelectorTitle}>Select Wakattors (Max 5)</Text>
+            <Text style={[styles.characterSelectorTitle, { fontSize: fonts.sm }]}>Select Wakattors (Max 5)</Text>
             {isMobileView && (
               <TouchableOpacity onPress={() => setShowCharacterSelector(false)}>
                 <Ionicons name="close" size={24} color="#ff6b35" />
@@ -1305,7 +1335,7 @@ Would you like to discuss your perspective on this?`;
                     onPress={() => toggleCharacter(characterId)}
                   >
                     <View style={[styles.characterSelectorIndicator, { backgroundColor: character.color }]} />
-                    <Text style={[styles.characterSelectorName, styles.characterSelectorNameActive]}>
+                    <Text style={[styles.characterSelectorName, styles.characterSelectorNameActive, { fontSize: fonts.sm }]}>
                       {character.name}
                     </Text>
                     <Ionicons name="close-circle" size={20} color="#ef4444" />
@@ -1325,7 +1355,7 @@ Would you like to discuss your perspective on this?`;
                   onPress={() => toggleCharacter(character.id)}
                 >
                   <View style={[styles.characterSelectorIndicator, { backgroundColor: character.color }]} />
-                  <Text style={[styles.characterSelectorName, isSelected && styles.characterSelectorNameActive]}>
+                  <Text style={[styles.characterSelectorName, isSelected && styles.characterSelectorNameActive, { fontSize: fonts.sm }]}>
                     {character.name}
                   </Text>
                   {isSelected && <Ionicons name="checkmark-circle" size={20} color={character.color} />}
@@ -1353,7 +1383,7 @@ Would you like to discuss your perspective on this?`;
           onPress={() => setShowCharacterSelector(!showCharacterSelector)}
         >
           <Ionicons name="people" size={20} color="#ff6b35" />
-          <Text style={styles.characterSelectorText}>
+          <Text style={[styles.characterSelectorText, { fontSize: fonts.sm }]}>
             {selectedCharacters.length} Wakattor{selectedCharacters.length !== 1 ? 's' : ''}
           </Text>
         </TouchableOpacity>
@@ -1369,7 +1399,7 @@ Would you like to discuss your perspective on this?`;
             size={20} 
             color={playbackState.isPlaying ? "#ef4444" : "#22c55e"} 
           />
-          <Text style={[styles.testSpeechText, playbackState.isPlaying && styles.testSpeechTextActive]}>
+          <Text style={[styles.testSpeechText, playbackState.isPlaying && styles.testSpeechTextActive, { fontSize: fonts.sm }]}>
             {playbackState.isPlaying ? 'Playing...' : 'Test Speech'}
           </Text>
         </TouchableOpacity>
@@ -1378,7 +1408,7 @@ Would you like to discuss your perspective on this?`;
         {isLoading && (
           <View style={styles.sendingMessageButton}>
             <ActivityIndicator size="small" color="#8b5cf6" />
-            <Text style={styles.sendingMessageText}>Sending message...</Text>
+            <Text style={[styles.sendingMessageText, { fontSize: fonts.sm }]}>Sending message...</Text>
           </View>
         )}
 
@@ -1387,7 +1417,7 @@ Would you like to discuss your perspective on this?`;
           {selectedCharacters.length === 0 ? (
             <View style={styles.emptyCharacterState}>
               <Ionicons name="person-add" size={48} color="#666" />
-              <Text style={styles.emptyCharacterText}>Click "0 Wakattors" to select characters</Text>
+              <Text style={[styles.emptyCharacterText, { fontSize: fonts.md }]}>Click "0 Wakattors" to select characters</Text>
             </View>
           ) : (
             Array.from(new Set(selectedCharacters)).map((characterId, index) => {
@@ -1519,7 +1549,7 @@ Would you like to discuss your perspective on this?`;
           />
           {messages.length > 0 && (
             <View style={[styles.dividerMessageBadge, showChatHistory && styles.dividerMessageBadgeActive]}>
-              <Text style={[styles.dividerMessageBadgeText, showChatHistory && { color: '#8b5cf6' }]}>
+              <Text style={[styles.dividerMessageBadgeText, showChatHistory && { color: '#8b5cf6' }, { fontSize: fonts.xs }]}>
                 {messages.length > 99 ? '99+' : messages.length}
               </Text>
             </View>
@@ -1579,7 +1609,7 @@ Would you like to discuss your perspective on this?`;
                     {editingMessageId === message.id ? (
                       <View style={styles.editingMessageContainer}>
                         <TextInput
-                          style={styles.editMessageInput}
+                          style={[styles.editMessageInput, { fontSize: fonts.md }]}
                           value={editingContent}
                           onChangeText={setEditingContent}
                           multiline
@@ -1589,10 +1619,10 @@ Would you like to discuss your perspective on this?`;
                         />
                         <View style={styles.editActions}>
                           <TouchableOpacity onPress={cancelEditing} style={styles.editActionButton}>
-                            <Text style={styles.cancelText}>Cancel</Text>
+                            <Text style={[styles.cancelText, { fontSize: fonts.sm }]}>Cancel</Text>
                           </TouchableOpacity>
                           <TouchableOpacity onPress={saveEditedMessage} style={[styles.editActionButton, styles.saveButton]}>
-                            <Text style={styles.saveText}>Save</Text>
+                            <Text style={[styles.saveText, { fontSize: fonts.sm }]}>Save</Text>
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -1600,7 +1630,7 @@ Would you like to discuss your perspective on this?`;
                       <>
                         {/* Character Name for Assistant Messages */}
                         {message.role === 'assistant' && character && (
-                          <Text style={[styles.characterName, { color: character.color }]}>
+                          <Text style={[styles.characterName, { color: character.color, fontSize: fonts.lg }]}>
                             {character.name}
                           </Text>
                         )}
@@ -1609,7 +1639,7 @@ Would you like to discuss your perspective on this?`;
                             // Show cursor if text is still being revealed
                             const showCursor = revealedText.length < message.content.length;
                             return (
-                              <Text style={styles.messageText}>
+                              <Text style={[styles.messageText, { fontSize: fonts.md }]}>
                                 {revealedText}
                                 {showCursor && <Text style={styles.typingCursor}>|</Text>}
                               </Text>
@@ -1617,10 +1647,10 @@ Would you like to discuss your perspective on this?`;
                           }
                           
                           // Show full text when not animating
-                          return <Text style={styles.messageText}>{message.content}</Text>;
+                          return <Text style={[styles.messageText, { fontSize: fonts.md }]}>{message.content}</Text>;
                         })()}
                         {message.created_at && (
-                          <Text style={styles.messageTimestamp}>
+                          <Text style={[styles.messageTimestamp, { fontSize: fonts.xs }]}>
                             {formatTimestamp(message.created_at)}
                           </Text>
                         )}
@@ -1641,7 +1671,7 @@ Would you like to discuss your perspective on this?`;
             {isRecording && (
               <View style={styles.recordingStatus}>
                 <View style={[styles.recordingDot, isPaused && styles.recordingDotPaused]} />
-                <Text style={styles.recordingText}>
+                <Text style={[styles.recordingText, { fontSize: fonts.sm }]}>
                   {Math.floor(recordingDuration / 60)}:{String(recordingDuration % 60).padStart(2, '0')}
                 </Text>
                 {/* Pause/Resume button */}
@@ -1665,13 +1695,13 @@ Would you like to discuss your perspective on this?`;
             {isTranscribing && (
               <View style={styles.transcribingStatus}>
                 <ActivityIndicator size="small" color="#8b5cf6" />
-                <Text style={styles.transcribingText}>Transcribing...</Text>
+                <Text style={[styles.transcribingText, { fontSize: fonts.sm }]}>Transcribing...</Text>
               </View>
             )}
             {liveTranscript && (
               <View style={styles.liveTranscriptContainer}>
-                <Text style={styles.liveTranscriptLabel}>Live:</Text>
-                <Text style={styles.liveTranscriptText}>{liveTranscript}</Text>
+                <Text style={[styles.liveTranscriptLabel, { fontSize: fonts.xs }]}>Live:</Text>
+                <Text style={[styles.liveTranscriptText, { fontSize: fonts.sm }]}>{liveTranscript}</Text>
               </View>
             )}
           </View>
@@ -1683,7 +1713,7 @@ Would you like to discuss your perspective on this?`;
             onChangeText={setInput}
             placeholder="Type in here.."
             placeholderTextColor="#71717a"
-            style={styles.textInput}
+            style={[styles.textInput, { fontSize: fonts.md }]}
             multiline
             onFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
             onKeyPress={handleKeyPress}

@@ -44,6 +44,9 @@ export type MouthState = 'closed' | 'open' | 'smile' | 'wide_smile' | 'surprised
 // Visual effect types
 export type VisualEffect = 'none' | 'confetti' | 'spotlight' | 'sparkles' | 'hearts';
 
+// 3D Model style types
+export type ModelStyle = 'blocky' | 'chibi';
+
 // Complementary animation configuration
 export interface ComplementaryAnimation {
   lookDirection?: LookDirection;
@@ -67,6 +70,8 @@ interface CharacterDisplay3DProps {
   // New complementary animation props
   complementary?: ComplementaryAnimation;
   onAnimationComplete?: () => void;
+  // 3D model style
+  modelStyle?: ModelStyle;
 }
 
 // ============================================
@@ -262,6 +267,7 @@ interface CharacterProps {
   isTalking?: boolean;
   scale?: number;
   complementary?: ComplementaryAnimation;
+  modelStyle?: ModelStyle;
 }
 
 // Lerp helper for smooth transitions
@@ -269,8 +275,8 @@ function lerp(current: number, target: number, factor: number): number {
   return current + (target - current) * factor;
 }
 
-// Blocky Minecraft-style character component
-function Character({ character, isActive, animation = 'idle', isTalking = false, scale = 1, complementary }: CharacterProps) {
+// Character component with switchable 3D style
+function Character({ character, isActive, animation = 'idle', isTalking = false, scale = 1, complementary, modelStyle = 'blocky' }: CharacterProps) {
   const meshRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Group>(null);
   const leftArmRef = useRef<THREE.Mesh>(null);
@@ -680,8 +686,11 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
   // For single character display, center at origin
   const position: [number, number, number] = [0, 0, 0];
 
-  return (
-    <group ref={meshRef} position={position} scale={[scale * 0.7, scale * 0.7, scale * 0.7]}>
+  // =========================================
+  // BLOCKY STYLE (Minecraft-like)
+  // =========================================
+  const renderBlockyBody = () => (
+    <>
       {/* Legs */}
       <mesh ref={leftLegRef} position={[-0.15, -0.25, 0]} castShadow>
         <boxGeometry args={[0.25, 0.5, 0.25]} />
@@ -698,7 +707,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
       </mesh>
 
-      {/* Tie (for Jung) */}
+      {/* Tie */}
       {hasTie && (
         <mesh position={[0, 0.25, 0.18]} castShadow>
           <boxGeometry args={[0.15, 0.5, 0.02]} />
@@ -716,7 +725,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
       </mesh>
 
-      {/* Head Group - All facial features move with head */}
+      {/* Head Group */}
       <group ref={headRef} position={[0, 0.85, 0]}>
         {/* Head */}
         <mesh castShadow>
@@ -724,7 +733,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           <meshStandardMaterial color={skinColor} roughness={0.6} />
         </mesh>
 
-        {/* Hair - Different styles based on hairType */}
+        {/* Hair - Different styles */}
         {hairType === 'short' && (
           <mesh position={[0, 0.2, 0]} castShadow>
             <boxGeometry args={[0.52, 0.15, 0.52]} />
@@ -749,17 +758,14 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
               <boxGeometry args={[0.52, 0.15, 0.52]} />
               <meshStandardMaterial color={hairColor} roughness={0.8} />
             </mesh>
-            {/* Left side long hair */}
             <mesh position={[-0.3, 0.0, 0]} castShadow>
               <boxGeometry args={[0.1, 0.5, 0.3]} />
               <meshStandardMaterial color={hairColor} roughness={0.8} />
             </mesh>
-            {/* Right side long hair */}
             <mesh position={[0.3, 0.0, 0]} castShadow>
               <boxGeometry args={[0.1, 0.5, 0.3]} />
               <meshStandardMaterial color={hairColor} roughness={0.8} />
             </mesh>
-            {/* Back long hair */}
             <mesh position={[0, 0.0, -0.3]} castShadow>
               <boxGeometry args={[0.5, 0.5, 0.1]} />
               <meshStandardMaterial color={hairColor} roughness={0.8} />
@@ -781,7 +787,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           </>
         )}
 
-        {/* Eyes with refs for blink/wink animations */}
+        {/* Eyes */}
         <mesh ref={leftEyeRef} position={[-0.12, 0.05, 0.26]}>
           <boxGeometry args={[0.08, 0.08, 0.01]} />
           <meshBasicMaterial color="#3a3a3a" />
@@ -791,20 +797,17 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           <meshBasicMaterial color="#3a3a3a" />
         </mesh>
 
-        {/* Glasses (for Freud) */}
+        {/* Glasses */}
         {hasGlasses && (
           <>
-            {/* Left lens frame */}
             <mesh position={[-0.12, 0.05, 0.27]}>
               <torusGeometry args={[0.09, 0.015, 8, 16]} />
               <meshStandardMaterial color="#4a4a4a" metalness={0.8} roughness={0.2} />
             </mesh>
-            {/* Right lens frame */}
             <mesh position={[0.12, 0.05, 0.27]}>
               <torusGeometry args={[0.09, 0.015, 8, 16]} />
               <meshStandardMaterial color="#4a4a4a" metalness={0.8} roughness={0.2} />
             </mesh>
-            {/* Bridge */}
             <mesh position={[0, 0.05, 0.27]}>
               <boxGeometry args={[0.06, 0.015, 0.015]} />
               <meshStandardMaterial color="#4a4a4a" metalness={0.8} roughness={0.2} />
@@ -818,13 +821,13 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           <meshStandardMaterial color={skinColor} roughness={0.6} />
         </mesh>
 
-        {/* Mouth - always visible, controlled by complementary mouthState or isTalking */}
+        {/* Mouth */}
         <mesh ref={mouthRef} position={[0, -0.18, 0.26]} scale={[1.5, 0.3, 1]}>
           <circleGeometry args={[0.08, 16]} />
           <meshBasicMaterial color="#2a2a2a" />
         </mesh>
         
-        {/* Smile curve - shown when smile mouth state is active */}
+        {/* Smile curve */}
         {(complementary?.mouthState === 'smile' || complementary?.mouthState === 'wide_smile') && (
           <mesh ref={smileMeshRef} position={[0, -0.16, 0.27]} rotation={[0, 0, Math.PI]}>
             <torusGeometry args={[0.08, 0.015, 8, 16, Math.PI]} />
@@ -832,7 +835,211 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           </mesh>
         )}
       </group>
+    </>
+  );
 
+  // =========================================
+  // CHIBI STYLE (Rounded, toy-like)
+  // =========================================
+  const renderChibiBody = () => (
+    <>
+      {/* Legs - Rounded cylinders */}
+      <mesh ref={leftLegRef} position={[-0.18, -0.25, 0]} castShadow>
+        <cylinderGeometry args={[0.12, 0.11, 0.5, 16]} />
+        <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+      </mesh>
+      <mesh ref={rightLegRef} position={[0.18, -0.25, 0]} castShadow>
+        <cylinderGeometry args={[0.12, 0.11, 0.5, 16]} />
+        <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+      </mesh>
+
+      {/* Shoes - Rounded */}
+      <mesh position={[-0.18, -0.55, 0.05]} castShadow>
+        <sphereGeometry args={[0.12, 16, 16]} />
+        <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
+      </mesh>
+      <mesh position={[0.18, -0.55, 0.05]} castShadow>
+        <sphereGeometry args={[0.12, 16, 16]} />
+        <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
+      </mesh>
+
+      {/* Body/Torso - Rounded cylinder */}
+      <mesh position={[0, 0.25, 0]} castShadow>
+        <cylinderGeometry args={[0.32, 0.35, 0.7, 32]} />
+        <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+      </mesh>
+
+      {/* Collar/Shirt visible at neck */}
+      <mesh position={[0, 0.55, 0.15]} castShadow>
+        <boxGeometry args={[0.25, 0.12, 0.08]} />
+        <meshStandardMaterial color="#ffffff" roughness={0.5} />
+      </mesh>
+
+      {/* Tie */}
+      {hasTie && (
+        <mesh position={[0, 0.35, 0.34]} castShadow>
+          <boxGeometry args={[0.08, 0.3, 0.02]} />
+          <meshStandardMaterial color="#2c2c2c" roughness={0.8} />
+        </mesh>
+      )}
+
+      {/* Arms - Rounded cylinders */}
+      <mesh ref={leftArmRef} position={[-0.42, 0.2, 0]} rotation={[0, 0, 0.1]} castShadow>
+        <cylinderGeometry args={[0.09, 0.08, 0.55, 16]} />
+        <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+      </mesh>
+      <mesh ref={rightArmRef} position={[0.42, 0.2, 0]} rotation={[0, 0, -0.1]} castShadow>
+        <cylinderGeometry args={[0.09, 0.08, 0.55, 16]} />
+        <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+      </mesh>
+
+      {/* Hands - Rounded spheres */}
+      <mesh position={[-0.45, -0.1, 0]} castShadow>
+        <sphereGeometry args={[0.1, 16, 16]} />
+        <meshStandardMaterial color={skinColor} roughness={0.4} />
+      </mesh>
+      <mesh position={[0.45, -0.1, 0]} castShadow>
+        <sphereGeometry args={[0.1, 16, 16]} />
+        <meshStandardMaterial color={skinColor} roughness={0.4} />
+      </mesh>
+
+      {/* Head Group */}
+      <group ref={headRef} position={[0, 0.95, 0]}>
+        {/* Head - Rounded sphere */}
+        <mesh castShadow>
+          <sphereGeometry args={[0.35, 32, 32]} />
+          <meshStandardMaterial color={skinColor} roughness={0.4} metalness={0.1} />
+        </mesh>
+
+        {/* Ears */}
+        <mesh position={[-0.35, 0, 0]} castShadow>
+          <sphereGeometry args={[0.08, 16, 16]} />
+          <meshStandardMaterial color={skinColor} roughness={0.4} />
+        </mesh>
+        <mesh position={[0.35, 0, 0]} castShadow>
+          <sphereGeometry args={[0.08, 16, 16]} />
+          <meshStandardMaterial color={skinColor} roughness={0.4} />
+        </mesh>
+
+        {/* Hair - Different styles (spherical caps) */}
+        {hairType === 'short' && (
+          <mesh position={[0, 0.2, 0]} castShadow>
+            <sphereGeometry args={[0.36, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2]} />
+            <meshStandardMaterial color={hairColor} roughness={0.9} />
+          </mesh>
+        )}
+        {hairType === 'medium' && (
+          <>
+            <mesh position={[0, 0.2, 0]} castShadow>
+              <sphereGeometry args={[0.36, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2]} />
+              <meshStandardMaterial color={hairColor} roughness={0.9} />
+            </mesh>
+            <mesh position={[0, 0, -0.25]} castShadow>
+              <sphereGeometry args={[0.2, 16, 16]} />
+              <meshStandardMaterial color={hairColor} roughness={0.9} />
+            </mesh>
+          </>
+        )}
+        {hairType === 'long' && (
+          <>
+            <mesh position={[0, 0.2, 0]} castShadow>
+              <sphereGeometry args={[0.36, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2]} />
+              <meshStandardMaterial color={hairColor} roughness={0.9} />
+            </mesh>
+            <mesh position={[-0.28, 0, 0]} castShadow>
+              <sphereGeometry args={[0.15, 16, 16]} />
+              <meshStandardMaterial color={hairColor} roughness={0.9} />
+            </mesh>
+            <mesh position={[0.28, 0, 0]} castShadow>
+              <sphereGeometry args={[0.15, 16, 16]} />
+              <meshStandardMaterial color={hairColor} roughness={0.9} />
+            </mesh>
+            <mesh position={[0, 0, -0.28]} castShadow>
+              <sphereGeometry args={[0.2, 16, 16]} />
+              <meshStandardMaterial color={hairColor} roughness={0.9} />
+            </mesh>
+          </>
+        )}
+
+        {/* Hat accessory */}
+        {hasHat && (
+          <>
+            <mesh position={[0, 0.35, 0]} castShadow>
+              <cylinderGeometry args={[0.3, 0.35, 0.08, 32]} />
+              <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
+            </mesh>
+            <mesh position={[0, 0.45, 0]} castShadow>
+              <cylinderGeometry args={[0.2, 0.22, 0.15, 32]} />
+              <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
+            </mesh>
+          </>
+        )}
+
+        {/* Eyes - Spherical */}
+        <mesh ref={leftEyeRef} position={[-0.12, 0.03, 0.3]}>
+          <sphereGeometry args={[0.045, 16, 16]} />
+          <meshBasicMaterial color="#2a2a2a" />
+        </mesh>
+        <mesh ref={rightEyeRef} position={[0.12, 0.03, 0.3]}>
+          <sphereGeometry args={[0.045, 16, 16]} />
+          <meshBasicMaterial color="#2a2a2a" />
+        </mesh>
+
+        {/* Eyebrows */}
+        <mesh position={[-0.12, 0.1, 0.32]} rotation={[0, 0, -0.15]}>
+          <boxGeometry args={[0.12, 0.025, 0.025]} />
+          <meshStandardMaterial color={hairColor} roughness={0.9} />
+        </mesh>
+        <mesh position={[0.12, 0.1, 0.32]} rotation={[0, 0, 0.15]}>
+          <boxGeometry args={[0.12, 0.025, 0.025]} />
+          <meshStandardMaterial color={hairColor} roughness={0.9} />
+        </mesh>
+
+        {/* Glasses */}
+        {hasGlasses && (
+          <>
+            <mesh position={[-0.12, 0.03, 0.33]}>
+              <torusGeometry args={[0.1, 0.012, 16, 32]} />
+              <meshStandardMaterial color="#1a1a1a" metalness={0.5} roughness={0.3} />
+            </mesh>
+            <mesh position={[0.12, 0.03, 0.33]}>
+              <torusGeometry args={[0.1, 0.012, 16, 32]} />
+              <meshStandardMaterial color="#1a1a1a" metalness={0.5} roughness={0.3} />
+            </mesh>
+            <mesh position={[0, 0.03, 0.33]} rotation={[0, 0, Math.PI / 2]}>
+              <cylinderGeometry args={[0.01, 0.01, 0.06, 8]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.3} />
+            </mesh>
+          </>
+        )}
+
+        {/* Nose - Small sphere */}
+        <mesh position={[0, -0.05, 0.34]}>
+          <sphereGeometry args={[0.04, 16, 16]} />
+          <meshStandardMaterial color={skinColor} roughness={0.5} />
+        </mesh>
+
+        {/* Mouth */}
+        <mesh ref={mouthRef} position={[0, -0.14, 0.32]} scale={[1.2, 0.3, 1]}>
+          <circleGeometry args={[0.06, 16]} />
+          <meshBasicMaterial color="#2a2a2a" />
+        </mesh>
+
+        {/* Smile curve */}
+        {(complementary?.mouthState === 'smile' || complementary?.mouthState === 'wide_smile') && (
+          <mesh ref={smileMeshRef} position={[0, -0.12, 0.33]} rotation={[0, 0, Math.PI]}>
+            <torusGeometry args={[0.06, 0.012, 8, 16, Math.PI]} />
+            <meshBasicMaterial color="#2a2a2a" />
+          </mesh>
+        )}
+      </group>
+    </>
+  );
+
+  return (
+    <group ref={meshRef} position={position} scale={[scale * 0.7, scale * 0.7, scale * 0.7]}>
+      {modelStyle === 'chibi' ? renderChibiBody() : renderBlockyBody()}
+      
       {/* Glow when active */}
       {isActive && (
         <pointLight position={[0, 0.5, 1]} intensity={1.5} color={character.color} distance={4} />
@@ -848,7 +1055,8 @@ export function CharacterDisplay3D({
   animation = 'idle', 
   isTalking = false,
   complementary,
-  onAnimationComplete
+  onAnimationComplete,
+  modelStyle = 'blocky'
 }: CharacterDisplay3DProps) {
   // Use passed character or fetch by ID
   const character = useMemo(() => {
@@ -924,6 +1132,7 @@ export function CharacterDisplay3D({
           isTalking={isTalking} 
           scale={responsiveScale}
           complementary={complementary}
+          modelStyle={modelStyle}
         />
 
         {/* Visual Effects */}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { 
   CharacterDisplay3D, 
   AnimationState, 
@@ -8,7 +9,8 @@ import {
   LookDirection,
   EyeState,
   MouthState,
-  VisualEffect
+  VisualEffect,
+  ModelStyle
 } from '../components/CharacterDisplay3D';
 import { getCharacter } from '../config/characters';
 import { Card, Badge } from '../components/ui';
@@ -98,12 +100,21 @@ const SPEED_PRESETS = [
 // Available test characters
 const TEST_CHARACTERS = ['freud', 'jung', 'adler'];
 
+// 3D Model styles
+const MODEL_STYLES: { value: ModelStyle; label: string; icon: string }[] = [
+  { value: 'blocky', label: 'Blocky', icon: '🧱' },
+  { value: 'chibi', label: 'Chibi', icon: '🎎' },
+];
+
 const AnimationsScreen = (): JSX.Element => {
+  const navigation = useNavigation<any>();
+  
   // Base animation state
   const [currentAnimation, setCurrentAnimation] = useState<AnimationState>('idle');
   const [isTalking, setIsTalking] = useState(false);
   const [selectedCharacter, setSelectedCharacter] = useState('freud');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedModelStyle, setSelectedModelStyle] = useState<ModelStyle>('blocky');
 
   // Complementary animation state
   const [lookDirection, setLookDirection] = useState<LookDirection>('center');
@@ -159,10 +170,21 @@ const AnimationsScreen = (): JSX.Element => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>🎬 Animation Tester</Text>
-        <Text style={styles.subtitle}>
-          {ALL_ANIMATIONS.length} base animations + complementary layers
-        </Text>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.title}>🎬 Animation Tester</Text>
+            <Text style={styles.subtitle}>
+              {ALL_ANIMATIONS.length} base animations + complementary layers
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.testButton}
+            onPress={() => navigation.navigate('Model3DTest')}
+          >
+            <Ionicons name="cube-outline" size={18} color="#ffffff" />
+            <Text style={styles.testButtonText}>Chibi 3D Test</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.content}>
@@ -176,6 +198,7 @@ const AnimationsScreen = (): JSX.Element => {
                 animation={currentAnimation}
                 isTalking={isTalking}
                 complementary={complementary}
+                modelStyle={selectedModelStyle}
               />
             </View>
             
@@ -231,6 +254,31 @@ const AnimationsScreen = (): JSX.Element => {
                     </TouchableOpacity>
                   );
                 })}
+              </View>
+            </View>
+
+            {/* 3D Style selector */}
+            <View style={styles.characterSelector}>
+              <Text style={styles.selectorLabel}>3D Style:</Text>
+              <View style={styles.characterButtons}>
+                {MODEL_STYLES.map((style) => (
+                  <TouchableOpacity
+                    key={style.value}
+                    style={[
+                      styles.styleButton,
+                      selectedModelStyle === style.value && styles.styleButtonActive,
+                    ]}
+                    onPress={() => setSelectedModelStyle(style.value)}
+                  >
+                    <Text style={styles.styleIcon}>{style.icon}</Text>
+                    <Text style={[
+                      styles.characterButtonText,
+                      selectedModelStyle === style.value && styles.styleButtonTextActive
+                    ]}>
+                      {style.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
 
@@ -613,6 +661,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#27272a',
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -622,6 +675,20 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 13,
     color: '#71717a',
+  },
+  testButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    backgroundColor: '#6366f1',
+  },
+  testButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#ffffff',
   },
   content: {
     flex: 1,
@@ -687,6 +754,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#a1a1aa',
+  },
+  styleButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    backgroundColor: '#27272a',
+    borderWidth: 2,
+    borderColor: '#3f3f46',
+  },
+  styleButtonActive: {
+    backgroundColor: '#1e1b4b',
+    borderColor: '#8b5cf6',
+  },
+  styleButtonTextActive: {
+    color: '#c4b5fd',
+  },
+  styleIcon: {
+    fontSize: 14,
   },
   quickControls: {
     flexDirection: 'row',
