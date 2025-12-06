@@ -9,7 +9,9 @@ import {
   AnimationState, 
   LookDirection, 
   EyeState, 
+  EyebrowState,
   MouthState, 
+  FaceState,
   VisualEffect,
   ComplementaryAnimation 
 } from '../components/CharacterDisplay3D';
@@ -130,7 +132,10 @@ const VALID_ANIMATIONS: AnimationState[] = [
   'idle', 'thinking', 'talking', 'confused', 'happy', 'excited',
   'winning', 'walking', 'jump', 'surprise_jump', 'surprise_happy',
   'lean_back', 'lean_forward', 'cross_arms', 'nod', 'shake_head',
-  'shrug', 'wave', 'point', 'clap', 'bow'
+  'shrug', 'wave', 'point', 'clap', 'bow',
+  // New animations
+  'facepalm', 'dance', 'laugh', 'cry', 'angry', 'nervous',
+  'celebrate', 'peek', 'doze', 'stretch'
 ];
 
 const VALID_LOOK_DIRECTIONS: LookDirection[] = [
@@ -141,8 +146,17 @@ const VALID_EYE_STATES: EyeState[] = [
   'open', 'closed', 'wink_left', 'wink_right', 'blink'
 ];
 
+const VALID_EYEBROW_STATES: EyebrowState[] = [
+  'normal', 'raised', 'furrowed', 'sad', 'worried', 'one_raised', 'wiggle'
+];
+
 const VALID_MOUTH_STATES: MouthState[] = [
   'closed', 'open', 'smile', 'wide_smile', 'surprised'
+];
+
+const VALID_FACE_STATES: FaceState[] = [
+  'normal', 'blush', 'sweat_drop', 'sparkle_eyes', 'heart_eyes', 
+  'spiral_eyes', 'tears', 'anger_vein', 'shadow_face'
 ];
 
 const VALID_EFFECTS: VisualEffect[] = [
@@ -942,10 +956,24 @@ export function getEyeStatesList(): string {
 }
 
 /**
+ * Get list of valid eyebrow states for LLM prompt (anime-style)
+ */
+export function getEyebrowStatesList(): string {
+  return VALID_EYEBROW_STATES.join(', ');
+}
+
+/**
  * Get list of valid mouth states for LLM prompt
  */
 export function getMouthStatesList(): string {
   return VALID_MOUTH_STATES.join(', ');
+}
+
+/**
+ * Get list of valid face states for LLM prompt (anime-style)
+ */
+export function getFaceStatesList(): string {
+  return VALID_FACE_STATES.join(', ');
 }
 
 /**

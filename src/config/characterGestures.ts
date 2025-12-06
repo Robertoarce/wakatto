@@ -480,7 +480,7 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     name: 'Shrug',
     category: 'questioning',
     description: 'Shrugs shoulders showing uncertainty',
-    animation: 'confused',
+    animation: 'shrug',
     intensity: 'moderate'
   },
   {
@@ -537,6 +537,88 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     category: 'emphasizing',
     description: 'Gestures toward user to include them',
     animation: 'talking',
+    intensity: 'moderate'
+  },
+
+  // NEW EXPRESSIVE ANIMATIONS
+  {
+    id: 'express_facepalm',
+    name: 'Facepalm',
+    category: 'reacting',
+    description: 'Hand to face showing frustration or disbelief',
+    animation: 'facepalm',
+    intensity: 'moderate'
+  },
+  {
+    id: 'express_dance',
+    name: 'Celebratory Dance',
+    category: 'reacting',
+    description: 'Dancing joyfully to celebrate',
+    animation: 'dance',
+    intensity: 'strong'
+  },
+  {
+    id: 'express_laugh_hard',
+    name: 'Laugh Out Loud',
+    category: 'reacting',
+    description: 'Laughing heartily with head back',
+    animation: 'laugh',
+    intensity: 'strong'
+  },
+  {
+    id: 'express_cry',
+    name: 'Cry',
+    category: 'reacting',
+    description: 'Shows sadness, crying',
+    animation: 'cry',
+    intensity: 'strong'
+  },
+  {
+    id: 'express_angry',
+    name: 'Show Anger',
+    category: 'disagreeing',
+    description: 'Displays anger with tense posture',
+    animation: 'angry',
+    intensity: 'strong'
+  },
+  {
+    id: 'express_nervous',
+    name: 'Act Nervous',
+    category: 'reacting',
+    description: 'Fidgets nervously, looks around',
+    animation: 'nervous',
+    intensity: 'moderate'
+  },
+  {
+    id: 'express_celebrate',
+    name: 'Celebrate Victory',
+    category: 'reacting',
+    description: 'Arms up celebration, jumping',
+    animation: 'celebrate',
+    intensity: 'strong'
+  },
+  {
+    id: 'express_peek',
+    name: 'Peek Curiously',
+    category: 'questioning',
+    description: 'Peeks to the side with curiosity',
+    animation: 'peek',
+    intensity: 'subtle'
+  },
+  {
+    id: 'express_doze',
+    name: 'Doze Off',
+    category: 'reacting',
+    description: 'Getting sleepy, head drooping',
+    animation: 'doze',
+    intensity: 'subtle'
+  },
+  {
+    id: 'express_stretch',
+    name: 'Stretch',
+    category: 'neutral',
+    description: 'Stretching arms up, yawning',
+    animation: 'stretch',
     intensity: 'moderate'
   },
 ];

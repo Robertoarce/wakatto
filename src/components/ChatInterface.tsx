@@ -45,11 +45,11 @@ function calculateFonts(width: number): ResponsiveFonts {
   const scale = width < 480 ? 0.85 : width < 768 ? 0.92 : width < 1024 ? 1.0 : 1.1;
   
   return {
-    xs: Math.round(11 * scale),   // 9-12px
-    sm: Math.round(13 * scale),   // 11-15px
-    md: Math.round(15 * scale),   // 13-17px
-    lg: Math.round(17 * scale),   // 14-19px
-    xl: Math.round(20 * scale),   // 17-22px
+    xs: Math.round(10 * scale),   // 9-12px
+    sm: Math.round(12 * scale),   // 11-15px
+    md: Math.round(14 * scale),   // 13-17px
+    lg: Math.round(16* scale),   // 14-19px
+    xl: Math.round(18 * scale),   // 17-22px
   };
 }
 
@@ -162,8 +162,7 @@ const FadingLine = React.memo(function FadingLine({
         styles.speechBubbleText, 
         { 
           opacity: animatedOpacity,
-          marginBottom: 2,
-          fontSize: fonts.sm,
+          fontSize: fonts.xs,
         }
       ]}
     >
@@ -286,7 +285,7 @@ function CharacterSpeechBubble({
   const allLines = wrapText(fullText);
   
   // Show only the last 5 lines with fading effect
-  const maxVisibleLines = 6;
+  const maxVisibleLines = 4;
   const visibleLines = allLines.slice(-maxVisibleLines);
   const totalLines = allLines.length;
   const startIndex = Math.max(0, totalLines - maxVisibleLines);
@@ -483,7 +482,7 @@ function FloatingCharacterWrapper({
         pointerEvents="none"
       >
         <View style={[styles.hoverNameBubble, { backgroundColor: characterColor }]}>
-          <Text style={[styles.hoverNameText, { fontSize: fonts.xl }]}>{characterName}</Text>
+          <Text style={[styles.hoverNameText, { fontSize: fonts.lg }]}>{characterName}</Text>
         </View>
       </Animated.View>
     </Animated.View>
@@ -1462,6 +1461,9 @@ Would you like to discuss your perspective on this?`;
               // Characters on the left side of center get bubbles on their right, and vice versa
               const bubblePosition = horizontalOffset < 0 ? 'right' : horizontalOffset > 0 ? 'left' : (index % 2 === 0 ? 'right' : 'left');
               
+              // For 5 characters, the center character should have bubble above (like single character)
+              const isCenterCharacter = total === 5 && horizontalOffset === 0;
+              
               // Get revealed text for this character's speech bubble
               const charPlaybackState = playbackState.characterStates.get(characterId);
               const usePlayback = playbackState.isPlaying && charPlaybackState;
@@ -1481,7 +1483,7 @@ Would you like to discuss your perspective on this?`;
                       position: 'absolute',
                       left: `${50 + horizontalOffset - (100 / total / 2)}%`, // Centered
                       width: `${Math.max(100 / total, 25)}%`,
-                      top: `${15 + (20 - verticalPosition)}%`, // Center higher up, edges lower
+                      top: `${25 + (20 - verticalPosition)}%`, // Center higher up, edges lower
                       transform: [{ scale }],
                       zIndex: zIndex,
                     }
@@ -1507,7 +1509,7 @@ Would you like to discuss your perspective on this?`;
                     color={character.color}
                     visible={showCharacterNames}
                   />
-                  {/* Speech Bubble - Comic book style, to the side of character (or above if single) */}
+                  {/* Speech Bubble - Comic book style, to the side of character (or above if single/center) */}
                   <MemoizedCharacterSpeechBubble
                     text={revealedText || ''}
                     characterName={character.name}
@@ -1515,7 +1517,7 @@ Would you like to discuss your perspective on this?`;
                     position={bubblePosition}
                     isTyping={!!isTyping}
                     isSpeaking={!!isSpeaking}
-                    isSingleCharacter={total === 1}
+                    isSingleCharacter={total === 1 || isCenterCharacter}
                   />
                 </FloatingCharacterWrapper>
               );
@@ -2276,15 +2278,12 @@ const styles = StyleSheet.create({
   speechBubble: {
     position: 'absolute',
     top: 10,
-    maxWidth: 280,
+    maxWidth: 180,
     minWidth: 80,
-    paddingBottom: 25,
-    paddingTop: 10,
-    paddingLeft: 15,
-    backgroundColor: 'rgba(23, 23, 23, 0.95)',
-    borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 8,
+    backgroundColor: 'rgba(23, 23, 23, 0.95)',
+    borderRadius: 12,
     borderWidth: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -2295,17 +2294,19 @@ const styles = StyleSheet.create({
   },
   speechBubbleLeft: {
     right: 70,
-    top: -10,
+    top: -60,
+    transform: [{ translateX: 30 }], // moves bubble to the left
   },
   speechBubbleRight: {
-    left: 70,
-    top: -10,
+    left: 80,
+    top: -60,
+    transform: [{ translateX: -30 }], // moves bubble to the right
   },
   speechBubbleSingle: {
     // For single character - position bubble above and centered
-    top: -30,
-    left: '40%',
-    transform: [{ translateX: -200 }], // Center a ~200px bubble
+    top: -60,
+    // left: '40%',
+    // transform: [{ translateX: -200 }], // Center a ~200px bubble
   },
   speechBubbleTail: {
     position: 'absolute',
@@ -2344,14 +2345,13 @@ const styles = StyleSheet.create({
   },
   speechBubbleName: {
     fontFamily: 'Poppins-Bold',
-    fontSize: 16,
+    fontSize: 14,
     marginBottom: 2,
   },
   speechBubbleText: {
     fontFamily: 'SpaceMono-Regular',
     color: '#e5e5e5',
-    fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 14,
   },
   speechBubbleLinesContainer: {
     overflow: 'hidden',

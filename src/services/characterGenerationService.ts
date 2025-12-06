@@ -51,7 +51,7 @@ If this is a well-known character, provide:
 1. Brief description (1-2 sentences)
 2. Role (e.g., "Physicist", "Superhero", "Philosopher")
 3. Personality traits (1-10 scale): empathy, directness, formality, humor, creativity, patience, wisdom, energy
-4. Physical appearance: gender (male/female/neutral), skinTone (light/medium/tan/dark), clothing (suit/tshirt/dress/casual), hair (short/long/none/medium), accessory (glasses/none/hat/tie)
+4. Physical appearance: gender (male/female/neutral), skinTone (light/medium/tan/dark), clothing (suit/tshirt/dress/casual/jacket/hoodie/vest/apron/labcoat), hair (short/long/none/medium), accessory (glasses/none/hat/tie/scarf/bowtie/cape/crown/headphones/necklace/suspenders/backpack/wings)
 5. Colors: primary color (hex), bodyColor (hex), accessoryColor (hex), hairColor (hex)
 6. Response style: one word (e.g., "analytical", "playful", "wise", "heroic")
 7. Prompt style: choose from (compassionate, psychoanalytic, jungian, cognitive, mindfulness, socratic, creative, adlerian, existential, positive, narrative)
@@ -94,9 +94,9 @@ Response format (JSON only, no markdown):
   "customization": {
     "gender": "male/female/neutral",
     "skinTone": "light/medium/tan/dark",
-    "clothing": "suit/tshirt/dress/casual",
+    "clothing": "suit/tshirt/dress/casual/jacket/hoodie/vest/apron/labcoat",
     "hair": "short/long/none/medium",
-    "accessory": "glasses/none/hat/tie",
+    "accessory": "glasses/none/hat/tie/scarf/bowtie/cape/crown/headphones/necklace/suspenders/backpack/wings",
     "bodyColor": "#hex",
     "accessoryColor": "#hex",
     "hairColor": "#hex"

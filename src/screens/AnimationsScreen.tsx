@@ -8,7 +8,9 @@ import {
   ComplementaryAnimation,
   LookDirection,
   EyeState,
+  EyebrowState,
   MouthState,
+  FaceState,
   VisualEffect,
   ModelStyle
 } from '../components/CharacterDisplay3D';
@@ -29,10 +31,14 @@ const ALL_ANIMATIONS: { name: AnimationState; description: string; category: str
   { name: 'walking', description: 'Walking motion with arm swing', category: 'Movement' },
   { name: 'jump', description: 'Simple jumping animation', category: 'Movement' },
   { name: 'winning', description: 'Victory celebration with arms up', category: 'Movement' },
+  { name: 'dance', description: 'Celebratory dancing with rhythm', category: 'Movement' },
+  { name: 'stretch', description: 'Stretching arms up, yawning', category: 'Movement' },
   
   // Reaction animations
   { name: 'surprise_jump', description: 'Startled jump with hands out', category: 'Reaction' },
   { name: 'surprise_happy', description: 'Pleasant surprise, hands to face', category: 'Reaction' },
+  { name: 'laugh', description: 'Laughing with head thrown back', category: 'Reaction' },
+  { name: 'celebrate', description: 'Arms up celebration, jumping', category: 'Reaction' },
   
   // Body language animations
   { name: 'lean_back', description: 'Leaning back, skeptical or relaxed', category: 'Body Language' },
@@ -41,12 +47,20 @@ const ALL_ANIMATIONS: { name: AnimationState; description: string; category: str
   { name: 'nod', description: 'Nodding in agreement', category: 'Body Language' },
   { name: 'shake_head', description: 'Shaking head in disagreement', category: 'Body Language' },
   { name: 'shrug', description: 'Shoulders up, uncertainty gesture', category: 'Body Language' },
+  { name: 'peek', description: 'Curious peeking to the side', category: 'Body Language' },
   
   // Gestures
   { name: 'wave', description: 'Waving hello or goodbye', category: 'Gestures' },
   { name: 'point', description: 'Pointing for emphasis', category: 'Gestures' },
   { name: 'clap', description: 'Clapping in applause', category: 'Gestures' },
   { name: 'bow', description: 'Respectful bow', category: 'Gestures' },
+  { name: 'facepalm', description: 'Hand to face in frustration', category: 'Gestures' },
+  
+  // Emotional animations
+  { name: 'cry', description: 'Sad crying, hunched over', category: 'Emotional' },
+  { name: 'angry', description: 'Angry tense stance, clenched fists', category: 'Emotional' },
+  { name: 'nervous', description: 'Fidgeting nervously, looking around', category: 'Emotional' },
+  { name: 'doze', description: 'Sleepy, head drooping, eyes closing', category: 'Emotional' },
 ];
 
 // Look directions
@@ -104,6 +118,33 @@ const TEST_CHARACTERS = ['freud', 'jung', 'adler'];
 const MODEL_STYLES: { value: ModelStyle; label: string; icon: string }[] = [
   { value: 'blocky', label: 'Blocky', icon: '🧱' },
   { value: 'chibi', label: 'Chibi', icon: '🎎' },
+  { value: 'plush', label: 'Plush', icon: '🧸' },
+  { value: 'robot', label: 'Robot', icon: '🤖' },
+  { value: 'lowpoly', label: 'LowPoly', icon: '💎' },
+];
+
+// Eyebrow states (anime-style)
+const EYEBROW_STATES: { value: EyebrowState; label: string; icon: string }[] = [
+  { value: 'normal', label: 'Normal', icon: '😐' },
+  { value: 'raised', label: 'Raised', icon: '😮' },
+  { value: 'furrowed', label: 'Furrowed', icon: '😠' },
+  { value: 'sad', label: 'Sad', icon: '😢' },
+  { value: 'worried', label: 'Worried', icon: '😟' },
+  { value: 'one_raised', label: 'One Raised', icon: '🤨' },
+  { value: 'wiggle', label: 'Wiggle', icon: '😏' },
+];
+
+// Face states (anime-style decorations)
+const FACE_STATES: { value: FaceState; label: string; icon: string }[] = [
+  { value: 'normal', label: 'Normal', icon: '😐' },
+  { value: 'blush', label: 'Blush', icon: '😊' },
+  { value: 'sweat_drop', label: 'Sweat Drop', icon: '😅' },
+  { value: 'sparkle_eyes', label: 'Sparkle Eyes', icon: '🤩' },
+  { value: 'heart_eyes', label: 'Heart Eyes', icon: '😍' },
+  { value: 'spiral_eyes', label: 'Spiral Eyes', icon: '😵' },
+  { value: 'tears', label: 'Tears', icon: '😭' },
+  { value: 'anger_vein', label: 'Anger Vein', icon: '💢' },
+  { value: 'shadow_face', label: 'Shadow Face', icon: '😔' },
 ];
 
 const AnimationsScreen = (): JSX.Element => {
@@ -119,7 +160,9 @@ const AnimationsScreen = (): JSX.Element => {
   // Complementary animation state
   const [lookDirection, setLookDirection] = useState<LookDirection>('center');
   const [eyeState, setEyeState] = useState<EyeState>('open');
+  const [eyebrowState, setEyebrowState] = useState<EyebrowState>('normal');
   const [mouthState, setMouthState] = useState<MouthState>('closed');
+  const [faceState, setFaceState] = useState<FaceState>('normal');
   const [effect, setEffect] = useState<VisualEffect>('none');
   const [speed, setSpeed] = useState(1.0);
   const [effectColor, setEffectColor] = useState('#8b5cf6');
@@ -138,7 +181,9 @@ const AnimationsScreen = (): JSX.Element => {
   const complementary: ComplementaryAnimation = {
     lookDirection: lookDirection !== 'center' ? lookDirection : undefined,
     eyeState: eyeState !== 'open' ? eyeState : undefined,
+    eyebrowState: eyebrowState !== 'normal' ? eyebrowState : undefined,
     mouthState: mouthState !== 'closed' ? mouthState : undefined,
+    faceState: faceState !== 'normal' ? faceState : undefined,
     effect: effect !== 'none' ? effect : undefined,
     effectColor,
     speed,
@@ -148,7 +193,9 @@ const AnimationsScreen = (): JSX.Element => {
   const resetComplementary = () => {
     setLookDirection('center');
     setEyeState('open');
+    setEyebrowState('normal');
     setMouthState('closed');
+    setFaceState('normal');
     setEffect('none');
     setSpeed(1.0);
     setCurrentAnimation('idle');
@@ -498,6 +545,56 @@ const AnimationsScreen = (): JSX.Element => {
                   </View>
                 </View>
 
+                {/* Eyebrow State (Anime) */}
+                <View style={styles.controlGroup}>
+                  <Text style={styles.controlGroupTitle}>🎭 Eyebrow State</Text>
+                  <View style={styles.optionGrid}>
+                    {EYEBROW_STATES.map((brow) => (
+                      <TouchableOpacity
+                        key={brow.value}
+                        style={[
+                          styles.optionButton,
+                          eyebrowState === brow.value && styles.optionButtonActive
+                        ]}
+                        onPress={() => setEyebrowState(brow.value)}
+                      >
+                        <Text style={styles.optionIcon}>{brow.icon}</Text>
+                        <Text style={[
+                          styles.optionButtonText,
+                          eyebrowState === brow.value && styles.optionButtonTextActive
+                        ]}>
+                          {brow.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Face State (Anime) */}
+                <View style={styles.controlGroup}>
+                  <Text style={styles.controlGroupTitle}>✨ Face State (Anime)</Text>
+                  <View style={styles.optionGrid}>
+                    {FACE_STATES.map((face) => (
+                      <TouchableOpacity
+                        key={face.value}
+                        style={[
+                          styles.optionButton,
+                          faceState === face.value && styles.optionButtonActive
+                        ]}
+                        onPress={() => setFaceState(face.value)}
+                      >
+                        <Text style={styles.optionIcon}>{face.icon}</Text>
+                        <Text style={[
+                          styles.optionButtonText,
+                          faceState === face.value && styles.optionButtonTextActive
+                        ]}>
+                          {face.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
                 {/* Visual Effects */}
                 <View style={styles.controlGroup}>
                   <Text style={styles.controlGroupTitle}>✨ Visual Effects</Text>
@@ -636,7 +733,7 @@ const AnimationsScreen = (): JSX.Element => {
                   </View>
                 </View>
 
-                <View style={{ height: 100 }} />
+                <View style={{ height: 150, marginBottom: 20 }} />
               </>
             )}
           </ScrollView>

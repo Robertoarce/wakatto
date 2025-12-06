@@ -2,9 +2,9 @@
 
 export type GenderType = 'male' | 'female' | 'neutral';
 export type SkinToneType = 'light' | 'medium' | 'tan' | 'dark';
-export type ClothingType = 'suit' | 'tshirt' | 'dress' | 'casual';
+export type ClothingType = 'suit' | 'tshirt' | 'dress' | 'casual' | 'jacket' | 'hoodie' | 'vest' | 'apron' | 'labcoat';
 export type HairType = 'short' | 'long' | 'none' | 'medium';
-export type AccessoryType = 'glasses' | 'none' | 'hat' | 'tie';
+export type AccessoryType = 'glasses' | 'none' | 'hat' | 'tie' | 'scarf' | 'bowtie' | 'cape' | 'crown' | 'headphones' | 'necklace' | 'suspenders' | 'backpack' | 'wings';
 
 export interface CharacterCustomization {
   gender: GenderType;
