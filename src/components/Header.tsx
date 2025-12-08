@@ -6,12 +6,14 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
 import { logout } from '../store/actions/authActions';
 import { useCustomAlert } from './CustomAlert';
+import { useResponsive } from '../constants/Layout';
 
 export function Header() {
   const navigation = useNavigation();
   const dispatch = useDispatch();
   const { showAlert, AlertComponent } = useCustomAlert();
   const { user } = useSelector((state: RootState) => state.auth);
+  const { isMobile, isTablet, fonts, spacing, layout } = useResponsive();
 
   const handleLogout = () => {
     showAlert(
@@ -31,32 +33,80 @@ export function Header() {
     );
   };
 
+  // Responsive sizes
+  const logoSize = isMobile ? 28 : 32;
+  const titleSize = isMobile ? fonts.lg : fonts.xl;
+  const iconSize = isMobile ? 18 : 20;
+
   return (
     <>
       <AlertComponent />
-      <View style={styles.header}>
-        <View style={styles.leftContainer}>
-          <View style={styles.logoContainer}>
+      <View style={[
+        styles.header,
+        {
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md,
+          minHeight: layout.headerHeight,
+        }
+      ]}>
+        <View style={[styles.leftContainer, { gap: spacing.sm }]}>
+          <View style={[
+            styles.logoContainer,
+            {
+              width: logoSize,
+              height: logoSize,
+              borderRadius: isMobile ? 6 : 8,
+            }
+          ]}>
             <Image
               source={require('../assets/images/logo.svg')}
               style={styles.logoImage}
               resizeMode="contain"
             />
           </View>
-          <Text style={styles.title}>Wakatto</Text>
+          <Text style={[styles.title, { fontSize: titleSize }]}>Wakatto</Text>
         </View>
 
-        <View style={styles.rightContainer}>
+        <View style={[styles.rightContainer, { gap: spacing.md }]}>
           {user && (
             <>
-              <View style={styles.userInfo}>
-                <Text style={styles.userEmail} numberOfLines={1}>
-                  {user.email}
-                </Text>
-              </View>
-              <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-                <Ionicons name="log-out-outline" size={20} color="#ef4444" />
-                <Text style={styles.logoutButtonText}>Logout</Text>
+              {/* Hide email on mobile, show on tablet+ */}
+              {!isMobile && (
+                <View style={[
+                  styles.userInfo,
+                  {
+                    paddingHorizontal: spacing.md,
+                    paddingVertical: spacing.xs,
+                    maxWidth: isTablet ? 150 : 200,
+                  }
+                ]}>
+                  <Text 
+                    style={[styles.userEmail, { fontSize: fonts.sm }]} 
+                    numberOfLines={1}
+                  >
+                    {user.email}
+                  </Text>
+                </View>
+              )}
+              <TouchableOpacity 
+                onPress={handleLogout} 
+                style={[
+                  styles.logoutButton,
+                  {
+                    paddingHorizontal: isMobile ? spacing.sm : spacing.md,
+                    paddingVertical: spacing.sm,
+                    minWidth: layout.minTouchTarget,
+                    minHeight: layout.minTouchTarget,
+                  }
+                ]}
+              >
+                <Ionicons name="log-out-outline" size={iconSize} color="#ef4444" />
+                {/* Show text only on desktop */}
+                {!isMobile && !isTablet && (
+                  <Text style={[styles.logoutButtonText, { fontSize: fonts.sm }]}>
+                    Logout
+                  </Text>
+                )}
               </TouchableOpacity>
             </>
           )}
@@ -71,8 +121,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#27272a',
     backgroundColor: '#0f0f0f',
@@ -80,12 +128,8 @@ const styles = StyleSheet.create({
   leftContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
   logoContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
     backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
@@ -96,31 +140,25 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   title: {
-    fontSize: 20,
     color: 'white',
+    fontWeight: '600',
   },
   rightContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
   },
   userInfo: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
     backgroundColor: '#27272a',
     borderRadius: 6,
-    maxWidth: 200,
   },
   userEmail: {
     color: '#a1a1aa',
-    fontSize: 14,
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: '#ef4444',
@@ -128,7 +166,6 @@ const styles = StyleSheet.create({
   },
   logoutButtonText: {
     color: '#ef4444',
-    fontSize: 14,
     fontWeight: '600',
   },
 });

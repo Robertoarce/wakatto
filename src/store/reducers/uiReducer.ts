@@ -1,10 +1,15 @@
+import { Dimensions } from 'react-native';
+
 interface UIState {
   showSidebar: boolean;
   sidebarCollapsed: boolean;
 }
 
+// Check if mobile on initial load - hide sidebar by default on mobile
+const isMobileInitial = Dimensions.get('window').width < 768;
+
 const initialState: UIState = {
-  showSidebar: true,
+  showSidebar: !isMobileInitial, // Hidden on mobile, shown on desktop
   sidebarCollapsed: false,
 };
 

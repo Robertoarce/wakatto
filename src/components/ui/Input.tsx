@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TextInputProps, ViewStyle, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useResponsive } from '../../constants/Layout';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -24,16 +25,33 @@ export function Input({
   ...props
 }: InputProps) {
   const [showPassword, setShowPassword] = useState(false);
+  const { fonts, spacing, layout, isMobile } = useResponsive();
 
   const isSecure = showPasswordToggle ? !showPassword : secureTextEntry;
 
   return (
-    <View style={[styles.container, containerStyle]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+    <View style={[styles.container, { marginBottom: spacing.lg }, containerStyle]}>
+      {label && (
+        <Text style={[styles.label, { fontSize: fonts.sm, marginBottom: spacing.sm }]}>
+          {label}
+        </Text>
+      )}
 
-      <View style={[styles.inputWrapper, error ? styles.inputWrapperError : null]}>
+      <View style={[
+        styles.inputWrapper, 
+        { 
+          paddingHorizontal: spacing.md, 
+          minHeight: layout.inputMinHeight,
+        },
+        error ? styles.inputWrapperError : null
+      ]}>
         {icon && iconPosition === 'left' && (
-          <Ionicons name={icon} size={20} color="#71717a" style={styles.iconLeft} />
+          <Ionicons 
+            name={icon} 
+            size={isMobile ? 18 : 20} 
+            color="#71717a" 
+            style={{ marginRight: spacing.xs }} 
+          />
         )}
 
         <TextInput
@@ -41,8 +59,12 @@ export function Input({
           secureTextEntry={isSecure}
           style={[
             styles.input,
-            icon && iconPosition === 'left' && styles.inputWithLeftIcon,
-            (icon && iconPosition === 'right' || showPasswordToggle) && styles.inputWithRightIcon,
+            { 
+              fontSize: fonts.md,
+              paddingVertical: spacing.md,
+            },
+            icon && iconPosition === 'left' && { paddingLeft: spacing.sm },
+            (icon && iconPosition === 'right' || showPasswordToggle) && { paddingRight: spacing.sm },
             props.style,
           ]}
           placeholderTextColor="#71717a"
@@ -51,36 +73,54 @@ export function Input({
         {showPasswordToggle && (
           <TouchableOpacity
             onPress={() => setShowPassword(!showPassword)}
-            style={styles.iconRight}
+            style={[
+              styles.iconRight, 
+              { 
+                minWidth: layout.minTouchTarget,
+                minHeight: layout.minTouchTarget,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }
+            ]}
           >
             <Ionicons
               name={showPassword ? "eye-off-outline" : "eye-outline"}
-              size={20}
+              size={isMobile ? 18 : 20}
               color="#71717a"
             />
           </TouchableOpacity>
         )}
 
         {icon && iconPosition === 'right' && !showPasswordToggle && (
-          <Ionicons name={icon} size={20} color="#71717a" style={styles.iconRight} />
+          <Ionicons 
+            name={icon} 
+            size={isMobile ? 18 : 20} 
+            color="#71717a" 
+            style={{ marginLeft: spacing.xs }} 
+          />
         )}
       </View>
 
-      {error && <Text style={styles.error}>{error}</Text>}
-      {helperText && !error && <Text style={styles.helperText}>{helperText}</Text>}
+      {error && (
+        <Text style={[styles.error, { fontSize: fonts.xs, marginTop: spacing.xs }]}>
+          {error}
+        </Text>
+      )}
+      {helperText && !error && (
+        <Text style={[styles.helperText, { fontSize: fonts.xs, marginTop: spacing.xs }]}>
+          {helperText}
+        </Text>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
   },
   label: {
-    fontSize: 14,
     fontWeight: '600',
     color: '#d1d5db',
-    marginBottom: 8,
   },
   inputWrapper: {
     flexDirection: 'row',
@@ -89,8 +129,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     borderColor: '#3a3a3a',
-    paddingHorizontal: 12,
-    minHeight: 48,
   },
   inputWrapperError: {
     borderColor: '#ef4444',
@@ -98,29 +136,13 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     color: '#ffffff',
-    fontSize: 15,
-    paddingVertical: 12,
-  },
-  inputWithLeftIcon: {
-    paddingLeft: 8,
-  },
-  inputWithRightIcon: {
-    paddingRight: 8,
-  },
-  iconLeft: {
-    marginRight: 4,
   },
   iconRight: {
-    marginLeft: 4,
   },
   error: {
     color: '#ef4444',
-    fontSize: 12,
-    marginTop: 4,
   },
   helperText: {
     color: '#71717a',
-    fontSize: 12,
-    marginTop: 4,
   },
 });

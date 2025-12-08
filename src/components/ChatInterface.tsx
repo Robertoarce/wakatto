@@ -12,46 +12,7 @@ import { LiveSpeechRecognition, LiveTranscriptionResult } from '../services/spee
 import { detectBrowser, getBrowserGuidance, isVoiceSupported } from '../utils/browserDetection';
 import { getPlaybackEngine, PlaybackState, PlaybackStatus } from '../services/animationPlaybackEngine';
 import { CharacterAnimationState, OrchestrationScene, CharacterTimeline, AnimationSegment } from '../services/animationOrchestration';
-
-// Responsive font scaling hook - scales fonts based on screen width
-interface ResponsiveFonts {
-  xs: number;   // 10-12px (badges, timestamps)
-  sm: number;   // 12-14px (secondary text, labels)
-  md: number;   // 14-16px (body text, inputs)
-  lg: number;   // 16-18px (character names, emphasis)
-  xl: number;   // 18-22px (headings, hover names)
-}
-
-function useResponsiveFonts(): ResponsiveFonts {
-  const [fonts, setFonts] = useState<ResponsiveFonts>(() => calculateFonts(Dimensions.get('window').width));
-
-  useEffect(() => {
-    const updateFonts = () => {
-      const { width } = Dimensions.get('window');
-      setFonts(calculateFonts(width));
-    };
-
-    const subscription = Dimensions.addEventListener('change', updateFonts);
-    return () => subscription?.remove();
-  }, []);
-
-  return fonts;
-}
-
-// Calculate font sizes based on screen width
-// Mobile (<480): smaller fonts, Desktop (>1200): larger fonts
-function calculateFonts(width: number): ResponsiveFonts {
-  // Base scale factor: 0.8 on mobile, 1.0 on tablet, 1.15 on desktop
-  const scale = width < 480 ? 0.85 : width < 768 ? 0.92 : width < 1024 ? 1.0 : 1.1;
-  
-  return {
-    xs: Math.round(10 * scale),   // 9-12px
-    sm: Math.round(12 * scale),   // 11-15px
-    md: Math.round(14 * scale),   // 13-17px
-    lg: Math.round(16* scale),   // 14-19px
-    xl: Math.round(18 * scale),   // 17-22px
-  };
-}
+import { useResponsive, BREAKPOINTS } from '../constants/Layout';
 
 interface Message {
   id: string;
@@ -88,7 +49,7 @@ export function stopAnimationPlayback(): void {
 // Character name label component with fade animation
 function CharacterNameLabel({ name, color, visible }: { name: string; color: string; visible: boolean }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const fonts = useResponsiveFonts();
+  const { fonts } = useResponsive();
 
   useEffect(() => {
     if (visible) {
@@ -135,7 +96,7 @@ const FadingLine = React.memo(function FadingLine({
 }) {
   const animatedOpacity = useRef(new Animated.Value(opacity)).current;
   const prevOpacity = useRef(opacity);
-  const fonts = useResponsiveFonts();
+  const { fonts } = useResponsive();
   
   useEffect(() => {
     // Only animate if opacity actually changed
@@ -180,7 +141,9 @@ function CharacterSpeechBubble({
   position, 
   isTyping,
   isSpeaking,
-  isSingleCharacter = false
+  isSingleCharacter = false,
+  isMobileStacked = false,
+  stackIndex = 0,
 }: { 
   text: string; 
   characterName: string;
@@ -189,13 +152,15 @@ function CharacterSpeechBubble({
   isTyping: boolean;
   isSpeaking: boolean;
   isSingleCharacter?: boolean;
+  isMobileStacked?: boolean;
+  stackIndex?: number;
 }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [shouldRender, setShouldRender] = useState(false);
   const fadeOutTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasStartedFadeOut = useRef(false);
   const lastTextRef = useRef('');
-  const fonts = useResponsiveFonts();
+  const { fonts, isMobile, spacing } = useResponsive();
 
   useEffect(() => {
     // Clear any existing fade out timer when speaking starts again
@@ -303,6 +268,38 @@ function CharacterSpeechBubble({
     return 0.15 + (normalizedPosition * 0.85);
   };
 
+  // On mobile with stacked layout, use a simpler compact design
+  if (isMobileStacked) {
+    return (
+      <Animated.View 
+        style={[
+          styles.speechBubbleMobileStacked,
+          { 
+            opacity: fadeAnim, 
+            borderColor: characterColor,
+            // Stack bubbles with offset based on index
+            top: stackIndex * 4,
+            zIndex: 200 - stackIndex,
+          }
+        ]}
+        pointerEvents="none"
+      >
+        <Text style={[styles.speechBubbleName, { color: characterColor, fontSize: fonts.md }]}>{characterName}</Text>
+        <View style={styles.speechBubbleLinesContainer}>
+          {visibleLines.slice(-3).map((line, index) => (
+            <FadingLine
+              key={`line-${index}`}
+              text={line}
+              opacity={getLineOpacity(index)}
+              isLast={index === visibleLines.slice(-3).length - 1 && isTyping}
+              characterColor={characterColor}
+            />
+          ))}
+        </View>
+      </Animated.View>
+    );
+  }
+
   return (
     <Animated.View 
       style={[
@@ -370,7 +367,7 @@ function FloatingCharacterWrapper({
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const hoverAnim = useRef(new Animated.Value(0)).current;
   const [isHovered, setIsHovered] = useState(false);
-  const fonts = useResponsiveFonts();
+  const { fonts } = useResponsive();
   
   useEffect(() => {
     // Different durations for different rhythms (2.5s to 4s based on index)
@@ -491,7 +488,7 @@ function FloatingCharacterWrapper({
 
 export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage, animationScene }: ChatInterfaceProps) {
   const { showAlert, AlertComponent } = useCustomAlert();
-  const fonts = useResponsiveFonts();
+  const { fonts, spacing, layout, isMobile, isTablet, isDesktop, width: screenWidth, height: screenHeight } = useResponsive();
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -503,13 +500,13 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const liveSpeechRef = useRef<LiveSpeechRecognition | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
-  // Set initial height based on screen size
+  // Set initial height based on screen size - now using responsive values
   const [characterHeight, setCharacterHeight] = useState(() => {
     const { height, width } = Dimensions.get('window');
     // Mobile: smaller height, Desktop: larger height
-    if (width < 768) {
+    if (width < BREAKPOINTS.tablet) {
       return Math.floor(height * 0.25); // 25% on mobile
-    } else if (width < 1024) {
+    } else if (width < BREAKPOINTS.desktop) {
       return Math.floor(height * 0.3); // 30% on tablet
     } else {
       return Math.floor(height * 0.35); // 35% on desktop
@@ -517,7 +514,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   });
   const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]); // Up to 5 characters, start empty
   const [showCharacterSelector, setShowCharacterSelector] = useState(false);
-  const [isMobileView, setIsMobileView] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(isMobile);
   const [showCharacterNames, setShowCharacterNames] = useState(true); // Show names at start
   const [nameKey, setNameKey] = useState(0); // Key to trigger re-animation
   const [showArrowPointer, setShowArrowPointer] = useState(true); // Show arrow pointer initially
@@ -656,17 +653,17 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     const updateResponsiveSettings = () => {
       const { width, height } = Dimensions.get('window');
 
-      // Update mobile view state
-      const isMobile = width < 768;
-      setIsMobileView(isMobile);
+      // Update mobile view state using centralized breakpoints
+      const isMobileDevice = width < BREAKPOINTS.tablet;
+      setIsMobileView(isMobileDevice);
 
       // Update character height based on screen size and chat history visibility
       // When chat history is OPEN, characters get only 10% (chat gets 90%)
       // When chat history is CLOSED, characters fill the space
       let heightPercentage = showChatHistory ? 0.10 : 0.60; // Default desktop
-      if (width < 768) {
+      if (width < BREAKPOINTS.tablet) {
         heightPercentage = showChatHistory ? 0.10 : 0.50; // Mobile
-      } else if (width < 1024) {
+      } else if (width < BREAKPOINTS.desktop) {
         heightPercentage = showChatHistory ? 0.10 : 0.55; // Tablet
       }
       const newHeight = Math.floor(height * heightPercentage);
@@ -1411,6 +1408,38 @@ Would you like to discuss your perspective on this?`;
           </View>
         )}
 
+        {/* Mobile Speech Bubble Stack - Renders all active bubbles in a single container to avoid overlap */}
+        {isMobile && selectedCharacters.length > 1 && (
+          <View style={styles.mobileBubbleStack}>
+            {Array.from(new Set(selectedCharacters)).map((characterId, index) => {
+              const character = availableCharacters.find(c => c.id === characterId) || getCharacter(characterId);
+              const charPlaybackState = playbackState.characterStates.get(characterId);
+              const usePlayback = playbackState.isPlaying && charPlaybackState;
+              const revealedText = usePlayback ? playbackEngineRef.current.getRevealedText(characterId) : '';
+              const isSpeakingNow = usePlayback && charPlaybackState?.isTalking;
+              const isTypingNow = usePlayback && revealedText && revealedText.length > 0;
+              
+              // Only render bubble if character is speaking
+              if (!isSpeakingNow && !isTypingNow) return null;
+              
+              return (
+                <MemoizedCharacterSpeechBubble
+                  key={`mobile-bubble-${characterId}`}
+                  text={revealedText || ''}
+                  characterName={character.name}
+                  characterColor={character.color}
+                  position="left"
+                  isTyping={!!isTypingNow}
+                  isSpeaking={!!isSpeakingNow}
+                  isSingleCharacter={false}
+                  isMobileStacked={true}
+                  stackIndex={index}
+                />
+              );
+            })}
+          </View>
+        )}
+
         {/* Multiple Character Display - Semi-circle arrangement (table view) */}
         <View style={styles.charactersRow}>
           {selectedCharacters.length === 0 ? (
@@ -1510,15 +1539,18 @@ Would you like to discuss your perspective on this?`;
                     visible={showCharacterNames}
                   />
                   {/* Speech Bubble - Comic book style, to the side of character (or above if single/center) */}
-                  <MemoizedCharacterSpeechBubble
-                    text={revealedText || ''}
-                    characterName={character.name}
-                    characterColor={character.color}
-                    position={bubblePosition}
-                    isTyping={!!isTyping}
-                    isSpeaking={!!isSpeaking}
-                    isSingleCharacter={total === 1 || isCenterCharacter}
-                  />
+                  {/* On mobile with multiple characters, use the stacked bubbles above instead */}
+                  {!(isMobile && total > 1) && (
+                    <MemoizedCharacterSpeechBubble
+                      text={revealedText || ''}
+                      characterName={character.name}
+                      characterColor={character.color}
+                      position={bubblePosition}
+                      isTyping={!!isTyping}
+                      isSpeaking={!!isSpeaking}
+                      isSingleCharacter={total === 1 || isCenterCharacter}
+                    />
+                  )}
                 </FloatingCharacterWrapper>
               );
             })
@@ -1709,13 +1741,28 @@ Would you like to discuss your perspective on this?`;
           </View>
         )}
 
-        <View style={styles.inputWrapper}>
+        <View style={[
+          styles.inputWrapper,
+          {
+            width: isMobile ? '95%' : isTablet ? '70%' : '50%',
+            minWidth: isMobile ? 280 : 300,
+            maxWidth: isMobile ? 9999 : 500,
+            padding: spacing.md,
+            gap: spacing.md,
+          }
+        ]}>
           <TextInput
             value={input}
             onChangeText={setInput}
             placeholder="Type in here.."
             placeholderTextColor="#71717a"
-            style={[styles.textInput, { fontSize: fonts.md }]}
+            style={[
+              styles.textInput, 
+              { 
+                fontSize: fonts.md,
+                minHeight: layout.inputMinHeight,
+              }
+            ]}
             multiline
             onFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
             onKeyPress={handleKeyPress}
@@ -1728,9 +1775,10 @@ Would you like to discuss your perspective on this?`;
                 styles.iconButton,
                 isRecording ? styles.recordButtonActive : styles.recordButtonInactive,
                 isTranscribing && styles.buttonDisabled,
+                { minWidth: layout.minTouchTarget, minHeight: layout.minTouchTarget }
               ]}
             >
-              {isRecording ? <MaterialCommunityIcons name="microphone-off" size={24} color="white" /> : <MaterialCommunityIcons name="microphone" size={24} color="#a1a1aa" />}
+              {isRecording ? <MaterialCommunityIcons name="microphone-off" size={isMobile ? 22 : 24} color="white" /> : <MaterialCommunityIcons name="microphone" size={isMobile ? 22 : 24} color="#a1a1aa" />}
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleSendMessagePress}
@@ -1739,12 +1787,13 @@ Would you like to discuss your perspective on this?`;
                 styles.iconButton,
                 styles.sendButton,
                 (!input.trim() || isLoading) && styles.sendButtonDisabled,
+                { minWidth: layout.minTouchTarget, minHeight: layout.minTouchTarget }
               ]}
             >
               {isLoading ? (
                 <ActivityIndicator size="small" color="white" />
               ) : (
-              <Ionicons name="send" size={24} color="white" />
+              <Ionicons name="send" size={isMobile ? 22 : 24} color="white" />
               )}
             </TouchableOpacity>
           </View>
@@ -2307,6 +2356,33 @@ const styles = StyleSheet.create({
     top: -60,
     // left: '40%',
     // transform: [{ translateX: -200 }], // Center a ~200px bubble
+  },
+  // Mobile bubble stack container - positioned at top of characters area
+  mobileBubbleStack: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    right: 8,
+    zIndex: 300,
+    flexDirection: 'column',
+    gap: 8,
+    alignItems: 'flex-start',
+  },
+  // Mobile stacked bubble style - full width, compact
+  speechBubbleMobileStacked: {
+    position: 'relative',
+    width: '100%',
+    maxWidth: '100%',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(23, 23, 23, 0.95)',
+    borderRadius: 12,
+    borderWidth: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 6,
   },
   speechBubbleTail: {
     position: 'absolute',

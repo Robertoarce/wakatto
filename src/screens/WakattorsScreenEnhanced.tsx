@@ -14,6 +14,7 @@ import { ColorPicker } from '../components/ColorPicker';
 import { getCustomWakattors, deleteCustomWakattor, addCharacterToWakattors } from '../services/customWakattorsService';
 import { useCustomAlert } from '../components/CustomAlert';
 import { getWakattorsInConversations, getCharactersByIds } from '../services/conversationWakattorsService';
+import { useResponsive } from '../constants/Layout';
 
 // Preset color palettes
 const BODY_COLORS = [
@@ -46,6 +47,7 @@ export default function WakattorsScreenEnhanced() {
   const route = useRoute<RouteProp<RootStackParamList, 'Wakattors'>>();
   const { showAlert, AlertComponent } = useCustomAlert();
   const { messages, selectedCharacters: activeSelectedCharacters } = useSelector((state: RootState) => state.conversations);
+  const { fonts, spacing, layout, isMobile, isTablet } = useResponsive();
   const [characters, setCharacters] = useState<CharacterBehavior[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCharacter, setSelectedCharacter] = useState<CharacterBehavior | null>(null);
@@ -59,6 +61,9 @@ export default function WakattorsScreenEnhanced() {
   const [collectionCharacterIds, setCollectionCharacterIds] = useState<string[]>([]);
   const [loadingConversationChars, setLoadingConversationChars] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Responsive card width
+  const cardWidth = isMobile ? '100%' : isTablet ? '45%' : 200;
 
   // Load custom wakattors on mount
   useEffect(() => {
@@ -266,25 +271,30 @@ export default function WakattorsScreenEnhanced() {
     <View style={styles.container}>
       <AlertComponent />
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Wakattors to select in chat</Text>
-        <Text style={styles.subtitle}>
+      <View style={[styles.header, { padding: spacing.lg }]}>
+        <Text style={[styles.title, { fontSize: isMobile ? fonts.xl : fonts.xxxl }]}>
+          Wakattors to select in chat
+        </Text>
+        <Text style={[styles.subtitle, { fontSize: fonts.md, marginBottom: spacing.lg }]}>
           Your collection ({characters.length}/20)
         </Text>
       </View>
 
       {/* Character Grid */}
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.grid}>
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={[styles.grid, { padding: spacing.lg, gap: spacing.lg }]}
+      >
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#8b5cf6" />
-            <Text style={styles.loadingText}>Loading your Wakattors...</Text>
+            <Text style={[styles.loadingText, { fontSize: fonts.md }]}>Loading your Wakattors...</Text>
           </View>
         ) : characters.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="people-outline" size={64} color="#3f3f46" />
-            <Text style={styles.emptyText}>No Wakattors yet</Text>
-            <Text style={styles.emptySubtext}>
+            <Ionicons name="people-outline" size={isMobile ? 48 : 64} color="#3f3f46" />
+            <Text style={[styles.emptyText, { fontSize: fonts.lg }]}>No Wakattors yet</Text>
+            <Text style={[styles.emptySubtext, { fontSize: fonts.sm }]}>
               Go to the Library tab to add characters to your collection!
             </Text>
           </View>
@@ -312,6 +322,7 @@ export default function WakattorsScreenEnhanced() {
                 key={character.id}
                 style={[
                   styles.card,
+                  { width: cardWidth as any },
                   isNewlyAdded && {
                     transform: [{ scale: pulseAnim }],
                     shadowColor: character.color,
@@ -332,11 +343,11 @@ export default function WakattorsScreenEnhanced() {
               >
                 {/* Color accent bar */}
                 <View style={[styles.cardAccent, { backgroundColor: character.color }]} />
-                <View style={styles.cardInfo}>
-                  <Text style={[styles.cardName, { color: character.color }]}>
+                <View style={[styles.cardInfo, { padding: spacing.md }]}>
+                  <Text style={[styles.cardName, { color: character.color, fontSize: fonts.md }]}>
                     {character.name}
                   </Text>
-                  <Text style={styles.cardRole}>{character.role}</Text>
+                  <Text style={[styles.cardRole, { fontSize: fonts.xs }]}>{character.role}</Text>
                   <Text style={styles.cardDescription} numberOfLines={2}>
                     {character.description}
                   </Text>
@@ -447,53 +458,66 @@ export default function WakattorsScreenEnhanced() {
       <Modal
         visible={isEditing}
         animationType="slide"
-        transparent={true}
+        transparent={!isMobile}
         onRequestClose={handleCancel}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <View style={[styles.modalOverlay, isMobile && { backgroundColor: '#1a1a1a' }]}>
+          <View style={[
+            styles.modalContent,
+            {
+              width: layout.modalWidth,
+              height: layout.modalHeight,
+              maxWidth: layout.modalMaxWidth,
+              borderRadius: layout.modalBorderRadius,
+            }
+          ]}>
             {editedCharacter && (
               <>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>
+                <View style={[styles.modalHeader, { padding: spacing.lg }]}>
+                  <Text style={[styles.modalTitle, { fontSize: isMobile ? fonts.lg : fonts.xxl }]}>
                     {editedCharacter.id.startsWith('custom_') ? 'Create' : 'Edit'} Wakattor
                   </Text>
-                  <TouchableOpacity onPress={handleCancel}>
-                    <Ionicons name="close" size={28} color="white" />
+                  <TouchableOpacity 
+                    onPress={handleCancel}
+                    style={{ minWidth: layout.minTouchTarget, minHeight: layout.minTouchTarget, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Ionicons name="close" size={isMobile ? 24 : 28} color="white" />
                   </TouchableOpacity>
                 </View>
 
                 {/* Tabs */}
-                <View style={styles.tabs}>
-                  <TouchableOpacity
-                    style={[styles.tab, editorTab === 'basic' && styles.tabActive]}
-                    onPress={() => setEditorTab('basic')}
-                  >
-                    <Ionicons name="information-circle" size={20} color={editorTab === 'basic' ? '#8b5cf6' : '#71717a'} />
-                    <Text style={[styles.tabText, editorTab === 'basic' && styles.tabTextActive]}>Basic</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.tab, editorTab === 'personality' && styles.tabActive]}
-                    onPress={() => setEditorTab('personality')}
-                  >
-                    <Ionicons name="heart" size={20} color={editorTab === 'personality' ? '#8b5cf6' : '#71717a'} />
-                    <Text style={[styles.tabText, editorTab === 'personality' && styles.tabTextActive]}>Personality</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.tab, editorTab === 'animations' && styles.tabActive]}
-                    onPress={() => setEditorTab('animations')}
-                  >
-                    <Ionicons name="play-circle" size={20} color={editorTab === 'animations' ? '#8b5cf6' : '#71717a'} />
-                    <Text style={[styles.tabText, editorTab === 'animations' && styles.tabTextActive]}>Animations</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.tab, editorTab === 'advanced' && styles.tabActive]}
-                    onPress={() => setEditorTab('advanced')}
-                  >
-                    <Ionicons name="code-slash" size={20} color={editorTab === 'advanced' ? '#8b5cf6' : '#71717a'} />
-                    <Text style={[styles.tabText, editorTab === 'advanced' && styles.tabTextActive]}>Advanced</Text>
-                  </TouchableOpacity>
-                </View>
+                <ScrollView horizontal={isMobile} showsHorizontalScrollIndicator={false} style={isMobile ? { maxHeight: 50 } : undefined}>
+                  <View style={[styles.tabs, isMobile && { flexDirection: 'row', width: 'auto' }]}>
+                    <TouchableOpacity
+                      style={[styles.tab, editorTab === 'basic' && styles.tabActive, { minHeight: layout.minTouchTarget }]}
+                      onPress={() => setEditorTab('basic')}
+                    >
+                      <Ionicons name="information-circle" size={18} color={editorTab === 'basic' ? '#8b5cf6' : '#71717a'} />
+                      <Text style={[styles.tabText, { fontSize: fonts.xs }, editorTab === 'basic' && styles.tabTextActive]}>Basic</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.tab, editorTab === 'personality' && styles.tabActive, { minHeight: layout.minTouchTarget }]}
+                      onPress={() => setEditorTab('personality')}
+                    >
+                      <Ionicons name="heart" size={18} color={editorTab === 'personality' ? '#8b5cf6' : '#71717a'} />
+                      <Text style={[styles.tabText, { fontSize: fonts.xs }, editorTab === 'personality' && styles.tabTextActive]}>Personality</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.tab, editorTab === 'animations' && styles.tabActive, { minHeight: layout.minTouchTarget }]}
+                      onPress={() => setEditorTab('animations')}
+                    >
+                      <Ionicons name="play-circle" size={18} color={editorTab === 'animations' ? '#8b5cf6' : '#71717a'} />
+                      <Text style={[styles.tabText, { fontSize: fonts.xs }, editorTab === 'animations' && styles.tabTextActive]}>Animations</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.tab, editorTab === 'advanced' && styles.tabActive, { minHeight: layout.minTouchTarget }]}
+                      onPress={() => setEditorTab('advanced')}
+                    >
+                      <Ionicons name="code-slash" size={18} color={editorTab === 'advanced' ? '#8b5cf6' : '#71717a'} />
+                      <Text style={[styles.tabText, { fontSize: fonts.xs }, editorTab === 'advanced' && styles.tabTextActive]}>Advanced</Text>
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
 
                 <ScrollView style={styles.modalScroll}>
                   {/* Live Preview */}

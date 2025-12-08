@@ -9,6 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 import { runAllTests, TestResult } from '../services/aiConnectionTest';
 import { useCustomAlert } from '../components/CustomAlert';
 import { Button, Input, Card, Badge } from '../components/ui';
+import { useResponsive } from '../constants/Layout';
 
 type AIProvider = 'mock' | 'openai' | 'anthropic' | 'gemini';
 
@@ -17,6 +18,7 @@ const SettingsScreen = (): JSX.Element => {
   const dispatch = useDispatch();
   const { showAlert, AlertComponent } = useCustomAlert();
   const { user } = useSelector((state: RootState) => state.auth);
+  const { fonts, spacing, layout, isMobile } = useResponsive();
 
   const [aiProvider, setAIProvider] = useState<AIProvider>('anthropic');
   const [apiKey, setApiKey] = useState('');
@@ -124,12 +126,12 @@ const SettingsScreen = (): JSX.Element => {
   return (
     <ScrollView style={styles.container}>
       <AlertComponent />
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account</Text>
+      <View style={[styles.section, { padding: spacing.lg }]}>
+        <Text style={[styles.sectionTitle, { fontSize: fonts.lg, marginBottom: spacing.md }]}>Account</Text>
         <Card variant="elevated">
-          <View style={styles.infoRow}>
-            <Ionicons name="person-outline" size={20} color="#a1a1aa" />
-            <Text style={styles.infoText}>{user?.email || 'Not logged in'}</Text>
+          <View style={[styles.infoRow, { gap: spacing.md, marginBottom: spacing.lg }]}>
+            <Ionicons name="person-outline" size={isMobile ? 18 : 20} color="#a1a1aa" />
+            <Text style={[styles.infoText, { fontSize: fonts.md }]}>{user?.email || 'Not logged in'}</Text>
           </View>
           <Button
             title="Logout"
@@ -142,17 +144,22 @@ const SettingsScreen = (): JSX.Element => {
         </Card>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>AI Configuration</Text>
+      <View style={[styles.section, { padding: spacing.lg }]}>
+        <Text style={[styles.sectionTitle, { fontSize: fonts.lg, marginBottom: spacing.md }]}>AI Configuration</Text>
         <Card variant="elevated">
-          <Text style={styles.label}>AI Provider</Text>
-          <View style={styles.providerButtons}>
+          <Text style={[styles.label, { fontSize: fonts.sm, marginBottom: spacing.sm }]}>AI Provider</Text>
+          <View style={[styles.providerButtons, { gap: spacing.sm }]}>
             {(['mock', 'openai', 'anthropic', 'gemini'] as AIProvider[]).map((provider) => (
               <TouchableOpacity
                 key={provider}
                 style={[
                   styles.providerButton,
                   aiProvider === provider && styles.providerButtonActive,
+                  { 
+                    paddingHorizontal: spacing.lg, 
+                    paddingVertical: spacing.md,
+                    minHeight: layout.minTouchTarget,
+                  }
                 ]}
                 onPress={() => {
                   setAIProvider(provider);
@@ -164,6 +171,7 @@ const SettingsScreen = (): JSX.Element => {
                 <Text
                   style={[
                     styles.providerButtonText,
+                    { fontSize: fonts.sm },
                     aiProvider === provider && styles.providerButtonTextActive,
                   ]}
                 >
@@ -174,9 +182,9 @@ const SettingsScreen = (): JSX.Element => {
           </View>
 
           {aiProvider === 'mock' && (
-            <View style={styles.infoBox}>
-              <Ionicons name="information-circle-outline" size={20} color="#8b5cf6" />
-              <Text style={styles.infoBoxText}>
+            <View style={[styles.infoBox, { marginTop: spacing.md, padding: spacing.md }]}>
+              <Ionicons name="information-circle-outline" size={isMobile ? 18 : 20} color="#8b5cf6" />
+              <Text style={[styles.infoBoxText, { fontSize: fonts.sm }]}>
                 Mock mode uses simulated responses. No API key needed. Great for testing!
               </Text>
             </View>

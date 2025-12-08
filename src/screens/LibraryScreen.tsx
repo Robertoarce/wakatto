@@ -21,6 +21,7 @@ import { CharacterDisplay3D, AnimationState } from '../components/CharacterDispl
 import { CharacterBehavior } from '../config/characters';
 import { Badge } from '../components/ui';
 import { useCustomAlert } from '../components/CustomAlert';
+import { useResponsive } from '../constants/Layout';
 
 type SortOption = 'name' | 'recent' | 'popular';
 
@@ -47,6 +48,7 @@ const getRandomAnimation = (): AnimationState => {
 export default function LibraryScreen() {
   const navigation = useNavigation();
   const { showAlert, AlertComponent } = useCustomAlert();
+  const { fonts, spacing, layout, isMobile, isTablet } = useResponsive();
   const [characters, setCharacters] = useState<CustomWakattor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,6 +58,9 @@ export default function LibraryScreen() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [currentAnimation, setCurrentAnimation] = useState<AnimationState>('idle');
   const [adding, setAdding] = useState(false);
+
+  // Responsive card width
+  const cardWidth = isMobile ? '100%' : '48%';
 
   // Load characters
   useEffect(() => {
@@ -183,22 +188,30 @@ export default function LibraryScreen() {
     return (
       <TouchableOpacity
         key={character.id}
-        style={styles.characterCard}
+        style={[
+          styles.characterCard, 
+          { 
+            width: cardWidth as any,
+            minWidth: isMobile ? undefined : 160,
+            maxWidth: isMobile ? undefined : 220,
+            padding: spacing.lg,
+          }
+        ]}
         onPress={() => handleCharacterPress(character)}
       >
-        <Text style={[styles.characterName, { color: character.color }]} numberOfLines={1}>
+        <Text style={[styles.characterName, { color: character.color, fontSize: fonts.md }]} numberOfLines={1}>
           {character.name}
         </Text>
 
         <Badge label={character.role || 'Character'} variant="primary" size="sm" style={styles.roleBadge} />
 
-        <Text style={styles.characterDescription} numberOfLines={3}>
+        <Text style={[styles.characterDescription, { fontSize: fonts.sm }]} numberOfLines={3}>
           {character.description}
         </Text>
 
-        <View style={styles.cardFooter}>
-          <Text style={styles.viewDetailsText}>Tap to view in 3D</Text>
-          <Ionicons name="cube-outline" size={20} color="#8b5cf6" />
+        <View style={[styles.cardFooter, { marginTop: spacing.sm, paddingTop: spacing.md }]}>
+          <Text style={[styles.viewDetailsText, { fontSize: fonts.sm }]}>Tap to view in 3D</Text>
+          <Ionicons name="cube-outline" size={isMobile ? 18 : 20} color="#8b5cf6" />
         </View>
       </TouchableOpacity>
     );
@@ -208,7 +221,7 @@ export default function LibraryScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#8b5cf6" />
-        <Text style={styles.loadingText}>Loading library...</Text>
+        <Text style={[styles.loadingText, { fontSize: fonts.md }]}>Loading library...</Text>
       </View>
     );
   }
@@ -217,11 +230,11 @@ export default function LibraryScreen() {
     <View style={styles.container}>
       <AlertComponent />
       {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Ionicons name="library" size={28} color="#8b5cf6" />
+      <View style={[styles.header, { paddingHorizontal: spacing.lg, paddingVertical: spacing.lg }]}>
+        <View style={[styles.headerLeft, { gap: spacing.md }]}>
+          <Ionicons name="library" size={isMobile ? 24 : 28} color="#8b5cf6" />
           <View>
-            <Text style={styles.title}>Character Library</Text>
+            <Text style={[styles.title, { fontSize: isMobile ? fonts.lg : fonts.xxl }]}>Character Library</Text>
             <Text style={styles.subtitle}>{filteredCharacters.length} of {characters.length} Characters</Text>
           </View>
         </View>
@@ -311,23 +324,33 @@ export default function LibraryScreen() {
         <Modal
           visible={showDetailModal}
           animationType="fade"
-          transparent={true}
+          transparent={!isMobile}
           onRequestClose={handleCloseDetail}
         >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+          <View style={[styles.modalOverlay, isMobile && { backgroundColor: '#18181b' }]}>
+            <View style={[
+              styles.modalContent,
+              {
+                width: layout.modalWidth as any,
+                height: layout.modalHeight as any,
+                borderRadius: layout.modalBorderRadius,
+              }
+            ]}>
               {/* Modal Header */}
-              <View style={styles.modalHeader}>
+              <View style={[styles.modalHeader, { padding: spacing.lg }]}>
                 <View style={styles.modalHeaderLeft}>
                   <View>
-                    <Text style={[styles.modalTitle, { color: selectedCharacter.color }]}>
+                    <Text style={[styles.modalTitle, { color: selectedCharacter.color, fontSize: isMobile ? fonts.lg : fonts.xl }]}>
                       {selectedCharacter.name}
                     </Text>
-                    <Text style={styles.modalSubtitle}>{selectedCharacter.role}</Text>
+                    <Text style={[styles.modalSubtitle, { fontSize: fonts.sm }]}>{selectedCharacter.role}</Text>
                   </View>
                 </View>
-                <TouchableOpacity onPress={handleCloseDetail} style={styles.closeButton}>
-                  <Ionicons name="close" size={28} color="#a1a1aa" />
+                <TouchableOpacity 
+                  onPress={handleCloseDetail} 
+                  style={[styles.closeButton, { minWidth: layout.minTouchTarget, minHeight: layout.minTouchTarget }]}
+                >
+                  <Ionicons name="close" size={isMobile ? 24 : 28} color="#a1a1aa" />
                 </TouchableOpacity>
               </View>
 
@@ -340,16 +363,20 @@ export default function LibraryScreen() {
               </View>
 
               {/* Character Info */}
-              <View style={styles.modalInfo}>
-                <Text style={styles.characterInfoDescription}>
+              <View style={[styles.modalInfo, { padding: spacing.lg }]}>
+                <Text style={[styles.characterInfoDescription, { fontSize: fonts.md }]}>
                   {selectedCharacter.description}
                 </Text>
               </View>
 
               {/* Action Button */}
-              <View style={styles.modalActions}>
+              <View style={[styles.modalActions, { padding: spacing.lg }]}>
                 <TouchableOpacity
-                  style={[styles.actionButton, adding && styles.actionButtonDisabled]}
+                  style={[
+                    styles.actionButton, 
+                    adding && styles.actionButtonDisabled,
+                    { minHeight: layout.minTouchTarget, paddingVertical: spacing.lg }
+                  ]}
                   onPress={handleAddToWakattors}
                   disabled={adding}
                 >
@@ -357,8 +384,8 @@ export default function LibraryScreen() {
                     <ActivityIndicator size="small" color="white" />
                   ) : (
                     <>
-                      <Ionicons name="add-circle-outline" size={22} color="white" />
-                      <Text style={styles.actionButtonText}>Add to Wakattors</Text>
+                      <Ionicons name="add-circle-outline" size={isMobile ? 20 : 22} color="white" />
+                      <Text style={[styles.actionButtonText, { fontSize: fonts.md }]}>Add to Wakattors</Text>
                     </>
                   )}
                 </TouchableOpacity>

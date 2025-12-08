@@ -118,7 +118,6 @@ const TEST_CHARACTERS = ['freud', 'jung', 'adler'];
 const MODEL_STYLES: { value: ModelStyle; label: string; icon: string }[] = [
   { value: 'blocky', label: 'Blocky', icon: '🧱' },
   { value: 'chibi', label: 'Chibi', icon: '🎎' },
-  { value: 'plush', label: 'Plush', icon: '🧸' },
   { value: 'robot', label: 'Robot', icon: '🤖' },
   { value: 'lowpoly', label: 'LowPoly', icon: '💎' },
 ];
@@ -246,6 +245,7 @@ const AnimationsScreen = (): JSX.Element => {
                 isTalking={isTalking}
                 complementary={complementary}
                 modelStyle={selectedModelStyle}
+                fov={25}
               />
             </View>
             

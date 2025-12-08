@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle, TouchableOpacity } from 'react-native';
+import { useResponsive } from '../../constants/Layout';
 
 interface CardProps {
   children: React.ReactNode;
@@ -11,6 +12,8 @@ interface CardProps {
 }
 
 export function Card({ children, title, description, variant = 'default', onPress, style }: CardProps) {
+  const { fonts, spacing, isMobile } = useResponsive();
+
   const getVariantStyles = (): ViewStyle => {
     const variants: Record<string, ViewStyle> = {
       default: {
@@ -49,21 +52,34 @@ export function Card({ children, title, description, variant = 'default', onPres
   const content = (
     <>
       {(title || description) && (
-        <View style={styles.header}>
-          {title && <Text style={styles.title}>{title}</Text>}
-          {description && <Text style={styles.description}>{description}</Text>}
+        <View style={[styles.header, { marginBottom: spacing.md }]}>
+          {title && (
+            <Text style={[
+              styles.title, 
+              { fontSize: isMobile ? fonts.md : fonts.lg, marginBottom: spacing.xs }
+            ]}>
+              {title}
+            </Text>
+          )}
+          {description && (
+            <Text style={[styles.description, { fontSize: fonts.sm }]}>
+              {description}
+            </Text>
+          )}
         </View>
       )}
       {children}
     </>
   );
 
+  const cardPadding = isMobile ? spacing.lg : spacing.lg;
+
   if (onPress) {
     return (
       <TouchableOpacity
         onPress={onPress}
         activeOpacity={0.7}
-        style={[styles.card, getVariantStyles(), style]}
+        style={[styles.card, { padding: cardPadding }, getVariantStyles(), style]}
       >
         {content}
       </TouchableOpacity>
@@ -71,7 +87,7 @@ export function Card({ children, title, description, variant = 'default', onPres
   }
 
   return (
-    <View style={[styles.card, getVariantStyles(), style]}>
+    <View style={[styles.card, { padding: cardPadding }, getVariantStyles(), style]}>
       {content}
     </View>
   );
@@ -80,19 +96,14 @@ export function Card({ children, title, description, variant = 'default', onPres
 const styles = StyleSheet.create({
   card: {
     borderRadius: 16,
-    padding: 16,
   },
   header: {
-    marginBottom: 12,
   },
   title: {
-    fontSize: 18,
     fontWeight: '700',
     color: '#ffffff',
-    marginBottom: 4,
   },
   description: {
-    fontSize: 14,
     color: '#a1a1aa',
   },
 });

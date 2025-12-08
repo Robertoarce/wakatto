@@ -1,6 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle, ActivityIndicator, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useResponsive } from '../../constants/Layout';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -32,6 +33,8 @@ export function Button({
   style,
   textStyle,
 }: ButtonProps) {
+  const { fonts, spacing, layout, isMobile } = useResponsive();
+
   const getVariantStyles = (): ViewStyle => {
     const variants: Record<ButtonVariant, ViewStyle> = {
       primary: {
@@ -63,21 +66,27 @@ export function Button({
   };
 
   const getSizeStyles = (): ViewStyle & { fontSize: number } => {
+    // Ensure minimum touch target on mobile (44px)
+    const minHeight = layout.minTouchTarget;
+    
     const sizes: Record<ButtonSize, ViewStyle & { fontSize: number }> = {
       sm: {
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        fontSize: 14,
+        paddingVertical: isMobile ? spacing.md : spacing.sm,
+        paddingHorizontal: spacing.md,
+        fontSize: fonts.sm,
+        minHeight: minHeight,
       },
       md: {
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        fontSize: 16,
+        paddingVertical: isMobile ? spacing.lg : spacing.md,
+        paddingHorizontal: spacing.lg,
+        fontSize: fonts.md,
+        minHeight: minHeight,
       },
       lg: {
-        paddingVertical: 16,
-        paddingHorizontal: 24,
-        fontSize: 18,
+        paddingVertical: isMobile ? spacing.xl : spacing.lg,
+        paddingHorizontal: spacing.xl,
+        fontSize: fonts.lg,
+        minHeight: minHeight + 8,
       },
     };
     return sizes[size];
@@ -94,7 +103,7 @@ export function Button({
   const sizeStyles = getSizeStyles();
   const textColor = getTextColor();
 
-  const iconSize = size === 'sm' ? 16 : size === 'md' ? 20 : 24;
+  const iconSize = size === 'sm' ? (isMobile ? 14 : 16) : size === 'md' ? (isMobile ? 18 : 20) : (isMobile ? 22 : 24);
 
   return (
     <TouchableOpacity
@@ -113,15 +122,15 @@ export function Button({
       {loading ? (
         <ActivityIndicator size="small" color={textColor} />
       ) : (
-        <View style={styles.content}>
+        <View style={[styles.content, { gap: spacing.sm }]}>
           {icon && iconPosition === 'left' && (
-            <Ionicons name={icon} size={iconSize} color={textColor} style={styles.iconLeft} />
+            <Ionicons name={icon} size={iconSize} color={textColor} />
           )}
           <Text style={[styles.text, { color: textColor, fontSize: sizeStyles.fontSize }, textStyle]}>
             {title}
           </Text>
           {icon && iconPosition === 'right' && (
-            <Ionicons name={icon} size={iconSize} color={textColor} style={styles.iconRight} />
+            <Ionicons name={icon} size={iconSize} color={textColor} />
           )}
         </View>
       )}
@@ -154,11 +163,5 @@ const styles = StyleSheet.create({
   },
   text: {
     fontWeight: '600',
-  },
-  iconLeft: {
-    marginRight: 8,
-  },
-  iconRight: {
-    marginLeft: 8,
   },
 });

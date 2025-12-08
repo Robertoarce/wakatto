@@ -17,6 +17,7 @@ import {
   CharacterDescription,
 } from '../services/characterGenerationService';
 import { createCustomWakattor } from '../services/customWakattorsService';
+import { useResponsive } from '../constants/Layout';
 
 type WizardStep = 'name' | 'analyzing' | 'known-review' | 'fictional-input' | 'generating' | 'final-review' | 'saving';
 
@@ -26,6 +27,7 @@ interface Props {
 }
 
 export function CharacterCreationWizard({ onComplete, onCancel }: Props) {
+  const { fonts, spacing, layout, isMobile } = useResponsive();
   const [step, setStep] = useState<WizardStep>('name');
   const [characterName, setCharacterName] = useState('');
   const [analysis, setAnalysis] = useState<CharacterAnalysis | null>(null);
@@ -121,15 +123,25 @@ export function CharacterCreationWizard({ onComplete, onCancel }: Props) {
       case 'name':
         return (
           <View style={styles.stepContent}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="person-add" size={64} color="#8b5cf6" />
+            <View style={[styles.iconContainer, { marginBottom: spacing.xl }]}>
+              <Ionicons name="person-add" size={isMobile ? 48 : 64} color="#8b5cf6" />
             </View>
-            <Text style={styles.stepTitle}>What's the character's name?</Text>
-            <Text style={styles.stepDescription}>
+            <Text style={[styles.stepTitle, { fontSize: isMobile ? fonts.xl : fonts.xxl, marginBottom: spacing.md }]}>
+              What's the character's name?
+            </Text>
+            <Text style={[styles.stepDescription, { fontSize: fonts.md, marginBottom: spacing.xl }]}>
               Enter a known character (Einstein, Goku, Superman) or create your own fictional character
             </Text>
             <TextInput
-              style={styles.nameInput}
+              style={[
+                styles.nameInput, 
+                { 
+                  fontSize: fonts.lg, 
+                  padding: spacing.lg,
+                  marginBottom: spacing.xl,
+                  maxWidth: isMobile ? '100%' : 500,
+                }
+              ]}
               value={characterName}
               onChangeText={setCharacterName}
               placeholder="e.g., Albert Einstein, Incredible Man"
@@ -137,10 +149,20 @@ export function CharacterCreationWizard({ onComplete, onCancel }: Props) {
               autoFocus
               onSubmitEditing={handleNameSubmit}
             />
-            {error && <Text style={styles.errorText}>{error}</Text>}
-            <TouchableOpacity style={styles.primaryButton} onPress={handleNameSubmit}>
-              <Text style={styles.primaryButtonText}>Analyze Character</Text>
-              <Ionicons name="arrow-forward" size={20} color="white" />
+            {error && <Text style={[styles.errorText, { fontSize: fonts.sm }]}>{error}</Text>}
+            <TouchableOpacity 
+              style={[
+                styles.primaryButton, 
+                { 
+                  paddingVertical: spacing.lg, 
+                  paddingHorizontal: spacing.xxl,
+                  minHeight: layout.minTouchTarget,
+                }
+              ]} 
+              onPress={handleNameSubmit}
+            >
+              <Text style={[styles.primaryButtonText, { fontSize: fonts.lg }]}>Analyze Character</Text>
+              <Ionicons name="arrow-forward" size={isMobile ? 18 : 20} color="white" />
             </TouchableOpacity>
           </View>
         );
@@ -149,30 +171,34 @@ export function CharacterCreationWizard({ onComplete, onCancel }: Props) {
         return (
           <View style={styles.stepContent}>
             <ActivityIndicator size="large" color="#8b5cf6" />
-            <Text style={styles.loadingText}>Analyzing "{characterName}"...</Text>
-            <Text style={styles.stepDescription}>Our AI is determining if this is a known character</Text>
+            <Text style={[styles.loadingText, { fontSize: fonts.lg, marginTop: spacing.lg }]}>
+              Analyzing "{characterName}"...
+            </Text>
+            <Text style={[styles.stepDescription, { fontSize: fonts.md }]}>
+              Our AI is determining if this is a known character
+            </Text>
           </View>
         );
 
       case 'known-review':
         return (
           <View style={styles.stepContent}>
-            <Text style={styles.stepTitle}>Character Found!</Text>
-            <Text style={styles.stepDescription}>
+            <Text style={[styles.stepTitle, { fontSize: isMobile ? fonts.xl : fonts.xxl }]}>Character Found!</Text>
+            <Text style={[styles.stepDescription, { fontSize: fonts.md }]}>
               We've generated a configuration for {generatedCharacter?.name}. Review and adjust as needed.
             </Text>
             {generatedCharacter && (
               <>
-                <View style={styles.previewContainer}>
+                <View style={[styles.previewContainer, { height: isMobile ? 200 : 250, marginBottom: spacing.xl }]}>
                   <CharacterDisplay3D character={generatedCharacter} isActive={true} />
                 </View>
                 <ScrollView style={styles.infoContainer}>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Name:</Text>
-                    <Text style={styles.infoValue}>{generatedCharacter.name}</Text>
+                  <View style={[styles.infoRow, { marginBottom: spacing.md }]}>
+                    <Text style={[styles.infoLabel, { fontSize: fonts.sm }]}>Name:</Text>
+                    <Text style={[styles.infoValue, { fontSize: fonts.sm }]}>{generatedCharacter.name}</Text>
                   </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Role:</Text>
+                  <View style={[styles.infoRow, { marginBottom: spacing.md }]}>
+                    <Text style={[styles.infoLabel, { fontSize: fonts.sm }]}>Role:</Text>
                     <Text style={styles.infoValue}>{generatedCharacter.role}</Text>
                   </View>
                   <View style={styles.infoRow}>

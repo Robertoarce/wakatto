@@ -9,6 +9,7 @@ import { Header } from '../components/Header';
 import { ChatSidebar } from '../components/ChatSidebar';
 import { useCustomAlert } from '../components/CustomAlert';
 import { toggleSidebar, toggleSidebarCollapse, setSidebarOpen } from '../store/actions/uiActions';
+import { useResponsive, BREAKPOINTS } from '../constants/Layout';
 import { 
   loadConversations, 
   selectConversation, 
@@ -41,12 +42,13 @@ export default function MainTabs() {
   const { showAlert, AlertComponent } = useCustomAlert();
   const { conversations, currentConversation, messages } = useSelector((state: RootState) => state.conversations);
   const { showSidebar, sidebarCollapsed } = useSelector((state: RootState) => state.ui);
+  const { fonts, layout, isMobile, spacing } = useResponsive();
 
   // Hide sidebar on mobile by default
   useEffect(() => {
     const { width } = Dimensions.get('window');
-    const isMobile = width < 768;
-    if (isMobile) {
+    const isMobileDevice = width < BREAKPOINTS.tablet;
+    if (isMobileDevice) {
       dispatch(setSidebarOpen(false));
     }
   }, [dispatch]);
@@ -312,16 +314,24 @@ export default function MainTabs() {
         />
         <View style={[
           styles.mainContentWrapper,
-          showSidebar && !sidebarCollapsed && styles.mainContentWithSidebar,
-          showSidebar && sidebarCollapsed && styles.mainContentWithCollapsedSidebar,
+          // Only add sidebar margin on non-mobile (mobile uses overlay)
+          !isMobile && showSidebar && !sidebarCollapsed && { marginLeft: layout.sidebarWidth },
+          !isMobile && showSidebar && sidebarCollapsed && { marginLeft: layout.sidebarCollapsedWidth },
         ]}>
         <Tab.Navigator
           screenOptions={{
             headerShown: false,
-            tabBarStyle: styles.tabBar,
+            tabBarStyle: [
+              styles.tabBar,
+              { 
+                paddingBottom: isMobile ? spacing.xs : spacing.sm,
+                paddingTop: isMobile ? spacing.xs : spacing.sm,
+              }
+            ],
             tabBarActiveTintColor: '#8b5cf6',
             tabBarInactiveTintColor: '#a1a1aa',
-            tabBarLabelStyle: styles.tabBarLabel,
+            tabBarLabelStyle: { fontSize: isMobile ? fonts.xs : fonts.sm },
+            tabBarIconStyle: { marginBottom: isMobile ? 2 : 4 },
             unmountOnBlur: true, // Unmount inactive screens to stop 3D rendering
           }}
         >
@@ -402,19 +412,12 @@ const styles = StyleSheet.create({
   mainContentWrapper: {
     flex: 1,
     position: 'relative',
+    // @ts-ignore - web transition
     transition: 'margin-left 0.3s ease',
-  },
-  mainContentWithSidebar: {
-    marginLeft: 224, // Width of expanded sidebar
-  },
-  mainContentWithCollapsedSidebar: {
-    marginLeft: 56, // Width of collapsed sidebar
   },
   tabBar: {
     backgroundColor: '#171717',
     borderTopColor: '#27272a',
-  },
-  tabBarLabel: {
-    fontSize: 12,
+    borderTopWidth: 1,
   },
 });
