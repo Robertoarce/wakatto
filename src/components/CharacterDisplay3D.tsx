@@ -398,11 +398,19 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           targetRightEyeScaleY = 0.1;
           break;
         case 'blink':
-          const blinkPhase = Math.sin(time * 10.4); // 1.3x faster blink
-          if (blinkPhase > 0.9) {
-            targetLeftEyeScaleY = 0.1;
-            targetRightEyeScaleY = 0.1;
+          // Slower blink with smooth full open to full close transition
+          // Uses a sawtooth-like pattern: open -> close -> open
+          const blinkCycle = (time * 1.5) % 3; // Complete cycle every ~2 seconds
+          let blinkScale = 1.0;
+          if (blinkCycle < 0.15) {
+            // Closing phase (0 to 0.15)
+            blinkScale = 1.0 - (blinkCycle / 0.15) * 0.9; // 1.0 -> 0.1
+          } else if (blinkCycle < 0.3) {
+            // Opening phase (0.15 to 0.3)
+            blinkScale = 0.1 + ((blinkCycle - 0.15) / 0.15) * 0.9; // 0.1 -> 1.0
           }
+          targetLeftEyeScaleY = blinkScale;
+          targetRightEyeScaleY = blinkScale;
           break;
       }
 
@@ -412,8 +420,9 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       if (!isTalking && mouthRef.current) {
         switch (complementary?.mouthState) {
           case 'open':
-            mouthRef.current.scale.y = 1.2;
-            mouthRef.current.scale.x = 1.0;
+            // Small circle - equal scales for circular shape
+            mouthRef.current.scale.y = 0.8;
+            mouthRef.current.scale.x = 0.8;
             break;
           case 'smile':
             mouthRef.current.scale.y = 0.4;
@@ -850,6 +859,184 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
 
   // For single character display, center at origin
   const position: [number, number, number] = [0, 0, 0];
+
+  // =========================================
+  // ANIME FACE DECORATIONS (for all styles)
+  // =========================================
+  const renderFaceDecorations = (faceOffset: { x: number; y: number; z: number } = { x: 0, y: 0, z: 0 }) => {
+    const faceState = complementary?.faceState;
+    if (!faceState || faceState === 'normal') return null;
+
+    return (
+      <>
+        {/* Blush - Pink cheeks */}
+        {faceState === 'blush' && (
+          <>
+            <mesh position={[-0.18 + faceOffset.x, -0.02 + faceOffset.y, 0.24 + faceOffset.z]}>
+              <circleGeometry args={[0.06, 16]} />
+              <meshBasicMaterial color="#ff9999" transparent opacity={0.6} />
+            </mesh>
+            <mesh position={[0.18 + faceOffset.x, -0.02 + faceOffset.y, 0.24 + faceOffset.z]}>
+              <circleGeometry args={[0.06, 16]} />
+              <meshBasicMaterial color="#ff9999" transparent opacity={0.6} />
+            </mesh>
+          </>
+        )}
+
+        {/* Sweat Drop - Nervous anime sweat */}
+        {faceState === 'sweat_drop' && (
+          <mesh position={[0.22 + faceOffset.x, 0.15 + faceOffset.y, 0.2 + faceOffset.z]} rotation={[0, 0, -0.3]}>
+            <coneGeometry args={[0.03, 0.08, 8]} />
+            <meshBasicMaterial color="#87ceeb" transparent opacity={0.8} />
+          </mesh>
+        )}
+
+        {/* Sparkle Eyes - Excited star eyes (replace normal eyes) */}
+        {faceState === 'sparkle_eyes' && (
+          <>
+            {/* Left star */}
+            <mesh position={[-0.1 + faceOffset.x, 0.05 + faceOffset.y, 0.26 + faceOffset.z]}>
+              <sphereGeometry args={[0.045, 4, 2]} />
+              <meshBasicMaterial color="#ffff00" />
+            </mesh>
+            {/* Right star */}
+            <mesh position={[0.1 + faceOffset.x, 0.05 + faceOffset.y, 0.26 + faceOffset.z]}>
+              <sphereGeometry args={[0.045, 4, 2]} />
+              <meshBasicMaterial color="#ffff00" />
+            </mesh>
+            {/* Sparkle effects */}
+            <mesh position={[-0.15 + faceOffset.x, 0.12 + faceOffset.y, 0.22 + faceOffset.z]} rotation={[0, 0, Math.PI / 4]}>
+              <boxGeometry args={[0.02, 0.06, 0.01]} />
+              <meshBasicMaterial color="#ffffff" />
+            </mesh>
+            <mesh position={[0.15 + faceOffset.x, 0.12 + faceOffset.y, 0.22 + faceOffset.z]} rotation={[0, 0, -Math.PI / 4]}>
+              <boxGeometry args={[0.02, 0.06, 0.01]} />
+              <meshBasicMaterial color="#ffffff" />
+            </mesh>
+          </>
+        )}
+
+        {/* Heart Eyes - Love/admiration */}
+        {faceState === 'heart_eyes' && (
+          <>
+            {/* Left heart (using two spheres) */}
+            <group position={[-0.1 + faceOffset.x, 0.05 + faceOffset.y, 0.26 + faceOffset.z]}>
+              <mesh position={[-0.015, 0.015, 0]}>
+                <sphereGeometry args={[0.025, 8, 8]} />
+                <meshBasicMaterial color="#ff69b4" />
+              </mesh>
+              <mesh position={[0.015, 0.015, 0]}>
+                <sphereGeometry args={[0.025, 8, 8]} />
+                <meshBasicMaterial color="#ff69b4" />
+              </mesh>
+              <mesh position={[0, -0.015, 0]} rotation={[0, 0, Math.PI / 4]}>
+                <boxGeometry args={[0.035, 0.035, 0.02]} />
+                <meshBasicMaterial color="#ff69b4" />
+              </mesh>
+            </group>
+            {/* Right heart */}
+            <group position={[0.1 + faceOffset.x, 0.05 + faceOffset.y, 0.26 + faceOffset.z]}>
+              <mesh position={[-0.015, 0.015, 0]}>
+                <sphereGeometry args={[0.025, 8, 8]} />
+                <meshBasicMaterial color="#ff69b4" />
+              </mesh>
+              <mesh position={[0.015, 0.015, 0]}>
+                <sphereGeometry args={[0.025, 8, 8]} />
+                <meshBasicMaterial color="#ff69b4" />
+              </mesh>
+              <mesh position={[0, -0.015, 0]} rotation={[0, 0, Math.PI / 4]}>
+                <boxGeometry args={[0.035, 0.035, 0.02]} />
+                <meshBasicMaterial color="#ff69b4" />
+              </mesh>
+            </group>
+          </>
+        )}
+
+        {/* Spiral Eyes - Dizzy/confused */}
+        {faceState === 'spiral_eyes' && (
+          <>
+            <mesh position={[-0.1 + faceOffset.x, 0.05 + faceOffset.y, 0.26 + faceOffset.z]} rotation={[0, 0, 0]}>
+              <torusGeometry args={[0.03, 0.008, 8, 16, Math.PI * 3]} />
+              <meshBasicMaterial color="#1a1a1a" />
+            </mesh>
+            <mesh position={[0.1 + faceOffset.x, 0.05 + faceOffset.y, 0.26 + faceOffset.z]} rotation={[0, 0, 0]}>
+              <torusGeometry args={[0.03, 0.008, 8, 16, Math.PI * 3]} />
+              <meshBasicMaterial color="#1a1a1a" />
+            </mesh>
+          </>
+        )}
+
+        {/* Tears - Crying streams */}
+        {faceState === 'tears' && (
+          <>
+            {/* Left tear stream */}
+            <mesh position={[-0.12 + faceOffset.x, -0.05 + faceOffset.y, 0.24 + faceOffset.z]}>
+              <cylinderGeometry args={[0.015, 0.02, 0.12, 8]} />
+              <meshBasicMaterial color="#87ceeb" transparent opacity={0.7} />
+            </mesh>
+            {/* Right tear stream */}
+            <mesh position={[0.12 + faceOffset.x, -0.05 + faceOffset.y, 0.24 + faceOffset.z]}>
+              <cylinderGeometry args={[0.015, 0.02, 0.12, 8]} />
+              <meshBasicMaterial color="#87ceeb" transparent opacity={0.7} />
+            </mesh>
+            {/* Tear drops */}
+            <mesh position={[-0.12 + faceOffset.x, -0.12 + faceOffset.y, 0.24 + faceOffset.z]}>
+              <sphereGeometry args={[0.025, 8, 8]} />
+              <meshBasicMaterial color="#87ceeb" transparent opacity={0.8} />
+            </mesh>
+            <mesh position={[0.12 + faceOffset.x, -0.12 + faceOffset.y, 0.24 + faceOffset.z]}>
+              <sphereGeometry args={[0.025, 8, 8]} />
+              <meshBasicMaterial color="#87ceeb" transparent opacity={0.8} />
+            </mesh>
+          </>
+        )}
+
+        {/* Anger Vein - Anime anger mark */}
+        {faceState === 'anger_vein' && (
+          <group position={[0.18 + faceOffset.x, 0.18 + faceOffset.y, 0.2 + faceOffset.z]}>
+            {/* Cross shape anger vein */}
+            <mesh rotation={[0, 0, Math.PI / 4]}>
+              <boxGeometry args={[0.06, 0.015, 0.01]} />
+              <meshBasicMaterial color="#ff3333" />
+            </mesh>
+            <mesh rotation={[0, 0, -Math.PI / 4]}>
+              <boxGeometry args={[0.06, 0.015, 0.01]} />
+              <meshBasicMaterial color="#ff3333" />
+            </mesh>
+            {/* Additional smaller crosses for traditional anger mark */}
+            <mesh position={[0.02, 0.02, 0]} rotation={[0, 0, Math.PI / 4]}>
+              <boxGeometry args={[0.04, 0.012, 0.01]} />
+              <meshBasicMaterial color="#ff3333" />
+            </mesh>
+            <mesh position={[0.02, 0.02, 0]} rotation={[0, 0, -Math.PI / 4]}>
+              <boxGeometry args={[0.04, 0.012, 0.01]} />
+              <meshBasicMaterial color="#ff3333" />
+            </mesh>
+          </group>
+        )}
+
+        {/* Shadow Face - Dark aura/disappointment */}
+        {faceState === 'shadow_face' && (
+          <>
+            {/* Dark overlay on upper face */}
+            <mesh position={[0 + faceOffset.x, 0.08 + faceOffset.y, 0.23 + faceOffset.z]}>
+              <boxGeometry args={[0.4, 0.15, 0.02]} />
+              <meshBasicMaterial color="#1a1a2e" transparent opacity={0.7} />
+            </mesh>
+            {/* Glowing eyes through shadow */}
+            <mesh position={[-0.1 + faceOffset.x, 0.05 + faceOffset.y, 0.25 + faceOffset.z]}>
+              <circleGeometry args={[0.02, 8]} />
+              <meshBasicMaterial color="#ffffff" />
+            </mesh>
+            <mesh position={[0.1 + faceOffset.x, 0.05 + faceOffset.y, 0.25 + faceOffset.z]}>
+              <circleGeometry args={[0.02, 8]} />
+              <meshBasicMaterial color="#ffffff" />
+            </mesh>
+          </>
+        )}
+      </>
+    );
+  };
 
   // =========================================
   // BLOCKY STYLE (Minecraft-like)
@@ -1474,13 +1661,24 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           </mesh>
         )}
         
-        {/* Smile curve */}
-        {(complementary?.mouthState === 'smile' || complementary?.mouthState === 'wide_smile') && (
+        {/* Smile curve - regular smile */}
+        {complementary?.mouthState === 'smile' && (
           <mesh ref={smileMeshRef} position={[0, -0.16, 0.27]} rotation={[0, 0, Math.PI]}>
             <torusGeometry args={[0.08, 0.015, 8, 16, Math.PI]} />
             <meshBasicMaterial color="#2a2a2a" />
           </mesh>
         )}
+        
+        {/* Wide smile - half circle (filled) */}
+        {complementary?.mouthState === 'wide_smile' && (
+          <mesh ref={smileMeshRef} position={[0, -0.16, 0.27]} rotation={[0, 0, Math.PI]}>
+            <circleGeometry args={[0.1, 16, 0, Math.PI]} />
+            <meshBasicMaterial color="#2a2a2a" />
+          </mesh>
+        )}
+
+        {/* Anime Face Decorations */}
+        {renderFaceDecorations()}
       </group>
     </>
   );
@@ -1674,13 +1872,24 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           </mesh>
         )}
 
-        {/* Smile curve */}
-        {(complementary?.mouthState === 'smile' || complementary?.mouthState === 'wide_smile') && (
+        {/* Smile curve - regular smile */}
+        {complementary?.mouthState === 'smile' && (
           <mesh ref={smileMeshRef} position={[0, -0.12, 0.33]} rotation={[0, 0, Math.PI]}>
             <torusGeometry args={[0.06, 0.012, 8, 16, Math.PI]} />
             <meshBasicMaterial color="#2a2a2a" />
           </mesh>
         )}
+        
+        {/* Wide smile - half circle (filled) */}
+        {complementary?.mouthState === 'wide_smile' && (
+          <mesh ref={smileMeshRef} position={[0, -0.12, 0.33]} rotation={[0, 0, Math.PI]}>
+            <circleGeometry args={[0.08, 16, 0, Math.PI]} />
+            <meshBasicMaterial color="#2a2a2a" />
+          </mesh>
+        )}
+
+        {/* Anime Face Decorations */}
+        {renderFaceDecorations({ x: 0, y: 0, z: 0.06 })}
       </group>
     </>
   );
@@ -1813,6 +2022,9 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           <boxGeometry args={[0.2, 0.03, 0.01]} />
           <meshBasicMaterial color="#00ff00" />
         </mesh>
+
+        {/* Anime Face Decorations */}
+        {renderFaceDecorations({ x: 0, y: 0, z: -0.02 })}
       </group>
     </>
   );
@@ -1958,13 +2170,24 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           </mesh>
         )}
 
-        {/* Smile */}
-        {(complementary?.mouthState === 'smile' || complementary?.mouthState === 'wide_smile') && (
+        {/* Smile curve - regular smile */}
+        {complementary?.mouthState === 'smile' && (
           <mesh ref={smileMeshRef} position={[0, -0.11, 0.27]} rotation={[0, 0, Math.PI]}>
             <torusGeometry args={[0.05, 0.01, 4, 8, Math.PI]} />
             <meshBasicMaterial color="#2a2a2a" />
           </mesh>
         )}
+        
+        {/* Wide smile - half circle (filled) */}
+        {complementary?.mouthState === 'wide_smile' && (
+          <mesh ref={smileMeshRef} position={[0, -0.11, 0.27]} rotation={[0, 0, Math.PI]}>
+            <circleGeometry args={[0.07, 8, 0, Math.PI]} />
+            <meshBasicMaterial color="#2a2a2a" />
+          </mesh>
+        )}
+
+        {/* Anime Face Decorations */}
+        {renderFaceDecorations({ x: 0, y: 0, z: 0.02 })}
       </group>
     </>
   );
