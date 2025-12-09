@@ -26,10 +26,16 @@ import {
   ConversationMessage
 } from '../services/multiCharacterConversation';
 import { generateHybridResponse } from '../services/hybridOrchestration';
-import { generateAnimatedSceneOrchestration } from '../services/singleCallOrchestration';
+import { 
+  generateAnimatedSceneOrchestration,
+  generateAnimatedSceneOrchestrationStreaming 
+} from '../services/singleCallOrchestration';
 import { OrchestrationScene, createFallbackScene, fillGapsForNonSpeakers } from '../services/animationOrchestration';
 import { ORCHESTRATION_CONFIG } from '../config/llmConfig';
+import { isStreamingSupported } from '../services/aiService';
 import { generateConversationTitle } from '../services/conversationTitleGenerator';
+import { getProfiler, PROFILE_OPS, ProfileSession } from '../services/profilingService';
+import { ProfilingDashboard, useProfilingDashboard } from '../components/ProfilingDashboard';
 import SettingsScreen from '../screens/SettingsScreen';
 import LibraryScreen from '../screens/LibraryScreen';
 import WakattorsScreenEnhanced from '../screens/WakattorsScreenEnhanced';
@@ -126,6 +132,12 @@ export default function MainTabs() {
 
   const [isLoadingAI, setIsLoadingAI] = React.useState(false);
   const [animationScene, setAnimationScene] = useState<OrchestrationScene | null>(null);
+  const [lastProfileSession, setLastProfileSession] = useState<ProfileSession | null>(null);
+  const [streamingProgress, setStreamingProgress] = useState<number>(0);
+  const [useStreaming, setUseStreaming] = useState<boolean>(true); // Enable streaming by default
+  
+  // Profiling dashboard (dev tool)
+  const profilingDashboard = useProfilingDashboard();
 
   const handleSendMessage = async (content: string, selectedCharacters: string[]) => {
     console.log('[MainTabs] handleSendMessage called with selectedCharacters:', selectedCharacters);
@@ -136,12 +148,19 @@ export default function MainTabs() {
       return;
     }
 
+    // Start profiling session
+    const profiler = getProfiler();
+    profiler.startSession(`message_${Date.now()}`);
+    const fullFlowTimer = profiler.start(PROFILE_OPS.FULL_MESSAGE_FLOW);
+
     setIsLoadingAI(true);
     try {
       // If no current conversation, create one
       let conversation = currentConversation;
       if (!conversation) {
+        const createTimer = profiler.start(PROFILE_OPS.DB_CREATE_CONVERSATION);
         conversation = await dispatch(createConversation('New Conversation') as any);
+        createTimer.stop();
       }
 
       if (conversation) {
@@ -149,19 +168,29 @@ export default function MainTabs() {
         const isFirstMessage = messages.length === 0;
 
         // Save user message (no character ID for user messages)
+        const saveUserMsgTimer = profiler.start(PROFILE_OPS.DB_SAVE_USER_MESSAGE);
         await dispatch(saveMessage(conversation.id, 'user', content) as any);
+        saveUserMsgTimer.stop();
 
-        // Generate conversation title from first message
+        // Generate conversation title in BACKGROUND (deferred - doesn't block AI response)
+        // This saves 1-2 seconds on first message by not waiting for title generation
         if (isFirstMessage && conversation.title === 'New Conversation') {
-          console.log('[Chat] Generating title for new conversation from first message');
-          try {
-            const generatedTitle = await generateConversationTitle(content);
-            console.log('[Chat] Generated title:', generatedTitle);
-            await dispatch(renameConversation(conversation.id, generatedTitle) as any);
-          } catch (titleError) {
-            console.error('[Chat] Failed to generate title, keeping default:', titleError);
-            // Continue with conversation even if title generation fails
-          }
+          console.log('[Chat] Deferring title generation to background');
+          const conversationId = conversation.id;
+          
+          // Run in background - don't await
+          (async () => {
+            const bgTitleTimer = profiler.start(PROFILE_OPS.TITLE_GENERATION);
+            try {
+              const generatedTitle = await generateConversationTitle(content);
+              console.log('[Chat] Background title generated:', generatedTitle);
+              await dispatch(renameConversation(conversationId, generatedTitle) as any);
+              bgTitleTimer.stop({ background: true });
+            } catch (titleError) {
+              bgTitleTimer.stop({ error: String(titleError), background: true });
+              console.error('[Chat] Background title generation failed:', titleError);
+            }
+          })();
         }
 
         // Prepare conversation history for multi-character service
@@ -190,11 +219,49 @@ export default function MainTabs() {
 
             try {
               // Generate animated scene with timelines
-              const { scene, responses: characterResponses } = await generateAnimatedSceneOrchestration(
-                content,
-                selectedCharacters,
-                conversationHistory
-              );
+              // Use streaming for faster perceived response when supported
+              const shouldUseStreaming = useStreaming && isStreamingSupported();
+              console.log('[Chat] Using streaming:', shouldUseStreaming);
+              
+              let scene: OrchestrationScene;
+              let characterResponses: any[];
+              
+              if (shouldUseStreaming) {
+                // Streaming version - shows progress during generation
+                setStreamingProgress(0);
+                const result = await generateAnimatedSceneOrchestrationStreaming(
+                  content,
+                  selectedCharacters,
+                  conversationHistory,
+                  {
+                    onStart: () => {
+                      console.log('[Chat] Streaming started');
+                      setStreamingProgress(5);
+                    },
+                    onProgress: (_, percentage) => {
+                      setStreamingProgress(percentage);
+                    },
+                    onComplete: (completedScene) => {
+                      console.log('[Chat] Streaming complete, scene duration:', completedScene.sceneDuration);
+                      setStreamingProgress(100);
+                    },
+                    onError: (error) => {
+                      console.error('[Chat] Streaming error:', error);
+                    },
+                  }
+                );
+                scene = result.scene;
+                characterResponses = result.responses;
+              } else {
+                // Non-streaming version
+                const result = await generateAnimatedSceneOrchestration(
+                  content,
+                  selectedCharacters,
+                  conversationHistory
+                );
+                scene = result.scene;
+                characterResponses = result.responses;
+              }
 
               console.log('[Chat] Generated animated scene:', {
                 duration: scene.sceneDuration,
@@ -204,8 +271,10 @@ export default function MainTabs() {
 
               // Start animation playback
               setAnimationScene(scene);
+              setStreamingProgress(0); // Reset progress
 
               // Save each character's response
+              const saveAssistantTimer = profiler.start(PROFILE_OPS.DB_SAVE_ASSISTANT_MESSAGE);
               for (const response of characterResponses) {
                 console.log(`[Chat] Saving message for character ${response.characterId}:`, {
                   content: response.content.substring(0, 50) + '...',
@@ -219,6 +288,7 @@ export default function MainTabs() {
                   response.characterId
                 ) as any);
               }
+              saveAssistantTimer.stop({ responseCount: characterResponses.length });
 
               console.log(`[Chat] Generated ${characterResponses.length} animated responses`);
 
@@ -244,6 +314,7 @@ export default function MainTabs() {
               setAnimationScene(fallbackScene);
 
               // Save responses
+              const saveFallbackTimer = profiler.start(PROFILE_OPS.DB_SAVE_ASSISTANT_MESSAGE);
               for (const response of characterResponses) {
                 await dispatch(saveMessage(
                   conversation.id,
@@ -252,6 +323,7 @@ export default function MainTabs() {
                   response.characterId
                 ) as any);
               }
+              saveFallbackTimer.stop({ responseCount: characterResponses.length, fallback: true });
             }
           } else {
             // Single character mode: traditional response with simple animation
@@ -264,18 +336,22 @@ export default function MainTabs() {
             );
 
             // Create simple animation scene for single character
+            const animSetupTimer = profiler.start(PROFILE_OPS.ANIMATION_SETUP);
             const singleCharScene = fillGapsForNonSpeakers(
               createFallbackScene([{ characterId: selectedCharacters[0], content: aiResponse }], selectedCharacters),
               selectedCharacters
             );
             setAnimationScene(singleCharScene);
+            animSetupTimer.stop();
 
+            const saveSingleTimer = profiler.start(PROFILE_OPS.DB_SAVE_ASSISTANT_MESSAGE);
             await dispatch(saveMessage(
               conversation.id,
               'assistant',
               aiResponse,
               selectedCharacters[0]
             ) as any);
+            saveSingleTimer.stop({ responseCount: 1 });
           }
         } catch (aiError: any) {
           console.error('AI generation error:', aiError);
@@ -288,10 +364,22 @@ export default function MainTabs() {
           ) as any);
         }
       }
+      
+      // Stop full flow timer on success
+      fullFlowTimer.stop({ characterCount: selectedCharacters.length });
     } catch (error: any) {
+      fullFlowTimer.stop({ error: error.message });
       showAlert('Error', 'Failed to send message: ' + error.message);
     } finally {
       setIsLoadingAI(false);
+      
+      // End profiling session and log results
+      const session = profiler.endSession();
+      if (session) {
+        setLastProfileSession(session);
+        profiler.logSession(session);
+        console.log('[Profiling] Session summary:', session.summary);
+      }
     }
   };
 
@@ -395,6 +483,13 @@ export default function MainTabs() {
         </Tab.Navigator>
         </View>
       </View>
+      
+      {/* Profiling Dashboard - toggle with Ctrl/Cmd + Shift + P */}
+      <ProfilingDashboard
+        visible={profilingDashboard.visible}
+        onClose={profilingDashboard.hide}
+        session={lastProfileSession}
+      />
     </View>
   );
 }

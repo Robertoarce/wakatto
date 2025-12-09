@@ -326,6 +326,69 @@ function splitCombinedContent(
   return splitResponses.length > 1 ? splitResponses : null;
 }
 
+// ============================================
+// COMPACT JSON SUPPORT
+// ============================================
+
+/**
+ * Compact JSON key mappings:
+ * s -> scene, dur -> totalDuration, ch -> characters
+ * c -> character, t -> content, d -> startDelay
+ * tl -> timeline, a -> animation, ms -> duration, lk -> look
+ */
+interface CompactSceneResponse {
+  s: {
+    dur: number;
+    ch: Array<{
+      c: string;
+      t: string;
+      d: number;
+      tl: Array<{
+        a: string;
+        ms: number;
+        lk?: string;
+        talking?: boolean;
+        eyes?: string;
+        mouth?: string;
+      }>;
+    }>;
+  };
+}
+
+/**
+ * Detect if response is in compact JSON format
+ */
+function isCompactFormat(parsed: any): parsed is CompactSceneResponse {
+  return parsed && typeof parsed.s === 'object' && Array.isArray(parsed.s?.ch);
+}
+
+/**
+ * Normalize compact JSON response to full format
+ * Converts short keys to full key names for processing
+ */
+function normalizeCompactJSON(compact: CompactSceneResponse): LLMSceneResponse {
+  console.log('[AnimOrch] Converting compact JSON format to full format');
+  
+  return {
+    scene: {
+      totalDuration: compact.s.dur,
+      characters: compact.s.ch.map(ch => ({
+        character: ch.c,
+        content: ch.t,
+        startDelay: ch.d,
+        timeline: ch.tl.map(seg => ({
+          animation: seg.a,
+          duration: seg.ms,
+          look: seg.lk,
+          talking: seg.talking,
+          eyes: seg.eyes,
+          mouth: seg.mouth,
+        }))
+      }))
+    }
+  };
+}
+
 /**
  * Parse raw LLM response into OrchestrationScene
  */
@@ -344,18 +407,26 @@ export function parseOrchestrationScene(
       cleaned = jsonMatch[0];
     }
     
-    const parsed: LLMSceneResponse = JSON.parse(cleaned);
+    let parsed: any = JSON.parse(cleaned);
+    
+    // Check if this is compact format and normalize it
+    if (isCompactFormat(parsed)) {
+      parsed = normalizeCompactJSON(parsed);
+    }
+    
+    // Cast to expected type after potential normalization
+    const normalizedParsed: LLMSceneResponse = parsed;
     
     // Extract and log ARQ reasoning if present
-    if (parsed.reasoning) {
+    if (normalizedParsed.reasoning) {
       console.log('[ARQ] ===== Reasoning Analysis =====');
-      console.log('[ARQ] Context:', parsed.reasoning.context || 'Not provided');
-      console.log('[ARQ] Character Selection:', parsed.reasoning.characterSelection || 'Not provided');
-      if (parsed.reasoning.voiceCheck) {
-        console.log('[ARQ] Voice Check:', JSON.stringify(parsed.reasoning.voiceCheck, null, 2));
+      console.log('[ARQ] Context:', normalizedParsed.reasoning.context || 'Not provided');
+      console.log('[ARQ] Character Selection:', normalizedParsed.reasoning.characterSelection || 'Not provided');
+      if (normalizedParsed.reasoning.voiceCheck) {
+        console.log('[ARQ] Voice Check:', JSON.stringify(normalizedParsed.reasoning.voiceCheck, null, 2));
       }
-      if (parsed.reasoning.formatValidation) {
-        const fv = parsed.reasoning.formatValidation;
+      if (normalizedParsed.reasoning.formatValidation) {
+        const fv = normalizedParsed.reasoning.formatValidation;
         console.log('[ARQ] Format Validation:', {
           usingCharacterIds: fv.usingCharacterIds ?? 'Not checked',
           separateObjects: fv.separateObjects ?? 'Not checked',
@@ -363,13 +434,13 @@ export function parseOrchestrationScene(
           cleanContent: fv.cleanContent ?? 'Not checked'
         });
       }
-      console.log('[ARQ] Decision:', parsed.reasoning.decision || 'Not provided');
+      console.log('[ARQ] Decision:', normalizedParsed.reasoning.decision || 'Not provided');
       console.log('[ARQ] ================================');
     } else {
       console.warn('[ARQ] No reasoning provided by LLM - enforcement may be weaker');
     }
     
-    if (!parsed.scene || !Array.isArray(parsed.scene.characters)) {
+    if (!normalizedParsed.scene || !Array.isArray(normalizedParsed.scene.characters)) {
       console.error('[AnimOrch] Invalid scene structure');
       return null;
     }
@@ -377,7 +448,7 @@ export function parseOrchestrationScene(
     // Parse each character timeline, checking for combined responses
     const timelines: CharacterTimeline[] = [];
     
-    for (const charResponse of parsed.scene.characters) {
+    for (const charResponse of normalizedParsed.scene.characters) {
       // Check if this response contains multiple character responses combined
       const splitResponses = splitCombinedContent(charResponse.content, selectedCharacters);
       

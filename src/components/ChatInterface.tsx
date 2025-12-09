@@ -1473,7 +1473,8 @@ Would you like to discuss your perspective on this?`;
               const horizontalOffset = Math.sin(angleRad) * 50; // 30% max offset from center (closer together)
               
               // Distance from center (0 = center, 1 = edges)
-              const distanceFromCenter = Math.abs(angle) / (angleRange / 2);
+              // Handle single character case where angleRange is 0 to avoid NaN
+              const distanceFromCenter = angleRange > 0 ? Math.abs(angle) / (angleRange / 2) : 0;
               
               // Vertical position: CENTER is higher (further back), EDGES are lower (closer)
               // cos(0) = 1 for center, cos(±70°) ≈ 0.34 for edges

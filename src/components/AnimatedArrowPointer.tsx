@@ -1,5 +1,8 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated, Platform } from 'react-native';
+
+// useNativeDriver is not fully supported on web
+const useNativeDriver = Platform.OS !== 'web';
 
 // 2D Arrow Component pointing downward using simple View components
 function Arrow2D() {
@@ -28,7 +31,7 @@ export function AnimatedArrowPointer({ visible, message = 'Add more characters!'
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 500,
-        useNativeDriver: true,
+        useNativeDriver,
       }).start();
 
       // Bouncing animation
@@ -37,12 +40,12 @@ export function AnimatedArrowPointer({ visible, message = 'Add more characters!'
           Animated.timing(bounceAnim, {
             toValue: 1,
             duration: 800,
-            useNativeDriver: true,
+            useNativeDriver,
           }),
           Animated.timing(bounceAnim, {
             toValue: 0,
             duration: 800,
-            useNativeDriver: true,
+            useNativeDriver,
           }),
         ])
       ).start();
@@ -51,7 +54,7 @@ export function AnimatedArrowPointer({ visible, message = 'Add more characters!'
       Animated.timing(fadeAnim, {
         toValue: 0,
         duration: 300,
-        useNativeDriver: true,
+        useNativeDriver,
       }).start();
     }
   }, [visible]);

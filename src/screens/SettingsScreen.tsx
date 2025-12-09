@@ -10,6 +10,8 @@ import { runAllTests, TestResult } from '../services/aiConnectionTest';
 import { useCustomAlert } from '../components/CustomAlert';
 import { Button, Input, Card, Badge } from '../components/ui';
 import { useResponsive } from '../constants/Layout';
+import { runQuickBenchmark, runAnimationBenchmark, BenchmarkReport } from '../services/benchmarkService';
+import { getProfiler } from '../services/profilingService';
 
 type AIProvider = 'mock' | 'openai' | 'anthropic' | 'gemini';
 
@@ -26,6 +28,11 @@ const SettingsScreen = (): JSX.Element => {
   const [showApiKey, setShowApiKey] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResults, setTestResults] = useState<any>(null);
+  
+  // Benchmark state
+  const [benchmarking, setBenchmarking] = useState(false);
+  const [benchmarkReport, setBenchmarkReport] = useState<BenchmarkReport | null>(null);
+  const [profilingEnabled, setProfilingEnabled] = useState(true);
 
   useEffect(() => {
     // Load current AI configuration
@@ -121,6 +128,47 @@ const SettingsScreen = (): JSX.Element => {
       case 'gemini': return 'gemini-pro';
       default: return '';
     }
+  };
+
+  // Benchmark handler - uses animation-preserving strategies
+  const handleRunBenchmark = async () => {
+    if (aiProvider === 'mock') {
+      showAlert('Info', 'Benchmark requires a real AI provider. Please configure API key first.');
+      return;
+    }
+
+    setBenchmarking(true);
+    setBenchmarkReport(null);
+
+    try {
+      console.log('[Settings] Starting animation-preserving benchmark...');
+      // Use the new animation benchmark that keeps all animation features
+      const report = await runAnimationBenchmark(2);
+      console.log('[Settings] Benchmark complete:', report.summary);
+      setBenchmarkReport(report);
+      showAlert('Benchmark Complete', `Winner: ${report.winner.strategy} (${report.winner.improvement.toFixed(1)}% faster than baseline)`);
+    } catch (error: any) {
+      console.error('[Settings] Benchmark error:', error);
+      showAlert('Error', 'Benchmark failed: ' + error.message);
+    } finally {
+      setBenchmarking(false);
+    }
+  };
+
+  // Toggle profiling
+  const handleToggleProfiling = () => {
+    const profiler = getProfiler();
+    const newState = !profilingEnabled;
+    profiler.setEnabled(newState);
+    setProfilingEnabled(newState);
+    showAlert('Profiling', newState ? 'Profiling enabled. Press Ctrl+Shift+P to view dashboard.' : 'Profiling disabled.');
+  };
+
+  // Clear profiling history
+  const handleClearProfilingHistory = () => {
+    const profiler = getProfiler();
+    profiler.clearHistory();
+    showAlert('Cleared', 'Profiling history cleared.');
   };
 
   return (
@@ -287,6 +335,98 @@ const SettingsScreen = (): JSX.Element => {
                   <Text style={styles.testError}>{testResults.results.emotionDetection.error}</Text>
                 )}
               </View>
+            </View>
+          )}
+        </Card>
+      </View>
+
+      {/* Developer Tools Section */}
+      <View style={[styles.section, { padding: spacing.lg }]}>
+        <Text style={[styles.sectionTitle, { fontSize: fonts.lg, marginBottom: spacing.md }]}>
+          🛠️ Developer Tools
+        </Text>
+        <Card variant="elevated">
+          <View style={styles.infoBox}>
+            <Ionicons name="speedometer-outline" size={20} color="#4ECDC4" />
+            <Text style={styles.infoBoxText}>
+              Performance profiling and benchmarking tools for response time optimization.
+            </Text>
+          </View>
+
+          {/* Profiling Controls */}
+          <View style={{ marginTop: spacing.md }}>
+            <Text style={[styles.label, { fontSize: fonts.sm, marginBottom: spacing.sm }]}>
+              Profiling
+            </Text>
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <Button
+                title={profilingEnabled ? "Profiling: ON" : "Profiling: OFF"}
+                onPress={handleToggleProfiling}
+                variant={profilingEnabled ? "success" : "secondary"}
+                size="sm"
+                icon={profilingEnabled ? "checkmark-circle" : "close-circle"}
+              />
+              <Button
+                title="Clear History"
+                onPress={handleClearProfilingHistory}
+                variant="secondary"
+                size="sm"
+                icon="trash-outline"
+              />
+            </View>
+            <Text style={[styles.helperText, { marginTop: spacing.xs }]}>
+              Press Ctrl+Shift+P to toggle profiling dashboard
+            </Text>
+          </View>
+
+          {/* Benchmark */}
+          <View style={{ marginTop: spacing.lg }}>
+            <Text style={[styles.label, { fontSize: fonts.sm, marginBottom: spacing.sm }]}>
+              Animation Benchmark
+            </Text>
+            <Button
+              title={benchmarking ? "Running Benchmark..." : "Run Animation Benchmark"}
+              onPress={handleRunBenchmark}
+              disabled={benchmarking || aiProvider === 'mock'}
+              loading={benchmarking}
+              variant="primary"
+              fullWidth
+              size="md"
+              icon="analytics-outline"
+            />
+            <Text style={[styles.helperText, { marginTop: spacing.xs }]}>
+              Tests strategies that KEEP animations (baseline vs compact-prompt vs compact-json)
+            </Text>
+          </View>
+
+          {/* Benchmark Results */}
+          {benchmarkReport && (
+            <View style={[styles.testResultsContainer, { marginTop: spacing.md }]}>
+              <Text style={styles.testResultsTitle}>
+                🏆 Winner: {benchmarkReport.winner.strategy}
+              </Text>
+              <Text style={[styles.helperText, { marginTop: spacing.xs }]}>
+                {benchmarkReport.winner.improvement.toFixed(1)}% faster than baseline
+              </Text>
+              
+              {benchmarkReport.results.map((result, index) => (
+                <View key={index} style={[styles.testResult, { marginTop: spacing.sm }]}>
+                  <Text style={styles.testResultLabel}>
+                    {result.config.strategy}:
+                  </Text>
+                  <Text style={[
+                    styles.testResultValue, 
+                    result.config.strategy === benchmarkReport.winner.strategy 
+                      ? styles.testSuccess 
+                      : { color: '#a1a1aa' }
+                  ]}>
+                    {result.avgDurationMs.toFixed(0)}ms avg
+                  </Text>
+                  <Text style={styles.testResultTime}>
+                    ({result.iterations} runs)
+                  </Text>
+                </View>
+              ))}
             </View>
           )}
         </Card>
@@ -529,6 +669,10 @@ const styles = StyleSheet.create({
   versionText: {
     color: '#71717a',
     fontSize: 12,
+  },
+  helperText: {
+    color: '#71717a',
+    fontSize: 11,
   },
 });
 
