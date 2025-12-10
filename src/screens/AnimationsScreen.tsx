@@ -246,6 +246,9 @@ const AnimationsScreen = (): JSX.Element => {
                 complementary={complementary}
                 modelStyle={selectedModelStyle}
                 fov={25}
+                cameraX={0}
+                cameraY={0.7}
+                characterY={-0.2}
               />
             </View>
             

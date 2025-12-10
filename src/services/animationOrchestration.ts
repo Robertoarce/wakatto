@@ -33,6 +33,9 @@ export interface AnimationSegment {
     mouthState?: MouthState;
     effect?: VisualEffect;
     speed?: number;
+    // Blink timing (only used when eyeState is 'blink')
+    blinkDuration?: number; // seconds for one blink (default 0.2)
+    blinkPeriod?: number; // seconds between blinks (default 2.5)
   };
   isTalking?: boolean;
   textReveal?: {

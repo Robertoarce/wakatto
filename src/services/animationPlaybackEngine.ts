@@ -398,7 +398,9 @@ export class AnimationPlaybackEngine {
       eyeState: segment.complementary.eyeState,
       mouthState: segment.complementary.mouthState,
       effect: segment.complementary.effect,
-      speed: segment.complementary.speed
+      speed: segment.complementary.speed,
+      blinkDuration: segment.complementary.blinkDuration,
+      blinkPeriod: segment.complementary.blinkPeriod
     };
   }
 }

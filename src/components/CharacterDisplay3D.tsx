@@ -91,6 +91,9 @@ export interface ComplementaryAnimation {
   effectColor?: string;
   speed?: number; // 0.1 to 3.0, default 1.0
   transitionDuration?: number; // milliseconds to transition
+  // Blink timing (only used when eyeState is 'blink')
+  blinkDuration?: number; // seconds for one blink (default 0.2)
+  blinkPeriod?: number; // seconds between blinks (default 2.5)
 }
 
 // Full props interface
@@ -109,6 +112,13 @@ interface CharacterDisplay3DProps {
   modelStyle?: ModelStyle;
   // Camera field of view (lower = closer/bigger)
   fov?: number;
+  // Camera position (x = left/right, y = up/down)
+  cameraX?: number;
+  cameraY?: number;
+  // Character position offsets
+  characterX?: number;  // left/right (negative = left)
+  characterY?: number;  // up/down (negative = down)
+  characterZ?: number;  // forward/back (negative = away from camera)
 }
 
 // ============================================
@@ -305,7 +315,23 @@ interface CharacterProps {
   scale?: number;
   complementary?: ComplementaryAnimation;
   modelStyle?: ModelStyle;
+  positionX?: number;
+  positionY?: number;
+  positionZ?: number;
+  onAnimationComplete?: () => void;
 }
+
+// One-shot animations and their durations (in seconds)
+const ONE_SHOT_ANIMATIONS: Partial<Record<AnimationState, number>> = {
+  wave: 2.0,
+  nod: 1.5,
+  shake_head: 1.5,
+  shrug: 1.2,
+  celebrate: 2.5,
+  bow: 2.0,
+  point: 1.5,
+  clap: 2.0,
+};
 
 // Lerp helper for smooth transitions
 function lerp(current: number, target: number, factor: number): number {
@@ -313,7 +339,7 @@ function lerp(current: number, target: number, factor: number): number {
 }
 
 // Character component with switchable 3D style
-function Character({ character, isActive, animation = 'idle', isTalking = false, scale = 1, complementary, modelStyle = 'blocky' }: CharacterProps) {
+function Character({ character, isActive, animation = 'idle', isTalking = false, scale = 1, complementary, modelStyle = 'blocky', positionX = 0, positionY = 0, positionZ = 0, onAnimationComplete }: CharacterProps) {
   const meshRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Group>(null);
   const leftArmRef = useRef<THREE.Mesh>(null);
@@ -324,6 +350,20 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
   const leftEyeRef = useRef<THREE.Mesh>(null);
   const rightEyeRef = useRef<THREE.Mesh>(null);
   const smileMeshRef = useRef<THREE.Mesh>(null);
+  
+  // Animation completion tracking
+  const animationStartTime = useRef<number>(0);
+  const animationCompleted = useRef<boolean>(false);
+  const lastAnimation = useRef<AnimationState>(animation);
+  
+  // Reset tracking when animation changes
+  useEffect(() => {
+    if (animation !== lastAnimation.current) {
+      animationStartTime.current = Date.now() / 1000;
+      animationCompleted.current = false;
+      lastAnimation.current = animation;
+    }
+  }, [animation]);
   
   // Animation speed from complementary settings
   const animSpeed = complementary?.speed ?? 1.0;
@@ -398,19 +438,25 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           targetRightEyeScaleY = 0.1;
           break;
         case 'blink':
-          // Slower blink with smooth full open to full close transition
-          // Uses a sawtooth-like pattern: open -> close -> open
-          const blinkCycle = (time * 1.5) % 3; // Complete cycle every ~2 seconds
-          let blinkScale = 1.0;
-          if (blinkCycle < 0.15) {
-            // Closing phase (0 to 0.15)
-            blinkScale = 1.0 - (blinkCycle / 0.15) * 0.9; // 1.0 -> 0.1
-          } else if (blinkCycle < 0.3) {
-            // Opening phase (0.15 to 0.3)
-            blinkScale = 0.1 + ((blinkCycle - 0.15) / 0.15) * 0.9; // 0.1 -> 1.0
+          // Natural blink: eyes open most of the time, quick close-open blink
+          // LLM can override blinkPeriod (time between blinks) and blinkDuration (how long each blink takes)
+          const blinkPeriod = complementary?.blinkPeriod ?? 2.5; // seconds between blinks (default 2.5)
+          const blinkDuration = complementary?.blinkDuration ?? 0.2; // how long the blink takes (default 0.2)
+          const timeInCycle = time % blinkPeriod;
+          
+          let eyeOpenness = 1.0; // fully open by default
+          
+          if (timeInCycle < blinkDuration) {
+            // During the blink
+            const blinkProgress = timeInCycle / blinkDuration; // 0 to 1
+            // Use sine curve for smooth close-open: starts at 1, goes to 0 at middle, back to 1
+            eyeOpenness = Math.cos(blinkProgress * Math.PI * 2); 
+
+            // This goes: 1.0 -> 0.1 -> 1.0 smoothly
           }
-          targetLeftEyeScaleY = blinkScale;
-          targetRightEyeScaleY = blinkScale;
+          
+          targetLeftEyeScaleY = eyeOpenness;
+          targetRightEyeScaleY = eyeOpenness;
           break;
       }
 
@@ -773,8 +819,8 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           targetMeshY = Math.sin(time * 0.3) * 0.02;
           targetLeftArmRotZ = -0.1;
           targetRightArmRotZ = 0.1;
-          targetLeftEyeScaleY = 0.2; // Eyes mostly closed
-          targetRightEyeScaleY = 0.2;
+          targetLeftEyeScaleY = 0.1; // Eyes mostly closed
+          targetRightEyeScaleY = 0.1;
           break;
 
         case 'stretch':
@@ -792,7 +838,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
 
       // Apply smooth transitions using lerp
       if (meshRef.current) {
-        meshRef.current.position.y = lerp(meshRef.current.position.y, targetMeshY, transitionSpeed);
+        meshRef.current.position.y = lerp(meshRef.current.position.y, positionY + targetMeshY, transitionSpeed);
         meshRef.current.rotation.x = lerp(meshRef.current.rotation.x, targetMeshRotX, transitionSpeed);
       }
       if (headRef.current) {
@@ -821,6 +867,16 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         rightEyeRef.current.scale.y = lerp(rightEyeRef.current.scale.y, targetRightEyeScaleY, transitionSpeed);
       }
 
+      // Check for one-shot animation completion
+      const duration = ONE_SHOT_ANIMATIONS[animation];
+      if (duration && !animationCompleted.current && onAnimationComplete) {
+        const elapsed = (Date.now() / 1000) - animationStartTime.current;
+        if (elapsed >= duration) {
+          animationCompleted.current = true;
+          onAnimationComplete();
+        }
+      }
+
       animationId = requestAnimationFrame(animate);
     };
     animate();
@@ -828,7 +884,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
     return () => {
       if (animationId) cancelAnimationFrame(animationId);
     };
-  }, [isActive, animation, isTalking, animSpeed, complementary?.lookDirection, complementary?.eyeState, complementary?.mouthState]);
+  }, [isActive, animation, isTalking, animSpeed, complementary?.lookDirection, complementary?.eyeState, complementary?.mouthState, onAnimationComplete, positionY]);
 
   // Get customization from character config
   const customization = character.customization;
@@ -857,8 +913,8 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
   };
   const skinColor = skinToneColors[customization.skinTone];
 
-  // For single character display, center at origin
-  const position: [number, number, number] = [0, 0, 0];
+  // For single character display, center at origin with optional offsets
+  const position: [number, number, number] = [positionX, positionY, positionZ];
 
   // =========================================
   // ANIME FACE DECORATIONS (for all styles)
@@ -2228,7 +2284,12 @@ export function CharacterDisplay3D({
   complementary,
   onAnimationComplete,
   modelStyle = 'blocky',
-  fov = 45
+  fov = 45,
+  cameraX = 0,
+  cameraY = 1,
+  characterX = 0,
+  characterY = 0,
+  characterZ = 0
 }: CharacterDisplay3DProps) {
   // Use passed character or fetch by ID
   const character = useMemo(() => {
@@ -2285,7 +2346,7 @@ export function CharacterDisplay3D({
   return (
     <View style={styles.container}>
       <Canvas
-        camera={{ position: [0, 1, cameraDistance], fov }}
+        camera={{ position: [cameraX, cameraY, cameraDistance], fov }}
         gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
         style={{ background: 'transparent' }}
       >
@@ -2307,6 +2368,10 @@ export function CharacterDisplay3D({
           scale={responsiveScale}
           complementary={complementary}
           modelStyle={modelStyle}
+          positionX={characterX}
+          positionY={characterY}
+          positionZ={characterZ}
+          onAnimationComplete={onAnimationComplete}
         />
 
         {/* Visual Effects */}
