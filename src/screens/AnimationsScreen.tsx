@@ -118,8 +118,6 @@ const TEST_CHARACTERS = ['freud', 'jung', 'adler'];
 const MODEL_STYLES: { value: ModelStyle; label: string; icon: string }[] = [
   { value: 'blocky', label: 'Blocky', icon: '🧱' },
   { value: 'chibi', label: 'Chibi', icon: '🎎' },
-  { value: 'robot', label: 'Robot', icon: '🤖' },
-  { value: 'lowpoly', label: 'LowPoly', icon: '💎' },
 ];
 
 // Eyebrow states (anime-style)

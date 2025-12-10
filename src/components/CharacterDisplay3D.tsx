@@ -78,7 +78,7 @@ export type FaceState =
 export type VisualEffect = 'none' | 'confetti' | 'spotlight' | 'sparkles' | 'hearts';
 
 // 3D Model style types
-export type ModelStyle = 'blocky' | 'chibi' | 'robot' | 'lowpoly';
+export type ModelStyle = 'blocky' | 'chibi';
 
 // Complementary animation configuration
 export interface ComplementaryAnimation {
@@ -333,7 +333,16 @@ const ONE_SHOT_ANIMATIONS: Partial<Record<AnimationState, number>> = {
   clap: 2.0,
 };
 
-// Lerp helper for smooth transitions
+// Global lerp speed constants for smooth animations
+const LERP_SPEED = {
+  verySlow: 0.01,
+  slow: 0.03,
+  normal: 0.08,
+  fast: 0.15,
+  veryFast: 0.3,
+} as const;
+
+// Lerp helper for smooth transitions 
 function lerp(current: number, target: number, factor: number): number {
   return current + (target - current) * factor;
 }
@@ -369,7 +378,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
   const animSpeed = complementary?.speed ?? 1.0;
   
   // Transition speed (higher = faster transitions)
-  const transitionSpeed = 0.03;
+  const transitionSpeed = LERP_SPEED.slow;
 
   // Animation system
   React.useEffect(() => {
@@ -441,18 +450,31 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           // Natural blink: eyes open most of the time, quick close-open blink
           // LLM can override blinkPeriod (time between blinks) and blinkDuration (how long each blink takes)
           const blinkPeriod = complementary?.blinkPeriod ?? 2.5; // seconds between blinks (default 2.5)
-          const blinkDuration = complementary?.blinkDuration ?? 0.2; // how long the blink takes (default 0.2)
+          const blinkDuration = complementary?.blinkDuration ?? 0.3; // how long the blink takes (default 0.3)
           const timeInCycle = time % blinkPeriod;
           
           let eyeOpenness = 1.0; // fully open by default
           
           if (timeInCycle < blinkDuration) {
-            // During the blink
+            // During the blink - three phases: close (20%), hold closed (40%), open (40%)
             const blinkProgress = timeInCycle / blinkDuration; // 0 to 1
-            // Use sine curve for smooth close-open: starts at 1, goes to 0 at middle, back to 1
-            eyeOpenness = Math.cos(blinkProgress * Math.PI * 2); 
-
-            // This goes: 1.0 -> 0.1 -> 1.0 smoothly
+            
+            const closePhase = 0.4;   // 20% of time to close
+            const holdPhase = 0.4;    // 40% of time held closed
+            const openPhase = 0.2;    // 40% of time to open
+            
+            if (blinkProgress < closePhase) {
+              // Closing: 1.0 -> 0.1
+              const closeProgress = blinkProgress / closePhase;
+              eyeOpenness = 1.0 - (0.9 * closeProgress);
+            } else if (blinkProgress < closePhase + holdPhase) {
+              // Held closed
+              eyeOpenness = 0.1;
+            } else {
+              // Opening: 0.1 -> 1.0
+              const openProgress = (blinkProgress - closePhase - holdPhase) / openPhase;
+              eyeOpenness = 0.1 + (0.9 * openProgress);
+            }
           }
           
           targetLeftEyeScaleY = eyeOpenness;
@@ -484,7 +506,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
             break;
           case 'closed':
           default:
-            mouthRef.current.scale.y = 0.3;
+            mouthRef.current.scale.y = 0.1;
             mouthRef.current.scale.x = 1.5;
             break;
         }
@@ -861,10 +883,13 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         rightLegRef.current.rotation.x = lerp(rightLegRef.current.rotation.x, targetRightLegRotX, transitionSpeed);
       }
       if (leftEyeRef.current) {
-        leftEyeRef.current.scale.y = lerp(leftEyeRef.current.scale.y, targetLeftEyeScaleY, transitionSpeed);
+        // Use faster lerp for blinks vs normal transitions
+        const eyeLerpSpeed = complementary?.eyeState === 'blink' ? LERP_SPEED.veryFast : transitionSpeed;
+        leftEyeRef.current.scale.y = lerp(leftEyeRef.current.scale.y, targetLeftEyeScaleY, eyeLerpSpeed);
       }
       if (rightEyeRef.current) {
-        rightEyeRef.current.scale.y = lerp(rightEyeRef.current.scale.y, targetRightEyeScaleY, transitionSpeed);
+        const eyeLerpSpeed = complementary?.eyeState === 'blink' ? LERP_SPEED.veryFast : transitionSpeed;
+        rightEyeRef.current.scale.y = lerp(rightEyeRef.current.scale.y, targetRightEyeScaleY, eyeLerpSpeed);
       }
 
       // Check for one-shot animation completion
@@ -1710,9 +1735,10 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         </mesh>
 
         {/* Mouth - hidden when smiling */}
+        {/* Blocky mouth - scale controlled by animation loop in useFrame (mouthRef.current.scale) */}
         {complementary?.mouthState !== 'smile' && complementary?.mouthState !== 'wide_smile' && (
-          <mesh ref={mouthRef} position={[0, -0.18, 0.26]} scale={[1.5, 0.3, 1]}>
-            <circleGeometry args={[0.08, 16]} />
+          <mesh ref={mouthRef} position={[0, -0.18, 0.26]}>
+            <circleGeometry args={[0.07, 20]} />
             <meshBasicMaterial color="#2a2a2a" />
           </mesh>
         )}
@@ -1784,12 +1810,12 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         </mesh>
       )}
 
-      {/* Arms - Rounded cylinders */}
-      <mesh ref={leftArmRef} position={[-0.42, 0.2, 0]} rotation={[0, 0, 0.1]} castShadow>
+      {/* Arms - Rounded cylinders (rotation controlled by animation loop) */}
+      <mesh ref={leftArmRef} position={[-0.42, 0.2, 0]} castShadow>
         <cylinderGeometry args={[0.09, 0.08, 0.55, 16]} />
         <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
       </mesh>
-      <mesh ref={rightArmRef} position={[0.42, 0.2, 0]} rotation={[0, 0, -0.1]} castShadow>
+      <mesh ref={rightArmRef} position={[0.42, 0.2, 0]} castShadow>
         <cylinderGeometry args={[0.09, 0.08, 0.55, 16]} />
         <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
       </mesh>
@@ -1920,9 +1946,9 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           <meshStandardMaterial color={skinColor} roughness={0.5} />
         </mesh>
 
-        {/* Mouth - hidden when smiling */}
+        {/* Chibi mouth - scale controlled by animation loop in useFrame (mouthRef.current.scale) */}
         {complementary?.mouthState !== 'smile' && complementary?.mouthState !== 'wide_smile' && (
-          <mesh ref={mouthRef} position={[0, -0.14, 0.32]} scale={[1.2, 0.3, 1]}>
+          <mesh ref={mouthRef} position={[0, -0.14, 0.32]}>
             <circleGeometry args={[0.06, 16]} />
             <meshBasicMaterial color="#2a2a2a" />
           </mesh>
@@ -1950,313 +1976,11 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
     </>
   );
 
-  // =========================================
-  // ROBOT STYLE (Metallic, mechanical)
-  // =========================================
-  const renderRobotBody = () => (
-    <>
-      {/* Legs - Mechanical pistons */}
-      <mesh ref={leftLegRef} position={[-0.15, -0.2, 0]} castShadow>
-        <cylinderGeometry args={[0.08, 0.1, 0.45, 8]} />
-        <meshStandardMaterial color="#555555" metalness={0.9} roughness={0.2} />
-      </mesh>
-      <mesh ref={rightLegRef} position={[0.15, -0.2, 0]} castShadow>
-        <cylinderGeometry args={[0.08, 0.1, 0.45, 8]} />
-        <meshStandardMaterial color="#555555" metalness={0.9} roughness={0.2} />
-      </mesh>
-
-      {/* Leg joints */}
-      <mesh position={[-0.15, 0, 0]} castShadow>
-        <sphereGeometry args={[0.1, 8, 8]} />
-        <meshStandardMaterial color="#333333" metalness={0.8} roughness={0.3} />
-      </mesh>
-      <mesh position={[0.15, 0, 0]} castShadow>
-        <sphereGeometry args={[0.1, 8, 8]} />
-        <meshStandardMaterial color="#333333" metalness={0.8} roughness={0.3} />
-      </mesh>
-
-      {/* Feet - Metal blocks */}
-      <mesh position={[-0.15, -0.48, 0.05]} castShadow>
-        <boxGeometry args={[0.18, 0.08, 0.25]} />
-        <meshStandardMaterial color="#444444" metalness={0.9} roughness={0.3} />
-      </mesh>
-      <mesh position={[0.15, -0.48, 0.05]} castShadow>
-        <boxGeometry args={[0.18, 0.08, 0.25]} />
-        <meshStandardMaterial color="#444444" metalness={0.9} roughness={0.3} />
-      </mesh>
-
-      {/* Body - Boxy metal torso */}
-      <mesh position={[0, 0.28, 0]} castShadow>
-        <boxGeometry args={[0.55, 0.6, 0.35]} />
-        <meshStandardMaterial color={character.model3D.bodyColor} metalness={0.8} roughness={0.3} />
-      </mesh>
-
-      {/* Chest panel */}
-      <mesh position={[0, 0.3, 0.18]} castShadow>
-        <boxGeometry args={[0.35, 0.35, 0.02]} />
-        <meshStandardMaterial color="#222222" metalness={0.9} roughness={0.2} />
-      </mesh>
-
-      {/* Chest light */}
-      <mesh position={[0, 0.32, 0.2]}>
-        <circleGeometry args={[0.08, 16]} />
-        <meshBasicMaterial color={character.color} />
-      </mesh>
-
-      {/* Shoulder joints */}
-      <mesh position={[-0.35, 0.45, 0]} castShadow>
-        <sphereGeometry args={[0.1, 8, 8]} />
-        <meshStandardMaterial color="#333333" metalness={0.8} roughness={0.3} />
-      </mesh>
-      <mesh position={[0.35, 0.45, 0]} castShadow>
-        <sphereGeometry args={[0.1, 8, 8]} />
-        <meshStandardMaterial color="#333333" metalness={0.8} roughness={0.3} />
-      </mesh>
-
-      {/* Arms - Mechanical */}
-      <mesh ref={leftArmRef} position={[-0.42, 0.2, 0]} castShadow>
-        <cylinderGeometry args={[0.06, 0.07, 0.5, 8]} />
-        <meshStandardMaterial color="#555555" metalness={0.9} roughness={0.2} />
-      </mesh>
-      <mesh ref={rightArmRef} position={[0.42, 0.2, 0]} castShadow>
-        <cylinderGeometry args={[0.06, 0.07, 0.5, 8]} />
-        <meshStandardMaterial color="#555555" metalness={0.9} roughness={0.2} />
-      </mesh>
-
-      {/* Hands - Mechanical claws */}
-      <mesh position={[-0.42, -0.08, 0]} castShadow>
-        <boxGeometry args={[0.12, 0.12, 0.1]} />
-        <meshStandardMaterial color="#444444" metalness={0.9} roughness={0.3} />
-      </mesh>
-      <mesh position={[0.42, -0.08, 0]} castShadow>
-        <boxGeometry args={[0.12, 0.12, 0.1]} />
-        <meshStandardMaterial color="#444444" metalness={0.9} roughness={0.3} />
-      </mesh>
-
-      {/* Neck */}
-      <mesh position={[0, 0.65, 0]} castShadow>
-        <cylinderGeometry args={[0.08, 0.1, 0.12, 8]} />
-        <meshStandardMaterial color="#555555" metalness={0.9} roughness={0.2} />
-      </mesh>
-
-      {/* Head Group */}
-      <group ref={headRef} position={[0, 0.85, 0]}>
-        {/* Head - Boxy robot head */}
-        <mesh castShadow>
-          <boxGeometry args={[0.45, 0.4, 0.4]} />
-          <meshStandardMaterial color="#666666" metalness={0.85} roughness={0.25} />
-        </mesh>
-
-        {/* Visor/Face plate */}
-        <mesh position={[0, 0, 0.21]} castShadow>
-          <boxGeometry args={[0.38, 0.25, 0.02]} />
-          <meshStandardMaterial color="#111111" metalness={0.9} roughness={0.1} />
-        </mesh>
-
-        {/* Eyes - LED lights */}
-        <mesh ref={leftEyeRef} position={[-0.1, 0.02, 0.22]}>
-          <circleGeometry args={[0.05, 8]} />
-          <meshBasicMaterial color="#00ffff" />
-        </mesh>
-        <mesh ref={rightEyeRef} position={[0.1, 0.02, 0.22]}>
-          <circleGeometry args={[0.05, 8]} />
-          <meshBasicMaterial color="#00ffff" />
-        </mesh>
-
-        {/* Antenna */}
-        <mesh position={[0, 0.28, 0]} castShadow>
-          <cylinderGeometry args={[0.015, 0.015, 0.15, 6]} />
-          <meshStandardMaterial color="#777777" metalness={0.9} roughness={0.2} />
-        </mesh>
-        <mesh position={[0, 0.38, 0]}>
-          <sphereGeometry args={[0.03, 8, 8]} />
-          <meshBasicMaterial color={character.color} />
-        </mesh>
-
-        {/* Mouth - LED bar */}
-        <mesh ref={mouthRef} position={[0, -0.08, 0.22]} scale={[1, 0.3, 1]}>
-          <boxGeometry args={[0.2, 0.03, 0.01]} />
-          <meshBasicMaterial color="#00ff00" />
-        </mesh>
-
-        {/* Anime Face Decorations */}
-        {renderFaceDecorations({ x: 0, y: 0, z: -0.02 })}
-      </group>
-    </>
-  );
-
-  // =========================================
-  // LOWPOLY STYLE (Geometric, faceted)
-  // =========================================
-  const renderLowpolyBody = () => (
-    <>
-      {/* Legs - Octagonal prisms */}
-      <mesh ref={leftLegRef} position={[-0.14, -0.22, 0]} castShadow>
-        <cylinderGeometry args={[0.1, 0.12, 0.45, 6]} />
-        <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.8} flatShading />
-      </mesh>
-      <mesh ref={rightLegRef} position={[0.14, -0.22, 0]} castShadow>
-        <cylinderGeometry args={[0.1, 0.12, 0.45, 6]} />
-        <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.8} flatShading />
-      </mesh>
-
-      {/* Feet - Pyramids */}
-      <mesh position={[-0.14, -0.48, 0.05]} rotation={[Math.PI, 0, 0]} castShadow>
-        <coneGeometry args={[0.12, 0.1, 4]} />
-        <meshStandardMaterial color="#2a2a2a" roughness={0.9} flatShading />
-      </mesh>
-      <mesh position={[0.14, -0.48, 0.05]} rotation={[Math.PI, 0, 0]} castShadow>
-        <coneGeometry args={[0.12, 0.1, 4]} />
-        <meshStandardMaterial color="#2a2a2a" roughness={0.9} flatShading />
-      </mesh>
-
-      {/* Body - Low poly torso (hexagonal prism) */}
-      <mesh position={[0, 0.25, 0]} castShadow>
-        <cylinderGeometry args={[0.28, 0.32, 0.65, 6]} />
-        <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.8} flatShading />
-      </mesh>
-
-      {/* Tie */}
-      {hasTie && (
-        <mesh position={[0, 0.25, 0.3]} castShadow>
-          <coneGeometry args={[0.05, 0.3, 3]} />
-          <meshStandardMaterial color="#2c2c2c" roughness={0.9} flatShading />
-        </mesh>
-      )}
-
-      {/* Arms - Low poly cylinders */}
-      <mesh ref={leftArmRef} position={[-0.38, 0.2, 0]} rotation={[0, 0, 0.15]} castShadow>
-        <cylinderGeometry args={[0.08, 0.1, 0.5, 5]} />
-        <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.8} flatShading />
-      </mesh>
-      <mesh ref={rightArmRef} position={[0.38, 0.2, 0]} rotation={[0, 0, -0.15]} castShadow>
-        <cylinderGeometry args={[0.08, 0.1, 0.5, 5]} />
-        <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.8} flatShading />
-      </mesh>
-
-      {/* Hands - Small icosahedrons */}
-      <mesh position={[-0.42, -0.08, 0]} castShadow>
-        <icosahedronGeometry args={[0.08, 0]} />
-        <meshStandardMaterial color={skinColor} roughness={0.7} flatShading />
-      </mesh>
-      <mesh position={[0.42, -0.08, 0]} castShadow>
-        <icosahedronGeometry args={[0.08, 0]} />
-        <meshStandardMaterial color={skinColor} roughness={0.7} flatShading />
-      </mesh>
-
-      {/* Head Group */}
-      <group ref={headRef} position={[0, 0.85, 0]}>
-        {/* Head - Icosahedron (low poly sphere) */}
-        <mesh castShadow>
-          <icosahedronGeometry args={[0.3, 1]} />
-          <meshStandardMaterial color={skinColor} roughness={0.6} flatShading />
-        </mesh>
-
-        {/* Hair - Pyramidal spikes */}
-        {hairType !== 'none' && (
-          <>
-            <mesh position={[0, 0.25, 0]} castShadow>
-              <coneGeometry args={[0.15, 0.2, 5]} />
-              <meshStandardMaterial color={hairColor} roughness={0.9} flatShading />
-            </mesh>
-            <mesh position={[-0.12, 0.2, 0.05]} rotation={[0.3, 0, -0.3]} castShadow>
-              <coneGeometry args={[0.08, 0.15, 4]} />
-              <meshStandardMaterial color={hairColor} roughness={0.9} flatShading />
-            </mesh>
-            <mesh position={[0.12, 0.2, 0.05]} rotation={[0.3, 0, 0.3]} castShadow>
-              <coneGeometry args={[0.08, 0.15, 4]} />
-              <meshStandardMaterial color={hairColor} roughness={0.9} flatShading />
-            </mesh>
-          </>
-        )}
-
-        {/* Hat */}
-        {hasHat && (
-          <>
-            <mesh position={[0, 0.3, 0]} castShadow>
-              <cylinderGeometry args={[0.25, 0.3, 0.08, 6]} />
-              <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.8} flatShading />
-            </mesh>
-            <mesh position={[0, 0.4, 0]} castShadow>
-              <cylinderGeometry args={[0.18, 0.2, 0.15, 6]} />
-              <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.8} flatShading />
-            </mesh>
-          </>
-        )}
-
-        {/* Eyes - Triangular */}
-        <mesh ref={leftEyeRef} position={[-0.1, 0.02, 0.26]} rotation={[0, 0, Math.PI]}>
-          <coneGeometry args={[0.04, 0.06, 3]} />
-          <meshBasicMaterial color="#1a1a1a" />
-        </mesh>
-        <mesh ref={rightEyeRef} position={[0.1, 0.02, 0.26]} rotation={[0, 0, Math.PI]}>
-          <coneGeometry args={[0.04, 0.06, 3]} />
-          <meshBasicMaterial color="#1a1a1a" />
-        </mesh>
-
-        {/* Glasses */}
-        {hasGlasses && (
-          <>
-            <mesh position={[-0.1, 0.02, 0.28]}>
-              <torusGeometry args={[0.08, 0.012, 4, 6]} />
-              <meshStandardMaterial color="#1a1a1a" roughness={0.3} flatShading />
-            </mesh>
-            <mesh position={[0.1, 0.02, 0.28]}>
-              <torusGeometry args={[0.08, 0.012, 4, 6]} />
-              <meshStandardMaterial color="#1a1a1a" roughness={0.3} flatShading />
-            </mesh>
-            <mesh position={[0, 0.02, 0.28]} rotation={[0, 0, Math.PI / 2]}>
-              <cylinderGeometry args={[0.01, 0.01, 0.05, 4]} />
-              <meshStandardMaterial color="#1a1a1a" roughness={0.3} flatShading />
-            </mesh>
-          </>
-        )}
-
-        {/* Nose - Small pyramid */}
-        <mesh position={[0, -0.03, 0.28]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-          <coneGeometry args={[0.04, 0.1, 4]} />
-          <meshStandardMaterial color={skinColor} roughness={0.6} flatShading />
-        </mesh>
-
-        {/* Mouth - Diamond shape, hidden when smiling */}
-        {complementary?.mouthState !== 'smile' && complementary?.mouthState !== 'wide_smile' && (
-          <mesh ref={mouthRef} position={[0, -0.12, 0.26]} rotation={[0, 0, Math.PI / 4]} scale={[1.5, 0.3, 1]}>
-            <planeGeometry args={[0.08, 0.08]} />
-            <meshBasicMaterial color="#2a2a2a" />
-          </mesh>
-        )}
-
-        {/* Smile curve - regular smile */}
-        {complementary?.mouthState === 'smile' && (
-          <mesh ref={smileMeshRef} position={[0, -0.11, 0.27]} rotation={[0, 0, Math.PI]}>
-            <torusGeometry args={[0.05, 0.01, 4, 8, Math.PI]} />
-            <meshBasicMaterial color="#2a2a2a" />
-          </mesh>
-        )}
-        
-        {/* Wide smile - half circle (filled) */}
-        {complementary?.mouthState === 'wide_smile' && (
-          <mesh ref={smileMeshRef} position={[0, -0.11, 0.27]} rotation={[0, 0, Math.PI]}>
-            <circleGeometry args={[0.07, 8, 0, Math.PI]} />
-            <meshBasicMaterial color="#2a2a2a" />
-          </mesh>
-        )}
-
-        {/* Anime Face Decorations */}
-        {renderFaceDecorations({ x: 0, y: 0, z: 0.02 })}
-      </group>
-    </>
-  );
-
   // Select the appropriate render function based on style
   const renderBody = () => {
     switch (modelStyle) {
       case 'chibi':
         return renderChibiBody();
-      case 'robot':
-        return renderRobotBody();
-      case 'lowpoly':
-        return renderLowpolyBody();
       case 'blocky':
       default:
         return renderBlockyBody();
