@@ -9,6 +9,7 @@ import {
   LookDirection,
   EyeState,
   EyebrowState,
+  EyebrowStyle,
   MouthState,
   FaceState,
   VisualEffect,
@@ -118,7 +119,6 @@ const TEST_CHARACTERS = ['freud', 'jung', 'adler'];
 // 3D Model styles
 const MODEL_STYLES: { value: ModelStyle; label: string; icon: string }[] = [
   { value: 'blocky', label: 'Blocky', icon: '🧱' },
-  { value: 'chibi', label: 'Chibi', icon: '🎎' },
 ];
 
 // Eyebrow states (anime-style)
@@ -130,6 +130,13 @@ const EYEBROW_STATES: { value: EyebrowState; label: string; icon: string }[] = [
   { value: 'worried', label: 'Worried', icon: '😟' },
   { value: 'one_raised', label: 'One Raised', icon: '🤨' },
   { value: 'wiggle', label: 'Wiggle', icon: '😏' },
+];
+
+// Eyebrow styles (visual appearance)
+const EYEBROW_STYLES: { value: EyebrowStyle; label: string; icon: string }[] = [
+  { value: 'blocky', label: 'Blocky', icon: '🧱' },
+  { value: 'curved', label: 'Curved', icon: '🌙' },
+  { value: 'thick', label: 'Thick', icon: '🏋️' },
 ];
 
 // Face states (anime-style decorations)
@@ -159,6 +166,7 @@ const AnimationsScreen = (): JSX.Element => {
   const [lookDirection, setLookDirection] = useState<LookDirection>('center');
   const [eyeState, setEyeState] = useState<EyeState>('open');
   const [eyebrowState, setEyebrowState] = useState<EyebrowState>('normal');
+  const [eyebrowStyle, setEyebrowStyle] = useState<EyebrowStyle>('blocky');
   const [mouthState, setMouthState] = useState<MouthState>('closed');
   const [faceState, setFaceState] = useState<FaceState>('normal');
   const [effect, setEffect] = useState<VisualEffect>('none');
@@ -180,6 +188,7 @@ const AnimationsScreen = (): JSX.Element => {
     lookDirection: lookDirection !== 'center' ? lookDirection : undefined,
     eyeState: eyeState !== 'open' ? eyeState : undefined,
     eyebrowState: eyebrowState !== 'normal' ? eyebrowState : undefined,
+    eyebrowStyle: eyebrowStyle,
     mouthState: mouthState !== 'closed' ? mouthState : undefined,
     faceState: faceState !== 'normal' ? faceState : undefined,
     effect: effect !== 'none' ? effect : undefined,
@@ -192,6 +201,7 @@ const AnimationsScreen = (): JSX.Element => {
     setLookDirection('center');
     setEyeState('open');
     setEyebrowState('normal');
+    setEyebrowStyle('blocky');
     setMouthState('closed');
     setFaceState('normal');
     setEffect('none');
@@ -222,13 +232,6 @@ const AnimationsScreen = (): JSX.Element => {
               {ALL_ANIMATIONS.length} base animations + complementary layers
             </Text>
           </View>
-          <TouchableOpacity
-            style={styles.testButton}
-            onPress={() => navigation.navigate('Model3DTest')}
-          >
-            <Ionicons name="cube-outline" size={18} color="#ffffff" />
-            <Text style={styles.testButtonText}>Chibi 3D Test</Text>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -566,6 +569,31 @@ const AnimationsScreen = (): JSX.Element => {
                           eyebrowState === brow.value && styles.optionButtonTextActive
                         ]}>
                           {brow.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Eyebrow Style */}
+                <View style={styles.controlGroup}>
+                  <Text style={styles.controlGroupTitle}>✏️ Eyebrow Style</Text>
+                  <View style={styles.optionGrid}>
+                    {EYEBROW_STYLES.map((style) => (
+                      <TouchableOpacity
+                        key={style.value}
+                        style={[
+                          styles.optionButton,
+                          eyebrowStyle === style.value && styles.optionButtonActive
+                        ]}
+                        onPress={() => setEyebrowStyle(style.value)}
+                      >
+                        <Text style={styles.optionIcon}>{style.icon}</Text>
+                        <Text style={[
+                          styles.optionButtonText,
+                          eyebrowStyle === style.value && styles.optionButtonTextActive
+                        ]}>
+                          {style.label}
                         </Text>
                       </TouchableOpacity>
                     ))}

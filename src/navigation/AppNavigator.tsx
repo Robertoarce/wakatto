@@ -5,7 +5,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import MainScreen from '../screens/MainScreen';
-import Model3DTestScreen from '../screens/Model3DTestScreen';
 import { getSession } from '../services/supabaseService';
 import { setSession, setLoading } from '../store/actions/authActions';
 import { RootState } from '../store';
@@ -68,16 +67,6 @@ export default function AppNavigator() {
             options={{ unmountOnBlur: true }}
           />
           <Stack.Screen name="Main" component={MainScreen} />
-          <Stack.Screen 
-            name="Model3DTest" 
-            component={Model3DTestScreen}
-            options={{ 
-              headerShown: true,
-              headerTitle: '3D Model Test',
-              headerStyle: { backgroundColor: '#1a1a1a' },
-              headerTintColor: '#ffffff',
-            }}
-          />
         </Stack.Navigator>
       </NavigationContainer>
     </View>
