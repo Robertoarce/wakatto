@@ -76,11 +76,12 @@ const LOOK_DIRECTIONS: { value: LookDirection; label: string; icon: string }[] =
 
 // Eye states
 const EYE_STATES: { value: EyeState; label: string; icon: string }[] = [
-  { value: 'open', label: 'Open', icon: '👁️' },
+  { value: 'open', label: 'Open (Auto Blink)', icon: '👁️' },
   { value: 'closed', label: 'Closed', icon: '😌' },
   { value: 'wink_left', label: 'Wink Left', icon: '😉' },
   { value: 'wink_right', label: 'Wink Right', icon: '🙃' },
   { value: 'blink', label: 'Blinking', icon: '😊' },
+  { value: 'surprised_blink', label: 'Surprised', icon: '😳' },
 ];
 
 // Mouth states
@@ -730,6 +731,20 @@ const AnimationsScreen = (): JSX.Element => {
                     >
                       <Text style={styles.presetIcon}>🏆</Text>
                       <Text style={styles.presetText}>Victory</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      style={styles.presetButton}
+                      onPress={() => {
+                        setCurrentAnimation('surprise_jump');
+                        setMouthState('surprised');
+                        setEyeState('surprised_blink');
+                        setEyebrowState('raised');
+                        setSpeed(1.0);
+                      }}
+                    >
+                      <Text style={styles.presetIcon}>😱</Text>
+                      <Text style={styles.presetText}>Shocked</Text>
                     </TouchableOpacity>
                   </View>
                 </View>

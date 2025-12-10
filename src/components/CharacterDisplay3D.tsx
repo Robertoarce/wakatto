@@ -47,7 +47,7 @@ export type AnimationState =
 export type LookDirection = 'center' | 'left' | 'right' | 'up' | 'down' | 'at_left_character' | 'at_right_character';
 
 // Eye state types
-export type EyeState = 'open' | 'closed' | 'wink_left' | 'wink_right' | 'blink';
+export type EyeState = 'open' | 'closed' | 'wink_left' | 'wink_right' | 'blink' | 'surprised_blink';
 
 // Eyebrow state types (anime-style)
 export type EyebrowState = 
@@ -342,6 +342,20 @@ const LERP_SPEED = {
   veryFast: 0.3,
 } as const;
 
+// Automatic blink timing constants
+const AUTO_BLINK = {
+  minInterval: 2.0,   // minimum seconds between blinks
+  maxInterval: 5.0,   // maximum seconds between blinks
+  duration: 0.15,     // how long a single blink takes
+} as const;
+
+// Surprised blink timing (fast triple blink)
+const SURPRISED_BLINK = {
+  blinkDuration: 0.08,   // very fast individual blinks
+  pauseBetween: 0.1,     // short pause between blinks
+  totalBlinks: 3,        // triple blink
+} as const;
+
 // Lerp helper for smooth transitions 
 function lerp(current: number, target: number, factor: number): number {
   return current + (target - current) * factor;
@@ -364,6 +378,10 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
   const animationStartTime = useRef<number>(0);
   const animationCompleted = useRef<boolean>(false);
   const lastAnimation = useRef<AnimationState>(animation);
+  
+  // Automatic blink timing
+  const nextBlinkTime = useRef<number>(Date.now() / 1000 + AUTO_BLINK.minInterval + Math.random() * (AUTO_BLINK.maxInterval - AUTO_BLINK.minInterval));
+  const blinkStartTime = useRef<number | null>(null);
   
   // Reset tracking when animation changes
   useEffect(() => {
@@ -435,10 +453,34 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       // =========================================
       // COMPLEMENTARY: Eye State
       // =========================================
+      const currentTime = Date.now() / 1000;
+      
+      // Helper function to calculate blink openness
+      const calculateBlinkOpenness = (blinkProgress: number): number => {
+        const closePhase = 0.4;   // 40% of time to close
+        const holdPhase = 0.4;    // 40% of time held closed
+        const openPhase = 0.2;    // 20% of time to open
+        
+        if (blinkProgress < closePhase) {
+          // Closing: 1.0 -> 0.1
+          const closeProgress = blinkProgress / closePhase;
+          return 1.0 - (0.9 * closeProgress);
+        } else if (blinkProgress < closePhase + holdPhase) {
+          // Held closed
+          return 0.1;
+        } else {
+          // Opening: 0.1 -> 1.0
+          const openProgress = (blinkProgress - closePhase - holdPhase) / openPhase;
+          return 0.1 + (0.9 * openProgress);
+        }
+      };
+      
       switch (complementary?.eyeState) {
         case 'closed':
           targetLeftEyeScaleY = 0.1;
           targetRightEyeScaleY = 0.1;
+          // Reset blink timing when eyes are explicitly closed
+          blinkStartTime.current = null;
           break;
         case 'wink_left':
           targetLeftEyeScaleY = 0.1;
@@ -449,36 +491,76 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         case 'blink':
           // Natural blink: eyes open most of the time, quick close-open blink
           // LLM can override blinkPeriod (time between blinks) and blinkDuration (how long each blink takes)
-          const blinkPeriod = complementary?.blinkPeriod ?? 2.5; // seconds between blinks (default 2.5)
-          const blinkDuration = complementary?.blinkDuration ?? 0.3; // how long the blink takes (default 0.3)
-          const timeInCycle = time % blinkPeriod;
-          
-          let eyeOpenness = 1.0; // fully open by default
-          
-          if (timeInCycle < blinkDuration) {
-            // During the blink - three phases: close (20%), hold closed (40%), open (40%)
-            const blinkProgress = timeInCycle / blinkDuration; // 0 to 1
+          {
+            const blinkPeriod = complementary?.blinkPeriod ?? 2.5; // seconds between blinks (default 2.5)
+            const blinkDuration = complementary?.blinkDuration ?? 0.3; // how long the blink takes (default 0.3)
+            const timeInCycle = time % blinkPeriod;
             
-            const closePhase = 0.4;   // 20% of time to close
-            const holdPhase = 0.4;    // 40% of time held closed
-            const openPhase = 0.2;    // 40% of time to open
+            let eyeOpenness = 1.0; // fully open by default
             
-            if (blinkProgress < closePhase) {
-              // Closing: 1.0 -> 0.1
-              const closeProgress = blinkProgress / closePhase;
-              eyeOpenness = 1.0 - (0.9 * closeProgress);
-            } else if (blinkProgress < closePhase + holdPhase) {
-              // Held closed
-              eyeOpenness = 0.1;
-            } else {
-              // Opening: 0.1 -> 1.0
-              const openProgress = (blinkProgress - closePhase - holdPhase) / openPhase;
-              eyeOpenness = 0.1 + (0.9 * openProgress);
+            if (timeInCycle < blinkDuration) {
+              const blinkProgress = timeInCycle / blinkDuration; // 0 to 1
+              eyeOpenness = calculateBlinkOpenness(blinkProgress);
             }
+            
+            targetLeftEyeScaleY = eyeOpenness;
+            targetRightEyeScaleY = eyeOpenness;
           }
-          
-          targetLeftEyeScaleY = eyeOpenness;
-          targetRightEyeScaleY = eyeOpenness;
+          break;
+        case 'surprised_blink':
+          // Fast triple blink for surprised reactions
+          {
+            const singleBlinkCycle = SURPRISED_BLINK.blinkDuration + SURPRISED_BLINK.pauseBetween;
+            const totalCycleDuration = singleBlinkCycle * SURPRISED_BLINK.totalBlinks;
+            const timeInCycle = time % (totalCycleDuration + 1.5); // Add pause before repeating
+            
+            let eyeOpenness = 1.0;
+            
+            if (timeInCycle < totalCycleDuration) {
+              const currentBlinkIndex = Math.floor(timeInCycle / singleBlinkCycle);
+              const timeInCurrentBlink = timeInCycle - (currentBlinkIndex * singleBlinkCycle);
+              
+              if (timeInCurrentBlink < SURPRISED_BLINK.blinkDuration) {
+                // During a blink
+                const blinkProgress = timeInCurrentBlink / SURPRISED_BLINK.blinkDuration;
+                eyeOpenness = calculateBlinkOpenness(blinkProgress);
+              }
+              // During pause between blinks, eyes stay open (eyeOpenness = 1.0)
+            }
+            
+            targetLeftEyeScaleY = eyeOpenness;
+            targetRightEyeScaleY = eyeOpenness;
+          }
+          break;
+        case 'open':
+        default:
+          // Automatic random blinking when eyes are "open" or no state specified
+          {
+            let eyeOpenness = 1.0;
+            
+            // Check if we should start a new blink
+            if (blinkStartTime.current === null && currentTime >= nextBlinkTime.current) {
+              blinkStartTime.current = currentTime;
+            }
+            
+            // If we're in a blink
+            if (blinkStartTime.current !== null) {
+              const timeSinceBlinkStart = currentTime - blinkStartTime.current;
+              
+              if (timeSinceBlinkStart < AUTO_BLINK.duration) {
+                const blinkProgress = timeSinceBlinkStart / AUTO_BLINK.duration;
+                eyeOpenness = calculateBlinkOpenness(blinkProgress);
+              } else {
+                // Blink finished, schedule next one
+                blinkStartTime.current = null;
+                const randomInterval = AUTO_BLINK.minInterval + Math.random() * (AUTO_BLINK.maxInterval - AUTO_BLINK.minInterval);
+                nextBlinkTime.current = currentTime + randomInterval;
+              }
+            }
+            
+            targetLeftEyeScaleY = eyeOpenness;
+            targetRightEyeScaleY = eyeOpenness;
+          }
           break;
       }
 
@@ -883,12 +965,18 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         rightLegRef.current.rotation.x = lerp(rightLegRef.current.rotation.x, targetRightLegRotX, transitionSpeed);
       }
       if (leftEyeRef.current) {
-        // Use faster lerp for blinks vs normal transitions
-        const eyeLerpSpeed = complementary?.eyeState === 'blink' ? LERP_SPEED.veryFast : transitionSpeed;
+        // Use faster lerp for blinks (explicit or automatic) vs normal transitions
+        const isBlinking = complementary?.eyeState === 'blink' || 
+                          complementary?.eyeState === 'surprised_blink' || 
+                          blinkStartTime.current !== null;
+        const eyeLerpSpeed = isBlinking ? LERP_SPEED.veryFast : transitionSpeed;
         leftEyeRef.current.scale.y = lerp(leftEyeRef.current.scale.y, targetLeftEyeScaleY, eyeLerpSpeed);
       }
       if (rightEyeRef.current) {
-        const eyeLerpSpeed = complementary?.eyeState === 'blink' ? LERP_SPEED.veryFast : transitionSpeed;
+        const isBlinking = complementary?.eyeState === 'blink' || 
+                          complementary?.eyeState === 'surprised_blink' || 
+                          blinkStartTime.current !== null;
+        const eyeLerpSpeed = isBlinking ? LERP_SPEED.veryFast : transitionSpeed;
         rightEyeRef.current.scale.y = lerp(rightEyeRef.current.scale.y, targetRightEyeScaleY, eyeLerpSpeed);
       }
 
