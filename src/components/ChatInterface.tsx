@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, PanResponder, Dimensions, Animated } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, PanResponder, Dimensions, Animated, Easing } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCustomAlert } from './CustomAlert';
 import { CharacterDisplay3D, AnimationState, ComplementaryAnimation, LookDirection, EyeState, MouthState } from './CharacterDisplay3D';
@@ -355,17 +355,24 @@ function FloatingCharacterWrapper({
   index, 
   style, 
   characterName, 
-  characterColor 
+  characterColor,
+  entranceAnimation = false,
+  entranceKey = 0,
+  isLeftSide = false,
 }: { 
   children: React.ReactNode; 
   index: number; 
   style?: any;
   characterName: string;
   characterColor: string;
+  entranceAnimation?: boolean;
+  entranceKey?: number;
+  isLeftSide?: boolean;
 }) {
   const floatAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const hoverAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
   const [isHovered, setIsHovered] = useState(false);
   const { fonts } = useResponsive();
   
@@ -429,6 +436,23 @@ function FloatingCharacterWrapper({
     }).start();
   }, [isHovered]);
   
+  // Handle entrance animation - slide in from left/right based on position
+  useEffect(() => {
+    if (entranceAnimation && entranceKey > 0) {
+      // Start from off-screen position
+      const startPosition = isLeftSide ? -300 : 300;
+      slideAnim.setValue(startPosition);
+      
+      // Animate to final position with easing
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 800,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [entranceKey, entranceAnimation, isLeftSide]);
+  
   // Interpolate values
   const translateY = floatAnim.interpolate({
     inputRange: [0, 1],
@@ -457,6 +481,7 @@ function FloatingCharacterWrapper({
         {
           transform: [
             ...(style?.transform || []),
+            { translateX: slideAnim }, // Entrance slide animation
             { translateY },
             { rotateZ },
           ],
@@ -521,6 +546,10 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [availableCharacters, setAvailableCharacters] = useState(getAllCharacters()); // Load from Wakattors database
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(true);
   const [showChatHistory, setShowChatHistory] = useState(false); // Hidden by default
+  
+  // Entrance animation state - triggered when conversation changes or new conversation is created
+  const [showEntranceAnimation, setShowEntranceAnimation] = useState(false);
+  const entranceAnimationKey = useRef(0);
   
   // Animation playback state
   const [playbackState, setPlaybackState] = useState<{
@@ -723,19 +752,28 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       previousMessagesRef.current.length > 0 &&
       messages[0]?.id !== previousMessagesRef.current[0]?.id;
 
+    // Detect initial load: messages just appeared (were empty, now have content)
+    const initialLoad =
+      messages.length > 0 &&
+      previousMessagesRef.current.length === 0 &&
+      !hasRestoredInitialCharacters.current;
+
     // CLEANUP: Stop any running animations when conversation changes
     if (conversationChanged) {
       console.log('[ChatInterface] Conversation changed, stopping animations');
       playbackEngineRef.current.stop();
       setAnimatingMessages(new Map());
       setPlaybackState({ isPlaying: false, characterStates: new Map() });
+      // Trigger entrance animation for characters
+      entranceAnimationKey.current += 1;
+      setShowEntranceAnimation(true);
     }
-
-    // Detect initial load: messages just appeared (were empty, now have content)
-    const initialLoad =
-      messages.length > 0 &&
-      previousMessagesRef.current.length === 0 &&
-      !hasRestoredInitialCharacters.current;
+    
+    // Trigger entrance animation on initial load
+    if (initialLoad) {
+      entranceAnimationKey.current += 1;
+      setShowEntranceAnimation(true);
+    }
 
     // Update when:
     // 1. Conversation switched (different first message)
@@ -789,6 +827,9 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       console.log('[ChatInterface] New conversation with no messages, setting default character');
       const defaultChar = availableCharacters[0].id;
       setSelectedCharacters([defaultChar]);
+      // Trigger entrance animation for new conversation
+      entranceAnimationKey.current += 1;
+      setShowEntranceAnimation(true);
     }
   }, [messages.length, selectedCharacters.length, availableCharacters]);
 
@@ -804,6 +845,16 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
     return () => clearTimeout(timer);
   }, [selectedCharacters]);
+
+  // Clear entrance animation after duration (800ms)
+  useEffect(() => {
+    if (showEntranceAnimation) {
+      const timeout = setTimeout(() => {
+        setShowEntranceAnimation(false);
+      }, 800); // Match animation duration
+      return () => clearTimeout(timeout);
+    }
+  }, [showEntranceAnimation]);
 
   // Pan responder for resizable divider
   const panResponder = useRef(
@@ -1507,6 +1558,9 @@ Would you like to discuss your perspective on this?`;
                   index={index}
                   characterName={character.name}
                   characterColor={character.color}
+                  entranceAnimation={showEntranceAnimation}
+                  entranceKey={entranceAnimationKey.current}
+                  isLeftSide={horizontalOffset < 0}
                   style={[
                     styles.characterWrapper,
                     {
@@ -1520,11 +1574,15 @@ Would you like to discuss your perspective on this?`;
                   ]}
                 >
                   {(() => {
+                    // Use walking animation during entrance, otherwise use playback animation
+                    const entranceWalkingAnimation = showEntranceAnimation ? 'walking' : undefined;
+                    const finalAnimation = entranceWalkingAnimation || (usePlayback ? charPlaybackState.animation : undefined);
+                    
                     return (
                       <CharacterDisplay3D
                         character={character}
-                        isActive={usePlayback && charPlaybackState.isActive}
-                        animation={usePlayback ? charPlaybackState.animation : undefined}
+                        isActive={(usePlayback && charPlaybackState.isActive) || showEntranceAnimation}
+                        animation={finalAnimation}
                         isTalking={usePlayback && charPlaybackState.isTalking}
                         complementary={usePlayback ? charPlaybackState.complementary : undefined}
                         showName={showCharacterNames}

@@ -84,7 +84,7 @@ export type ModelStyle = 'blocky';
 export type EyebrowStyle = 'blocky';
 
 // Head style types
-export type HeadStyle = 'default';
+export type HeadStyle = 'default' | 'bigger' | 'tall' | 'golden';
 
 // Complementary animation configuration
 export interface ComplementaryAnimation {
@@ -436,10 +436,17 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       let targetLeftEyebrowPosY = 0;  // Offset from default position
       let targetRightEyebrowPosY = 0;
 
-      // Head style calculations for eyebrow positioning (default head only)
-      const headH = 0.5;
-      const faceYOffset = 0; // (0.5 - 0.5) / 2 = 0
-      const eyebrowBaseY = 0.14;
+      // Head style calculations for eyebrow positioning
+      const headStyleVal = complementary?.headStyle || 'default';
+      const headHeights: Record<HeadStyle, number> = {
+        default: 0.5,
+        bigger: 0.6,
+        tall: 0.65,
+        golden: 0.81,
+      };
+      const headH = headHeights[headStyleVal];
+      const faceYOffsetAnim = (0.5 - headH) / 2;
+      const eyebrowBaseY = 0.14 + faceYOffsetAnim;
 
       // =========================================
       // COMPLEMENTARY: Look Direction
@@ -1734,19 +1741,32 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
 
       {/* Head Group */}
       {(() => {
-        // Head dimensions (default style only): [width, height, depth]
-        const headW = 0.5;
-        const headH = 0.5;
-        const headD = 0.5;
+        // Head style configuration
+        const headStyle = complementary?.headStyle || 'default';
         
-        // Head group Y position (bottom of head at 0.60)
-        const headGroupY = 0.85; // 0.60 + 0.5/2
+        // Head dimensions: [width, height, depth]
+        const headDimensions: Record<HeadStyle, [number, number, number]> = {
+          default: [0.5, 0.5, 0.5],
+          bigger: [0.6, 0.6, 0.6],
+          tall: [0.5, 0.65, 0.5],
+          golden: [0.5, 0.81, 0.5], // 0.5 * 1.618 ≈ 0.81
+        };
         
-        // Face Y offset (0 for default head)
-        const faceYOffset = 0;
+        const [headW, headH, headD] = headDimensions[headStyle];
         
-        // Scale factor for accessories/hair (1 for default head)
-        const headScale = 1;
+        // Calculate head group Y position to keep bottom of head at same level
+        // Default head bottom is at 0.85 - 0.25 = 0.60
+        const defaultHeadBottom = 0.60;
+        const headGroupY = defaultHeadBottom + headH / 2;
+        
+        // Calculate face Y offset: taller heads get more forehead space
+        // Features stay at same absolute distance from bottom of head
+        // Default: features centered at y=0 relative to head center
+        // Taller: features shift down relative to new center
+        const faceYOffset = (0.5 - headH) / 2; // Negative for taller heads
+        
+        // Scale factor for accessories/hair based on head size
+        const headScale = headW / 0.5;
         
         return (
           <group ref={headRef} position={[0, headGroupY, 0]}>

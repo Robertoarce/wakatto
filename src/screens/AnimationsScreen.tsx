@@ -9,6 +9,8 @@ import {
   LookDirection,
   EyeState,
   EyebrowState,
+  EyebrowStyle,
+  HeadStyle,
   MouthState,
   FaceState,
   VisualEffect,
