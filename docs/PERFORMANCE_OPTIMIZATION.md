@@ -243,15 +243,24 @@ New strategies in `benchmarkService.ts`:
 
 Run via Settings > Developer Tools > "Run Animation Benchmark"
 
-### 4. Parallel Operations (Partial)
-Currently implemented:
-- Auth caching (5-minute session cache)
-- Background title generation
-- Streaming progress callbacks
+### 4. Parallel DB Operations ✅
+All DB saves now run in background (non-blocking):
+- User message save: Fire-and-forget, AI generation starts immediately
+- Assistant message saves: Parallel Promise.all, display shows immediately
+- Single character saves: Background with error logging
 
-Future:
-- Parallel user message save
-- Animation setup during parsing
+**Code locations:**
+- `src/navigation/MainTabs.tsx` → All `dispatch(saveMessage(...))` calls
+
+### 5. Early Animation Setup ✅
+Start "thinking" animations while streaming, before full JSON is parsed:
+- `onEarlySetup` callback in streaming orchestration
+- Partial JSON parsing to detect characters early
+- Creates placeholder "thinking" scene
+
+**Code locations:**
+- `src/services/singleCallOrchestration.ts` → `tryDetectEarlyCharacters()`
+- `src/components/ChatInterface.tsx` → Early animation useEffect
 
 ### Expected Combined Impact
 
@@ -290,6 +299,36 @@ Open DevTools Console to see:
 ║  edge_function_call              4521.23ms   86.4% ║
 ...
 ```
+
+---
+
+## Deployment
+
+### Deploy Edge Function with Prompt Caching and Streaming
+
+The Edge Function (`supabase/functions/ai-chat/index.ts`) has been updated with:
+- SSE streaming support for faster perceived responses
+- Anthropic prompt caching for static animation instructions
+- Parallel operations optimizations
+
+To deploy:
+
+```bash
+# 1. Get your Supabase access token from:
+#    https://supabase.com/dashboard/account/tokens
+
+# 2. Set the environment variable
+export SUPABASE_ACCESS_TOKEN=your_token_here
+
+# 3. Run the deployment script
+./deploy-edge-function.sh
+```
+
+### Verify Deployment
+
+After deployment, check the Edge Function logs in Supabase Dashboard for:
+- `[AI-Chat] Prompt caching ENABLED for system prompt` - confirms caching is active
+- `[AI-Chat] Streaming response...` - confirms streaming is working
 
 ---
 

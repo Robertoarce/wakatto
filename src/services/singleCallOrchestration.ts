@@ -243,9 +243,16 @@ export async function generateAnimatedSceneOrchestration(
 // STREAMING ANIMATED SCENE ORCHESTRATION
 // ============================================
 
+export interface EarlyAnimationSetup {
+  detectedCharacters: string[];  // Character IDs detected so far
+  estimatedDuration?: number;     // Estimated scene duration if available
+  canStartThinkingAnimation: boolean; // True when we know enough to start
+}
+
 export interface StreamingOrchestrationCallbacks {
   onStart?: () => void;
   onProgress?: (accumulated: string, percentage: number) => void;
+  onEarlySetup?: (setup: EarlyAnimationSetup) => void; // Called when we can start animations early
   onComplete?: (scene: OrchestrationScene, responses: CharacterResponse[]) => void;
   onError?: (error: Error) => void;
 }
@@ -306,6 +313,8 @@ export async function generateAnimatedSceneOrchestrationStreaming(
 
   try {
     let estimatedTotalLength = 500; // Estimate for progress calculation
+    let earlySetupSent = false;
+    let detectedCharacters: string[] = [];
     
     // Use streaming API
     const rawResponse = await generateAIResponseStreaming(
@@ -323,6 +332,17 @@ export async function generateAnimatedSceneOrchestrationStreaming(
           }
           const percentage = Math.min(95, (accumulated.length / estimatedTotalLength) * 100);
           callbacks?.onProgress?.(accumulated, percentage);
+          
+          // Try to detect characters early for animation setup
+          if (!earlySetupSent && callbacks?.onEarlySetup) {
+            const earlyData = tryDetectEarlyCharacters(accumulated, selectedCharacters);
+            if (earlyData.canStartThinkingAnimation) {
+              earlySetupSent = true;
+              detectedCharacters = earlyData.detectedCharacters;
+              console.log('[AnimatedOrch-Stream] Early setup triggered for:', detectedCharacters);
+              callbacks.onEarlySetup(earlyData);
+            }
+          }
         },
         onDone: (fullText, durationMs) => {
           console.log('[AnimatedOrch-Stream] Stream complete in', durationMs.toFixed(0), 'ms');
@@ -913,6 +933,84 @@ let currentAvailableCharacters: string[] = [];
 
 export function setAvailableCharactersForParsing(characters: string[]) {
   currentAvailableCharacters = characters;
+}
+
+/**
+ * Try to detect character information early from partial JSON stream
+ * This allows starting "thinking" animations before the full response is complete
+ */
+function tryDetectEarlyCharacters(
+  partialJson: string,
+  availableCharacters: string[]
+): EarlyAnimationSetup {
+  const result: EarlyAnimationSetup = {
+    detectedCharacters: [],
+    canStartThinkingAnimation: false
+  };
+  
+  // We need at least 100 chars to have meaningful structure
+  if (partialJson.length < 100) {
+    return result;
+  }
+  
+  try {
+    // Look for character patterns in both compact and full formats
+    // Compact: "c":"freud" or "c": "freud"
+    // Full: "character":"freud" or "character": "freud"
+    
+    const compactPattern = /"c"\s*:\s*"([^"]+)"/g;
+    const fullPattern = /"character"\s*:\s*"([^"]+)"/g;
+    
+    const foundCharacters = new Set<string>();
+    
+    let match;
+    while ((match = compactPattern.exec(partialJson)) !== null) {
+      const charId = match[1];
+      if (availableCharacters.includes(charId)) {
+        foundCharacters.add(charId);
+      } else {
+        // Try to resolve the character ID
+        const resolved = resolveCharacterId(charId, availableCharacters);
+        if (resolved !== charId || availableCharacters.includes(resolved)) {
+          foundCharacters.add(resolved);
+        }
+      }
+    }
+    
+    while ((match = fullPattern.exec(partialJson)) !== null) {
+      const charId = match[1];
+      if (availableCharacters.includes(charId)) {
+        foundCharacters.add(charId);
+      } else {
+        const resolved = resolveCharacterId(charId, availableCharacters);
+        if (resolved !== charId || availableCharacters.includes(resolved)) {
+          foundCharacters.add(resolved);
+        }
+      }
+    }
+    
+    result.detectedCharacters = Array.from(foundCharacters);
+    
+    // Try to detect duration from partial JSON
+    // Compact: "dur":12000 or Full: "totalDuration":12000
+    const durationMatch = partialJson.match(/"(?:dur|totalDuration)"\s*:\s*(\d+)/);
+    if (durationMatch) {
+      result.estimatedDuration = parseInt(durationMatch[1], 10);
+    }
+    
+    // We can start thinking animations if:
+    // 1. We've detected at least one character
+    // 2. We're past the initial "reasoning" section (indicates characters are being defined)
+    const hasCharacters = result.detectedCharacters.length > 0;
+    const pastReasoning = partialJson.includes('"ch"') || partialJson.includes('"characters"');
+    
+    result.canStartThinkingAnimation = hasCharacters && pastReasoning;
+    
+  } catch (e) {
+    // Ignore parsing errors - partial JSON is expected to be incomplete
+  }
+  
+  return result;
 }
 
 /**

@@ -176,7 +176,7 @@ export function ProfilingDashboard({
     Animated.timing(slideAnim, {
       toValue: visible ? 1 : 0,
       duration: 200,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web', // Native driver not supported on web
     }).start();
   }, [visible, slideAnim]);
   

@@ -28,7 +28,8 @@ import {
 import { generateHybridResponse } from '../services/hybridOrchestration';
 import { 
   generateAnimatedSceneOrchestration,
-  generateAnimatedSceneOrchestrationStreaming 
+  generateAnimatedSceneOrchestrationStreaming,
+  EarlyAnimationSetup
 } from '../services/singleCallOrchestration';
 import { OrchestrationScene, createFallbackScene, fillGapsForNonSpeakers } from '../services/animationOrchestration';
 import { ORCHESTRATION_CONFIG } from '../config/llmConfig';
@@ -135,6 +136,7 @@ export default function MainTabs() {
   const [lastProfileSession, setLastProfileSession] = useState<ProfileSession | null>(null);
   const [streamingProgress, setStreamingProgress] = useState<number>(0);
   const [useStreaming, setUseStreaming] = useState<boolean>(true); // Enable streaming by default
+  const [earlyAnimationSetup, setEarlyAnimationSetup] = useState<EarlyAnimationSetup | null>(null);
   
   // Profiling dashboard (dev tool)
   const profilingDashboard = useProfilingDashboard();
@@ -167,10 +169,18 @@ export default function MainTabs() {
         // Check if this is the first user message (for title generation)
         const isFirstMessage = messages.length === 0;
 
-        // Save user message (no character ID for user messages)
+        // Save user message in BACKGROUND (non-blocking parallel save)
+        // This allows AI generation to start immediately while message is being saved
         const saveUserMsgTimer = profiler.start(PROFILE_OPS.DB_SAVE_USER_MESSAGE);
-        await dispatch(saveMessage(conversation.id, 'user', content) as any);
-        saveUserMsgTimer.stop();
+        // Fire and forget - dispatch returns a promise but we don't await it
+        dispatch(saveMessage(conversation.id, 'user', content) as any)
+          .then(() => {
+            saveUserMsgTimer.stop({ background: true });
+          })
+          .catch((err: any) => {
+            saveUserMsgTimer.stop({ error: String(err), background: true });
+            console.error('[Chat] Background user message save failed:', err);
+          });
 
         // Generate conversation title in BACKGROUND (deferred - doesn't block AI response)
         // This saves 1-2 seconds on first message by not waiting for title generation
@@ -229,6 +239,8 @@ export default function MainTabs() {
               if (shouldUseStreaming) {
                 // Streaming version - shows progress during generation
                 setStreamingProgress(0);
+                setEarlyAnimationSetup(null); // Clear previous early setup
+                
                 const result = await generateAnimatedSceneOrchestrationStreaming(
                   content,
                   selectedCharacters,
@@ -241,12 +253,22 @@ export default function MainTabs() {
                     onProgress: (_, percentage) => {
                       setStreamingProgress(percentage);
                     },
+                    onEarlySetup: (setup) => {
+                      // Start animations early while still streaming
+                      console.log('[Chat] Early animation setup:', {
+                        characters: setup.detectedCharacters,
+                        estimatedDuration: setup.estimatedDuration
+                      });
+                      setEarlyAnimationSetup(setup);
+                    },
                     onComplete: (completedScene) => {
                       console.log('[Chat] Streaming complete, scene duration:', completedScene.sceneDuration);
                       setStreamingProgress(100);
+                      setEarlyAnimationSetup(null); // Clear early setup once we have real scene
                     },
                     onError: (error) => {
                       console.error('[Chat] Streaming error:', error);
+                      setEarlyAnimationSetup(null);
                     },
                   }
                 );
@@ -269,28 +291,38 @@ export default function MainTabs() {
                 nonSpeakers: Object.keys(scene.nonSpeakerBehavior).length
               });
 
-              // Start animation playback
+              // Start animation playback IMMEDIATELY (display first, save in background)
               setAnimationScene(scene);
               setStreamingProgress(0); // Reset progress
 
-              // Save each character's response
+              console.log(`[Chat] Generated ${characterResponses.length} animated responses - saving in background`);
+
+              // Save assistant responses in BACKGROUND (non-blocking parallel saves)
+              // This allows the UI to show responses immediately while persisting to DB
               const saveAssistantTimer = profiler.start(PROFILE_OPS.DB_SAVE_ASSISTANT_MESSAGE);
-              for (const response of characterResponses) {
-                console.log(`[Chat] Saving message for character ${response.characterId}:`, {
+              const savePromises = characterResponses.map(response => {
+                console.log(`[Chat] Background save for ${response.characterId}:`, {
                   content: response.content.substring(0, 50) + '...',
                   gesture: response.gesture
                 });
-
-                await dispatch(saveMessage(
+                return dispatch(saveMessage(
                   conversation.id,
                   'assistant',
                   response.content,
                   response.characterId
                 ) as any);
-              }
-              saveAssistantTimer.stop({ responseCount: characterResponses.length });
-
-              console.log(`[Chat] Generated ${characterResponses.length} animated responses`);
+              });
+              
+              // Fire and forget - don't await, but log completion
+              Promise.all(savePromises)
+                .then(() => {
+                  saveAssistantTimer.stop({ responseCount: characterResponses.length, background: true });
+                  console.log('[Chat] Background assistant saves completed');
+                })
+                .catch((err) => {
+                  saveAssistantTimer.stop({ error: String(err), background: true });
+                  console.error('[Chat] Background assistant saves failed:', err);
+                });
 
             } catch (animError) {
               console.warn('[Chat] Animated orchestration failed, falling back to hybrid:', animError);
@@ -313,17 +345,25 @@ export default function MainTabs() {
               );
               setAnimationScene(fallbackScene);
 
-              // Save responses
+              // Save responses in BACKGROUND (non-blocking)
               const saveFallbackTimer = profiler.start(PROFILE_OPS.DB_SAVE_ASSISTANT_MESSAGE);
-              for (const response of characterResponses) {
-                await dispatch(saveMessage(
+              const fallbackSavePromises = characterResponses.map(response =>
+                dispatch(saveMessage(
                   conversation.id,
                   'assistant',
                   response.content,
                   response.characterId
-                ) as any);
-              }
-              saveFallbackTimer.stop({ responseCount: characterResponses.length, fallback: true });
+                ) as any)
+              );
+              
+              Promise.all(fallbackSavePromises)
+                .then(() => {
+                  saveFallbackTimer.stop({ responseCount: characterResponses.length, fallback: true, background: true });
+                })
+                .catch((err) => {
+                  saveFallbackTimer.stop({ error: String(err), fallback: true, background: true });
+                  console.error('[Chat] Background fallback saves failed:', err);
+                });
             }
           } else {
             // Single character mode: traditional response with simple animation
@@ -344,14 +384,21 @@ export default function MainTabs() {
             setAnimationScene(singleCharScene);
             animSetupTimer.stop();
 
+            // Save single character response in BACKGROUND (non-blocking)
             const saveSingleTimer = profiler.start(PROFILE_OPS.DB_SAVE_ASSISTANT_MESSAGE);
-            await dispatch(saveMessage(
+            dispatch(saveMessage(
               conversation.id,
               'assistant',
               aiResponse,
               selectedCharacters[0]
-            ) as any);
-            saveSingleTimer.stop({ responseCount: 1 });
+            ) as any)
+              .then(() => {
+                saveSingleTimer.stop({ responseCount: 1, background: true });
+              })
+              .catch((err: any) => {
+                saveSingleTimer.stop({ error: String(err), background: true });
+                console.error('[Chat] Background single character save failed:', err);
+              });
           }
         } catch (aiError: any) {
           console.error('AI generation error:', aiError);
@@ -441,6 +488,7 @@ export default function MainTabs() {
                 onEditMessage={onEditMessage}
                 onDeleteMessage={onDeleteMessage}
                 animationScene={animationScene}
+                earlyAnimationSetup={earlyAnimationSetup}
               />
             )}
           </Tab.Screen>

@@ -366,53 +366,71 @@ export async function generateAIResponseStreaming(
       throw new Error(error.error || 'Failed to generate AI response');
     }
 
-    // Process SSE stream
-    const reader = response.body?.getReader();
-    if (!reader) {
-      throw new Error('Response body is not readable');
-    }
+    // Check if response is SSE (streaming) or regular JSON
+    const contentType = response.headers.get('content-type') || '';
+    
+    if (contentType.includes('text/event-stream')) {
+      // Process SSE stream
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('Response body is not readable');
+      }
 
-    const decoder = new TextDecoder();
-    let buffer = '';
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n\n');
-      buffer = lines.pop() || '';
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || '';
 
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6);
-          
-          try {
-            const parsed = JSON.parse(data);
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
             
-            if (parsed.type === 'start') {
-              callbacks?.onStart?.(parsed.timestamp);
-            } else if (parsed.type === 'delta') {
-              accumulatedText += parsed.text;
-              callbacks?.onDelta?.(parsed.text, accumulatedText);
-            } else if (parsed.type === 'done') {
-              const durationMs = getTimestamp() - startTime;
-              callbacks?.onDone?.(accumulatedText, durationMs);
-              console.log('[AI-Stream] Complete in', durationMs.toFixed(0), 'ms');
-            } else if (parsed.type === 'error') {
-              throw new Error(parsed.message);
-            }
-          } catch (e) {
-            // Skip non-JSON data
-            if (data !== '[DONE]') {
-              console.warn('[AI-Stream] Failed to parse SSE data:', data);
+            try {
+              const parsed = JSON.parse(data);
+              
+              if (parsed.type === 'start') {
+                callbacks?.onStart?.(parsed.timestamp);
+              } else if (parsed.type === 'delta') {
+                accumulatedText += parsed.text;
+                callbacks?.onDelta?.(parsed.text, accumulatedText);
+              } else if (parsed.type === 'done') {
+                const durationMs = getTimestamp() - startTime;
+                callbacks?.onDone?.(accumulatedText, durationMs);
+                console.log('[AI-Stream] Complete in', durationMs.toFixed(0), 'ms');
+              } else if (parsed.type === 'error') {
+                throw new Error(parsed.message);
+              }
+            } catch (e) {
+              // Skip non-JSON data
+              if (data !== '[DONE]') {
+                console.warn('[AI-Stream] Failed to parse SSE data:', data);
+              }
             }
           }
         }
       }
-    }
 
-    return accumulatedText;
+      return accumulatedText;
+    } else {
+      // Fallback: Edge Function returned non-streaming JSON response
+      // This happens when streaming isn't deployed or enabled on the server
+      console.log('[AI-Stream] Received non-streaming response, falling back to regular JSON');
+      const json = await response.json();
+      const content = json.content || '';
+      
+      callbacks?.onStart?.(Date.now());
+      callbacks?.onDelta?.(content, content);
+      const durationMs = getTimestamp() - startTime;
+      callbacks?.onDone?.(content, durationMs);
+      
+      return content;
+    }
 
   } catch (error: any) {
     console.error('[AI-Stream] Error:', error);

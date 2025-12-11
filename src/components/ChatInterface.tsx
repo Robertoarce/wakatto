@@ -22,6 +22,13 @@ interface Message {
   characterId?: string; // Which character is speaking (for assistant messages)
 }
 
+// Early animation setup from streaming
+interface EarlyAnimationSetup {
+  detectedCharacters: string[];
+  estimatedDuration?: number;
+  canStartThinkingAnimation: boolean;
+}
+
 interface ChatInterfaceProps {
   messages: Message[];
   onSendMessage: (content: string, selectedCharacters: string[]) => void;
@@ -32,6 +39,8 @@ interface ChatInterfaceProps {
   onDeleteMessage?: (messageId: string) => void;
   // Animation orchestration
   animationScene?: OrchestrationScene | null;
+  // Early animation setup from streaming (before full scene is ready)
+  earlyAnimationSetup?: EarlyAnimationSetup | null;
 }
 
 // Export function to start animation playback from external components
@@ -511,7 +520,7 @@ function FloatingCharacterWrapper({
   );
 }
 
-export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage, animationScene }: ChatInterfaceProps) {
+export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage, animationScene, earlyAnimationSetup }: ChatInterfaceProps) {
   const { showAlert, AlertComponent } = useCustomAlert();
   const { fonts, spacing, layout, isMobile, isTablet, isDesktop, width: screenWidth, height: screenHeight } = useResponsive();
   const [input, setInput] = useState('');
@@ -581,6 +590,40 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       unsubscribe();
     };
   }, []);
+
+  // Start early "thinking" animation while streaming (before full scene is ready)
+  useEffect(() => {
+    if (earlyAnimationSetup?.canStartThinkingAnimation && !animationScene) {
+      console.log('[ChatInterface] Starting early thinking animation for:', earlyAnimationSetup.detectedCharacters);
+      
+      // Create a simple "thinking" scene for detected characters
+      const thinkingScene: OrchestrationScene = {
+        sceneDuration: earlyAnimationSetup.estimatedDuration || 10000, // Long duration, will be replaced
+        timelines: earlyAnimationSetup.detectedCharacters.map((charId, index) => ({
+          characterId: charId,
+          content: '', // No text yet
+          startDelay: index * 200, // Stagger slightly
+          segments: [
+            {
+              animation: 'thinking',
+              duration: 2000,
+              look: 'up',
+              eyes: 'open',
+              mouth: 'closed'
+            },
+            {
+              animation: 'idle',
+              duration: 1000,
+              look: 'at_user'
+            }
+          ]
+        })),
+        nonSpeakerBehavior: {}
+      };
+      
+      playbackEngineRef.current.play(thinkingScene);
+    }
+  }, [earlyAnimationSetup, animationScene]);
 
   // Start animation playback when a new scene is provided
   useEffect(() => {
