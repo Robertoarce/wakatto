@@ -81,7 +81,10 @@ export type VisualEffect = 'none' | 'confetti' | 'spotlight' | 'sparkles' | 'hea
 export type ModelStyle = 'blocky';
 
 // Eyebrow style types
-export type EyebrowStyle = 'blocky' | 'curved' | 'thick';
+export type EyebrowStyle = 'blocky';
+
+// Head style types
+export type HeadStyle = 'default';
 
 // Complementary animation configuration
 export interface ComplementaryAnimation {
@@ -89,6 +92,7 @@ export interface ComplementaryAnimation {
   eyeState?: EyeState;
   eyebrowState?: EyebrowState;
   eyebrowStyle?: EyebrowStyle; // Visual style of eyebrows (default: 'blocky')
+  headStyle?: HeadStyle; // Head shape/size (default: 'default')
   mouthState?: MouthState;
   faceState?: FaceState;
   effect?: VisualEffect;
@@ -431,6 +435,11 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       let targetRightEyebrowRotZ = 0;
       let targetLeftEyebrowPosY = 0;  // Offset from default position
       let targetRightEyebrowPosY = 0;
+
+      // Head style calculations for eyebrow positioning (default head only)
+      const headH = 0.5;
+      const faceYOffset = 0; // (0.5 - 0.5) / 2 = 0
+      const eyebrowBaseY = 0.14;
 
       // =========================================
       // COMPLEMENTARY: Look Direction
@@ -1051,11 +1060,11 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       // Eyebrow animations
       if (leftEyebrowRef.current) {
         leftEyebrowRef.current.rotation.z = lerp(leftEyebrowRef.current.rotation.z, targetLeftEyebrowRotZ, transitionSpeed);
-        leftEyebrowRef.current.position.y = lerp(leftEyebrowRef.current.position.y, 0.14 + targetLeftEyebrowPosY, transitionSpeed);
+        leftEyebrowRef.current.position.y = lerp(leftEyebrowRef.current.position.y, eyebrowBaseY + targetLeftEyebrowPosY, transitionSpeed);
       }
       if (rightEyebrowRef.current) {
         rightEyebrowRef.current.rotation.z = lerp(rightEyebrowRef.current.rotation.z, targetRightEyebrowRotZ, transitionSpeed);
-        rightEyebrowRef.current.position.y = lerp(rightEyebrowRef.current.position.y, 0.14 + targetRightEyebrowPosY, transitionSpeed);
+        rightEyebrowRef.current.position.y = lerp(rightEyebrowRef.current.position.y, eyebrowBaseY + targetRightEyebrowPosY, transitionSpeed);
       }
 
       // Check for one-shot animation completion
@@ -1075,7 +1084,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
     return () => {
       if (animationId) cancelAnimationFrame(animationId);
     };
-  }, [isActive, animation, isTalking, animSpeed, complementary?.lookDirection, complementary?.eyeState, complementary?.eyebrowState, complementary?.eyebrowStyle, complementary?.mouthState, onAnimationComplete, positionY]);
+  }, [isActive, animation, isTalking, animSpeed, complementary?.lookDirection, complementary?.eyeState, complementary?.eyebrowState, complementary?.eyebrowStyle, complementary?.headStyle, complementary?.mouthState, onAnimationComplete, positionY]);
 
   // Get customization from character config
   const customization = character.customization;
@@ -1724,12 +1733,28 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       </mesh>
 
       {/* Head Group */}
-      <group ref={headRef} position={[0, 0.85, 0]}>
-        {/* Head */}
-        <mesh castShadow>
-          <boxGeometry args={[0.5, 0.5, 0.5]} />
-          <meshStandardMaterial color={skinColor} roughness={0.6} />
-        </mesh>
+      {(() => {
+        // Head dimensions (default style only): [width, height, depth]
+        const headW = 0.5;
+        const headH = 0.5;
+        const headD = 0.5;
+        
+        // Head group Y position (bottom of head at 0.60)
+        const headGroupY = 0.85; // 0.60 + 0.5/2
+        
+        // Face Y offset (0 for default head)
+        const faceYOffset = 0;
+        
+        // Scale factor for accessories/hair (1 for default head)
+        const headScale = 1;
+        
+        return (
+          <group ref={headRef} position={[0, headGroupY, 0]}>
+            {/* Head */}
+            <mesh castShadow>
+              <boxGeometry args={[headW, headH, headD]} />
+              <meshStandardMaterial color={skinColor} roughness={0.6} />
+            </mesh>
 
         {/* Hair - Different styles */}
         {hairType === 'short' && (
@@ -1867,133 +1892,90 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         )}
 
         {/* Eyes */}
-        <mesh ref={leftEyeRef} position={[-0.12, 0.05, 0.26]}>
-          <boxGeometry args={[0.08, 0.08, 0.01]} />
+        <mesh ref={leftEyeRef} position={[-0.12 * headScale, 0.05 + faceYOffset, 0.26 * headScale]}>
+          <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.01]} />
           <meshBasicMaterial color="#3a3a3a" />
         </mesh>
-        <mesh ref={rightEyeRef} position={[0.12, 0.05, 0.26]}>
-          <boxGeometry args={[0.08, 0.08, 0.01]} />
+        <mesh ref={rightEyeRef} position={[0.12 * headScale, 0.05 + faceYOffset, 0.26 * headScale]}>
+          <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.01]} />
           <meshBasicMaterial color="#3a3a3a" />
         </mesh>
 
-        {/* Eyebrows - Three styles: blocky, curved, thick */}
+        {/* Eyebrows - Blocky style */}
         {(() => {
-          const eyebrowStyle = complementary?.eyebrowStyle || 'blocky';
           const eyebrowColor = hairColor || '#3a3a3a';
+          const eyebrowY = 0.14 + faceYOffset;
+          const eyebrowX = 0.12 * headScale;
+          const eyebrowZ = 0.26 * headScale;
           
-          switch (eyebrowStyle) {
-            case 'curved':
-              // Curved/arched eyebrows using torus geometry
-              return (
-                <>
-                  <mesh ref={leftEyebrowRef} position={[-0.12, 0.14, 0.26]} rotation={[0, 0, 0.15]}>
-                    <torusGeometry args={[0.06, 0.015, 8, 12, Math.PI]} />
-                    <meshStandardMaterial color={eyebrowColor} roughness={0.8} />
-                  </mesh>
-                  <mesh ref={rightEyebrowRef} position={[0.12, 0.14, 0.26]} rotation={[0, 0, -0.15]}>
-                    <torusGeometry args={[0.06, 0.015, 8, 12, Math.PI]} />
-                    <meshStandardMaterial color={eyebrowColor} roughness={0.8} />
-                  </mesh>
-                </>
-              );
-            case 'thick':
-              // Thick/expressive wedge-shaped eyebrows
-              return (
-                <>
-                  {/* Left eyebrow - thick, tapered */}
-                  <group ref={leftEyebrowRef as any} position={[-0.12, 0.14, 0.26]}>
-                    <mesh position={[-0.03, 0, 0]}>
-                      <boxGeometry args={[0.06, 0.045, 0.02]} />
-                      <meshStandardMaterial color={eyebrowColor} roughness={0.8} />
-                    </mesh>
-                    <mesh position={[0.04, 0, 0]}>
-                      <boxGeometry args={[0.05, 0.03, 0.02]} />
-                      <meshStandardMaterial color={eyebrowColor} roughness={0.8} />
-                    </mesh>
-                  </group>
-                  {/* Right eyebrow - thick, tapered (mirrored) */}
-                  <group ref={rightEyebrowRef as any} position={[0.12, 0.14, 0.26]}>
-                    <mesh position={[0.03, 0, 0]}>
-                      <boxGeometry args={[0.06, 0.045, 0.02]} />
-                      <meshStandardMaterial color={eyebrowColor} roughness={0.8} />
-                    </mesh>
-                    <mesh position={[-0.04, 0, 0]}>
-                      <boxGeometry args={[0.05, 0.03, 0.02]} />
-                      <meshStandardMaterial color={eyebrowColor} roughness={0.8} />
-                    </mesh>
-                  </group>
-                </>
-              );
-            case 'blocky':
-            default:
-              // Blocky/rectangular Minecraft-style eyebrows
-              return (
-                <>
-                  <mesh ref={leftEyebrowRef} position={[-0.12, 0.14, 0.26]}>
-                    <boxGeometry args={[0.12, 0.03, 0.02]} />
-                    <meshStandardMaterial color={eyebrowColor} roughness={0.8} />
-                  </mesh>
-                  <mesh ref={rightEyebrowRef} position={[0.12, 0.14, 0.26]}>
-                    <boxGeometry args={[0.12, 0.03, 0.02]} />
-                    <meshStandardMaterial color={eyebrowColor} roughness={0.8} />
-                  </mesh>
-                </>
-              );
-          }
+          return (
+            <>
+              <mesh ref={leftEyebrowRef} position={[-eyebrowX, eyebrowY, eyebrowZ]}>
+                <boxGeometry args={[0.12 * headScale, 0.03 * headScale, 0.02]} />
+                <meshStandardMaterial color={eyebrowColor} roughness={0.8} />
+              </mesh>
+              <mesh ref={rightEyebrowRef} position={[eyebrowX, eyebrowY, eyebrowZ]}>
+                <boxGeometry args={[0.12 * headScale, 0.03 * headScale, 0.02]} />
+                <meshStandardMaterial color={eyebrowColor} roughness={0.8} />
+              </mesh>
+            </>
+          );
         })()}
 
         {/* Glasses */}
         {hasGlasses && (
           <>
-            <mesh position={[-0.12, 0.05, 0.27]}>
-              <torusGeometry args={[0.09, 0.015, 8, 16]} />
+            <mesh position={[-0.12 * headScale, 0.05 + faceYOffset, 0.27 * headScale]}>
+              <torusGeometry args={[0.09 * headScale, 0.015 * headScale, 8, 16]} />
               <meshStandardMaterial color="#4a4a4a" metalness={0.8} roughness={0.2} />
             </mesh>
-            <mesh position={[0.12, 0.05, 0.27]}>
-              <torusGeometry args={[0.09, 0.015, 8, 16]} />
+            <mesh position={[0.12 * headScale, 0.05 + faceYOffset, 0.27 * headScale]}>
+              <torusGeometry args={[0.09 * headScale, 0.015 * headScale, 8, 16]} />
               <meshStandardMaterial color="#4a4a4a" metalness={0.8} roughness={0.2} />
             </mesh>
-            <mesh position={[0, 0.05, 0.27]}>
-              <boxGeometry args={[0.06, 0.015, 0.015]} />
+            <mesh position={[0, 0.05 + faceYOffset, 0.27 * headScale]}>
+              <boxGeometry args={[0.06 * headScale, 0.015 * headScale, 0.015 * headScale]} />
               <meshStandardMaterial color="#4a4a4a" metalness={0.8} roughness={0.2} />
             </mesh>
           </>
         )}
 
         {/* Nose */}
-        <mesh position={[0, -0.05, 0.26]}>
-          <boxGeometry args={[0.08, 0.12, 0.08]} />
+        <mesh position={[0, -0.05 + faceYOffset, 0.26 * headScale]}>
+          <boxGeometry args={[0.08 * headScale, 0.12 * headScale, 0.08 * headScale]} />
           <meshStandardMaterial color={skinColor} roughness={0.6} />
         </mesh>
 
         {/* Mouth - hidden when smiling */}
         {/* Blocky mouth - scale controlled by animation loop in useFrame (mouthRef.current.scale) */}
         {complementary?.mouthState !== 'smile' && complementary?.mouthState !== 'wide_smile' && (
-          <mesh ref={mouthRef} position={[0, -0.18, 0.26]}>
-            <circleGeometry args={[0.07, 20]} />
+          <mesh ref={mouthRef} position={[0, -0.18 + faceYOffset, 0.26 * headScale]}>
+            <circleGeometry args={[0.07 * headScale, 20]} />
             <meshBasicMaterial color="#2a2a2a" />
           </mesh>
         )}
         
         {/* Smile curve - regular smile */}
         {complementary?.mouthState === 'smile' && (
-          <mesh ref={smileMeshRef} position={[0, -0.14, 0.27]} rotation={[0, 0, Math.PI]}>
-            <torusGeometry args={[0.08, 0.015, 8, 16, Math.PI]} />
+          <mesh ref={smileMeshRef} position={[0, -0.14 + faceYOffset, 0.27 * headScale]} rotation={[0, 0, Math.PI]}>
+            <torusGeometry args={[0.08 * headScale, 0.015 * headScale, 8, 16, Math.PI]} />
             <meshBasicMaterial color="#2a2a2a" />
           </mesh>
         )}
         
         {/* Wide smile - half circle (filled) */}
         {complementary?.mouthState === 'wide_smile' && (
-          <mesh ref={smileMeshRef} position={[0, -0.14, 0.27]} rotation={[0, 0, Math.PI]}>
-            <circleGeometry args={[0.1, 16, 0, Math.PI]} />
+          <mesh ref={smileMeshRef} position={[0, -0.14 + faceYOffset, 0.27 * headScale]} rotation={[0, 0, Math.PI]}>
+            <circleGeometry args={[0.1 * headScale, 16, 0, Math.PI]} />
             <meshBasicMaterial color="#2a2a2a" />
           </mesh>
         )}
 
         {/* Anime Face Decorations */}
         {renderFaceDecorations()}
-      </group>
+          </group>
+        );
+      })()}
     </>
   );
 

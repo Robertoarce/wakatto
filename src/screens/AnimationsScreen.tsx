@@ -9,7 +9,6 @@ import {
   LookDirection,
   EyeState,
   EyebrowState,
-  EyebrowStyle,
   MouthState,
   FaceState,
   VisualEffect,
@@ -132,13 +131,6 @@ const EYEBROW_STATES: { value: EyebrowState; label: string; icon: string }[] = [
   { value: 'wiggle', label: 'Wiggle', icon: '😏' },
 ];
 
-// Eyebrow styles (visual appearance)
-const EYEBROW_STYLES: { value: EyebrowStyle; label: string; icon: string }[] = [
-  { value: 'blocky', label: 'Blocky', icon: '🧱' },
-  { value: 'curved', label: 'Curved', icon: '🌙' },
-  { value: 'thick', label: 'Thick', icon: '🏋️' },
-];
-
 // Face states (anime-style decorations)
 const FACE_STATES: { value: FaceState; label: string; icon: string }[] = [
   { value: 'normal', label: 'Normal', icon: '😐' },
@@ -166,7 +158,6 @@ const AnimationsScreen = (): JSX.Element => {
   const [lookDirection, setLookDirection] = useState<LookDirection>('center');
   const [eyeState, setEyeState] = useState<EyeState>('open');
   const [eyebrowState, setEyebrowState] = useState<EyebrowState>('normal');
-  const [eyebrowStyle, setEyebrowStyle] = useState<EyebrowStyle>('blocky');
   const [mouthState, setMouthState] = useState<MouthState>('closed');
   const [faceState, setFaceState] = useState<FaceState>('normal');
   const [effect, setEffect] = useState<VisualEffect>('none');
@@ -188,7 +179,6 @@ const AnimationsScreen = (): JSX.Element => {
     lookDirection: lookDirection !== 'center' ? lookDirection : undefined,
     eyeState: eyeState !== 'open' ? eyeState : undefined,
     eyebrowState: eyebrowState !== 'normal' ? eyebrowState : undefined,
-    eyebrowStyle: eyebrowStyle,
     mouthState: mouthState !== 'closed' ? mouthState : undefined,
     faceState: faceState !== 'normal' ? faceState : undefined,
     effect: effect !== 'none' ? effect : undefined,
@@ -201,7 +191,6 @@ const AnimationsScreen = (): JSX.Element => {
     setLookDirection('center');
     setEyeState('open');
     setEyebrowState('normal');
-    setEyebrowStyle('blocky');
     setMouthState('closed');
     setFaceState('normal');
     setEffect('none');
@@ -569,31 +558,6 @@ const AnimationsScreen = (): JSX.Element => {
                           eyebrowState === brow.value && styles.optionButtonTextActive
                         ]}>
                           {brow.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-
-                {/* Eyebrow Style */}
-                <View style={styles.controlGroup}>
-                  <Text style={styles.controlGroupTitle}>✏️ Eyebrow Style</Text>
-                  <View style={styles.optionGrid}>
-                    {EYEBROW_STYLES.map((style) => (
-                      <TouchableOpacity
-                        key={style.value}
-                        style={[
-                          styles.optionButton,
-                          eyebrowStyle === style.value && styles.optionButtonActive
-                        ]}
-                        onPress={() => setEyebrowStyle(style.value)}
-                      >
-                        <Text style={styles.optionIcon}>{style.icon}</Text>
-                        <Text style={[
-                          styles.optionButtonText,
-                          eyebrowStyle === style.value && styles.optionButtonTextActive
-                        ]}>
-                          {style.label}
                         </Text>
                       </TouchableOpacity>
                     ))}
@@ -1084,6 +1048,11 @@ const styles = StyleSheet.create({
   },
   optionButtonTextActive: {
     color: '#c4b5fd',
+  },
+  optionDescription: {
+    fontSize: 9,
+    color: '#71717a',
+    marginTop: 2,
   },
   colorGrid: {
     flexDirection: 'row',
