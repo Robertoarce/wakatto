@@ -41,7 +41,16 @@ export type AnimationState =
   | 'celebrate'
   | 'peek'
   | 'doze'
-  | 'stretch';
+  | 'stretch'
+  // Idle animations
+  | 'kick_ground'
+  | 'meh'
+  | 'foot_tap'
+  | 'look_around'
+  | 'yawn'
+  | 'fidget'
+  | 'rub_eyes'
+  | 'weight_shift';
 
 // Look direction types
 export type LookDirection = 'center' | 'left' | 'right' | 'up' | 'down' | 'at_left_character' | 'at_right_character';
@@ -435,10 +444,10 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       // Head style calculations for eyebrow positioning
       const headStyleVal = complementary?.headStyle || 'default';
       const headHeights: Record<HeadStyle, number> = {
-        default: 0.5,
-        bigger: 0.6,
-        tall: 0.65,
-        golden: 0.81,
+        default: 0.55,
+        bigger: 0.70,
+        tall: 0.75,
+        golden: 0.91,
       };
       const headH = headHeights[headStyleVal];
       const faceYOffsetAnim = (0.5 - headH) / 2;
@@ -1018,6 +1027,140 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           targetLeftArmRotZ = -0.4 * stretchPhase;
           targetRightArmRotX = -2.5 * stretchPhase;
           targetRightArmRotZ = 0.4 * stretchPhase;
+          break;
+
+        // =========================================
+        // IDLE ANIMATIONS
+        // =========================================
+        case 'kick_ground':
+          // Kick ground - looking down, kicking at something
+          targetHeadRotX = 0.4 + Math.sin(time * 2) * 0.05 + lookXOffset; // Looking down
+          targetHeadRotY = Math.sin(time * 0.5) * 0.1 + lookYOffset;
+          targetMeshY = Math.sin(time * 0.5) * 0.02;
+          // Right leg kicks forward periodically
+          const kickPhase = (Math.sin(time * 2) + 1) / 2;
+          targetRightLegRotX = -kickPhase * 0.6; // Kick forward
+          targetLeftLegRotX = kickPhase * 0.1; // Slight counterbalance
+          // Arms hang loosely
+          targetLeftArmRotZ = -0.15;
+          targetRightArmRotZ = 0.15;
+          targetLeftArmRotX = Math.sin(time * 0.8) * 0.1;
+          targetRightArmRotX = Math.sin(time * 0.8 + Math.PI) * 0.1;
+          break;
+
+        case 'meh':
+          // Meh - bored shrug, disinterested posture
+          targetMeshY = Math.sin(time * 0.3) * 0.01;
+          targetHeadRotX = 0.1 + lookXOffset; // Slightly looking down
+          targetHeadRotY = Math.sin(time * 0.4) * 0.05 + lookYOffset;
+          targetHeadRotZ = 0.1; // Slight head tilt
+          // Droopy shoulders via arms
+          targetLeftArmRotZ = -0.1;
+          targetRightArmRotZ = 0.1;
+          targetLeftArmRotX = 0.1;
+          targetRightArmRotX = 0.1;
+          // Periodic small shrug
+          const mehShrug = Math.sin(time * 0.5) * 0.5 + 0.5;
+          if (mehShrug > 0.8) {
+            targetLeftArmRotZ = -0.3;
+            targetRightArmRotZ = 0.3;
+          }
+          break;
+
+        case 'foot_tap':
+          // Foot tap - impatient tapping with crossed arms
+          targetMeshY = Math.sin(time * 0.5) * 0.01;
+          targetHeadRotX = lookXOffset;
+          targetHeadRotY = Math.sin(time * 0.8) * 0.1 + lookYOffset;
+          // Crossed arms
+          targetLeftArmRotX = -1.5;
+          targetLeftArmRotZ = 0.7;
+          targetRightArmRotX = -1.5;
+          targetRightArmRotZ = -0.7;
+          // Fast foot tapping
+          const tapPhase = Math.sin(time * 8);
+          targetRightLegRotX = tapPhase > 0 ? -0.15 : 0;
+          break;
+
+        case 'look_around':
+          // Look around - curious head movements
+          targetMeshY = Math.sin(time * 0.5) * 0.02;
+          // Slow sweeping look left to right
+          const lookPhase = Math.sin(time * 0.8);
+          targetHeadRotY = lookPhase * 0.5 + lookYOffset;
+          targetHeadRotX = Math.sin(time * 1.2) * 0.15 + lookXOffset;
+          // Slight body turn following head
+          targetMeshRotX = lookPhase * 0.05;
+          // Arms relaxed with slight movement
+          targetLeftArmRotZ = -0.1 + Math.sin(time * 0.5) * 0.05;
+          targetRightArmRotZ = 0.1 + Math.sin(time * 0.5 + Math.PI) * 0.05;
+          break;
+
+        case 'yawn':
+          // Yawn - mouth wide, covering with hand
+          const yawnCycle = (Math.sin(time * 0.6) + 1) / 2; // 0 to 1
+          targetMeshY = yawnCycle * 0.05;
+          targetHeadRotX = -0.2 * yawnCycle + lookXOffset; // Head tilts back during yawn
+          targetHeadRotY = lookYOffset;
+          // Right hand covers mouth during yawn
+          targetRightArmRotX = -1.8 * yawnCycle;
+          targetRightArmRotZ = 0.3 * yawnCycle;
+          // Left arm stretches slightly
+          targetLeftArmRotX = -0.5 * yawnCycle;
+          targetLeftArmRotZ = -0.3 * yawnCycle;
+          // Eyes close during peak yawn
+          if (yawnCycle > 0.6) {
+            targetLeftEyeScaleY = 0.2;
+            targetRightEyeScaleY = 0.2;
+          }
+          break;
+
+        case 'fidget':
+          // Fidget - restless shifting, small random movements
+          targetMeshY = Math.sin(time * 2) * 0.02 + Math.sin(time * 3.7) * 0.01;
+          targetHeadRotX = Math.sin(time * 1.5) * 0.1 + lookXOffset;
+          targetHeadRotY = Math.sin(time * 2.3) * 0.15 + lookYOffset;
+          targetHeadRotZ = Math.sin(time * 1.8) * 0.08;
+          // Arms fidgeting
+          targetLeftArmRotX = Math.sin(time * 2.5) * 0.2;
+          targetLeftArmRotZ = -0.1 + Math.sin(time * 3) * 0.1;
+          targetRightArmRotX = Math.sin(time * 2.5 + 1) * 0.2;
+          targetRightArmRotZ = 0.1 + Math.sin(time * 3 + 1) * 0.1;
+          // Legs shifting
+          targetLeftLegRotX = Math.sin(time * 1.5) * 0.1;
+          targetRightLegRotX = Math.sin(time * 1.5 + Math.PI) * 0.1;
+          break;
+
+        case 'rub_eyes':
+          // Rub eyes - tiredly rubbing eyes with both hands
+          const rubCycle = (Math.sin(time * 1.5) + 1) / 2;
+          targetMeshY = Math.sin(time * 0.5) * 0.01;
+          targetHeadRotX = 0.15 + rubCycle * 0.1 + lookXOffset; // Head slightly down
+          targetHeadRotY = lookYOffset;
+          // Both hands to eyes
+          targetLeftArmRotX = -2.0 - rubCycle * 0.2;
+          targetLeftArmRotZ = -0.3 + Math.sin(time * 4) * 0.1; // Rubbing motion
+          targetRightArmRotX = -2.0 - rubCycle * 0.2;
+          targetRightArmRotZ = 0.3 + Math.sin(time * 4 + Math.PI) * 0.1; // Rubbing motion
+          // Eyes closed while rubbing
+          targetLeftEyeScaleY = 0.1;
+          targetRightEyeScaleY = 0.1;
+          break;
+
+        case 'weight_shift':
+          // Weight shift - shifting weight from foot to foot
+          const shiftPhase = Math.sin(time * 1.2);
+          // Body sways side to side
+          targetMeshY = Math.abs(shiftPhase) * 0.03;
+          targetHeadRotY = shiftPhase * 0.1 + lookYOffset;
+          targetHeadRotX = lookXOffset;
+          targetHeadRotZ = shiftPhase * 0.05;
+          // Legs alternate weight
+          targetLeftLegRotX = shiftPhase > 0 ? 0 : 0.15;
+          targetRightLegRotX = shiftPhase > 0 ? 0.15 : 0;
+          // Arms sway slightly with body
+          targetLeftArmRotZ = -0.1 + shiftPhase * 0.1;
+          targetRightArmRotZ = 0.1 + shiftPhase * 0.1;
           break;
       }
 
@@ -1742,10 +1885,10 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         
         // Head dimensions: [width, height, depth]
         const headDimensions: Record<HeadStyle, [number, number, number]> = {
-          default: [0.5, 0.5, 0.5],
-          bigger: [0.6, 0.6, 0.6],
-          tall: [0.5, 0.65, 0.5],
-          golden: [0.5, 0.81, 0.5], // 0.5 * 1.618 ≈ 0.81
+          default: [0.5, 0.55, 0.5],
+          bigger: [0.6, 0.70, 0.6],
+          tall: [0.5, 0.75, 0.5],
+          golden: [0.5, 0.91, 0.5], // 0.5 * 1.618 ≈ 0.81
         };
         
         const [headW, headH, headD] = headDimensions[headStyle];
@@ -1774,18 +1917,18 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
 
         {/* Hair - Different styles */}
         {hairType === 'short' && (
-          <mesh position={[0, 0.2, 0]} castShadow>
+          <mesh position={[0, 0.25, 0]} castShadow>
             <boxGeometry args={[0.52, 0.15, 0.52]} />
             <meshStandardMaterial color={hairColor} roughness={0.8} />
           </mesh>
         )}
         {hairType === 'medium' && (
           <>
-            <mesh position={[0, 0.2, 0]} castShadow>
+            <mesh position={[0, 0.25, 0]} castShadow>
               <boxGeometry args={[0.52, 0.15, 0.52]} />
               <meshStandardMaterial color={hairColor} roughness={0.8} />
             </mesh>
-            <mesh position={[0, 0.15, -0.28]} castShadow>
+            <mesh position={[0, 0.20, -0.28]} castShadow>
               <boxGeometry args={[0.5, 0.25, 0.08]} />
               <meshStandardMaterial color={hairColor} roughness={0.8} />
             </mesh>
@@ -1793,19 +1936,19 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         )}
         {hairType === 'long' && (
           <>
-            <mesh position={[0, 0.2, 0]} castShadow>
+            <mesh position={[0, 0.25, 0]} castShadow>
               <boxGeometry args={[0.52, 0.15, 0.52]} />
               <meshStandardMaterial color={hairColor} roughness={0.8} />
             </mesh>
-            <mesh position={[-0.3, 0.0, 0]} castShadow>
+            <mesh position={[-0.3, 0.05, 0]} castShadow>
               <boxGeometry args={[0.1, 0.5, 0.3]} />
               <meshStandardMaterial color={hairColor} roughness={0.8} />
             </mesh>
-            <mesh position={[0.3, 0.0, 0]} castShadow>
+            <mesh position={[0.3, 0.05, 0]} castShadow>
               <boxGeometry args={[0.1, 0.5, 0.3]} />
               <meshStandardMaterial color={hairColor} roughness={0.8} />
             </mesh>
-            <mesh position={[0, 0.0, -0.3]} castShadow>
+            <mesh position={[0, 0.05, -0.3]} castShadow>
               <boxGeometry args={[0.5, 0.5, 0.1]} />
               <meshStandardMaterial color={hairColor} roughness={0.8} />
             </mesh>

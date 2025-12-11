@@ -62,6 +62,16 @@ const ALL_ANIMATIONS: { name: AnimationState; description: string; category: str
   { name: 'angry', description: 'Angry tense stance, clenched fists', category: 'Emotional' },
   { name: 'nervous', description: 'Fidgeting nervously, looking around', category: 'Emotional' },
   { name: 'doze', description: 'Sleepy, head drooping, eyes closing', category: 'Emotional' },
+  
+  // Idle animations
+  { name: 'kick_ground', description: 'Kicking at ground, looking down', category: 'Idle' },
+  { name: 'meh', description: 'Bored shrug, disinterested posture', category: 'Idle' },
+  { name: 'foot_tap', description: 'Impatient foot tapping', category: 'Idle' },
+  { name: 'look_around', description: 'Curious looking left and right', category: 'Idle' },
+  { name: 'yawn', description: 'Yawning with mouth wide open', category: 'Idle' },
+  { name: 'fidget', description: 'Restless shifting and small movements', category: 'Idle' },
+  { name: 'rub_eyes', description: 'Tiredly rubbing eyes', category: 'Idle' },
+  { name: 'weight_shift', description: 'Shifting weight foot to foot', category: 'Idle' },
 ];
 
 // Look directions
