@@ -9,7 +9,6 @@ import {
   LookDirection,
   EyeState,
   EyebrowState,
-  EyebrowStyle,
   HeadStyle,
   MouthState,
   FaceState,
@@ -133,6 +132,14 @@ const EYEBROW_STATES: { value: EyebrowState; label: string; icon: string }[] = [
   { value: 'wiggle', label: 'Wiggle', icon: '😏' },
 ];
 
+// Head styles (shape/size)
+const HEAD_STYLES: { value: HeadStyle; label: string; icon: string; description: string }[] = [
+  { value: 'default', label: 'Default', icon: '🟦', description: 'Standard cube' },
+  { value: 'bigger', label: 'Bigger', icon: '🔷', description: 'Scaled up cube' },
+  { value: 'tall', label: 'Tall', icon: '📏', description: 'Taller rectangle' },
+  { value: 'golden', label: 'Golden', icon: '✨', description: 'Golden ratio' },
+];
+
 // Face states (anime-style decorations)
 const FACE_STATES: { value: FaceState; label: string; icon: string }[] = [
   { value: 'normal', label: 'Normal', icon: '😐' },
@@ -160,6 +167,7 @@ const AnimationsScreen = (): JSX.Element => {
   const [lookDirection, setLookDirection] = useState<LookDirection>('center');
   const [eyeState, setEyeState] = useState<EyeState>('open');
   const [eyebrowState, setEyebrowState] = useState<EyebrowState>('normal');
+  const [headStyle, setHeadStyle] = useState<HeadStyle>('default');
   const [mouthState, setMouthState] = useState<MouthState>('closed');
   const [faceState, setFaceState] = useState<FaceState>('normal');
   const [effect, setEffect] = useState<VisualEffect>('none');
@@ -181,6 +189,7 @@ const AnimationsScreen = (): JSX.Element => {
     lookDirection: lookDirection !== 'center' ? lookDirection : undefined,
     eyeState: eyeState !== 'open' ? eyeState : undefined,
     eyebrowState: eyebrowState !== 'normal' ? eyebrowState : undefined,
+    headStyle: headStyle,
     mouthState: mouthState !== 'closed' ? mouthState : undefined,
     faceState: faceState !== 'normal' ? faceState : undefined,
     effect: effect !== 'none' ? effect : undefined,
@@ -193,6 +202,7 @@ const AnimationsScreen = (): JSX.Element => {
     setLookDirection('center');
     setEyeState('open');
     setEyebrowState('normal');
+    setHeadStyle('default');
     setMouthState('closed');
     setFaceState('normal');
     setEffect('none');
@@ -561,6 +571,32 @@ const AnimationsScreen = (): JSX.Element => {
                         ]}>
                           {brow.label}
                         </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Head Style */}
+                <View style={styles.controlGroup}>
+                  <Text style={styles.controlGroupTitle}>🗿 Head Style</Text>
+                  <View style={styles.optionGrid}>
+                    {HEAD_STYLES.map((style) => (
+                      <TouchableOpacity
+                        key={style.value}
+                        style={[
+                          styles.optionButton,
+                          headStyle === style.value && styles.optionButtonActive
+                        ]}
+                        onPress={() => setHeadStyle(style.value)}
+                      >
+                        <Text style={styles.optionIcon}>{style.icon}</Text>
+                        <Text style={[
+                          styles.optionButtonText,
+                          headStyle === style.value && styles.optionButtonTextActive
+                        ]}>
+                          {style.label}
+                        </Text>
+                        <Text style={styles.optionDescription}>{style.description}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>

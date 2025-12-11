@@ -80,9 +80,6 @@ export type VisualEffect = 'none' | 'confetti' | 'spotlight' | 'sparkles' | 'hea
 // 3D Model style types
 export type ModelStyle = 'blocky';
 
-// Eyebrow style types
-export type EyebrowStyle = 'blocky';
-
 // Head style types
 export type HeadStyle = 'default' | 'bigger' | 'tall' | 'golden';
 
@@ -91,7 +88,6 @@ export interface ComplementaryAnimation {
   lookDirection?: LookDirection;
   eyeState?: EyeState;
   eyebrowState?: EyebrowState;
-  eyebrowStyle?: EyebrowStyle; // Visual style of eyebrows (default: 'blocky')
   headStyle?: HeadStyle; // Head shape/size (default: 'default')
   mouthState?: MouthState;
   faceState?: FaceState;
@@ -1091,7 +1087,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
     return () => {
       if (animationId) cancelAnimationFrame(animationId);
     };
-  }, [isActive, animation, isTalking, animSpeed, complementary?.lookDirection, complementary?.eyeState, complementary?.eyebrowState, complementary?.eyebrowStyle, complementary?.headStyle, complementary?.mouthState, onAnimationComplete, positionY]);
+  }, [isActive, animation, isTalking, animSpeed, complementary?.lookDirection, complementary?.eyeState, complementary?.eyebrowState, complementary?.headStyle, complementary?.mouthState, onAnimationComplete, positionY]);
 
   // Get customization from character config
   const customization = character.customization;
