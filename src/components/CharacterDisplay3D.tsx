@@ -808,7 +808,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
 
         case 'lean_back':
           // Leaning back - skeptical/contemplative pose
-          targetMeshRotX = 0.15; // Lean back
+          targetMeshRotX = -0.15; // Lean back (negative X = backward)
           targetMeshY = Math.sin(time * 0.5) * 0.02;
           targetHeadRotX = -0.1; // Head tilted up slightly
           targetHeadRotY = Math.sin(time * 0.8) * 0.1;
@@ -820,7 +820,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
 
         case 'lean_forward':
           // Leaning forward - interested/engaged pose
-          targetMeshRotX = -0.2; // Lean forward
+          targetMeshRotX = 0.2; // Lean forward (positive X = forward)
           targetMeshY = Math.sin(time * 0.8) * 0.02;
           targetHeadRotX = 0.15; // Head tilted forward
           targetHeadRotY = Math.sin(time * 1.2) * 0.08;
@@ -903,7 +903,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         case 'bow':
           // Bowing - respect/gratitude animation
           const bowCycle = (Math.sin(time * 1.5) + 1) / 2; // 0 to 1
-          targetMeshRotX = -bowCycle * 0.5; // Bow forward
+          targetMeshRotX = bowCycle * 0.5; // Bow forward (positive X = forward)
           targetHeadRotX = bowCycle * 0.3; // Head follows bow
           targetLeftArmRotX = bowCycle * 0.3;
           targetLeftArmRotZ = -0.2;
@@ -951,7 +951,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         case 'cry':
           // Cry - hunched over, hands to face
           targetMeshY = Math.sin(time * 2) * 0.03;
-          targetMeshRotX = 0.15; // Hunched forward
+          targetMeshRotX = 0.15; // Hunched forward (positive X = forward)
           targetHeadRotX = 0.3 + Math.sin(time * 3) * 0.05;
           targetHeadRotY = lookYOffset;
           targetLeftArmRotX = -2.0;
@@ -1007,10 +1007,12 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
 
         case 'doze':
           // Doze - sleepy, head drooping
-          const dozeHead = Math.sin(time * 0.3) * 0.1;
-          targetHeadRotX = 0.4 + dozeHead + lookXOffset;
+          // Reduced head tilt to prevent chin clipping into body
+          const dozeHead = Math.sin(time * 0.3) * 0.5;
+          targetHeadRotX = 0.2 + dozeHead + lookXOffset; // Reduced from 0.4 to 0.2
           targetHeadRotY = Math.sin(time * 0.5) * 0.1 + lookYOffset;
           targetMeshY = Math.sin(time * 0.3) * 0.02;
+          targetMeshRotX = 0.1; // Slight body lean forward for natural sleepy posture (positive X = forward)
           targetLeftArmRotZ = -0.1;
           targetRightArmRotZ = 0.1;
           targetLeftEyeScaleY = 0.1; // Eyes mostly closed
