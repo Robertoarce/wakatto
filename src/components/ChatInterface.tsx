@@ -95,7 +95,7 @@ function CharacterNameLabel({ name, color, visible }: { name: string; color: str
   );
 }
 
-// Star Wars style fading line component - memoized for performance
+// Fading line component - older lines fade out progressively
 const FadingLine = React.memo(function FadingLine({ 
   text, 
   opacity, 
@@ -136,7 +136,7 @@ const FadingLine = React.memo(function FadingLine({
         styles.speechBubbleText, 
         { 
           opacity: animatedOpacity,
-          fontSize: fonts.sm,
+          fontSize: fonts.md, // Use medium font for better readability
         }
       ]}
     >
@@ -146,7 +146,7 @@ const FadingLine = React.memo(function FadingLine({
   );
 });
 
-// Character speech bubble component with Star Wars-style fading lines
+// Character speech bubble component with fading lines (older text fades out)
 function CharacterSpeechBubble({ 
   text, 
   characterName,
@@ -275,13 +275,13 @@ function CharacterSpeechBubble({
   const allLines = wrapText(fullText);
   
   // Show only the last 5 lines with fading effect
-  const maxVisibleLines = 4;
+  const maxVisibleLines = 7;
   const visibleLines = allLines.slice(-maxVisibleLines);
   const totalLines = allLines.length;
   const startIndex = Math.max(0, totalLines - maxVisibleLines);
   
-  // Calculate opacity for each line (Star Wars style: top lines fade out)
-  // Bottom line (newest) = full opacity, top lines fade progressively
+  // Calculate opacity for each line - older lines fade out
+  // Bottom line (newest) = full opacity, top lines (older) fade progressively
   const getLineOpacity = (lineIndex: number): number => {
     const totalVisible = visibleLines.length;
     if (totalVisible <= 1) return 1;
@@ -388,7 +388,7 @@ function CharacterSpeechBubble({
       )}
       <Text style={[styles.speechBubbleName, { color: characterColor, fontSize: fonts.lg }]}>{characterName}</Text>
       
-      {/* Star Wars style fading lines */}
+      {/* Fading lines - older text fades out */}
       <View style={styles.speechBubbleLinesContainer}>
         {visibleLines.map((line, index) => (
           <FadingLine
@@ -630,16 +630,16 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   
   // Bubble sizing - scales with screen, generous width for readability
   const bubbleMaxWidth = useMemo(() => {
-    // Base width: 40% on mobile, 30% on desktop (generous for text readability)
-    const baseWidth = isMobile ? screenWidth * 0.45 : screenWidth * 0.3;
-    // Only slightly reduce for more characters (min 180px for readability)
-    const minWidth = 180;
-    const scaledWidth = Math.max(minWidth, baseWidth - (characterCount - 1) * 20);
-    return Math.min(scaledWidth, 350); // Cap at 350px
+    // Base width: 55% on mobile, 40% on desktop (generous for text readability)
+    const baseWidth = isMobile ? screenWidth * 0.55 : screenWidth * 0.4;
+    // Only slightly reduce for more characters (min 220px for readability)
+    const minWidth = 220;
+    const scaledWidth = Math.max(minWidth, baseWidth - (characterCount - 1) * 15);
+    return Math.min(scaledWidth, 420); // Cap at 420px
   }, [isMobile, screenWidth, characterCount]);
   
   const bubbleMaxHeight = useMemo(() => {
-    return Math.floor(screenHeight * 0.2); // Max 20% of screen height for better text visibility
+    return Math.floor(screenHeight * 0.5); // Max 35% of screen height for better text visibility
   }, [screenHeight]);
   
   // Character scale - smaller when more characters to leave room for bubbles
@@ -655,8 +655,9 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   // Calculate bubble vertical stagger to prevent overlap
   const getBubbleTopOffset = useCallback((index: number) => {
     // Each bubble staggers higher based on index, scaled by character count
-    const baseOffset = -60;
-    const staggerAmount = isMobile ? 20 : 25;
+    // Position much higher above character (-140 base offset)
+    const baseOffset = isMobile ? -120 : -140;
+    const staggerAmount = isMobile ? 25 : 30;
     return baseOffset - (index * staggerAmount / Math.max(1, characterCount * 0.5));
   }, [isMobile, characterCount]);
 
@@ -865,6 +866,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const userHasSelectedCharacters = useRef(false);
   const previousMessagesRef = useRef(messages);
   const hasRestoredInitialCharacters = useRef(false);
+  const hasTriggeredGreeting = useRef(false); // Prevent duplicate greetings
 
   useEffect(() => {
     // Detect conversation change: first message ID changed or message array replaced
@@ -930,8 +932,9 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
           const randomChar = availableCharacters[randomIndex];
           setSelectedCharacters([randomChar.id]);
           
-          // Trigger greeting for new/empty conversation
-          if (onGreeting && messages.length === 0) {
+          // Trigger greeting for new/empty conversation (only once)
+          if (onGreeting && messages.length === 0 && !hasTriggeredGreeting.current) {
+            hasTriggeredGreeting.current = true;
             setTimeout(() => {
               const greeting = getRandomGreeting(randomChar.id, randomChar.name);
               console.log('[ChatInterface] Triggering greeting from:', randomChar.name);
@@ -946,9 +949,10 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       }
     }
 
-    // Reset the initial restore flag when conversation changes
+    // Reset flags when conversation changes
     if (conversationChanged) {
       hasRestoredInitialCharacters.current = false;
+      hasTriggeredGreeting.current = false; // Allow new greeting for new conversation
     }
 
     // Update previous messages reference
@@ -971,7 +975,9 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       setShowEntranceAnimation(true);
       
       // Trigger greeting from the random character (after a short delay for entrance animation)
-      if (onGreeting) {
+      // Only trigger if greeting hasn't been triggered yet
+      if (onGreeting && !hasTriggeredGreeting.current) {
+        hasTriggeredGreeting.current = true;
         setTimeout(() => {
           const greeting = getRandomGreeting(randomChar.id, randomChar.name);
           console.log('[ChatInterface] Triggering greeting from:', randomChar.name);
@@ -1677,7 +1683,7 @@ Each silence, a cathedral where you still reside.`;
           </Text>
         </TouchableOpacity>
 
-        {/* Test Speech Button */}
+        {/* Tell me a Poem Button */}
         <TouchableOpacity
           style={styles.testSpeechButton}
           onPress={handleTestSpeech}
@@ -1689,7 +1695,7 @@ Each silence, a cathedral where you still reside.`;
             color={playbackState.isPlaying ? "#ef4444" : "#22c55e"} 
           />
           <Text style={[styles.testSpeechText, playbackState.isPlaying && styles.testSpeechTextActive, { fontSize: fonts.sm }]}>
-            {playbackState.isPlaying ? 'Playing...' : 'Test Speech'}
+            {playbackState.isPlaying ? 'Playing...' : 'Tell me a Poem'}
           </Text>
         </TouchableOpacity>
 
@@ -2742,12 +2748,12 @@ const styles = StyleSheet.create({
   speechBubble: {
     position: 'absolute',
     top: 10,
-    maxWidth: 350, // Base max, can be overridden by dynamic prop
-    minWidth: 150, // Minimum for text readability
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    maxWidth: 420, // Base max, can be overridden by dynamic prop
+    minWidth: 200, // Minimum for text readability
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     backgroundColor: 'rgba(23, 23, 23, 0.98)',
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -2758,17 +2764,17 @@ const styles = StyleSheet.create({
   },
   speechBubbleLeft: {
     right: 70,
-    top: -60,
+    top: -140,
     transform: [{ translateX: 30 }], // moves bubble to the left
   },
   speechBubbleRight: {
     left: 80,
-    top: -60,
+    top: -140,
     transform: [{ translateX: -30 }], // moves bubble to the right
   },
   speechBubbleSingle: {
     // For single character - position bubble above and centered
-    top: -60,
+    top: -140, // Position higher above character
     // left: '40%',
     // transform: [{ translateX: -200 }], // Center a ~200px bubble
   },
@@ -2842,11 +2848,10 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   speechBubbleText: {
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Poppins-Regular',
     color: '#e5e5e5',
-    lineHeight: 14,
-    marginBottom: 20,
-    marginHorizontal: 10,
+    lineHeight: 22, // Consistent line height for readability
+    marginBottom: 2,
   },
   speechBubbleLinesContainer: {
     overflow: 'hidden',

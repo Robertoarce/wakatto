@@ -169,7 +169,7 @@ const VALID_EFFECTS: VisualEffect[] = [
 // Timing constraints
 const MIN_SEGMENT_DURATION = 300; // ms
 const MAX_SEGMENT_DURATION = 10000; // ms
-export const DEFAULT_TALKING_SPEED = 100; // ms per character of text
+export const DEFAULT_TALKING_SPEED = 65; // ms per character of text
 const DEFAULT_THINKING_DURATION = 1500; // ms 
 
 // ============================================

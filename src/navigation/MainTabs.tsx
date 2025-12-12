@@ -427,6 +427,12 @@ export default function MainTabs() {
         profiler.logSession(session);
         console.log('[Profiling] Session summary:', session.summary);
       }
+      
+      // Reload conversations to update character count in sidebar
+      // Small delay to ensure background message saves complete
+      setTimeout(() => {
+        dispatch(loadConversations() as any);
+      }, 500);
     }
   };
 
@@ -438,7 +444,10 @@ export default function MainTabs() {
       // Create conversation if needed
       let conversation = currentConversation;
       if (!conversation) {
-        conversation = await dispatch(createConversation('New Conversation') as any);
+        // Get character name for the conversation title
+        const character = getCharacter(characterId);
+        const title = `Chat with ${character.name}`;
+        conversation = await dispatch(createConversation(title) as any);
       }
       
       if (conversation) {
@@ -451,6 +460,9 @@ export default function MainTabs() {
         ) as any);
         
         console.log('[MainTabs] Greeting saved successfully');
+        
+        // Reload conversations to update character count in sidebar
+        await dispatch(loadConversations() as any);
       }
     } catch (error: any) {
       console.error('[MainTabs] Failed to save greeting:', error);
