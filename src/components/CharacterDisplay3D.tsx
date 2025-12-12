@@ -50,7 +50,10 @@ export type AnimationState =
   | 'yawn'
   | 'fidget'
   | 'rub_eyes'
-  | 'weight_shift';
+  | 'weight_shift'
+  // Processing/thinking animations
+  | 'head_tilt'
+  | 'chin_stroke';
 
 // Look direction types
 export type LookDirection = 'center' | 'left' | 'right' | 'up' | 'down' | 'at_left_character' | 'at_right_character';
@@ -1163,6 +1166,37 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           // Arms sway slightly with body
           targetLeftArmRotZ = -0.1 + shiftPhase * 0.1;
           targetRightArmRotZ = 0.1 + shiftPhase * 0.1;
+          break;
+
+        // =========================================
+        // PROCESSING/THINKING ANIMATIONS
+        // =========================================
+        case 'head_tilt':
+          // Head tilt - curious/contemplative head tilt to the side
+          const tiltPhase = (Math.sin(time * 0.8) + 1) / 2; // 0 to 1
+          targetMeshY = Math.sin(time * 0.5) * 0.02;
+          targetHeadRotZ = 0.25 + Math.sin(time * 0.6) * 0.05; // Tilted to side
+          targetHeadRotY = Math.sin(time * 0.4) * 0.1 + lookYOffset;
+          targetHeadRotX = lookXOffset;
+          // Slight eyebrow raise effect via subtle movements
+          targetLeftArmRotZ = -0.1;
+          targetRightArmRotZ = 0.1;
+          // Occasional small movement
+          targetLeftArmRotX = Math.sin(time * 0.5) * 0.05;
+          break;
+
+        case 'chin_stroke':
+          // Chin stroke - thoughtful pose with hand on chin
+          targetMeshY = Math.sin(time * 0.4) * 0.02;
+          targetHeadRotX = 0.1 + Math.sin(time * 0.5) * 0.03 + lookXOffset; // Slightly down
+          targetHeadRotY = -0.15 + Math.sin(time * 0.3) * 0.05 + lookYOffset; // Slight turn
+          targetHeadRotZ = Math.sin(time * 0.4) * 0.05;
+          // Right hand to chin
+          targetRightArmRotX = -1.8 + Math.sin(time * 2) * 0.05; // Hand near chin with subtle movement
+          targetRightArmRotZ = 0.4;
+          // Left arm relaxed
+          targetLeftArmRotZ = -0.15;
+          targetLeftArmRotX = 0.1;
           break;
       }
 

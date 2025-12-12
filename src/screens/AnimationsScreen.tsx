@@ -72,6 +72,10 @@ const ALL_ANIMATIONS: { name: AnimationState; description: string; category: str
   { name: 'fidget', description: 'Restless shifting and small movements', category: 'Idle' },
   { name: 'rub_eyes', description: 'Tiredly rubbing eyes', category: 'Idle' },
   { name: 'weight_shift', description: 'Shifting weight foot to foot', category: 'Idle' },
+  
+  // Processing/thinking animations
+  { name: 'head_tilt', description: 'Curious head tilt to the side', category: 'Processing' },
+  { name: 'chin_stroke', description: 'Thoughtfully stroking chin', category: 'Processing' },
 ];
 
 // Look directions

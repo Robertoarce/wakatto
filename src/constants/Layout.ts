@@ -48,7 +48,7 @@ export function calculateFonts(width: number): ResponsiveFonts {
     : 1.1;
   
   return {
-    xs: Math.round(10 * scale),     // 9-11px
+    xs: Math.round(11 * scale),     // 9-11px
     sm: Math.round(12 * scale),     // 10-13px
     md: Math.round(14 * scale),     // 12-15px
     lg: Math.round(16 * scale),     // 14-18px

@@ -11,7 +11,8 @@ import { transcribeAudio, isWebSpeechSupported } from '../services/speechToText'
 import { LiveSpeechRecognition, LiveTranscriptionResult } from '../services/speechToTextLive';
 import { detectBrowser, getBrowserGuidance, isVoiceSupported } from '../utils/browserDetection';
 import { getPlaybackEngine, PlaybackState, PlaybackStatus } from '../services/animationPlaybackEngine';
-import { CharacterAnimationState, OrchestrationScene, CharacterTimeline, AnimationSegment } from '../services/animationOrchestration';
+import { CharacterAnimationState, OrchestrationScene, CharacterTimeline, AnimationSegment, DEFAULT_TALKING_SPEED } from '../services/animationOrchestration';
+import { generateProcessingScene } from '../services/processingAnimations';
 import { useResponsive, BREAKPOINTS } from '../constants/Layout';
 
 interface Message {
@@ -132,7 +133,7 @@ const FadingLine = React.memo(function FadingLine({
         styles.speechBubbleText, 
         { 
           opacity: animatedOpacity,
-          fontSize: fonts.xs,
+          fontSize: fonts.sm,
         }
       ]}
     >
@@ -592,38 +593,26 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   }, []);
 
   // Start early "thinking" animation while streaming (before full scene is ready)
+  // Uses varied processing animations for ALL selected characters
   useEffect(() => {
     if (earlyAnimationSetup?.canStartThinkingAnimation && !animationScene) {
-      console.log('[ChatInterface] Starting early thinking animation for:', earlyAnimationSetup.detectedCharacters);
+      // Use all selected characters, not just detected ones from early setup
+      const charactersToAnimate = selectedCharacters.length > 0 
+        ? selectedCharacters 
+        : earlyAnimationSetup.detectedCharacters;
       
-      // Create a simple "thinking" scene for detected characters
-      const thinkingScene: OrchestrationScene = {
-        sceneDuration: earlyAnimationSetup.estimatedDuration || 10000, // Long duration, will be replaced
-        timelines: earlyAnimationSetup.detectedCharacters.map((charId, index) => ({
-          characterId: charId,
-          content: '', // No text yet
-          startDelay: index * 200, // Stagger slightly
-          segments: [
-            {
-              animation: 'thinking',
-              duration: 2000,
-              look: 'up',
-              eyes: 'open',
-              mouth: 'closed'
-            },
-            {
-              animation: 'idle',
-              duration: 1000,
-              look: 'at_user'
-            }
-          ]
-        })),
-        nonSpeakerBehavior: {}
-      };
+      console.log('[ChatInterface] Starting varied processing animations for:', charactersToAnimate);
+      
+      // Generate varied processing animations for all characters
+      const estimatedDuration = earlyAnimationSetup.estimatedDuration || 15000;
+      const thinkingScene = generateProcessingScene(
+        charactersToAnimate,
+        estimatedDuration
+      ) as OrchestrationScene;
       
       playbackEngineRef.current.play(thinkingScene);
     }
-  }, [earlyAnimationSetup, animationScene]);
+  }, [earlyAnimationSetup, animationScene, selectedCharacters]);
 
   // Start animation playback when a new scene is provided
   useEffect(() => {
@@ -1303,16 +1292,15 @@ The beauty of the meaning of life, in my view, is that it's deeply personal and 
 
 Would you like to discuss your perspective on this?`;
 
-    // Calculate text reveal timing - approximately 50ms per character
-    const charsPerSecond = 20;
-    const msPerChar = 1000 / charsPerSecond;
+    // Calculate text reveal timing using the shared DEFAULT_TALKING_SPEED constant
+    const msPerChar = DEFAULT_TALKING_SPEED;
     const textDuration = testText.length * msPerChar;
 
     // Create timelines for each selected character
     const timelines: CharacterTimeline[] = selectedCharacters.map((characterId, index) => {
       // Random start delay between 0 and 3 seconds, staggered
       const baseDelay = index * 500; // 500ms stagger between characters
-      const randomDelay = Math.random() * 2000; // Plus 0-2s random
+      const randomDelay = Math.random() * 500; // Plus 0-0.5s random
       const startDelay = baseDelay + randomDelay;
 
       // Create segments for speaking animation
@@ -2429,7 +2417,7 @@ const styles = StyleSheet.create({
   speechBubble: {
     position: 'absolute',
     top: 10,
-    maxWidth: 180,
+    maxWidth: 280,
     minWidth: 80,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -2530,6 +2518,8 @@ const styles = StyleSheet.create({
     fontFamily: 'SpaceMono-Regular',
     color: '#e5e5e5',
     lineHeight: 14,
+    marginBottom: 20,
+    marginHorizontal: 10,
   },
   speechBubbleLinesContainer: {
     overflow: 'hidden',

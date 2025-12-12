@@ -47,6 +47,15 @@ export const LLM_CONFIG: Record<string, ProviderConfig> = {
       topK: 40,
     },
   },
+  anthropic_fast: {
+    defaultModel: 'claude-3-haiku-20240307', // 3x faster than Sonnet
+    parameters: {
+      temperature: 0.8,
+      maxTokens: 800, // Shorter for speed
+      topP: 0.95,
+      topK: 40,
+    },
+  },
   gemini: {
     defaultModel: 'gemini-1.5-pro',
     parameters: {

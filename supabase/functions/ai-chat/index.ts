@@ -63,13 +63,16 @@ serve(async (req) => {
     }
 
     // Handle streaming vs non-streaming
-    if (stream && provider === 'anthropic') {
+    // Support both 'anthropic' and 'anthropic_fast' providers
+    const isAnthropic = provider === 'anthropic' || provider === 'anthropic_fast'
+    
+    if (stream && isAnthropic) {
       return await streamAnthropic(messages, model || 'claude-3-haiku-20240307', CLAUDE_API_KEY, parameters, corsHeaders, enablePromptCache)
     }
 
     // Non-streaming response
     let response
-    if (provider === 'anthropic') {
+    if (isAnthropic) {
       response = await callAnthropic(messages, model || 'claude-3-haiku-20240307', CLAUDE_API_KEY, parameters, enablePromptCache)
     } else if (provider === 'openai') {
       const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
