@@ -430,6 +430,33 @@ export default function MainTabs() {
     }
   };
 
+  // Handle character greeting for new conversations
+  const handleGreeting = async (characterId: string, greetingMessage: string) => {
+    console.log('[MainTabs] handleGreeting called for character:', characterId);
+    
+    try {
+      // Create conversation if needed
+      let conversation = currentConversation;
+      if (!conversation) {
+        conversation = await dispatch(createConversation('New Conversation') as any);
+      }
+      
+      if (conversation) {
+        // Save the greeting as an assistant message with the character ID
+        await dispatch(saveMessage(
+          conversation.id, 
+          'assistant', 
+          greetingMessage, 
+          characterId
+        ) as any);
+        
+        console.log('[MainTabs] Greeting saved successfully');
+      }
+    } catch (error: any) {
+      console.error('[MainTabs] Failed to save greeting:', error);
+    }
+  };
+
   return (
     <View style={styles.fullContainer}>
       <AlertComponent />
@@ -489,6 +516,7 @@ export default function MainTabs() {
                 onDeleteMessage={onDeleteMessage}
                 animationScene={animationScene}
                 earlyAnimationSetup={earlyAnimationSetup}
+                onGreeting={handleGreeting}
               />
             )}
           </Tab.Screen>

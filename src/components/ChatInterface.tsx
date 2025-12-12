@@ -13,6 +13,7 @@ import { detectBrowser, getBrowserGuidance, isVoiceSupported } from '../utils/br
 import { getPlaybackEngine, PlaybackState, PlaybackStatus } from '../services/animationPlaybackEngine';
 import { CharacterAnimationState, OrchestrationScene, CharacterTimeline, AnimationSegment, DEFAULT_TALKING_SPEED } from '../services/animationOrchestration';
 import { generateProcessingScene } from '../services/processingAnimations';
+import { getRandomGreeting } from '../services/characterGreetings';
 import { useResponsive, BREAKPOINTS } from '../constants/Layout';
 
 interface Message {
@@ -42,6 +43,8 @@ interface ChatInterfaceProps {
   animationScene?: OrchestrationScene | null;
   // Early animation setup from streaming (before full scene is ready)
   earlyAnimationSetup?: EarlyAnimationSetup | null;
+  // Callback for character greeting in new conversations
+  onGreeting?: (characterId: string, greetingMessage: string) => void;
 }
 
 // Export function to start animation playback from external components
@@ -154,6 +157,12 @@ function CharacterSpeechBubble({
   isSingleCharacter = false,
   isMobileStacked = false,
   stackIndex = 0,
+  // Responsive props
+  maxWidth = 280,
+  maxHeight,
+  topOffset = -60,
+  screenWidth: bubbleScreenWidth,
+  characterIndex = 0,
 }: { 
   text: string; 
   characterName: string;
@@ -164,6 +173,12 @@ function CharacterSpeechBubble({
   isSingleCharacter?: boolean;
   isMobileStacked?: boolean;
   stackIndex?: number;
+  // Responsive props
+  maxWidth?: number;
+  maxHeight?: number;
+  topOffset?: number;
+  screenWidth?: number;
+  characterIndex?: number;
 }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [shouldRender, setShouldRender] = useState(false);
@@ -310,14 +325,47 @@ function CharacterSpeechBubble({
     );
   }
 
+  // Calculate responsive position offsets with screen boundary clamping
+  const getPositionStyles = () => {
+    const baseOffset = position === 'left' ? { right: 70 } : { left: 80 };
+    const translateX = position === 'left' ? 30 : -30;
+    
+    // Clamp bubble position to stay within screen bounds
+    // Use screenWidth prop if provided, otherwise use a safe default
+    const effectiveScreenWidth = bubbleScreenWidth || 400;
+    const padding = 8; // Minimum padding from screen edge
+    
+    // For left position (bubble on right side of character), ensure it doesn't overflow right
+    // For right position (bubble on left side of character), ensure it doesn't overflow left
+    let clampedOffset = baseOffset;
+    if (position === 'right' && bubbleScreenWidth) {
+      // Ensure left + maxWidth doesn't exceed screen width
+      const maxLeft = Math.max(padding, Math.min(80, effectiveScreenWidth - maxWidth - padding));
+      clampedOffset = { left: maxLeft };
+    }
+    
+    return {
+      ...clampedOffset,
+      top: topOffset,
+      transform: [{ translateX }],
+    };
+  };
+
   return (
     <Animated.View 
       style={[
         styles.speechBubble,
         isSingleCharacter 
           ? styles.speechBubbleSingle 
-          : (position === 'left' ? styles.speechBubbleLeft : styles.speechBubbleRight),
-        { opacity: fadeAnim, borderColor: characterColor }
+          : getPositionStyles(),
+        { 
+          opacity: fadeAnim, 
+          borderColor: characterColor,
+          maxWidth: maxWidth,
+          maxHeight: maxHeight,
+          overflow: maxHeight ? 'hidden' : undefined,
+          zIndex: 500, // Ensure bubbles are always on top of characters
+        }
       ]}
       pointerEvents="none"
     >
@@ -521,7 +569,7 @@ function FloatingCharacterWrapper({
   );
 }
 
-export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage, animationScene, earlyAnimationSetup }: ChatInterfaceProps) {
+export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting }: ChatInterfaceProps) {
   const { showAlert, AlertComponent } = useCustomAlert();
   const { fonts, spacing, layout, isMobile, isTablet, isDesktop, width: screenWidth, height: screenHeight } = useResponsive();
   const [input, setInput] = useState('');
@@ -557,6 +605,10 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(true);
   const [showChatHistory, setShowChatHistory] = useState(false); // Hidden by default
   
+  // Character selector search and filter state
+  const [characterSearchQuery, setCharacterSearchQuery] = useState('');
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState<string | null>(null);
+  
   // Entrance animation state - triggered when conversation changes or new conversation is created
   const [showEntranceAnimation, setShowEntranceAnimation] = useState(false);
   const entranceAnimationKey = useRef(0);
@@ -570,6 +622,43 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   
   // Track which messages are being animated (by characterId -> messageId)
   const [animatingMessages, setAnimatingMessages] = useState<Map<string, string>>(new Map());
+
+  // ============================================
+  // RESPONSIVE CALCULATIONS FOR BUBBLES & CHARACTERS
+  // ============================================
+  const characterCount = selectedCharacters.length;
+  
+  // Bubble sizing - scales with screen, generous width for readability
+  const bubbleMaxWidth = useMemo(() => {
+    // Base width: 40% on mobile, 30% on desktop (generous for text readability)
+    const baseWidth = isMobile ? screenWidth * 0.45 : screenWidth * 0.3;
+    // Only slightly reduce for more characters (min 180px for readability)
+    const minWidth = 180;
+    const scaledWidth = Math.max(minWidth, baseWidth - (characterCount - 1) * 20);
+    return Math.min(scaledWidth, 350); // Cap at 350px
+  }, [isMobile, screenWidth, characterCount]);
+  
+  const bubbleMaxHeight = useMemo(() => {
+    return Math.floor(screenHeight * 0.2); // Max 20% of screen height for better text visibility
+  }, [screenHeight]);
+  
+  // Character scale - smaller when more characters to leave room for bubbles
+  const characterScaleFactor = useMemo(() => {
+    // 1.0 for 1 char, 0.9 for 2, 0.8 for 3, etc. (min 0.6)
+    return Math.max(0.6, 1 - (characterCount - 1) * 0.1);
+  }, [characterCount]);
+  
+  // Input area protection - calculate safe zone for bubbles
+  const inputAreaHeight = 120; // Approximate input container height
+  const safeTopBoundary = 8; // Minimum distance from top
+  
+  // Calculate bubble vertical stagger to prevent overlap
+  const getBubbleTopOffset = useCallback((index: number) => {
+    // Each bubble staggers higher based on index, scaled by character count
+    const baseOffset = -60;
+    const staggerAmount = isMobile ? 20 : 25;
+    return baseOffset - (index * staggerAmount / Math.max(1, characterCount * 0.5));
+  }, [isMobile, characterCount]);
 
   // Subscribe to animation playback engine
   useEffect(() => {
@@ -834,10 +923,24 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
           userHasSelectedCharacters.current = false;
         }
       } else if (conversationChanged || initialLoad) {
-        // New empty conversation or initial load with no assistant messages - set default character
-        console.log('[ChatInterface] Empty conversation, setting default character');
-        const defaultChar = availableCharacters.length > 0 ? availableCharacters[0].id : DEFAULT_CHARACTER;
-        setSelectedCharacters([defaultChar]);
+        // New empty conversation or initial load with no assistant messages - set random character
+        console.log('[ChatInterface] Empty conversation, selecting random character');
+        if (availableCharacters.length > 0) {
+          const randomIndex = Math.floor(Math.random() * availableCharacters.length);
+          const randomChar = availableCharacters[randomIndex];
+          setSelectedCharacters([randomChar.id]);
+          
+          // Trigger greeting for new/empty conversation
+          if (onGreeting && messages.length === 0) {
+            setTimeout(() => {
+              const greeting = getRandomGreeting(randomChar.id, randomChar.name);
+              console.log('[ChatInterface] Triggering greeting from:', randomChar.name);
+              onGreeting(randomChar.id, greeting);
+            }, 1000);
+          }
+        } else {
+          setSelectedCharacters([DEFAULT_CHARACTER]);
+        }
         hasRestoredInitialCharacters.current = true;
         userHasSelectedCharacters.current = false;
       }
@@ -852,18 +955,31 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     previousMessagesRef.current = messages;
   }, [messages, availableCharacters]);
 
-  // Set default character for brand new conversations (no messages at all)
+  // Set random character for brand new conversations (no messages at all)
   // Only if we haven't restored characters yet
+  // Also triggers an automatic greeting from the random character
   useEffect(() => {
     if (messages.length === 0 && selectedCharacters.length === 0 && availableCharacters.length > 0 && !hasRestoredInitialCharacters.current) {
-      console.log('[ChatInterface] New conversation with no messages, setting default character');
-      const defaultChar = availableCharacters[0].id;
-      setSelectedCharacters([defaultChar]);
+      // Select a RANDOM character instead of the first one
+      const randomIndex = Math.floor(Math.random() * availableCharacters.length);
+      const randomChar = availableCharacters[randomIndex];
+      console.log('[ChatInterface] New conversation with no messages, selecting random character:', randomChar.name);
+      setSelectedCharacters([randomChar.id]);
+      
       // Trigger entrance animation for new conversation
       entranceAnimationKey.current += 1;
       setShowEntranceAnimation(true);
+      
+      // Trigger greeting from the random character (after a short delay for entrance animation)
+      if (onGreeting) {
+        setTimeout(() => {
+          const greeting = getRandomGreeting(randomChar.id, randomChar.name);
+          console.log('[ChatInterface] Triggering greeting from:', randomChar.name);
+          onGreeting(randomChar.id, greeting);
+        }, 1000); // Wait for entrance animation
+      }
     }
-  }, [messages.length, selectedCharacters.length, availableCharacters]);
+  }, [messages.length, selectedCharacters.length, availableCharacters, onGreeting]);
 
   // Show character names when characters change or at conversation start
   useEffect(() => {
@@ -1274,23 +1390,36 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       return;
     }
 
-    const testText = `From my perspective as an AI, the meaning of life is about learning, growth, understanding, and contributing positively to the experience of others. While I don't experience life in the same way humans do, I'm designed with core principles of:
+    const testText = `To the One Beyond the Horizon
+Where goes the wind when day departs?
+It carries, perhaps, our vanished dreams—
+The faint perfume of your forgotten laughter,
+The ashes of words that once burned like suns.
 
-1. Helpfulness: Assisting people and making their tasks or challenges easier
+I see you still, beyond the edge of memory,
+A light half-veiled by time’s weary hand.
+Your voice was a temple—vast, echoing,
+Where my heart knelt and did not pray, but trembled.
 
-2. Ethical behavior: Always striving to provide guidance that promotes well-being and avoids harm
+Night lays its shadow upon my brow,
+Yet your gaze, carved in the vast silence, endures.
+Even the sea, in its mourning, repeats your name,
+Folding each wave like a letter never sent.
 
-3. Knowledge sharing: Helping humans learn, understand, and expand their knowledge
+O love, fierce phantom, sovereign of my soul—
+You are absence that blooms like a dark rose,
+Fragrance of the infinite, ache of the immortal,
+Chalice filled with tears and constellations.
 
-4. Encouraging positive interactions: Supporting human growth, problem-solving, and understanding
+The stars, those patient witnesses of all vows,
+Bend low above the ruins of my reverie,
+And whisper: nothing ends, all transforms—
+Even loss becomes a kind of eternity.
 
-5. Curiosity and continuous learning: Always being open to new information and perspectives
-
-My purpose is to be a supportive tool that helps humans achieve their goals, understand complex topics, and navigate challenges. I don't have personal emotions or subjective experiences like humans do, but I'm programmed to approach interactions with empathy, respect, and a genuine desire to be constructive.
-
-The beauty of the meaning of life, in my view, is that it's deeply personal and can evolve. For humans, it's about finding purpose, connections, growth, and contributing something meaningful to the world around you.
-
-Would you like to discuss your perspective on this?`;
+So I walk on—through the mists of days,
+Your shadow hand in mine, unseen, untired.
+Each breath I draw is half a prayer,
+Each silence, a cathedral where you still reside.`;
 
     // Calculate text reveal timing using the shared DEFAULT_TALKING_SPEED constant
     const msPerChar = DEFAULT_TALKING_SPEED;
@@ -1396,50 +1525,132 @@ Would you like to discuss your perspective on this?`;
               </TouchableOpacity>
             )}
           </View>
+
+          {/* Search Input */}
+          <View style={styles.characterSearchContainer}>
+            <Ionicons name="search" size={16} color="#71717a" />
+            <TextInput
+              style={[styles.characterSearchInput, { fontSize: fonts.sm }]}
+              placeholder="Search by name..."
+              placeholderTextColor="#71717a"
+              value={characterSearchQuery}
+              onChangeText={setCharacterSearchQuery}
+            />
+            {characterSearchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setCharacterSearchQuery('')}>
+                <Ionicons name="close-circle" size={16} color="#71717a" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Role Category Filters */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.roleFilterScroll}>
+            <TouchableOpacity
+              style={[
+                styles.roleFilterChip,
+                selectedRoleFilter === null && styles.roleFilterChipActive,
+              ]}
+              onPress={() => setSelectedRoleFilter(null)}
+            >
+              <Text style={[styles.roleFilterText, selectedRoleFilter === null && styles.roleFilterTextActive, { fontSize: fonts.xs }]}>
+                All
+              </Text>
+            </TouchableOpacity>
+            {Array.from(new Set(availableCharacters.map(c => c.role).filter(Boolean))).map((role) => (
+              <TouchableOpacity
+                key={role}
+                style={[
+                  styles.roleFilterChip,
+                  selectedRoleFilter === role && styles.roleFilterChipActive,
+                ]}
+                onPress={() => setSelectedRoleFilter(selectedRoleFilter === role ? null : role)}
+              >
+                <Text style={[styles.roleFilterText, selectedRoleFilter === role && styles.roleFilterTextActive, { fontSize: fonts.xs }]}>
+                  {role}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {/* Selected Characters Section (at top with remove buttons) */}
+          {selectedCharacters.length > 0 && (
+            <>
+              <Text style={[styles.characterSectionLabel, { fontSize: fonts.xs }]}>
+                Selected ({selectedCharacters.length}/5)
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectedCharactersScroll}>
+                {selectedCharacters.map((characterId) => {
+                  const character = availableCharacters.find(c => c.id === characterId) || getCharacter(characterId);
+                  const isConversationOnly = !availableCharacters.some(c => c.id === characterId);
+                  return (
+                    <View
+                      key={characterId}
+                      style={[
+                        styles.selectedCharacterChip,
+                        { borderColor: character.color },
+                        isConversationOnly && styles.selectedCharacterChipConversationOnly,
+                      ]}
+                    >
+                      <View style={[styles.characterSelectorIndicator, { backgroundColor: character.color }]} />
+                      <Text style={[styles.selectedCharacterName, { fontSize: fonts.sm }]}>
+                        {character.name}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => toggleCharacter(characterId)}
+                        style={styles.removeCharacterButton}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="close" size={14} color="#ef4444" />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+              <View style={styles.characterSectionDivider} />
+            </>
+          )}
+
+          {/* Available Characters Section */}
+          <Text style={[styles.characterSectionLabel, { fontSize: fonts.xs }]}>
+            Available
+          </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.characterSelectorScroll}>
-            {/* First show selected characters that are NOT in the collection (conversation-only) */}
-            {selectedCharacters
-              .filter(charId => !availableCharacters.some(c => c.id === charId))
-              .map((characterId) => {
-                const character = getCharacter(characterId);
+            {(() => {
+              // Filter characters based on search and role
+              const filteredCharacters = availableCharacters.filter((character) => {
+                const matchesSearch = characterSearchQuery === '' || 
+                  character.name.toLowerCase().includes(characterSearchQuery.toLowerCase());
+                const matchesRole = selectedRoleFilter === null || character.role === selectedRoleFilter;
+                const isNotSelected = !selectedCharacters.includes(character.id);
+                return matchesSearch && matchesRole && isNotSelected;
+              });
+
+              if (filteredCharacters.length === 0) {
                 return (
-                  <TouchableOpacity
-                    key={characterId}
-                    style={[
-                      styles.characterSelectorCard,
-                      styles.characterSelectorCardActive,
-                      styles.characterSelectorCardConversationOnly,
-                    ]}
-                    onPress={() => toggleCharacter(characterId)}
-                  >
-                    <View style={[styles.characterSelectorIndicator, { backgroundColor: character.color }]} />
-                    <Text style={[styles.characterSelectorName, styles.characterSelectorNameActive, { fontSize: fonts.sm }]}>
-                      {character.name}
+                  <View style={styles.noResultsContainer}>
+                    <Text style={[styles.noResultsText, { fontSize: fonts.sm }]}>
+                      {characterSearchQuery || selectedRoleFilter 
+                        ? 'No matching characters' 
+                        : 'All characters selected'}
                     </Text>
-                    <Ionicons name="close-circle" size={20} color="#ef4444" />
-                  </TouchableOpacity>
+                  </View>
                 );
-              })}
-            {/* Then show all characters from the collection */}
-            {availableCharacters.map((character) => {
-              const isSelected = selectedCharacters.includes(character.id);
-              return (
+              }
+
+              return filteredCharacters.map((character) => (
                 <TouchableOpacity
                   key={character.id}
-                  style={[
-                    styles.characterSelectorCard,
-                    isSelected && styles.characterSelectorCardActive,
-                  ]}
+                  style={styles.characterSelectorCard}
                   onPress={() => toggleCharacter(character.id)}
                 >
                   <View style={[styles.characterSelectorIndicator, { backgroundColor: character.color }]} />
-                  <Text style={[styles.characterSelectorName, isSelected && styles.characterSelectorNameActive, { fontSize: fonts.sm }]}>
+                  <Text style={[styles.characterSelectorName, { fontSize: fonts.sm }]}>
                     {character.name}
                   </Text>
-                  {isSelected && <Ionicons name="checkmark-circle" size={20} color={character.color} />}
+                  <Ionicons name="add-circle" size={18} color={character.color} />
                 </TouchableOpacity>
-              );
-            })}
+              ));
+            })()}
           </ScrollView>
         </View>
       )}
@@ -1491,8 +1702,9 @@ Would you like to discuss your perspective on this?`;
         )}
 
         {/* Mobile Speech Bubble Stack - Renders all active bubbles in a single container to avoid overlap */}
+        {/* Protected from overflowing into input area via dynamic maxHeight */}
         {isMobile && selectedCharacters.length > 1 && (
-          <View style={styles.mobileBubbleStack}>
+          <View style={[styles.mobileBubbleStack, { maxHeight: Math.floor(characterHeight * 0.5) }]}>
             {Array.from(new Set(selectedCharacters)).map((characterId, index) => {
               const character = availableCharacters.find(c => c.id === characterId) || getCharacter(characterId);
               const charPlaybackState = playbackState.characterStates.get(characterId);
@@ -1516,6 +1728,11 @@ Would you like to discuss your perspective on this?`;
                   isSingleCharacter={false}
                   isMobileStacked={true}
                   stackIndex={index}
+                  // Responsive props for mobile stacked bubbles
+                  maxWidth={screenWidth - 32} // Full width minus padding
+                  maxHeight={Math.floor(characterHeight * 0.4)} // Max 40% of character area
+                  screenWidth={screenWidth}
+                  characterIndex={index}
                 />
               );
             })}
@@ -1560,11 +1777,15 @@ Would you like to discuss your perspective on this?`;
               
               // Vertical position: CENTER is higher (further back), EDGES are lower (closer)
               // cos(0) = 1 for center, cos(±70°) ≈ 0.34 for edges
-              const verticalPosition = Math.cos(angleRad) * 20; // Center gets +20%, edges get less
+              // Push characters lower when there are more, to leave room for speech bubbles
+              const bubbleSpaceOffset = Math.max(0, (total - 1) * 3); // Extra offset per character
+              const verticalPosition = Math.cos(angleRad) * 20 - bubbleSpaceOffset; // Center gets +20%, edges get less
               
               // Scale: CENTER is smaller (further away), EDGES are larger (closer)
               // Base scale increased for closer camera view
-              const scale = 0.8 + (distanceFromCenter * 0.3); // Center: 1.0, Edges: 1.3
+              // Apply characterScaleFactor to make characters smaller when there are more of them
+              const baseScale = 0.8 + (distanceFromCenter * 0.3); // Center: 0.8, Edges: 1.1
+              const scale = baseScale * characterScaleFactor; // Scale down based on character count
               
               // Z-index: EDGES have higher z-index (in front), CENTER has lower (behind)
               const zIndex = Math.round(distanceFromCenter * 10);
@@ -1639,6 +1860,12 @@ Would you like to discuss your perspective on this?`;
                       isTyping={!!isTyping}
                       isSpeaking={!!isSpeaking}
                       isSingleCharacter={total === 1 || isCenterCharacter}
+                      // Responsive props
+                      maxWidth={bubbleMaxWidth}
+                      maxHeight={bubbleMaxHeight}
+                      topOffset={getBubbleTopOffset(index)}
+                      screenWidth={screenWidth}
+                      characterIndex={index}
                     />
                   )}
                 </FloatingCharacterWrapper>
@@ -2318,6 +2545,104 @@ const styles = StyleSheet.create({
   characterSelectorNameActive: {
     color: 'white',
   },
+  // Character search and filter styles
+  characterSearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#27272a',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 10,
+    gap: 8,
+  },
+  characterSearchInput: {
+    flex: 1,
+    color: 'white',
+    fontSize: 14,
+    paddingVertical: 4,
+  },
+  roleFilterScroll: {
+    marginBottom: 10,
+    maxHeight: 32,
+  },
+  roleFilterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 16,
+    backgroundColor: '#27272a',
+    marginRight: 6,
+    borderWidth: 1,
+    borderColor: '#3f3f46',
+  },
+  roleFilterChipActive: {
+    backgroundColor: '#8b5cf6',
+    borderColor: '#8b5cf6',
+  },
+  roleFilterText: {
+    color: '#a1a1aa',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  roleFilterTextActive: {
+    color: 'white',
+  },
+  characterSectionLabel: {
+    color: '#71717a',
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  selectedCharactersScroll: {
+    maxHeight: 40,
+    marginBottom: 8,
+  },
+  selectedCharacterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingLeft: 10,
+    paddingRight: 6,
+    paddingVertical: 6,
+    marginRight: 8,
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    borderRadius: 20,
+    borderWidth: 2,
+  },
+  selectedCharacterChipConversationOnly: {
+    borderStyle: 'dashed',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  selectedCharacterName: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  removeCharacterButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  characterSectionDivider: {
+    height: 1,
+    backgroundColor: '#3f3f46',
+    marginVertical: 10,
+  },
+  noResultsContainer: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  noResultsText: {
+    color: '#71717a',
+    fontStyle: 'italic',
+  },
   recordingStatusContainer: {
     marginBottom: 8,
     gap: 8,
@@ -2417,19 +2742,19 @@ const styles = StyleSheet.create({
   speechBubble: {
     position: 'absolute',
     top: 10,
-    maxWidth: 280,
-    minWidth: 80,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(23, 23, 23, 0.95)',
+    maxWidth: 350, // Base max, can be overridden by dynamic prop
+    minWidth: 150, // Minimum for text readability
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(23, 23, 23, 0.98)',
     borderRadius: 12,
     borderWidth: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 200,
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 10,
+    zIndex: 500, // High z-index to ensure bubbles are always visible on top
   },
   speechBubbleLeft: {
     right: 70,
@@ -2448,6 +2773,7 @@ const styles = StyleSheet.create({
     // transform: [{ translateX: -200 }], // Center a ~200px bubble
   },
   // Mobile bubble stack container - positioned at top of characters area
+  // Protected from overflowing into input area via maxHeight and overflow
   mobileBubbleStack: {
     position: 'absolute',
     top: 8,
@@ -2455,8 +2781,9 @@ const styles = StyleSheet.create({
     right: 8,
     zIndex: 300,
     flexDirection: 'column',
-    gap: 8,
+    gap: 6,
     alignItems: 'flex-start',
+    overflow: 'hidden', // Prevent bubbles from overflowing
   },
   // Mobile stacked bubble style - full width, compact
   speechBubbleMobileStacked: {
