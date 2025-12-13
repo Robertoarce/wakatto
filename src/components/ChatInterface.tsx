@@ -70,7 +70,7 @@ function CharacterNameLabel({ name, color, visible }: { name: string; color: str
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 300,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }).start();
 
       // Then fade out slowly after 2 seconds (3 second fade duration)
@@ -78,7 +78,7 @@ function CharacterNameLabel({ name, color, visible }: { name: string; color: str
         Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 3000,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }).start();
       }, 2000);
     }
@@ -117,7 +117,7 @@ const FadingLine = React.memo(function FadingLine({
       Animated.timing(animatedOpacity, {
         toValue: opacity,
         duration: 300,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }).start();
       prevOpacity.current = opacity;
     }
@@ -205,7 +205,7 @@ function CharacterSpeechBubble({
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 200,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }).start();
     }
     // Start fade out when speaking stops (but only if we haven't already started)
@@ -216,7 +216,7 @@ function CharacterSpeechBubble({
         Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 3000,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }).start(() => {
           setShouldRender(false);
           lastTextRef.current = '';
@@ -445,12 +445,12 @@ function FloatingCharacterWrapper({
         Animated.timing(floatAnim, {
           toValue: 1,
           duration: floatDuration,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.timing(floatAnim, {
           toValue: 0,
           duration: floatDuration,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
       ])
     );
@@ -461,17 +461,17 @@ function FloatingCharacterWrapper({
         Animated.timing(rotateAnim, {
           toValue: 1,
           duration: rotateDuration,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.timing(rotateAnim, {
           toValue: -1,
           duration: rotateDuration * 2,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.timing(rotateAnim, {
           toValue: 0,
           duration: rotateDuration,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
       ])
     );
@@ -490,7 +490,7 @@ function FloatingCharacterWrapper({
     Animated.timing(hoverAnim, {
       toValue: isHovered ? 1 : 0,
       duration: 200,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
   }, [isHovered]);
   
@@ -506,7 +506,7 @@ function FloatingCharacterWrapper({
         toValue: 0,
         duration: 800,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }).start();
     }
   }, [entranceKey, entranceAnimation, isLeftSide]);
@@ -2394,12 +2394,19 @@ const styles = StyleSheet.create({
   characterNameText: {
     fontSize: 18,
     fontWeight: '700',
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     paddingHorizontal: 12,
     paddingVertical: 4,
+    ...Platform.select({
+      web: {
+        textShadow: '0 1px 4px rgba(0, 0, 0, 0.8)',
+      },
+      default: {
+        textShadowColor: 'rgba(0, 0, 0, 0.8)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 4,
+      },
+    }),
   },
   hoverNameContainer: {
     position: 'absolute',
@@ -2413,11 +2420,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   hoverNameText: {
     fontFamily: 'Poppins-SemiBold',
@@ -2755,12 +2771,21 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(23, 23, 23, 0.98)',
     borderRadius: 14,
     borderWidth: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    elevation: 10,
     zIndex: 500, // High z-index to ensure bubbles are always visible on top
+    ...Platform.select({
+      web: {
+        boxShadow: '0 4px 10px rgba(0, 0, 0, 0.5)',
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.5,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 10,
+      },
+    }),
   },
   speechBubbleLeft: {
     right: 70,
@@ -2801,11 +2826,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(23, 23, 23, 0.95)',
     borderRadius: 12,
     borderWidth: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 6,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   speechBubbleTail: {
     position: 'absolute',
