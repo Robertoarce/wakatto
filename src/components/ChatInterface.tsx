@@ -571,7 +571,7 @@ function FloatingCharacterWrapper({
 
 export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting }: ChatInterfaceProps) {
   const { showAlert, AlertComponent } = useCustomAlert();
-  const { fonts, spacing, layout, isMobile, isTablet, isDesktop, width: screenWidth, height: screenHeight } = useResponsive();
+  const { fonts, spacing, layout, isMobile, isTablet, isDesktop, isMobileLandscape, width: screenWidth, height: screenHeight } = useResponsive();
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -605,6 +605,14 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(true);
   const [showChatHistory, setShowChatHistory] = useState(false); // Hidden by default
   
+  // In mobile landscape, default to characters view (not chat history)
+  // This effect ensures chat history is hidden when rotating to landscape
+  useEffect(() => {
+    if (isMobileLandscape && showChatHistory) {
+      setShowChatHistory(false);
+    }
+  }, [isMobileLandscape]);
+  
   // Character selector search and filter state
   const [characterSearchQuery, setCharacterSearchQuery] = useState('');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string | null>(null);
@@ -630,17 +638,26 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   
   // Bubble sizing - scales with screen, generous width for readability
   const bubbleMaxWidth = useMemo(() => {
+    // In mobile landscape, use more horizontal space (wider bubbles)
+    if (isMobileLandscape) {
+      const landscapeWidth = screenWidth * 0.35; // 35% of wider screen
+      return Math.min(landscapeWidth, 350);
+    }
     // Base width: 55% on mobile, 40% on desktop (generous for text readability)
     const baseWidth = isMobile ? screenWidth * 0.55 : screenWidth * 0.4;
     // Only slightly reduce for more characters (min 220px for readability)
     const minWidth = 220;
     const scaledWidth = Math.max(minWidth, baseWidth - (characterCount - 1) * 15);
     return Math.min(scaledWidth, 420); // Cap at 420px
-  }, [isMobile, screenWidth, characterCount]);
+  }, [isMobile, isMobileLandscape, screenWidth, characterCount]);
   
   const bubbleMaxHeight = useMemo(() => {
-    return Math.floor(screenHeight * 0.5); // Max 35% of screen height for better text visibility
-  }, [screenHeight]);
+    // In mobile landscape, severely limit height due to constrained vertical space
+    if (isMobileLandscape) {
+      return Math.floor(screenHeight * 0.4); // Max 40% of limited height
+    }
+    return Math.floor(screenHeight * 0.5); // Max 50% of screen height for better text visibility
+  }, [isMobileLandscape, screenHeight]);
   
   // Character scale - smaller when more characters to leave room for bubbles
   const characterScaleFactor = useMemo(() => {
@@ -654,12 +671,19 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   
   // Calculate bubble vertical stagger to prevent overlap
   const getBubbleTopOffset = useCallback((index: number) => {
+    // In mobile landscape, position bubbles lower (beside character, not above)
+    if (isMobileLandscape) {
+      // Much smaller offset in landscape - bubbles sit beside characters
+      const baseOffset = -20;
+      const staggerAmount = 15;
+      return baseOffset - (index * staggerAmount / Math.max(1, characterCount * 0.5));
+    }
     // Each bubble staggers higher based on index, scaled by character count
     // Position much higher above character (-140 base offset)
     const baseOffset = isMobile ? -120 : -140;
     const staggerAmount = isMobile ? 25 : 30;
     return baseOffset - (index * staggerAmount / Math.max(1, characterCount * 0.5));
-  }, [isMobile, characterCount]);
+  }, [isMobile, isMobileLandscape, characterCount]);
 
   // Subscribe to animation playback engine
   useEffect(() => {
@@ -1652,10 +1676,12 @@ Each silence, a cathedral where you still reside.`;
         </View>
       )}
 
-      {/* 3D Character Display - Resizable when chat shown, flex when hidden */}
+      {/* 3D Character Display - Hidden in landscape when chat history is shown */}
+      {!(isMobileLandscape && showChatHistory) && (
       <View style={[
         styles.characterDisplayContainer, 
-        showChatHistory ? { height: characterHeight } : { flex: 1 }
+        // In mobile landscape, always take full available space
+        isMobileLandscape ? { flex: 1 } : (showChatHistory ? { height: characterHeight } : { flex: 1 })
       ]}>
         {/* 3D Animated Arrow Pointer - Positioned near character selector button */}
         <AnimatedArrowPointer
@@ -1700,7 +1726,8 @@ Each silence, a cathedral where you still reside.`;
 
         {/* Mobile Speech Bubble Stack - Renders all active bubbles in a single container to avoid overlap */}
         {/* Protected from overflowing into input area via dynamic maxHeight */}
-        {isMobile && selectedCharacters.length > 1 && (
+        {/* In mobile landscape, use side positioning instead of stacked */}
+        {isMobile && selectedCharacters.length > 1 && !isMobileLandscape && (
           <View style={[styles.mobileBubbleStack, { maxHeight: Math.floor(characterHeight * 0.5) }]}>
             {Array.from(new Set(selectedCharacters)).map((characterId, index) => {
               const character = availableCharacters.find(c => c.id === characterId) || getCharacter(characterId);
@@ -1847,8 +1874,9 @@ Each silence, a cathedral where you still reside.`;
                     visible={showCharacterNames}
                   />
                   {/* Speech Bubble - Comic book style, to the side of character (or above if single/center) */}
-                  {/* On mobile with multiple characters, use the stacked bubbles above instead */}
-                  {!(isMobile && total > 1) && (
+                  {/* On mobile portrait with multiple characters, use the stacked bubbles above instead */}
+                  {/* In mobile landscape, always show bubbles beside characters */}
+                  {(isMobileLandscape || !(isMobile && total > 1)) && (
                     <MemoizedCharacterSpeechBubble
                       text={revealedText || ''}
                       characterName={character.name}
@@ -1871,8 +1899,10 @@ Each silence, a cathedral where you still reside.`;
           )}
         </View>
       </View>
+      )}
 
-      {/* Resizable Divider - 1px line with toggle button overflowing */}
+      {/* Resizable Divider - Hidden in mobile landscape mode */}
+      {!isMobileLandscape && (
       <View
         {...panResponder.panHandlers}
         style={styles.divider}
@@ -1904,6 +1934,34 @@ Each silence, a cathedral where you still reside.`;
           )}
         </TouchableOpacity>
       </View>
+      )}
+
+      {/* Mobile Landscape Toggle - Prominent floating button */}
+      {isMobileLandscape && (
+        <TouchableOpacity
+          onPress={() => setShowChatHistory(!showChatHistory)}
+          style={[
+            styles.landscapeToggleButton,
+            showChatHistory && styles.landscapeToggleButtonActive,
+          ]}
+        >
+          <Ionicons 
+            name={showChatHistory ? "people" : "chatbubbles"} 
+            size={24} 
+            color="#ffffff" 
+          />
+          <Text style={[styles.landscapeToggleText, { fontSize: fonts.sm }]}>
+            {showChatHistory ? 'Characters' : 'Chat'}
+          </Text>
+          {!showChatHistory && messages.length > 0 && (
+            <View style={styles.landscapeToggleBadge}>
+              <Text style={[styles.landscapeToggleBadgeText, { fontSize: fonts.xs }]}>
+                {messages.length > 99 ? '99+' : messages.length}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      )}
 
 
       {/* Chat Messages - Only show when showChatHistory is true */}
@@ -1911,7 +1969,11 @@ Each silence, a cathedral where you still reside.`;
         <ScrollView
           ref={scrollViewRef}
           contentContainerStyle={styles.messagesContainer}
-          style={styles.chatScrollView}
+          style={[
+            styles.chatScrollView,
+            // In mobile landscape, chat takes full available height
+            isMobileLandscape && { flex: 1 }
+          ]}
           onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
         >
           <View style={styles.messagesContent}>
@@ -2153,6 +2215,55 @@ const styles = StyleSheet.create({
   dividerToggleButtonActive: {
     backgroundColor: '#8b5cf6',
     borderColor: '#8b5cf6',
+  },
+  // Mobile Landscape Toggle Button Styles
+  landscapeToggleButton: {
+    position: 'absolute',
+    bottom: 100,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 24,
+    backgroundColor: '#8b5cf6',
+    zIndex: 100,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 4px 12px rgba(139, 92, 246, 0.4)',
+      },
+      ios: {
+        shadowColor: '#8b5cf6',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  landscapeToggleButtonActive: {
+    backgroundColor: '#ff6b35',
+  },
+  landscapeToggleText: {
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  landscapeToggleBadge: {
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    marginLeft: 4,
+  },
+  landscapeToggleBadgeText: {
+    color: '#8b5cf6',
+    fontWeight: '700',
   },
   dividerMessageBadge: {
     backgroundColor: '#8b5cf6',
@@ -2777,6 +2888,13 @@ const styles = StyleSheet.create({
         elevation: 10,
       },
     }),
+  },
+  // Compact bubble style for landscape mode (applied via dynamic props)
+  speechBubbleCompact: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    minWidth: 150,
   },
   speechBubbleLeft: {
     right: 70,

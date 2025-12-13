@@ -50,7 +50,7 @@ export default function MainTabs() {
   const { showAlert, AlertComponent } = useCustomAlert();
   const { conversations, currentConversation, messages } = useSelector((state: RootState) => state.conversations);
   const { showSidebar } = useSelector((state: RootState) => state.ui);
-  const { fonts, layout, isMobile, spacing } = useResponsive();
+  const { fonts, layout, isMobile, isMobileLandscape, spacing } = useResponsive();
   
   // Ref to prevent duplicate greeting processing
   const isProcessingGreeting = useRef(false);
@@ -59,6 +59,13 @@ export default function MainTabs() {
   useEffect(() => {
     dispatch(setSidebarOpen(false));
   }, [dispatch]);
+
+  // Auto-hide sidebar in mobile landscape mode (limited vertical space)
+  useEffect(() => {
+    if (isMobileLandscape && showSidebar) {
+      dispatch(setSidebarOpen(false));
+    }
+  }, [isMobileLandscape, showSidebar, dispatch]);
 
   // Load conversations on mount
   useEffect(() => {
@@ -77,6 +84,10 @@ export default function MainTabs() {
   };
   
   const onToggleSidebar = () => {
+    // Prevent opening sidebar in mobile landscape mode (limited vertical space)
+    if (isMobileLandscape && !showSidebar) {
+      return;
+    }
     dispatch(toggleSidebar());
   };
 
