@@ -79,10 +79,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fbfbfb',
     paddingVertical: 20,
-    shadowColor: 'black',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 -3px 3px rgba(0, 0, 0, 0.1)',
+      },
+      ios: {
+        shadowColor: 'black',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   tabBarInfoText: {
     fontSize: 17,

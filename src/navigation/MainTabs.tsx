@@ -2,14 +2,14 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ChatInterface } from '../components/ChatInterface';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useSelector, useDispatch, useStore } from 'react-redux';
 import { RootState } from '../store';
 import { Header } from '../components/Header';
 import { ChatSidebar } from '../components/ChatSidebar';
 import { useCustomAlert } from '../components/CustomAlert';
-import { toggleSidebar, toggleSidebarCollapse, setSidebarOpen } from '../store/actions/uiActions';
-import { useResponsive, BREAKPOINTS } from '../constants/Layout';
+import { toggleSidebar, setSidebarOpen } from '../store/actions/uiActions';
+import { useResponsive } from '../constants/Layout';
 import { 
   loadConversations, 
   selectConversation, 
@@ -49,19 +49,15 @@ export default function MainTabs() {
   const store = useStore();
   const { showAlert, AlertComponent } = useCustomAlert();
   const { conversations, currentConversation, messages } = useSelector((state: RootState) => state.conversations);
-  const { showSidebar, sidebarCollapsed } = useSelector((state: RootState) => state.ui);
+  const { showSidebar } = useSelector((state: RootState) => state.ui);
   const { fonts, layout, isMobile, spacing } = useResponsive();
   
   // Ref to prevent duplicate greeting processing
   const isProcessingGreeting = useRef(false);
 
-  // Hide sidebar on mobile by default
+  // Hide sidebar by default
   useEffect(() => {
-    const { width } = Dimensions.get('window');
-    const isMobileDevice = width < BREAKPOINTS.tablet;
-    if (isMobileDevice) {
-      dispatch(setSidebarOpen(false));
-    }
+    dispatch(setSidebarOpen(false));
   }, [dispatch]);
 
   // Load conversations on mount
@@ -83,13 +79,24 @@ export default function MainTabs() {
   const onToggleSidebar = () => {
     dispatch(toggleSidebar());
   };
-  
-  const onToggleCollapse = () => {
-    dispatch(toggleSidebarCollapse());
-  };
 
   const onNewConversation = async () => {
     try {
+      // Check if there's already an empty "New Conversation" we can reuse
+      // An empty conversation has no messages at all (messageCount === 0)
+      const existingEmptyConversation = conversations.find((conv: any) => 
+        conv.title === 'New Conversation' && 
+        (conv.messageCount === 0 || conv.messageCount === undefined)
+      );
+
+      if (existingEmptyConversation) {
+        // Just switch to the existing empty conversation - user can change Wakatto there
+        console.log('[MainTabs] Reusing existing empty conversation:', existingEmptyConversation.id);
+        dispatch(selectConversation(existingEmptyConversation) as any);
+        return;
+      }
+
+      // No empty conversation found, create a new one
       await dispatch(createConversation('New Conversation') as any);
     } catch (error: any) {
       showAlert('Error', 'Failed to create conversation: ' + error.message);
@@ -495,8 +502,6 @@ export default function MainTabs() {
           onSelectConversation={onSelectConversation}
           onToggleSidebar={onToggleSidebar}
           isOpen={showSidebar}
-          isCollapsed={sidebarCollapsed}
-          onToggleCollapse={onToggleCollapse}
           onNewConversation={onNewConversation}
           onRenameConversation={onRenameConversation}
           onDeleteConversation={onDeleteConversation}
@@ -504,8 +509,7 @@ export default function MainTabs() {
         <View style={[
           styles.mainContentWrapper,
           // Only add sidebar margin on non-mobile (mobile uses overlay)
-          !isMobile && showSidebar && !sidebarCollapsed && { marginLeft: layout.sidebarWidth },
-          !isMobile && showSidebar && sidebarCollapsed && { marginLeft: layout.sidebarCollapsedWidth },
+          !isMobile && showSidebar && { marginLeft: layout.sidebarWidth },
         ]}>
         <Tab.Navigator
           screenOptions={{

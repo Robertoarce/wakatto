@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated, ViewStyle, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Animated, ViewStyle, TouchableOpacity, Platform } from 'react-native';
 
 interface MessageBubbleProps {
   content: string;
@@ -60,11 +60,20 @@ export function MessageBubble({
     if (role === 'user') {
       return {
         backgroundColor: '#8b5cf6',
-        shadowColor: '#8b5cf6',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 4,
+        ...Platform.select({
+          web: {
+            boxShadow: '0 4px 8px rgba(139, 92, 246, 0.3)',
+          },
+          ios: {
+            shadowColor: '#8b5cf6',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+          },
+          android: {
+            elevation: 4,
+          },
+        }),
       };
     }
 
@@ -73,11 +82,20 @@ export function MessageBubble({
         backgroundColor: characterColor + '15',
         borderColor: characterColor + '50',
         borderWidth: 2,
-        shadowColor: characterColor,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 3,
+        ...Platform.select({
+          web: {
+            boxShadow: `0 4px 8px ${characterColor}33`,
+          },
+          ios: {
+            shadowColor: characterColor,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.2,
+            shadowRadius: 8,
+          },
+          android: {
+            elevation: 3,
+          },
+        }),
       };
     }
 

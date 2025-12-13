@@ -305,9 +305,9 @@ function CharacterSpeechBubble({
             // Stack bubbles with offset based on index
             top: stackIndex * 4,
             zIndex: 200 - stackIndex,
+            pointerEvents: 'none',
           }
         ]}
-        pointerEvents="none"
       >
         <Text style={[styles.speechBubbleName, { color: characterColor, fontSize: fonts.md }]}>{characterName}</Text>
         <View style={styles.speechBubbleLinesContainer}>
@@ -365,9 +365,9 @@ function CharacterSpeechBubble({
           maxHeight: maxHeight,
           overflow: maxHeight ? 'hidden' : undefined,
           zIndex: 500, // Ensure bubbles are always on top of characters
+          pointerEvents: 'none',
         }
       ]}
-      pointerEvents="none"
     >
       {/* Speech bubble tail - hide for single character (bubble is above) */}
       {!isSingleCharacter && (
@@ -557,9 +557,9 @@ function FloatingCharacterWrapper({
           {
             opacity: nameOpacity,
             transform: [{ translateY: nameTranslateY }],
-          },
+            pointerEvents: 'none',
+          }
         ]}
-        pointerEvents="none"
       >
         <View style={[styles.hoverNameBubble, { backgroundColor: characterColor }]}>
           <Text style={[styles.hoverNameText, { fontSize: fonts.lg }]}>{characterName}</Text>
@@ -1510,9 +1510,9 @@ Each silence, a cathedral where you still reside.`;
         <View
           style={[
             styles.characterSelectorPanel,
-            isMobileView && styles.characterSelectorPanelMobile
+            isMobileView && styles.characterSelectorPanelMobile,
+            { pointerEvents: 'box-none' }
           ]}
-          pointerEvents="box-none"
         >
           <View style={styles.characterSelectorHeader}>
             <Text style={[styles.characterSelectorTitle, { fontSize: fonts.sm }]}>Select Wakattors (Max 5)</Text>

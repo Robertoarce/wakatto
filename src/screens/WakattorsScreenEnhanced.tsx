@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Animated, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Animated, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
@@ -325,11 +325,20 @@ export default function WakattorsScreenEnhanced() {
                   { width: cardWidth as any },
                   isNewlyAdded && {
                     transform: [{ scale: pulseAnim }],
-                    shadowColor: character.color,
-                    shadowOffset: { width: 0, height: 8 },
-                    shadowOpacity: 0.6,
-                    shadowRadius: 16,
-                    elevation: 12,
+                    ...Platform.select({
+                      web: {
+                        boxShadow: `0 8px 16px ${character.color}99`,
+                      },
+                      ios: {
+                        shadowColor: character.color,
+                        shadowOffset: { width: 0, height: 8 },
+                        shadowOpacity: 0.6,
+                        shadowRadius: 16,
+                      },
+                      android: {
+                        elevation: 12,
+                      },
+                    }),
                   },
                   isRemoving && {
                     transform: [

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, TextInput, ScrollView, Dimensions } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, TextInput, ScrollView, Dimensions, Animated, PanResponder, Platform, GestureResponderEvent, PanResponderGestureState } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCustomAlert } from './CustomAlert';
 import { useResponsive } from '../constants/Layout';
+import { shadows } from '../utils/shadow';
 
 interface Conversation {
   id: string;
@@ -18,14 +19,12 @@ interface ChatSidebarProps {
   onSelectConversation: (conversation: Conversation) => void;
   onToggleSidebar: () => void;
   isOpen: boolean;
-  isCollapsed?: boolean;
-  onToggleCollapse?: () => void;
   onNewConversation?: () => void;
   onRenameConversation?: (conversationId: string, newTitle: string) => void;
   onDeleteConversation?: (conversationId: string) => void;
 }
 
-export function ChatSidebar({ conversations, currentConversation, onSelectConversation, onToggleSidebar, isOpen, isCollapsed = false, onToggleCollapse, onNewConversation, onRenameConversation, onDeleteConversation }: ChatSidebarProps) {
+export function ChatSidebar({ conversations, currentConversation, onSelectConversation, onToggleSidebar, isOpen, onNewConversation, onRenameConversation, onDeleteConversation }: ChatSidebarProps) {
   const { showAlert, AlertComponent } = useCustomAlert();
   const { fonts, spacing, layout, isMobile, width: screenWidth } = useResponsive();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -33,6 +32,162 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
   const [searchQuery, setSearchQuery] = useState('');
   const [hoveredConvId, setHoveredConvId] = useState<string | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null); // Track which conversation is being deleted
+
+  // Drag gesture state
+  const sidebarWidth = isMobile ? screenWidth : layout.sidebarWidth;
+  
+  // Animated value for drag position (0 = closed, sidebarWidth = open)
+  const dragPosition = useRef(new Animated.Value(isOpen ? 0 : -sidebarWidth)).current;
+  const isDragging = useRef(false);
+  const dragStartPosition = useRef(0);
+  
+  // Update drag position when isOpen changes externally
+  useEffect(() => {
+    if (!isDragging.current) {
+      Animated.spring(dragPosition, {
+        toValue: isOpen ? 0 : -sidebarWidth,
+        useNativeDriver: Platform.OS !== 'web',
+        tension: 65,
+        friction: 11,
+      }).start();
+    }
+  }, [isOpen, sidebarWidth]);
+
+  // Edge drag zone width for opening sidebar
+  const EDGE_DRAG_WIDTH = 30;
+  // Minimum drag distance to trigger open/close
+  const DRAG_THRESHOLD = sidebarWidth * 0.3;
+  // Velocity threshold for quick swipes
+  const VELOCITY_THRESHOLD = 0.5;
+
+  // PanResponder for sidebar drag
+  const sidebarPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Only respond to horizontal gestures
+        return Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && Math.abs(gestureState.dx) > 10;
+      },
+      onPanResponderGrant: () => {
+        isDragging.current = true;
+        // @ts-ignore - _value is internal but works
+        dragStartPosition.current = dragPosition._value || (isOpen ? 0 : -sidebarWidth);
+        dragPosition.stopAnimation();
+      },
+      onPanResponderMove: (_, gestureState) => {
+        // Calculate new position
+        let newPosition = dragStartPosition.current + gestureState.dx;
+        // Clamp between -sidebarWidth (closed) and 0 (open)
+        newPosition = Math.max(-sidebarWidth, Math.min(0, newPosition));
+        dragPosition.setValue(newPosition);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        isDragging.current = false;
+        
+        // Get current position
+        // @ts-ignore
+        const currentPosition = dragPosition._value || 0;
+        
+        // Determine if we should open or close based on:
+        // 1. Current position past threshold
+        // 2. Velocity of swipe
+        const movedPastThreshold = currentPosition > -sidebarWidth + DRAG_THRESHOLD;
+        const quickSwipeRight = gestureState.vx > VELOCITY_THRESHOLD;
+        const quickSwipeLeft = gestureState.vx < -VELOCITY_THRESHOLD;
+        
+        let shouldOpen: boolean;
+        if (quickSwipeRight) {
+          shouldOpen = true;
+        } else if (quickSwipeLeft) {
+          shouldOpen = false;
+        } else {
+          shouldOpen = movedPastThreshold;
+        }
+        
+        // Animate to final position
+        Animated.spring(dragPosition, {
+          toValue: shouldOpen ? 0 : -sidebarWidth,
+          useNativeDriver: Platform.OS !== 'web',
+          tension: 65,
+          friction: 11,
+        }).start(() => {
+          // Update state if it changed
+          if (shouldOpen !== isOpen) {
+            onToggleSidebar();
+          }
+        });
+      },
+      onPanResponderTerminate: () => {
+        isDragging.current = false;
+        // Snap back to current state
+        Animated.spring(dragPosition, {
+          toValue: isOpen ? 0 : -sidebarWidth,
+          useNativeDriver: Platform.OS !== 'web',
+          tension: 65,
+          friction: 11,
+        }).start();
+      },
+    })
+  ).current;
+
+  // Edge pan responder for opening sidebar when closed
+  const edgePanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: (evt: GestureResponderEvent) => {
+        // Only capture if touch is near left edge and sidebar is closed
+        return !isOpen && evt.nativeEvent.pageX < EDGE_DRAG_WIDTH;
+      },
+      onMoveShouldSetPanResponder: (evt: GestureResponderEvent, gestureState: PanResponderGestureState) => {
+        // Only respond to rightward horizontal gestures from left edge
+        return !isOpen && 
+               evt.nativeEvent.pageX < EDGE_DRAG_WIDTH + 20 &&
+               gestureState.dx > 0 && 
+               Math.abs(gestureState.dx) > Math.abs(gestureState.dy) &&
+               Math.abs(gestureState.dx) > 10;
+      },
+      onPanResponderGrant: () => {
+        isDragging.current = true;
+        dragStartPosition.current = -sidebarWidth;
+        dragPosition.stopAnimation();
+      },
+      onPanResponderMove: (_, gestureState) => {
+        let newPosition = -sidebarWidth + gestureState.dx;
+        newPosition = Math.max(-sidebarWidth, Math.min(0, newPosition));
+        dragPosition.setValue(newPosition);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        isDragging.current = false;
+        
+        // @ts-ignore
+        const currentPosition = dragPosition._value || -sidebarWidth;
+        const movedPastThreshold = currentPosition > -sidebarWidth + DRAG_THRESHOLD;
+        const quickSwipeRight = gestureState.vx > VELOCITY_THRESHOLD;
+        
+        const shouldOpen = quickSwipeRight || movedPastThreshold;
+        
+        Animated.spring(dragPosition, {
+          toValue: shouldOpen ? 0 : -sidebarWidth,
+          useNativeDriver: Platform.OS !== 'web',
+          tension: 65,
+          friction: 11,
+        }).start(() => {
+          if (shouldOpen && !isOpen) {
+            onToggleSidebar();
+          }
+        });
+      },
+      onPanResponderTerminate: () => {
+        isDragging.current = false;
+        Animated.spring(dragPosition, {
+          toValue: -sidebarWidth,
+          useNativeDriver: Platform.OS !== 'web',
+          tension: 65,
+          friction: 11,
+        }).start();
+      },
+    })
+  ).current;
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -65,6 +220,12 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
   };
 
   const confirmDelete = (conversation: Conversation) => {
+    // Prevent double-click: if already deleting this conversation, ignore
+    if (deletingId === conversation.id) {
+      console.log('[ChatSidebar] Delete already in progress for:', conversation.id);
+      return;
+    }
+    
     setMenuOpenId(null); // Close menu
 
     // Show custom alert instead of window.confirm
@@ -75,10 +236,15 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            if (onDeleteConversation) {
+          onPress: async () => {
+            if (onDeleteConversation && deletingId !== conversation.id) {
               console.log('[ChatSidebar] Delete confirmed, calling onDeleteConversation');
-              onDeleteConversation(conversation.id);
+              setDeletingId(conversation.id); // Mark as deleting
+              try {
+                await onDeleteConversation(conversation.id);
+              } finally {
+                setDeletingId(null); // Clear deleting state
+              }
             }
           }
         },
@@ -128,10 +294,6 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
     conv.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Responsive sidebar width
-  const sidebarWidth = isMobile ? screenWidth : layout.sidebarWidth;
-  const collapsedWidth = layout.sidebarCollapsedWidth;
-
   return (
     <>
       <AlertComponent />
@@ -152,6 +314,14 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
         </TouchableOpacity>
       )}
 
+      {/* Edge gesture zone for opening sidebar when closed */}
+      {!isOpen && (
+        <View
+          {...edgePanResponder.panHandlers}
+          style={styles.edgeGestureZone}
+        />
+      )}
+
       {/* Mobile overlay backdrop */}
       {isMobile && isOpen && (
         <TouchableOpacity
@@ -161,21 +331,27 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
         />
       )}
 
-      <View 
+      <Animated.View 
         style={[
           styles.sidebar,
           {
-            width: isCollapsed ? collapsedWidth : sidebarWidth,
+            width: sidebarWidth,
+            transform: [{ translateX: dragPosition }],
           },
-          isOpen ? styles.sidebarOpen : { transform: [{ translateX: -(isCollapsed ? collapsedWidth : sidebarWidth) }] },
           isMobile && isOpen && styles.sidebarMobileOpen,
         ]}
       >
+        {/* Drag handle on the right edge of sidebar */}
+        <View
+          {...sidebarPanResponder.panHandlers}
+          style={styles.dragHandle}
+        >
+          <View style={styles.dragHandleIndicator} />
+        </View>
         <View style={[styles.sidebarHeader, { padding: spacing.lg, gap: spacing.sm }]}>
           <TouchableOpacity 
             style={[
               styles.newConversationButton,
-              isCollapsed ? styles.newConversationButtonCollapsed : null,
               { 
                 minHeight: layout.minTouchTarget,
                 paddingVertical: spacing.md,
@@ -184,69 +360,51 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
             onPress={onNewConversation}
           >
             <Ionicons name="add" size={20} color="white" />
-            {!isCollapsed && <Text style={[styles.newConversationButtonText, { fontSize: fonts.sm }]}>New Conversation</Text>}
+            <Text style={[styles.newConversationButtonText, { fontSize: fonts.sm }]}>New Conversation</Text>
           </TouchableOpacity>
-          <View style={[styles.toggleButtonsContainer, { gap: spacing.xs }]}>
-            {onToggleCollapse && !isMobile && (
-              <TouchableOpacity 
-                onPress={onToggleCollapse}
-                style={[
-                  styles.toggleButton,
-                  isCollapsed ? styles.toggleButtonCollapsed : styles.toggleButtonExpanded,
-                  { minHeight: layout.minTouchTarget }
-                ]}
-                accessibilityLabel={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              >
-                {isCollapsed ? <Ionicons name="chevron-forward" size={20} color="#a1a1aa" /> : <MaterialCommunityIcons name="arrow-collapse-left" size={20} color="#a1a1aa" />}
-                {!isCollapsed && <Text style={[styles.toggleButtonText, { fontSize: fonts.sm }]}>Collapse</Text>}
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity 
-              onPress={onToggleSidebar}
-              style={[
-                styles.toggleButton,
-                isCollapsed ? styles.toggleButtonCollapsed : (onToggleCollapse && !isMobile ? styles.toggleButtonExpanded : styles.toggleButtonFullWidth),
-                { minHeight: layout.minTouchTarget }
-              ]}
-              accessibilityLabel={isCollapsed ? 'Hide sidebar' : 'Hide sidebar'}
-            >
-              <Ionicons name="chevron-back" size={20} color="#a1a1aa" />
-              {!isCollapsed && <Text style={[styles.toggleButtonText, { fontSize: fonts.sm }]}>Hide</Text>}
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity 
+            onPress={onToggleSidebar}
+            style={[
+              styles.toggleButton,
+              styles.toggleButtonFullWidth,
+              { minHeight: layout.minTouchTarget }
+            ]}
+            accessibilityLabel="Hide sidebar"
+          >
+            <Ionicons name="chevron-back" size={20} color="#a1a1aa" />
+            <Text style={[styles.toggleButtonText, { fontSize: fonts.sm }]}>Hide</Text>
+          </TouchableOpacity>
         </View>
         
-        {!isCollapsed && (
-          <View style={[
-            styles.searchContainer,
-            { 
-              marginHorizontal: spacing.lg, 
-              marginBottom: spacing.lg,
-              paddingHorizontal: spacing.md,
-              paddingVertical: spacing.sm,
-            }
-          ]}>
-            <Ionicons name="search" size={16} color="#71717a" style={styles.searchIcon} />
-            <TextInput
-              style={[styles.searchInput, { fontSize: fonts.sm }]}
-              placeholder="Search conversations..."
-              placeholderTextColor="#71717a"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity 
-                onPress={() => setSearchQuery('')} 
-                style={[styles.clearButton, { minWidth: layout.minTouchTarget, minHeight: layout.minTouchTarget }]}
-              >
-                <Ionicons name="close-circle" size={16} color="#71717a" />
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
+        <View style={[
+          styles.searchContainer,
+          { 
+            marginHorizontal: spacing.lg, 
+            marginBottom: spacing.lg,
+            paddingHorizontal: spacing.md,
+            paddingVertical: spacing.sm,
+          }
+        ]}>
+          <Ionicons name="search" size={16} color="#71717a" style={styles.searchIcon} />
+          <TextInput
+            style={[styles.searchInput, { fontSize: fonts.sm }]}
+            placeholder="Search conversations..."
+            placeholderTextColor="#71717a"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity 
+              onPress={() => setSearchQuery('')} 
+              style={[styles.clearButton, { minWidth: layout.minTouchTarget, minHeight: layout.minTouchTarget }]}
+            >
+              <Ionicons name="close-circle" size={16} color="#71717a" />
+            </TouchableOpacity>
+          )}
+        </View>
         
         <View style={[styles.conversationsContainer, { paddingHorizontal: spacing.sm }]}>
-          {!isCollapsed && <Text style={[styles.recentText, { fontSize: fonts.xs, paddingHorizontal: spacing.sm }]}>Recent</Text>}
+          <Text style={[styles.recentText, { fontSize: fonts.xs, paddingHorizontal: spacing.sm }]}>Recent</Text>
           <ScrollView
             style={styles.conversationsScrollView}
             showsVerticalScrollIndicator={false}
@@ -263,7 +421,8 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
               key={conv.id}
               style={[
                 styles.conversationItem,
-                isCollapsed ? styles.conversationItemCollapsed : [styles.conversationItemExpanded, { paddingVertical: spacing.md, paddingHorizontal: spacing.md }],
+                styles.conversationItemExpanded,
+                { paddingVertical: spacing.md, paddingHorizontal: spacing.md },
                 currentConversation?.id === conv.id ? styles.conversationItemSelected : styles.conversationItemDefault,
                 menuOpenId === conv.id && styles.conversationItemWithOpenMenu,
                 { minHeight: layout.minTouchTarget }
@@ -283,11 +442,6 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
                 style={styles.conversationClickable}
                 accessibilityLabel={conv.title}
             >
-              {isCollapsed ? (
-                <View style={styles.conversationIconCollapsed}>
-                  <MaterialCommunityIcons name="message-text-outline" size={20} color={currentConversation?.id === conv.id ? 'white' : '#a1a1aa'} />
-                </View>
-              ) : (
                 <View style={[styles.conversationItemContent, { gap: spacing.sm }]}>
                   <MaterialCommunityIcons name="message-text-outline" size={20} color={currentConversation?.id === conv.id ? 'white' : '#a1a1aa'} />
                   <View style={styles.conversationTextContainer}>
@@ -370,14 +524,13 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
                     )}
                   </View>
                 </View>
-              )}
             </TouchableOpacity>
             </View>
             ))
           )}
           </ScrollView>
         </View>
-      </View>
+      </Animated.View>
     </>
   );
 }
@@ -403,12 +556,40 @@ const styles = StyleSheet.create({
     zIndex: 39,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
+  edgeGestureZone: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 30,
+    zIndex: 35,
+    backgroundColor: 'transparent',
+  },
+  dragHandle: {
+    position: 'absolute',
+    right: -12,
+    top: 0,
+    bottom: 0,
+    width: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 45,
+    // @ts-ignore - web cursor
+    cursor: 'ew-resize',
+  },
+  dragHandleIndicator: {
+    width: 4,
+    height: 40,
+    backgroundColor: '#3f3f46',
+    borderRadius: 2,
+    opacity: 0.6,
+  },
   burgerButton: {
     position: 'absolute',
     top: 12,
     left: 12,
     zIndex: 50,
-    backgroundColor: '#27272a',
+    backgroundColor: '#f92a82',
     borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
@@ -427,9 +608,6 @@ const styles = StyleSheet.create({
   sidebarMobileOpen: {
     zIndex: 100,
   },
-  sidebarOpen: {
-    transform: [{ translateX: 0 }],
-  },
   sidebarHeader: {
   },
   newConversationButton: {
@@ -440,15 +618,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-  newConversationButtonCollapsed: {
-    paddingHorizontal: 8,
-  },
   newConversationButtonText: {
     color: 'white',
-  },
-  toggleButtonsContainer: {
-    flexDirection: 'row',
-    marginTop: 8,
   },
   toggleButton: {
     paddingVertical: 8,
@@ -457,12 +628,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-  },
-  toggleButtonCollapsed: {
-    width: '100%',
-  },
-  toggleButtonExpanded: {
-    flex: 1,
+    marginTop: 8,
   },
   toggleButtonFullWidth: {
     width: '100%',
@@ -485,11 +651,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginBottom: 4,
   },
-  conversationItemCollapsed: {
-    paddingVertical: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   conversationItemExpanded: {
   },
   conversationItemDefault: {
@@ -501,10 +662,6 @@ const styles = StyleSheet.create({
   conversationItemWithOpenMenu: {
     zIndex: 1000,
     position: 'relative',
-  },
-  conversationIconCollapsed: {
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   conversationItemContent: {
     flexDirection: 'row',
@@ -570,11 +727,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#3f3f46',
     minWidth: 120,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10,
+    ...shadows.dropdown,
     zIndex: 1002,
   },
   menuItem: {

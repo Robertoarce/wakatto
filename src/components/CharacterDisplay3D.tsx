@@ -2230,18 +2230,19 @@ export function CharacterDisplay3D({
       const { width } = Dimensions.get('window');
 
       // Mobile: < 768px, Tablet: 768-1024px, Desktop: > 1024px
+      // Lower camera distance = character appears larger
       if (width < 480) {
-        // Very small mobile
-        setResponsiveScale(0.7);
-        setCameraDistance(100.0);
+        // Very small mobile - closer camera for bigger character
+        setResponsiveScale(1.1);
+        setCameraDistance(1.6);
       } else if (width < 768) {
-        // Mobile
-        setResponsiveScale(0.85);
-        setCameraDistance(2.2);
+        // Mobile - closer camera for better visibility
+        setResponsiveScale(1.0);
+        setCameraDistance(1.8);
       } else if (width < 1024) {
         // Tablet
         setResponsiveScale(1.0);
-        setCameraDistance(2.4);
+        setCameraDistance(2.2);
       } else {
         // Desktop
         setResponsiveScale(1.2);

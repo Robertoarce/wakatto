@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { View, TouchableOpacity, StyleSheet, Animated, ViewStyle } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Animated, ViewStyle, Platform } from 'react-native';
 
 interface SwitchProps {
   value: boolean;
@@ -84,11 +84,20 @@ const styles = StyleSheet.create({
   thumb: {
     backgroundColor: '#ffffff',
     borderRadius: 9999,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 2px 3px rgba(0, 0, 0, 0.2)',
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   disabled: {
     opacity: 0.5,

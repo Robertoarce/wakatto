@@ -60,22 +60,29 @@ export const loadConversations = () => async (dispatch: any, getState: any) => {
 
     const conversations = await fetchConversations(auth.user.id);
 
-    // Enrich conversations with character count
+    // Enrich conversations with character count and message count
     const enrichedConversations = await Promise.all(
       (conversations || []).map(async (conv: any) => {
-        // Count unique characters in this conversation
-        const { data: messages } = await supabase
+        // Count unique characters in this conversation (from assistant messages)
+        const { data: assistantMessages } = await supabase
           .from('messages')
           .select('character_id')
           .eq('conversation_id', conv.id)
           .eq('role', 'assistant')
           .not('character_id', 'is', null);
 
-        const uniqueCharacters = new Set(messages?.map((m: any) => m.character_id) || []);
+        const uniqueCharacters = new Set(assistantMessages?.map((m: any) => m.character_id) || []);
+
+        // Count total messages in conversation
+        const { count: messageCount } = await supabase
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('conversation_id', conv.id);
 
         return {
           ...conv,
           characterCount: uniqueCharacters.size,
+          messageCount: messageCount || 0,
         };
       })
     );
