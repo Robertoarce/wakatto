@@ -926,21 +926,12 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         }
       } else if (conversationChanged || initialLoad) {
         // New empty conversation or initial load with no assistant messages - set random character
+        // Note: Greeting is handled by the second useEffect for brand new conversations
         console.log('[ChatInterface] Empty conversation, selecting random character');
         if (availableCharacters.length > 0) {
           const randomIndex = Math.floor(Math.random() * availableCharacters.length);
           const randomChar = availableCharacters[randomIndex];
           setSelectedCharacters([randomChar.id]);
-          
-          // Trigger greeting for new/empty conversation (only once)
-          if (onGreeting && messages.length === 0 && !hasTriggeredGreeting.current) {
-            hasTriggeredGreeting.current = true;
-            setTimeout(() => {
-              const greeting = getRandomGreeting(randomChar.id, randomChar.name);
-              console.log('[ChatInterface] Triggering greeting from:', randomChar.name);
-              onGreeting(randomChar.id, greeting);
-            }, 1000);
-          }
         } else {
           setSelectedCharacters([DEFAULT_CHARACTER]);
         }

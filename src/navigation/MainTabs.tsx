@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ChatInterface } from '../components/ChatInterface';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { useSelector, useDispatch } from 'react-redux';
+import { useSelector, useDispatch, useStore } from 'react-redux';
 import { RootState } from '../store';
 import { Header } from '../components/Header';
 import { ChatSidebar } from '../components/ChatSidebar';
@@ -46,10 +46,14 @@ const Tab = createBottomTabNavigator();
 
 export default function MainTabs() {
   const dispatch = useDispatch();
+  const store = useStore();
   const { showAlert, AlertComponent } = useCustomAlert();
   const { conversations, currentConversation, messages } = useSelector((state: RootState) => state.conversations);
   const { showSidebar, sidebarCollapsed } = useSelector((state: RootState) => state.ui);
   const { fonts, layout, isMobile, spacing } = useResponsive();
+  
+  // Ref to prevent duplicate greeting processing
+  const isProcessingGreeting = useRef(false);
 
   // Hide sidebar on mobile by default
   useEffect(() => {
@@ -437,12 +441,21 @@ export default function MainTabs() {
   };
 
   // Handle character greeting for new conversations
-  const handleGreeting = async (characterId: string, greetingMessage: string) => {
+  const handleGreeting = useCallback(async (characterId: string, greetingMessage: string) => {
+    // Prevent duplicate greeting processing
+    if (isProcessingGreeting.current) {
+      console.log('[MainTabs] Already processing greeting, skipping');
+      return;
+    }
+    
+    isProcessingGreeting.current = true;
     console.log('[MainTabs] handleGreeting called for character:', characterId);
     
     try {
-      // Create conversation if needed
-      let conversation = currentConversation;
+      // Get the LATEST state from the store (not stale closure value)
+      const state = store.getState() as RootState;
+      let conversation = state.conversations.currentConversation;
+      
       if (!conversation) {
         // Get character name for the conversation title
         const character = getCharacter(characterId);
@@ -466,8 +479,10 @@ export default function MainTabs() {
       }
     } catch (error: any) {
       console.error('[MainTabs] Failed to save greeting:', error);
+    } finally {
+      isProcessingGreeting.current = false;
     }
-  };
+  }, [dispatch, store]);
 
   return (
     <View style={styles.fullContainer}>
