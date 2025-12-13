@@ -161,6 +161,27 @@ export function calculateLayout(width: number): ResponsiveLayout {
 }
 
 // ============================================
+// ORIENTATION DETECTION
+// ============================================
+export type Orientation = 'portrait' | 'landscape';
+
+export function getOrientation(width: number, height: number): Orientation {
+  return width > height ? 'landscape' : 'portrait';
+}
+
+/**
+ * Detect if device is in mobile landscape mode
+ * This is when the device is rotated landscape but has mobile-like constraints
+ * We check: landscape orientation + height < tablet breakpoint (limited vertical space)
+ */
+export function isMobileLandscapeMode(width: number, height: number): boolean {
+  const isLandscape = width > height;
+  // In landscape, height becomes the limiting factor
+  // If height is less than tablet breakpoint, treat as mobile landscape
+  return isLandscape && height < BREAKPOINTS.tablet;
+}
+
+// ============================================
 // RESPONSIVE HOOK
 // ============================================
 export interface ResponsiveValues {
@@ -170,6 +191,9 @@ export interface ResponsiveValues {
   isMobile: boolean;
   isTablet: boolean;
   isDesktop: boolean;
+  isLandscape: boolean;
+  isMobileLandscape: boolean;
+  orientation: Orientation;
   fonts: ResponsiveFonts;
   spacing: ResponsiveSpacing;
   layout: ResponsiveLayout;
@@ -199,6 +223,9 @@ export function useResponsive(): ResponsiveValues {
   return useMemo(() => {
     const { width, height } = dimensions;
     const deviceType = getDeviceType(width);
+    const orientation = getOrientation(width, height);
+    const isLandscape = orientation === 'landscape';
+    const mobileLandscape = isMobileLandscapeMode(width, height);
     
     return {
       width,
@@ -207,6 +234,9 @@ export function useResponsive(): ResponsiveValues {
       isMobile: deviceType === 'mobile',
       isTablet: deviceType === 'tablet',
       isDesktop: deviceType === 'desktop' || deviceType === 'large',
+      isLandscape,
+      isMobileLandscape: mobileLandscape,
+      orientation,
       fonts: calculateFonts(width),
       spacing: calculateSpacing(width),
       layout: calculateLayout(width),

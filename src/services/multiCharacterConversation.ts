@@ -8,6 +8,8 @@
 import { generateAIResponse } from './aiService';
 import { MULTI_CHARACTER_CONFIG, RESPONSE_TIMING } from '../config/llmConfig';
 import { getCharacter, getCharacterPrompt } from '../config/characters';
+import { getCombinedResponseStyle, getResponseStyleModifier } from '../config/responseStyles';
+import { TemperamentId, isValidTemperament } from '../config/temperaments';
 
 export interface ConversationMessage {
   id: string;
@@ -106,6 +108,31 @@ export function determineRespondingCharacters(
  * Build conversation context for a character
  * Includes awareness of other characters in the conversation
  */
+/**
+ * Get response style modifier for a character based on temperaments
+ */
+function getCharacterResponseStyleModifier(characterId: string): string {
+  const character = getCharacter(characterId);
+  
+  // Use temperaments if available
+  if (character.temperaments && character.temperaments.length > 0) {
+    const validTemperaments = character.temperaments.filter(t => 
+      isValidTemperament(t)
+    ) as TemperamentId[];
+    
+    if (validTemperaments.length > 0) {
+      return getCombinedResponseStyle(validTemperaments);
+    }
+  }
+  
+  // Fallback to responseStyle field for backward compatibility
+  if (character.responseStyle && isValidTemperament(character.responseStyle)) {
+    return getResponseStyleModifier(character.responseStyle as TemperamentId);
+  }
+  
+  return '';
+}
+
 function buildCharacterContext(
   characterId: string,
   selectedCharacters: string[],
@@ -113,9 +140,17 @@ function buildCharacterContext(
 ): string {
   const character = getCharacter(characterId);
   const basePrompt = getCharacterPrompt(character);
+  
+  // Get response style modifier based on temperaments
+  const styleModifier = getCharacterResponseStyleModifier(characterId);
+  
+  // Build the enhanced prompt with style modifier
+  const enhancedPrompt = styleModifier 
+    ? `${basePrompt}\n\n${styleModifier}`
+    : basePrompt;
 
   if (!MULTI_CHARACTER_CONFIG.enableCrossCharacterAwareness || selectedCharacters.length === 1) {
-    return basePrompt;
+    return enhancedPrompt;
   }
 
   // Build context about other characters
@@ -190,7 +225,7 @@ You are a **"Wakattor"** - a friendly companion character. You are NOT an "AI as
 ${formatRecentMessages(messageHistory, characterId)}
 `;
 
-  return basePrompt + multiCharacterContext;
+  return enhancedPrompt + multiCharacterContext;
 }
 
 /**
@@ -310,6 +345,7 @@ export async function generateMultiCharacterResponses(
 
 /**
  * Simplified single character response (backward compatible)
+ * Now includes responseStyle modifiers for authentic character voice
  */
 export async function generateSingleCharacterResponse(
   userMessage: string,
@@ -317,7 +353,15 @@ export async function generateSingleCharacterResponse(
   messageHistory: ConversationMessage[]
 ): Promise<string> {
   const character = getCharacter(characterId);
-  const systemPrompt = getCharacterPrompt(character);
+  const basePrompt = getCharacterPrompt(character);
+  
+  // Get response style modifier based on temperaments
+  const styleModifier = getCharacterResponseStyleModifier(characterId);
+  
+  // Build enhanced prompt with style modifier
+  const systemPrompt = styleModifier 
+    ? `${basePrompt}\n\n${styleModifier}`
+    : basePrompt;
 
   const conversationMessages = messageHistory.map(m => ({
     role: m.role as 'user' | 'assistant' | 'system',

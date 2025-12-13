@@ -1,23 +1,174 @@
 /**
- * Character greetings to avoid AI token costs
- * Uses generic greetings with name placeholder
+ * Character Greetings Service
+ * 
+ * Provides temperament-based greetings for characters.
+ * Supports temperament combinations for nuanced personality expression.
+ * 
+ * Benefits:
+ * - Zero API calls (all greetings preloaded)
+ * - Instant display (0ms vs 500-2000ms API latency)
+ * - Authentic character first impressions
+ * - Offline capability for initial interaction
  */
 
-// Generic greetings for all characters (uses {name} placeholder)
-const GENERIC_GREETINGS: string[] = [
-  "Hi there! I'm {name}. It's great to meet you! What would you like to chat about today?",
-  "Hello! {name} here. I'm excited to be your companion. What's on your mind?",
-  "Hey! I'm {name}. Ready to have a conversation whenever you are. What brings you here?",
-  "Welcome! I'm {name}, your Wakattor companion. Feel free to share whatever you'd like to talk about!",
-  "Hi! {name} at your service. I'm here to listen and chat. What would you like to explore together?",
+import { TemperamentId, isValidTemperament } from '../config/temperaments';
+import { GREETING_TEMPLATES, getGreetingFromTemperament } from './greetingTemplates';
+
+// Fallback greetings when no temperament is defined
+const FALLBACK_GREETINGS: string[] = [
+  "Hello. What brings you here today?",
+  "Welcome. I'm here to listen. What's on your mind?",
+  "Hi there. Feel free to share whatever you'd like to talk about.",
+  "Hello. I'm ready to hear what you have to say.",
+  "Welcome. What would you like to explore together?",
 ];
 
 /**
- * Get a random greeting for a character
- * @param characterName The character's display name
- * @returns A random greeting message
+ * Get a random greeting based on character's temperaments
+ * 
+ * Algorithm:
+ * - If temperaments defined: 70% primary, 30% secondary (if exists)
+ * - If no temperaments: use fallback generic greeting
+ * 
+ * @param characterId - The character's unique ID (for logging)
+ * @param characterName - The character's display name (for fallback)
+ * @param temperaments - Array of temperament IDs (e.g., ['fierce', 'sardonic'])
+ * @returns A greeting string appropriate to the character's temperament
  */
-export function getRandomGreeting(_characterId: string, characterName: string): string {
-  const randomIndex = Math.floor(Math.random() * GENERIC_GREETINGS.length);
-  return GENERIC_GREETINGS[randomIndex].replace(/{name}/g, characterName);
+export function getRandomGreeting(
+  characterId: string,
+  characterName: string,
+  temperaments?: string[]
+): string {
+  // If no temperaments defined, use fallback
+  if (!temperaments || temperaments.length === 0) {
+    console.log(`[Greetings] No temperaments for ${characterId}, using fallback`);
+    return getFallbackGreeting(characterName);
+  }
+
+  // Validate temperaments
+  const validTemperaments = temperaments.filter(t => isValidTemperament(t)) as TemperamentId[];
+  
+  if (validTemperaments.length === 0) {
+    console.warn(`[Greetings] No valid temperaments for ${characterId}:`, temperaments);
+    return getFallbackGreeting(characterName);
+  }
+
+  // Select temperament based on probability
+  const selectedTemperament = selectTemperament(validTemperaments);
+  
+  // Get random greeting from selected temperament pool
+  const greeting = getGreetingFromTemperament(selectedTemperament);
+  
+  console.log(`[Greetings] ${characterId}: selected ${selectedTemperament} temperament`);
+  
+  return greeting;
+}
+
+/**
+ * Select a temperament from the array based on probability
+ * Primary temperament: 70% chance
+ * Secondary temperament: 30% chance (if exists)
+ * Tertiary+ temperaments: Only if explicitly selected as secondary
+ */
+function selectTemperament(temperaments: TemperamentId[]): TemperamentId {
+  if (temperaments.length === 1) {
+    return temperaments[0];
+  }
+
+  // 70% chance for primary, 30% for secondary
+  const random = Math.random();
+  
+  if (random < 0.7) {
+    return temperaments[0]; // Primary
+  } else if (temperaments.length === 2) {
+    return temperaments[1]; // Secondary
+  } else {
+    // If 3+ temperaments, randomly pick from secondary onwards
+    const secondaryIndex = 1 + Math.floor(Math.random() * (temperaments.length - 1));
+    return temperaments[secondaryIndex];
+  }
+}
+
+/**
+ * Get a fallback greeting with character name placeholder
+ */
+function getFallbackGreeting(characterName: string): string {
+  const randomIndex = Math.floor(Math.random() * FALLBACK_GREETINGS.length);
+  const greeting = FALLBACK_GREETINGS[randomIndex];
+  
+  // If greeting needs a name, prepend it
+  if (!greeting.toLowerCase().includes('hello') && !greeting.toLowerCase().includes('welcome')) {
+    return `Hi, I'm ${characterName}. ${greeting}`;
+  }
+  
+  return greeting;
+}
+
+/**
+ * Get a specific temperament greeting (useful for testing or preview)
+ */
+export function getGreetingByTemperament(temperamentId: string): string | null {
+  if (!isValidTemperament(temperamentId)) {
+    return null;
+  }
+  
+  return getGreetingFromTemperament(temperamentId as TemperamentId);
+}
+
+/**
+ * Get all available greetings for a temperament (useful for UI preview)
+ */
+export function getAllGreetingsForTemperament(temperamentId: string): string[] {
+  if (!isValidTemperament(temperamentId)) {
+    return [];
+  }
+  
+  return GREETING_TEMPLATES[temperamentId as TemperamentId] || [];
+}
+
+/**
+ * Legacy compatibility: Get greeting by responseStyle
+ * Maps old responseStyle values to temperament IDs
+ */
+const RESPONSE_STYLE_TO_TEMPERAMENT: Record<string, TemperamentId> = {
+  // Existing responseStyle values from characters.ts
+  'analytical': 'analytical',
+  'symbolic': 'cryptic',      // Jung's symbolic style maps to cryptic
+  'practical': 'blunt',       // Adler's practical style
+  'hopeful': 'joyful',        // Seligman's hopeful style
+  'vulnerable': 'compassionate', // Brown's vulnerable style
+  'meaningful': 'existential',   // Frankl's meaning-focused style
+  'stoic': 'stoic',           // Epictetus
+  'fierce': 'fierce',         // Nietzsche
+  'engaging': 'enthusiastic', // Csikszentmihalyi's engaging style
+  'peaceful': 'zen',          // Thich Nhat Hanh
+};
+
+/**
+ * Get greeting using legacy responseStyle field
+ * For backward compatibility with characters that don't have temperaments array yet
+ */
+export function getGreetingByResponseStyle(
+  characterId: string,
+  characterName: string,
+  responseStyle?: string
+): string {
+  if (!responseStyle) {
+    return getFallbackGreeting(characterName);
+  }
+
+  // Try direct match first
+  if (isValidTemperament(responseStyle)) {
+    return getRandomGreeting(characterId, characterName, [responseStyle]);
+  }
+
+  // Try mapping
+  const mappedTemperament = RESPONSE_STYLE_TO_TEMPERAMENT[responseStyle];
+  if (mappedTemperament) {
+    return getRandomGreeting(characterId, characterName, [mappedTemperament]);
+  }
+
+  // Fallback
+  return getFallbackGreeting(characterName);
 }

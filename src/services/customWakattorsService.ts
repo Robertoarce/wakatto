@@ -6,6 +6,7 @@
 
 import { supabase } from '../lib/supabase';
 import { CharacterBehavior } from '../config/characters';
+import { TemperamentId, isValidTemperament } from '../config/temperaments';
 
 export interface CustomWakattor {
   id: string;
@@ -17,6 +18,7 @@ export interface CustomWakattor {
   role: string;
   system_prompt: string;
   response_style: string;
+  temperaments: string[]; // Array of TemperamentId values
   customization: Record<string, any>;
   model3d: Record<string, any>;
   is_public: boolean;
@@ -28,6 +30,9 @@ export interface CustomWakattor {
  * Convert CharacterBehavior to database format
  */
 function characterToDBFormat(character: CharacterBehavior, userId: string): Omit<CustomWakattor, 'id' | 'created_at' | 'updated_at'> {
+  // Validate and filter temperaments
+  const temperaments = (character.temperaments || []).filter(t => isValidTemperament(t));
+  
   return {
     user_id: userId,
     character_id: character.id,
@@ -37,6 +42,7 @@ function characterToDBFormat(character: CharacterBehavior, userId: string): Omit
     role: character.role,
     system_prompt: character.systemPrompt,
     response_style: character.responseStyle,
+    temperaments: temperaments as string[],
     customization: character.customization,
     model3d: character.model3D,
     is_public: false,
@@ -55,6 +61,7 @@ function dbToCharacterFormat(dbRecord: CustomWakattor): CharacterBehavior {
     role: dbRecord.role,
     systemPrompt: dbRecord.system_prompt,
     responseStyle: dbRecord.response_style,
+    temperaments: (dbRecord.temperaments || []) as TemperamentId[],
     model3D: dbRecord.model3d as any,
     customization: dbRecord.customization as any,
   };
@@ -223,6 +230,10 @@ export async function addCharacterToWakattors(character: CustomWakattor | Charac
     return { success: true, characterId, alreadyExists: true };
   }
 
+  // Extract temperaments from either format
+  const rawTemperaments = (character as any).temperaments || [];
+  const validTemperaments = rawTemperaments.filter((t: string) => isValidTemperament(t));
+
   // Normalize the character data to handle both formats
   // CustomWakattor uses snake_case, CharacterBehavior uses camelCase
   const dbData = {
@@ -235,6 +246,7 @@ export async function addCharacterToWakattors(character: CustomWakattor | Charac
     // Handle both snake_case and camelCase
     system_prompt: (character as any).system_prompt || (character as any).systemPrompt || '',
     response_style: (character as any).response_style || (character as any).responseStyle || 'balanced',
+    temperaments: validTemperaments,
     customization: character.customization,
     // Handle both model3d (snake) and model3D (camel)
     model3d: (character as any).model3d || (character as any).model3D || {},
@@ -253,4 +265,25 @@ export async function addCharacterToWakattors(character: CustomWakattor | Charac
   }
 
   return { success: true, characterId };
+}
+
+/**
+ * Update temperaments for a character
+ */
+export async function updateCharacterTemperaments(
+  characterId: string, 
+  temperaments: TemperamentId[]
+): Promise<void> {
+  // Validate all temperaments
+  const validTemperaments = temperaments.filter(t => isValidTemperament(t));
+  
+  const { error } = await supabase
+    .from('custom_wakattors')
+    .update({ temperaments: validTemperaments })
+    .eq('character_id', characterId);
+
+  if (error) {
+    console.error('[CustomWakattors] Update temperaments error:', error);
+    throw new Error(`Failed to update temperaments: ${error.message}`);
+  }
 }

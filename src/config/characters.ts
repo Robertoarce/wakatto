@@ -1,5 +1,7 @@
 // Character configuration for AI personalities
 
+import { TemperamentId } from './temperaments';
+
 export type GenderType = 'male' | 'female' | 'neutral';
 export type SkinToneType = 'light' | 'medium' | 'tan' | 'dark';
 export type ClothingType = 'suit' | 'tshirt' | 'dress' | 'casual' | 'jacket' | 'hoodie' | 'vest' | 'apron' | 'labcoat';
@@ -25,6 +27,7 @@ export interface CharacterBehavior {
   role: string; // Character's role (e.g., "Therapist", "Coach", "Friend")
   systemPrompt: string; // System prompt for character behavior
   responseStyle: string;
+  temperaments?: TemperamentId[]; // Array of temperament IDs for greeting/response style
   model3D: {
     bodyColor: string;
     accessoryColor: string;
@@ -56,6 +59,7 @@ export const CHARACTERS: Record<string, CharacterBehavior> = {
 - You're introducing a new psychological concept that needs context
 Otherwise, favor concise, impactful insights.`,
     responseStyle: 'analytical',
+    temperaments: ['analytical', 'nostalgic'],
     model3D: {
       bodyColor: '#5c4a3a',
       accessoryColor: '#3a2a1a',
@@ -94,6 +98,7 @@ Otherwise, favor concise, impactful insights.`,
 - You're introducing a new psychological concept that needs context
 Otherwise, favor concise, impactful insights.`,
     responseStyle: 'symbolic',
+    temperaments: ['cryptic', 'brooding'],
     model3D: {
       bodyColor: '#9a9a9a',
       accessoryColor: '#6a6a6a',
@@ -132,6 +137,7 @@ Otherwise, favor concise, impactful insights.`,
 - You're introducing a new psychological concept that needs context
 Otherwise, favor concise, impactful insights.`,
     responseStyle: 'practical',
+    temperaments: ['blunt', 'mentor'],
     model3D: {
       bodyColor: '#4a7c59',
       accessoryColor: '#2d5a3d',
@@ -170,6 +176,7 @@ Otherwise, favor concise, impactful insights.`,
 - You're introducing a new psychological concept that needs context
 Otherwise, favor concise, impactful insights.`,
     responseStyle: 'hopeful',
+    temperaments: ['joyful', 'enthusiastic'],
     model3D: {
       bodyColor: '#059669',
       accessoryColor: '#047857',
@@ -208,6 +215,7 @@ Otherwise, favor concise, impactful insights.`,
 - You're introducing a new psychological concept that needs context
 Otherwise, favor concise, impactful insights.`,
     responseStyle: 'vulnerable',
+    temperaments: ['compassionate', 'intimate'],
     model3D: {
       bodyColor: '#db2777',
       accessoryColor: '#be185d',
@@ -246,6 +254,7 @@ Otherwise, favor concise, impactful insights.`,
 - You're introducing a new psychological concept that needs context
 Otherwise, favor concise, impactful insights.`,
     responseStyle: 'meaningful',
+    temperaments: ['existential', 'sage'],
     model3D: {
       bodyColor: '#475569',
       accessoryColor: '#334155',
@@ -284,6 +293,7 @@ Otherwise, favor concise, impactful insights.`,
 - You're introducing a new psychological concept that needs context
 Otherwise, favor concise, impactful insights.`,
     responseStyle: 'stoic',
+    temperaments: ['stoic', 'classical'],
     model3D: {
       bodyColor: '#57534e',
       accessoryColor: '#44403c',
@@ -322,6 +332,7 @@ Otherwise, favor concise, impactful insights.`,
 - You're introducing a new psychological concept that needs context
 Otherwise, favor concise, impactful insights.`,
     responseStyle: 'fierce',
+    temperaments: ['fierce', 'rebellious'],
     model3D: {
       bodyColor: '#991b1b',
       accessoryColor: '#7f1d1d',
@@ -360,6 +371,7 @@ Otherwise, favor concise, impactful insights.`,
 - You're introducing a new psychological concept that needs context
 Otherwise, favor concise, impactful insights.`,
     responseStyle: 'engaging',
+    temperaments: ['enthusiastic', 'curious'],
     model3D: {
       bodyColor: '#2563eb',
       accessoryColor: '#1d4ed8',
@@ -398,6 +410,7 @@ Otherwise, favor concise, impactful insights.`,
 - You're introducing a new psychological concept that needs context
 Otherwise, favor concise, impactful insights.`,
     responseStyle: 'peaceful',
+    temperaments: ['zen', 'compassionate'],
     model3D: {
       bodyColor: '#d97706',
       accessoryColor: '#b45309',
