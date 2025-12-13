@@ -185,7 +185,7 @@ function CharacterSpeechBubble({
   const fadeOutTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasStartedFadeOut = useRef(false);
   const lastTextRef = useRef('');
-  const { fonts, isMobile, spacing } = useResponsive();
+  const { fonts, isMobile, isMobileLandscape, spacing, width: viewportWidth, height: viewportHeight } = useResponsive();
 
   useEffect(() => {
     // Clear any existing fade out timer when speaking starts again
@@ -295,6 +295,10 @@ function CharacterSpeechBubble({
 
   // On mobile with stacked layout, use a simpler compact design
   if (isMobileStacked) {
+    // Calculate safe width for stacked bubbles
+    const stackedMaxWidth = Math.min(maxWidth, (viewportWidth || 400) - 24);
+    const stackedMaxHeight = Math.min(120, (viewportHeight || 600) * 0.2);
+    
     return (
       <Animated.View 
         style={[
@@ -306,6 +310,9 @@ function CharacterSpeechBubble({
             top: stackIndex * 4,
             zIndex: 200 - stackIndex,
             pointerEvents: 'none',
+            maxWidth: stackedMaxWidth,
+            maxHeight: stackedMaxHeight,
+            overflow: 'hidden',
           }
         ]}
       >
@@ -327,20 +334,36 @@ function CharacterSpeechBubble({
 
   // Calculate responsive position offsets with screen boundary clamping
   const getPositionStyles = () => {
+    const padding = 8; // Minimum padding from screen edge
+    const effectiveScreenWidth = bubbleScreenWidth || viewportWidth || 400;
+    const effectiveScreenHeight = viewportHeight || 600;
+    
+    // Calculate safe max dimensions that fit within viewport
+    const safeMaxWidth = Math.min(maxWidth, effectiveScreenWidth - padding * 2);
+    const safeMaxHeight = isMobileLandscape 
+      ? Math.min(maxHeight || 200, effectiveScreenHeight * 0.5)
+      : (maxHeight || effectiveScreenHeight * 0.4);
+    
+    // In landscape or constrained space, position bubbles more centrally
+    if (isMobileLandscape) {
+      return {
+        left: padding,
+        right: padding,
+        top: topOffset,
+        maxWidth: safeMaxWidth,
+        maxHeight: safeMaxHeight,
+      };
+    }
+    
     const baseOffset = position === 'left' ? { right: 70 } : { left: 80 };
     const translateX = position === 'left' ? 30 : -30;
-    
-    // Clamp bubble position to stay within screen bounds
-    // Use screenWidth prop if provided, otherwise use a safe default
-    const effectiveScreenWidth = bubbleScreenWidth || 400;
-    const padding = 8; // Minimum padding from screen edge
     
     // For left position (bubble on right side of character), ensure it doesn't overflow right
     // For right position (bubble on left side of character), ensure it doesn't overflow left
     let clampedOffset = baseOffset;
     if (position === 'right' && bubbleScreenWidth) {
       // Ensure left + maxWidth doesn't exceed screen width
-      const maxLeft = Math.max(padding, Math.min(80, effectiveScreenWidth - maxWidth - padding));
+      const maxLeft = Math.max(padding, Math.min(80, effectiveScreenWidth - safeMaxWidth - padding));
       clampedOffset = { left: maxLeft };
     }
     
@@ -348,8 +371,16 @@ function CharacterSpeechBubble({
       ...clampedOffset,
       top: topOffset,
       transform: [{ translateX }],
+      maxWidth: safeMaxWidth,
+      maxHeight: safeMaxHeight,
     };
   };
+
+  // Calculate safe dimensions that always fit viewport
+  const safeBubbleWidth = Math.min(maxWidth, (viewportWidth || 400) - 16);
+  const safeBubbleHeight = isMobileLandscape 
+    ? Math.min(maxHeight || 150, (viewportHeight || 300) * 0.45)
+    : (maxHeight || (viewportHeight || 600) * 0.4);
 
   return (
     <Animated.View 
@@ -361,12 +392,14 @@ function CharacterSpeechBubble({
         { 
           opacity: fadeAnim, 
           borderColor: characterColor,
-          maxWidth: maxWidth,
-          maxHeight: maxHeight,
-          overflow: maxHeight ? 'hidden' : undefined,
+          maxWidth: safeBubbleWidth,
+          maxHeight: safeBubbleHeight,
+          overflow: 'hidden', // Always clip overflow
           zIndex: 500, // Ensure bubbles are always on top of characters
           pointerEvents: 'none',
-        }
+        },
+        // Compact styles for landscape
+        isMobileLandscape && styles.speechBubbleCompact,
       ]}
     >
       {/* Speech bubble tail - hide for single character (bubble is above) */}
@@ -604,6 +637,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [availableCharacters, setAvailableCharacters] = useState(getAllCharacters()); // Load from Wakattors database
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(true);
   const [showChatHistory, setShowChatHistory] = useState(false); // Hidden by default
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   // In mobile landscape, default to characters view (not chat history)
   // This effect ensures chat history is hidden when rotating to landscape
@@ -612,6 +646,61 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       setShowChatHistory(false);
     }
   }, [isMobileLandscape]);
+
+  // Fullscreen API handlers (web only)
+  const toggleFullscreen = useCallback(async () => {
+    if (Platform.OS !== 'web') return;
+    
+    try {
+      const doc = document as any;
+      const docEl = document.documentElement as any;
+      
+      if (!doc.fullscreenElement && !doc.webkitFullscreenElement && !doc.mozFullScreenElement) {
+        // Enter fullscreen
+        if (docEl.requestFullscreen) {
+          await docEl.requestFullscreen();
+        } else if (docEl.webkitRequestFullscreen) {
+          await docEl.webkitRequestFullscreen();
+        } else if (docEl.mozRequestFullScreen) {
+          await docEl.mozRequestFullScreen();
+        }
+        setIsFullscreen(true);
+      } else {
+        // Exit fullscreen
+        if (doc.exitFullscreen) {
+          await doc.exitFullscreen();
+        } else if (doc.webkitExitFullscreen) {
+          await doc.webkitExitFullscreen();
+        } else if (doc.mozCancelFullScreen) {
+          await doc.mozCancelFullScreen();
+        }
+        setIsFullscreen(false);
+      }
+    } catch (error) {
+      console.error('[Fullscreen] Error toggling fullscreen:', error);
+    }
+  }, []);
+
+  // Listen for fullscreen change events
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    
+    const handleFullscreenChange = () => {
+      const doc = document as any;
+      const isCurrentlyFullscreen = !!(doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement);
+      setIsFullscreen(isCurrentlyFullscreen);
+    };
+    
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
   
   // Character selector search and filter state
   const [characterSearchQuery, setCharacterSearchQuery] = useState('');
@@ -1963,6 +2052,23 @@ Each silence, a cathedral where you still reside.`;
         </TouchableOpacity>
       )}
 
+      {/* Fullscreen Toggle Button (web only) */}
+      {Platform.OS === 'web' && (
+        <TouchableOpacity
+          onPress={toggleFullscreen}
+          style={[
+            styles.fullscreenButton,
+            isFullscreen && styles.fullscreenButtonActive,
+          ]}
+        >
+          <Ionicons 
+            name={isFullscreen ? "contract" : "expand"} 
+            size={20} 
+            color="#ffffff" 
+          />
+        </TouchableOpacity>
+      )}
+
 
       {/* Chat Messages - Only show when showChatHistory is true */}
       {showChatHistory && (
@@ -2264,6 +2370,31 @@ const styles = StyleSheet.create({
   landscapeToggleBadgeText: {
     color: '#8b5cf6',
     fontWeight: '700',
+  },
+  // Fullscreen Button Styles
+  fullscreenButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+      },
+    }),
+  },
+  fullscreenButtonActive: {
+    backgroundColor: '#8b5cf6',
+    borderColor: '#8b5cf6',
   },
   dividerMessageBadge: {
     backgroundColor: '#8b5cf6',
