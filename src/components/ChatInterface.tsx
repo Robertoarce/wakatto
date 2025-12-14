@@ -1191,7 +1191,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
       const uniqueCharacterIds = Array.from(new Set(characterIds));
 
-      // Restore characters from conversation history
+      // Restore characters from conversation history (limit to max 5)
       if (uniqueCharacterIds.length > 0) {
         console.log('[ChatInterface] Restoring characters from conversation history:', uniqueCharacterIds);
         setSelectedCharacters(uniqueCharacterIds);
@@ -1614,34 +1614,46 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
     // Get character info for toast
     const character = getCharacter(characterId);
-    const isCurrentlySelected = selectedCharacters.includes(characterId);
 
-    if (isCurrentlySelected) {
-      // Don't allow removing if only one left
-      if (selectedCharacters.length === 1) return;
-      
-      // Remove character
-      setSelectedCharacters(prev => prev.filter(id => id !== characterId));
-      
-      // Show toast for removal
-      setToastMessage(`Removed ${character.name}`);
-      setToastColor(character.color);
-      setToastVisible(true);
-    } else {
-      // Don't allow more than 5 characters
-      if (selectedCharacters.length >= 5) {
-        showAlert('Maximum Reached', 'You can select up to 5 Wakattors maximum.', [{ text: 'OK' }]);
-        return;
+    // Use functional update to avoid stale closure issues
+    setSelectedCharacters(prev => {
+      const isCurrentlySelected = prev.includes(characterId);
+
+      if (isCurrentlySelected) {
+        // Don't allow removing if only one left
+        if (prev.length === 1) return prev;
+        
+        // Show toast for removal (schedule after state update)
+        setTimeout(() => {
+          setToastMessage(`Removed ${character.name}`);
+          setToastColor(character.color);
+          setToastVisible(true);
+        }, 0);
+        
+        return prev.filter(id => id !== characterId);
+      } else {
+        // Don't allow more than 5 characters - check against current state
+        if (prev.length >= 5) {
+          // Schedule alert after state update to avoid nested updates
+          setTimeout(() => {
+            showAlert('Maximum Reached', 'You can select up to 5 Wakattors maximum.', [{ text: 'OK' }]);
+          }, 0);
+          return prev;
+        }
+        
+        // Don't add duplicates
+        if (prev.includes(characterId)) return prev;
+        
+        // Show toast for addition (schedule after state update)
+        setTimeout(() => {
+          setToastMessage(`Added ${character.name}`);
+          setToastColor(character.color);
+          setToastVisible(true);
+        }, 0);
+        
+        return [...prev, characterId];
       }
-      
-      // Add character
-      setSelectedCharacters(prev => [...prev, characterId]);
-      
-      // Show toast for addition
-      setToastMessage(`Added ${character.name}`);
-      setToastColor(character.color);
-      setToastVisible(true);
-    }
+    });
   };
 
   const confirmDeleteMessage = (messageId: string) => {
@@ -2019,7 +2031,7 @@ Each silence, a cathedral where you still reside.`;
         {/* In mobile landscape, use side positioning instead of stacked */}
         {isMobile && selectedCharacters.length > 1 && !isMobileLandscape && (
           <View style={[styles.mobileBubbleStack, { maxHeight: Math.floor(characterHeight * 0.5) }]}>
-            {Array.from(new Set(selectedCharacters)).map((characterId, index) => {
+            {Array.from(new Set(selectedCharacters)).slice(0, 5).map((characterId, index) => {
               const character = availableCharacters.find(c => c.id === characterId) || getCharacter(characterId);
               const charPlaybackState = playbackState.characterStates.get(characterId);
               const usePlayback = playbackState.isPlaying && charPlaybackState;
@@ -2061,10 +2073,12 @@ Each silence, a cathedral where you still reside.`;
               <Text style={[styles.emptyCharacterText, { fontSize: fonts.md }]}>Click "0 Wakattors" to select characters</Text>
             </View>
           ) : (
-            Array.from(new Set(selectedCharacters)).map((characterId, index) => {
+            (() => {
+              const limitedCharacters = Array.from(new Set(selectedCharacters)).slice(0, 5);
+              return limitedCharacters.map((characterId, index) => {
               // Get character from availableCharacters (includes custom wakattors) or fallback to built-in
               const character = availableCharacters.find(c => c.id === characterId) || getCharacter(characterId);
-              const total = selectedCharacters.length;
+              const total = Math.min(selectedCharacters.length, 5);
               
               // Calculate semi-circle position (like sitting around a table)
               // Center character is furthest (top/back), side characters are closest (bottom/front)
@@ -2197,7 +2211,8 @@ Each silence, a cathedral where you still reside.`;
                   )}
                 </FloatingCharacterWrapper>
               );
-            })
+            });
+            })()
           )}
         </View>
       </View>
