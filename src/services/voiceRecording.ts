@@ -54,7 +54,22 @@ export class VoiceRecorder {
    * Check if browser supports audio recording
    */
   isSupported(): boolean {
-    return !!(typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof MediaRecorder !== 'undefined');
+    const hasNavigator = typeof navigator !== 'undefined';
+    const hasMediaDevices = hasNavigator && !!navigator.mediaDevices;
+    const hasGetUserMedia = hasMediaDevices && !!navigator.mediaDevices.getUserMedia;
+    const hasMediaRecorder = typeof MediaRecorder !== 'undefined';
+    
+    const supported = hasNavigator && hasMediaDevices && hasGetUserMedia && hasMediaRecorder;
+    
+    console.log('[VoiceRecorder] isSupported check:', {
+      hasNavigator,
+      hasMediaDevices,
+      hasGetUserMedia,
+      hasMediaRecorder,
+      supported
+    });
+    
+    return supported;
   }
 
   /**
@@ -142,13 +157,37 @@ export class VoiceRecorder {
   }
 
   /**
-   * Stop recording
+   * Stop recording and return a promise that resolves with the audio blob
    */
-  stopRecording(): void {
-    if (this.mediaRecorder && this.currentState.isRecording) {
-      this.mediaRecorder.stop();
-      console.log('[VoiceRecorder] Recording stopped');
-    }
+  stopRecording(): Promise<Blob | undefined> {
+    return new Promise((resolve) => {
+      if (this.mediaRecorder && this.currentState.isRecording) {
+        // Override onstop to resolve the promise with the audio blob
+        this.mediaRecorder.onstop = () => {
+          // Create the audio blob from recorded chunks
+          const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+          const audioURL = URL.createObjectURL(audioBlob);
+
+          this.updateState({
+            isRecording: false,
+            audioBlob,
+            audioURL,
+          });
+
+          // Clean up stream
+          this.cleanup();
+          
+          console.log('[VoiceRecorder] Recording stopped, audioBlob ready:', !!audioBlob, 'size:', audioBlob.size);
+          resolve(audioBlob);
+        };
+        
+        this.mediaRecorder.stop();
+        console.log('[VoiceRecorder] Recording stopping...');
+      } else {
+        console.log('[VoiceRecorder] Not recording, nothing to stop');
+        resolve(undefined);
+      }
+    });
   }
 
   /**

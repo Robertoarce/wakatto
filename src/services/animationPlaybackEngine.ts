@@ -13,8 +13,49 @@ import {
 } from './animationOrchestration';
 import {
   AnimationState,
-  ComplementaryAnimation
+  ComplementaryAnimation,
+  MouthState,
+  EyeState
 } from '../components/CharacterDisplay3D';
+
+// ============================================
+// POST-SPEAKING EXPRESSIONS
+// ============================================
+
+// Varied expressions for after a character finishes speaking
+const POST_SPEAKING_EXPRESSIONS: Array<{
+  mouthState: MouthState;
+  eyeState?: EyeState;
+  weight: number; // Higher = more likely
+}> = [
+  { mouthState: 'smile', weight: 3 },           // Satisfied/friendly
+  { mouthState: 'closed', weight: 4 },          // Neutral/thoughtful
+  { mouthState: 'closed', eyeState: 'blink', weight: 2 }, // Relaxed blink
+  { mouthState: 'open', weight: 1 },            // Curious/engaged
+  { mouthState: 'smile', eyeState: 'open', weight: 2 },  // Alert and happy
+];
+
+/**
+ * Get a random post-speaking expression with weighted selection
+ */
+function getRandomPostSpeakingExpression(): ComplementaryAnimation {
+  const totalWeight = POST_SPEAKING_EXPRESSIONS.reduce((sum, e) => sum + e.weight, 0);
+  let random = Math.random() * totalWeight;
+  
+  for (const expression of POST_SPEAKING_EXPRESSIONS) {
+    random -= expression.weight;
+    if (random <= 0) {
+      const result: ComplementaryAnimation = { mouthState: expression.mouthState };
+      if (expression.eyeState) {
+        result.eyeState = expression.eyeState;
+      }
+      return result;
+    }
+  }
+  
+  // Fallback
+  return { mouthState: 'closed' };
+}
 
 // ============================================
 // TYPES
@@ -317,7 +358,7 @@ export class AnimationPlaybackEngine {
       return {
         characterId: timeline.characterId,
         animation: 'idle',
-        complementary: { mouthState: 'smile' },
+        complementary: getRandomPostSpeakingExpression(),
         isTalking: false,
         revealedText: timeline.content,
         isActive: false,

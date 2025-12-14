@@ -10,6 +10,17 @@ interface ToastProps {
   visible: boolean;
   onDismiss?: () => void;
   duration?: number;
+  customColor?: string; // Character theme color override
+}
+
+// Helper to convert hex color to rgba
+function hexToRgba(hex: string, alpha: number): string {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!result) return hex;
+  const r = parseInt(result[1], 16);
+  const g = parseInt(result[2], 16);
+  const b = parseInt(result[3], 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 export function Toast({
@@ -18,12 +29,17 @@ export function Toast({
   visible,
   onDismiss,
   duration = 3000,
+  customColor,
 }: ToastProps) {
   const translateY = useRef(new Animated.Value(-100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
+      // Reset animation values first
+      translateY.setValue(-100);
+      opacity.setValue(0);
+      
       // Show animation
       Animated.parallel([
         Animated.spring(translateY, {
@@ -99,13 +115,17 @@ export function Toast({
 
   const variantStyles = getVariantStyles();
 
+  // Use custom color if provided, otherwise use variant styles
+  const backgroundColor = customColor ? hexToRgba(customColor, 0.95) : variantStyles.backgroundColor;
+  const borderColor = customColor || variantStyles.borderColor;
+
   return (
     <Animated.View
       style={[
         styles.container,
         {
-          backgroundColor: variantStyles.backgroundColor,
-          borderColor: variantStyles.borderColor,
+          backgroundColor,
+          borderColor,
           transform: [{ translateY }],
           opacity,
         },

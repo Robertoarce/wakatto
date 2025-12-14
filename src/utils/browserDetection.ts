@@ -157,7 +157,7 @@ export function getBrowserGuidance(feature: 'microphone' | 'webspeech'): string 
 
   if (feature === 'webspeech') {
     if (!browser.supportsWebSpeech) {
-      return `${browser.name} does not support Web Speech API. Please use Chrome, Edge, Brave, or Safari for live voice transcription. You can still use OpenAI Whisper API as a fallback.`;
+      return `${browser.name} does not support Web Speech API. Please use Chrome, Edge, or Safari for voice transcription.`;
     }
     return `${browser.name} supports Web Speech API for live transcription!`;
   }
@@ -186,7 +186,7 @@ export function isVoiceSupported(): {
   if (!browser.supportsWebSpeech) {
     return {
       supported: true,
-      message: `${browser.name} supports audio recording, but Web Speech API is not available. You can use OpenAI Whisper API for transcription instead. Configure your OpenAI API key in Settings.`,
+      message: `${browser.name} supports audio recording, but Web Speech API is not available. Please use Chrome, Edge, or Safari for voice transcription.`,
       browser,
     };
   }

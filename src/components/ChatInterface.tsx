@@ -18,6 +18,7 @@ import { CharacterAnimationState, OrchestrationScene, CharacterTimeline, Animati
 import { generateProcessingScene } from '../services/processingAnimations';
 import { getRandomGreeting } from '../services/characterGreetings';
 import { useResponsive, BREAKPOINTS } from '../constants/Layout';
+import { Toast } from './ui/Toast';
 
 interface Message {
   id: string;
@@ -60,6 +61,50 @@ export function startAnimationPlayback(scene: OrchestrationScene): void {
 export function stopAnimationPlayback(): void {
   const engine = getPlaybackEngine();
   engine.stop();
+}
+
+// ============================================
+// IDLE ANIMATION SYSTEM
+// ============================================
+
+// Available idle animations pool
+const IDLE_ANIMATIONS: AnimationState[] = [
+  'idle', 'kick_ground', 'meh', 'foot_tap', 
+  'look_around', 'yawn', 'fidget', 'rub_eyes', 'weight_shift'
+];
+
+// Complementary states for idle animations
+const IDLE_COMPLEMENTARY_OPTIONS: ComplementaryAnimation[] = [
+  { mouthState: 'closed' },
+  { mouthState: 'closed', eyeState: 'blink' },
+  { mouthState: 'smile' },
+  { eyeState: 'open' },
+  { lookDirection: 'left' },
+  { lookDirection: 'right' },
+  { lookDirection: 'up' },
+  {},
+];
+
+// Interface for idle animation state
+interface IdleAnimationState {
+  animation: AnimationState;
+  complementary: ComplementaryAnimation;
+}
+
+/**
+ * Get a random idle animation with complementary state
+ */
+function getRandomIdleAnimation(): IdleAnimationState {
+  const animation = IDLE_ANIMATIONS[Math.floor(Math.random() * IDLE_ANIMATIONS.length)];
+  const complementary = IDLE_COMPLEMENTARY_OPTIONS[Math.floor(Math.random() * IDLE_COMPLEMENTARY_OPTIONS.length)];
+  return { animation, complementary };
+}
+
+/**
+ * Get random interval between idle animation changes (8-15 seconds)
+ */
+function getRandomIdleInterval(): number {
+  return 8000 + Math.random() * 7000; // 8000-15000ms
 }
 
 // Character name label component with fade animation
@@ -643,6 +688,11 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(true);
   const [showChatHistory, setShowChatHistory] = useState(false); // Hidden by default
   
+  // Toast state for character selection feedback
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastColor, setToastColor] = useState<string | undefined>();
+  
   // In mobile landscape, default to characters view (not chat history)
   // This effect ensures chat history is hidden when rotating to landscape
   useEffect(() => {
@@ -699,6 +749,139 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   
   // Track which messages are being animated (by characterId -> messageId)
   const [animatingMessages, setAnimatingMessages] = useState<Map<string, string>>(new Map());
+
+  // ============================================
+  // IDLE ANIMATION STATE (Per-character independent timers)
+  // ============================================
+  
+  // Idle animations for each character when not in playback
+  const [idleAnimations, setIdleAnimations] = useState<Map<string, IdleAnimationState>>(new Map());
+  // Per-character timers (characterId -> timeout)
+  const idleTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const idleStartDelayRef = useRef<NodeJS.Timeout | null>(null);
+  const isIdleCycleActiveRef = useRef(false);
+  
+  // Update idle animation for a single character
+  const updateCharacterIdleAnimation = useCallback((characterId: string) => {
+    setIdleAnimations(prev => {
+      const newMap = new Map(prev);
+      newMap.set(characterId, getRandomIdleAnimation());
+      return newMap;
+    });
+  }, []);
+  
+  // Schedule next idle animation for a character with random delay
+  const scheduleNextIdleAnimation = useCallback((characterId: string) => {
+    // Clear any existing timer for this character
+    const existingTimer = idleTimersRef.current.get(characterId);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+    
+    // Schedule next animation change with random interval (8-15 seconds)
+    const timer = setTimeout(() => {
+      if (isIdleCycleActiveRef.current) {
+        updateCharacterIdleAnimation(characterId);
+        // Schedule the next one
+        scheduleNextIdleAnimation(characterId);
+      }
+    }, getRandomIdleInterval());
+    
+    idleTimersRef.current.set(characterId, timer);
+  }, [updateCharacterIdleAnimation]);
+  
+  // Start idle animation cycle for all characters (with staggered start)
+  const startIdleCycle = useCallback(() => {
+    isIdleCycleActiveRef.current = true;
+    
+    // Each character starts with a random initial delay (0-5 seconds stagger)
+    selectedCharacters.forEach((charId, index) => {
+      // Set initial animation immediately
+      updateCharacterIdleAnimation(charId);
+      
+      // Schedule first change with staggered delay
+      const staggerDelay = (index * 2000) + (Math.random() * 3000); // 0-3s base + 2s per character
+      const initialTimer = setTimeout(() => {
+        if (isIdleCycleActiveRef.current) {
+          updateCharacterIdleAnimation(charId);
+          scheduleNextIdleAnimation(charId);
+        }
+      }, staggerDelay);
+      
+      idleTimersRef.current.set(charId, initialTimer);
+    });
+  }, [selectedCharacters, updateCharacterIdleAnimation, scheduleNextIdleAnimation]);
+  
+  // Stop all idle animation cycles
+  const stopIdleCycle = useCallback(() => {
+    isIdleCycleActiveRef.current = false;
+    
+    // Clear all character timers
+    idleTimersRef.current.forEach((timer) => {
+      clearTimeout(timer);
+    });
+    idleTimersRef.current.clear();
+    
+    if (idleStartDelayRef.current) {
+      clearTimeout(idleStartDelayRef.current);
+      idleStartDelayRef.current = null;
+    }
+  }, []);
+  
+  // Effect: Start/stop idle cycle based on playback and loading state
+  useEffect(() => {
+    const shouldBeIdle = !playbackState.isPlaying && !isLoading && !showEntranceAnimation;
+    
+    if (shouldBeIdle) {
+      // Start idle cycle after a 5 second delay (to let post-speaking expression show)
+      idleStartDelayRef.current = setTimeout(() => {
+        startIdleCycle();
+      }, 5000);
+    } else {
+      // Stop idle cycle when playback starts
+      stopIdleCycle();
+    }
+    
+    return () => {
+      stopIdleCycle();
+    };
+  }, [playbackState.isPlaying, isLoading, showEntranceAnimation, startIdleCycle, stopIdleCycle]);
+  
+  // Effect: Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopIdleCycle();
+    };
+  }, [stopIdleCycle]);
+  
+  // Effect: Handle character selection changes - add/remove timers for new/removed characters
+  useEffect(() => {
+    if (!isIdleCycleActiveRef.current) return;
+    
+    // Remove timers for characters no longer selected
+    idleTimersRef.current.forEach((timer, charId) => {
+      if (!selectedCharacters.includes(charId)) {
+        clearTimeout(timer);
+        idleTimersRef.current.delete(charId);
+      }
+    });
+    
+    // Add timers for newly selected characters
+    selectedCharacters.forEach((charId) => {
+      if (!idleTimersRef.current.has(charId)) {
+        // Set initial animation and schedule next
+        updateCharacterIdleAnimation(charId);
+        const staggerDelay = Math.random() * 3000; // Random 0-3s delay
+        const timer = setTimeout(() => {
+          if (isIdleCycleActiveRef.current) {
+            updateCharacterIdleAnimation(charId);
+            scheduleNextIdleAnimation(charId);
+          }
+        }, staggerDelay);
+        idleTimersRef.current.set(charId, timer);
+      }
+    });
+  }, [selectedCharacters, updateCharacterIdleAnimation, scheduleNextIdleAnimation]);
 
   // ============================================
   // RESPONSIVE CALCULATIONS FOR BUBBLES & CHARACTERS
@@ -1017,9 +1200,10 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         if (conversationChanged) {
           userHasSelectedCharacters.current = false;
         }
-      } else if (conversationChanged || initialLoad) {
+      } else if ((conversationChanged || initialLoad) && !userHasSelectedCharacters.current) {
         // New empty conversation or initial load with no assistant messages - set random character
         // Note: Greeting is handled by the second useEffect for brand new conversations
+        // Only do this if user hasn't manually selected characters (preserves selection during first message send)
         console.log('[ChatInterface] Empty conversation, selecting random character');
         if (availableCharacters.length > 0) {
           const randomIndex = Math.floor(Math.random() * availableCharacters.length);
@@ -1030,6 +1214,10 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         }
         hasRestoredInitialCharacters.current = true;
         userHasSelectedCharacters.current = false;
+      } else if ((conversationChanged || initialLoad) && userHasSelectedCharacters.current) {
+        // User manually selected characters - preserve their selection
+        console.log('[ChatInterface] Preserving user-selected characters:', selectedCharacters);
+        hasRestoredInitialCharacters.current = true;
       }
     }
 
@@ -1213,10 +1401,10 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     setIsTranscribing(true);
 
     try {
-      console.log('[ChatInterface] Transcribing audio with Whisper API...');
+      console.log('[ChatInterface] Transcribing audio with native Web Speech API...');
 
-      // Use Whisper API for recorded audio (fallback when live speech fails)
-      const result = await transcribeAudio(audioBlob, 'whisper', false);
+      // Use native Web Speech API (built into browsers)
+      const result = await transcribeAudio(audioBlob, 'web-speech', false);
 
       console.log('[ChatInterface] Transcription result:', result);
 
@@ -1245,8 +1433,11 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     const voiceRecorder = voiceRecorderRef.current;
     const liveSpeech = liveSpeechRef.current;
 
+    console.log('[ChatInterface] toggleRecording called, isRecording:', isRecording);
+
     // Check browser compatibility
     const voiceSupport = isVoiceSupported();
+    console.log('[ChatInterface] Voice support check:', voiceSupport);
     if (!voiceSupport.supported) {
       showAlert('Not Supported', voiceSupport.message);
       return;
@@ -1254,6 +1445,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
     if (!voiceRecorder.isSupported()) {
       const browser = detectBrowser();
+      console.log('[ChatInterface] VoiceRecorder not supported in:', browser);
       showAlert(
         'Not Supported',
         `Voice recording is not supported in ${browser.name}. Please use Chrome, Edge, Brave, Firefox, or Safari.`
@@ -1262,20 +1454,25 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     }
 
     if (isRecording) {
-      // Stop recording
-      voiceRecorder.stopRecording();
-
+      console.log('[ChatInterface] Stopping recording...');
+      
       // Stop live speech recognition if active
       let finalTranscript = '';
       if (liveSpeech && liveSpeech.isSupported()) {
         finalTranscript = liveSpeech.stop();
+        console.log('[ChatInterface] Live speech transcript:', finalTranscript || '(empty)');
       }
 
       // Also check the liveTranscript state (shown in "Live:" card)
       // This ensures we capture text even if liveSpeech.stop() returns empty
       if (!finalTranscript.trim() && liveTranscript.trim()) {
         finalTranscript = liveTranscript;
+        console.log('[ChatInterface] Using liveTranscript state:', finalTranscript);
       }
+
+      // Stop recording and wait for audio blob to be ready
+      const audioBlob = await voiceRecorder.stopRecording();
+      console.log('[ChatInterface] Recording stopped, audioBlob:', !!audioBlob, audioBlob?.size);
 
       // Use live transcript if available, otherwise transcribe recorded audio
       if (finalTranscript.trim()) {
@@ -1285,22 +1482,31 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
           return prev + separator + finalTranscript.trim();
         });
         setLiveTranscript('');
-        // Transcription successful - no alert needed
+        console.log('[ChatInterface] Using live transcript');
       } else {
-        // Fall back to Whisper API with recorded audio
+        // Fall back to transcription with recorded audio
         setLiveTranscript('');
-        const state = voiceRecorder.getState();
-        if (state.audioBlob) {
-          await handleTranscription(state.audioBlob);
+        if (audioBlob) {
+          console.log('[ChatInterface] Falling back to audio transcription');
+          await handleTranscription(audioBlob);
+        } else {
+          console.warn('[ChatInterface] No audio blob available for transcription');
+          showAlert('Recording Error', 'No audio was captured. Please try again.');
         }
       }
     } else {
       // Start recording
       try {
+        console.log('[ChatInterface] Starting recording...');
         setLiveTranscript('');
         await voiceRecorder.startRecording();
+        console.log('[ChatInterface] VoiceRecorder started successfully');
 
         // Start live speech recognition if available
+        console.log('[ChatInterface] Checking live speech support:', {
+          liveSpeech: !!liveSpeech,
+          isSupported: liveSpeech?.isSupported()
+        });
         if (liveSpeech && liveSpeech.isSupported()) {
           try {
             liveSpeech.start();
@@ -1310,13 +1516,14 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
             console.error('[ChatInterface] Failed to start live speech:', error);
             // Continue with audio recording even if live speech fails
             const browser = detectBrowser();
-            console.log(`[ChatInterface] Will use Whisper API fallback (${browser.name})`);
+            console.log(`[ChatInterface] Will use fallback transcription (${browser.name})`);
           }
         } else {
           const browser = detectBrowser();
-          console.log(`[ChatInterface] Live speech not available in ${browser.name}, will use Whisper API`);
+          console.log(`[ChatInterface] Live speech not available in ${browser.name}, will use fallback`);
         }
       } catch (error: any) {
+        console.error('[ChatInterface] Recording error:', error);
         const guidance = getBrowserGuidance('microphone');
         showAlert('Recording Error', `${error.message}\n\n${guidance}`);
       }
@@ -1405,22 +1612,36 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     // Mark that user has manually selected characters
     userHasSelectedCharacters.current = true;
 
-    setSelectedCharacters(prev => {
-      if (prev.includes(characterId)) {
-        // Don't allow removing if only one left
-        if (prev.length === 1) return prev;
-        return prev.filter(id => id !== characterId);
-      } else {
-        // Don't allow more than 5 characters
-        if (prev.length >= 5) {
-          showAlert('Maximum Reached', 'You can select up to 5 Wakattors maximum.', [{ text: 'OK' }]);
-          return prev;
-        }
-        // Defensive check: ensure no duplicates (should never happen, but extra safety)
-        if (prev.includes(characterId)) return prev;
-        return [...prev, characterId];
+    // Get character info for toast
+    const character = getCharacter(characterId);
+    const isCurrentlySelected = selectedCharacters.includes(characterId);
+
+    if (isCurrentlySelected) {
+      // Don't allow removing if only one left
+      if (selectedCharacters.length === 1) return;
+      
+      // Remove character
+      setSelectedCharacters(prev => prev.filter(id => id !== characterId));
+      
+      // Show toast for removal
+      setToastMessage(`Removed ${character.name}`);
+      setToastColor(character.color);
+      setToastVisible(true);
+    } else {
+      // Don't allow more than 5 characters
+      if (selectedCharacters.length >= 5) {
+        showAlert('Maximum Reached', 'You can select up to 5 Wakattors maximum.', [{ text: 'OK' }]);
+        return;
       }
-    });
+      
+      // Add character
+      setSelectedCharacters(prev => [...prev, characterId]);
+      
+      // Show toast for addition
+      setToastMessage(`Added ${character.name}`);
+      setToastColor(character.color);
+      setToastVisible(true);
+    }
   };
 
   const confirmDeleteMessage = (messageId: string) => {
@@ -1921,15 +2142,27 @@ Each silence, a cathedral where you still reside.`;
                   {(() => {
                     // Use walking animation during entrance, otherwise use playback animation
                     const entranceWalkingAnimation = showEntranceAnimation ? 'walking' : undefined;
-                    const finalAnimation = entranceWalkingAnimation || (usePlayback ? charPlaybackState.animation : undefined);
+                    
+                    // Get idle state for this character (fallback when not playing)
+                    const idleState = idleAnimations.get(characterId);
+                    
+                    // Priority: entrance animation > playback animation > idle animation
+                    const finalAnimation = entranceWalkingAnimation 
+                      || (usePlayback ? charPlaybackState.animation : undefined)
+                      || idleState?.animation;
+                    
+                    // Complementary: playback state > idle state complementary
+                    const finalComplementary = usePlayback 
+                      ? charPlaybackState.complementary 
+                      : idleState?.complementary;
                     
                     return (
                       <CharacterDisplay3D
                         character={character}
-                        isActive={(usePlayback && charPlaybackState.isActive) || showEntranceAnimation}
+                        isActive={(usePlayback && charPlaybackState.isActive) || showEntranceAnimation || !!idleState}
                         animation={finalAnimation}
                         isTalking={usePlayback && charPlaybackState.isTalking}
-                        complementary={usePlayback ? charPlaybackState.complementary : undefined}
+                        complementary={finalComplementary}
                         showName={showCharacterNames}
                         nameKey={nameKey}
                       />
@@ -2262,6 +2495,13 @@ Each silence, a cathedral where you still reside.`;
         </View>
       </View>
     </KeyboardAvoidingView>
+      <Toast
+        message={toastMessage}
+        visible={toastVisible}
+        customColor={toastColor}
+        onDismiss={() => setToastVisible(false)}
+        duration={2000}
+      />
     </>
   );
 }

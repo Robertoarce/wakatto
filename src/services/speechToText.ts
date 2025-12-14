@@ -1,14 +1,13 @@
 /**
  * Speech-to-Text Service
  *
- * Supports two methods:
- * 1. Web Speech API (free, browser-based, good accuracy)
- * 2. OpenAI Whisper API (best accuracy, costs $0.006/minute)
+ * Uses the native Web Speech API (built into browsers)
+ * - Chrome, Edge, Safari: Works with network (sends to Google/Apple)
+ * - Brave: Blocked by default for privacy (can enable in settings)
+ * - Firefox: Limited support
  */
 
-import { getSecureItem } from './secureStorage';
-
-export type STTMethod = 'web-speech' | 'whisper';
+export type STTMethod = 'web-speech';
 
 export interface TranscriptionResult {
   text: string;
@@ -17,7 +16,7 @@ export interface TranscriptionResult {
 }
 
 /**
- * Transcribe audio using Web Speech API (browser-based, free)
+ * Transcribe audio using Web Speech API (native browser API)
  */
 export async function transcribeWithWebSpeech(audioBlob: Blob): Promise<TranscriptionResult> {
   return new Promise((resolve, reject) => {
@@ -25,7 +24,7 @@ export async function transcribeWithWebSpeech(audioBlob: Blob): Promise<Transcri
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      reject(new Error('Web Speech API is not supported in this browser. Try Chrome or Edge, or use Whisper API instead.'));
+      reject(new Error('Web Speech API is not supported in this browser. Try Chrome or Edge.'));
       return;
     }
 
@@ -70,7 +69,7 @@ export async function transcribeWithWebSpeech(audioBlob: Blob): Promise<Transcri
         } else if (event.error === 'not-allowed') {
           errorMessage = 'Microphone access denied. Please allow microphone access.';
         } else if (event.error === 'network') {
-          errorMessage = 'Network error. Web Speech API requires internet connection.';
+          errorMessage = 'Speech recognition blocked. In Brave, go to Settings > Privacy > Enable "Use Google services for push messaging", or use Chrome/Edge.';
         }
 
         reject(new Error(errorMessage));
@@ -99,102 +98,15 @@ export async function transcribeWithWebSpeech(audioBlob: Blob): Promise<Transcri
 }
 
 /**
- * Transcribe audio using OpenAI Whisper API (costs money, best accuracy)
- */
-export async function transcribeWithWhisper(audioBlob: Blob): Promise<TranscriptionResult> {
-  console.log('[Whisper] Starting transcription...', {
-    size: audioBlob.size,
-    type: audioBlob.type,
-  });
-
-  // Get API key from secure storage
-  const apiKey = await getSecureItem('ai_api_key');
-
-  if (!apiKey) {
-    throw new Error('OpenAI API key not configured. Please add your API key in Settings.');
-  }
-
-  try {
-    // Create FormData with audio file
-    const formData = new FormData();
-
-    // Convert webm to a format Whisper accepts (webm, mp4, mp3, wav, etc.)
-    const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' });
-    formData.append('file', audioFile);
-    formData.append('model', 'whisper-1');
-    formData.append('language', 'en'); // TODO: Make this configurable
-    formData.append('response_format', 'json');
-
-    console.log('[Whisper] Sending request to OpenAI...');
-
-    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[Whisper] API error:', errorText);
-
-      let error;
-      try {
-        error = JSON.parse(errorText);
-      } catch (e) {
-        throw new Error(`Whisper API error (${response.status}): ${errorText}`);
-      }
-
-      throw new Error(`Whisper API error: ${error.error?.message || response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log('[Whisper] Transcription successful:', data);
-
-    return {
-      text: data.text,
-      method: 'whisper',
-    };
-
-  } catch (error: any) {
-    console.error('[Whisper] Error:', error);
-    throw error;
-  }
-}
-
-/**
- * Transcribe audio using the specified method
- * Falls back to Web Speech if Whisper fails
+ * Transcribe audio (uses native Web Speech API)
  */
 export async function transcribeAudio(
   audioBlob: Blob,
   method: STTMethod = 'web-speech',
-  fallbackToWebSpeech: boolean = true
+  enableFallback: boolean = true
 ): Promise<TranscriptionResult> {
-  console.log(`[SpeechToText] Transcribing with method: ${method}`);
-
-  try {
-    if (method === 'whisper') {
-      return await transcribeWithWhisper(audioBlob);
-    } else {
-      return await transcribeWithWebSpeech(audioBlob);
-    }
-  } catch (error: any) {
-    console.error(`[SpeechToText] ${method} failed:`, error);
-
-    // Fallback to Web Speech if Whisper fails and fallback is enabled
-    if (method === 'whisper' && fallbackToWebSpeech) {
-      console.log('[SpeechToText] Falling back to Web Speech API...');
-      try {
-        return await transcribeWithWebSpeech(audioBlob);
-      } catch (fallbackError: any) {
-        throw new Error(`Both Whisper and Web Speech failed. Last error: ${fallbackError.message}`);
-      }
-    }
-
-    throw error;
-  }
+  console.log(`[SpeechToText] Transcribing with native Web Speech API...`);
+  return await transcribeWithWebSpeech(audioBlob);
 }
 
 /**
@@ -206,22 +118,11 @@ export function isWebSpeechSupported(): boolean {
 }
 
 /**
- * Get recommended STT method based on availability
+ * Get recommended STT method (only Web Speech available)
  */
 export async function getRecommendedSTTMethod(): Promise<STTMethod> {
-  const apiKey = await getSecureItem('ai_api_key');
-  const hasWhisperAccess = !!apiKey;
-  const hasWebSpeech = isWebSpeechSupported();
-
-  // Prefer Web Speech (free) if available
-  if (hasWebSpeech) {
-    return 'web-speech';
+  if (!isWebSpeechSupported()) {
+    throw new Error('Web Speech API not supported. Please use Chrome, Edge, or Safari.');
   }
-
-  // Fall back to Whisper if API key is configured
-  if (hasWhisperAccess) {
-    return 'whisper';
-  }
-
-  throw new Error('No speech-to-text method available. Please use Chrome/Edge browser or add OpenAI API key.');
+  return 'web-speech';
 }
