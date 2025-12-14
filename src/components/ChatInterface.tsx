@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, PanResponder, Dimensions, Animated, Easing } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '../store';
+import { setFullscreen } from '../store/actions/uiActions';
 import { useCustomAlert } from './CustomAlert';
 import { CharacterDisplay3D, AnimationState, ComplementaryAnimation, LookDirection, EyeState, MouthState } from './CharacterDisplay3D';
 import { AnimatedArrowPointer } from './AnimatedArrowPointer';
@@ -603,6 +606,8 @@ function FloatingCharacterWrapper({
 }
 
 export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting }: ChatInterfaceProps) {
+  const dispatch = useDispatch();
+  const { isFullscreen } = useSelector((state: RootState) => state.ui);
   const { showAlert, AlertComponent } = useCustomAlert();
   const { fonts, spacing, layout, isMobile, isTablet, isDesktop, isMobileLandscape, width: screenWidth, height: screenHeight } = useResponsive();
   const [input, setInput] = useState('');
@@ -637,7 +642,6 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [availableCharacters, setAvailableCharacters] = useState(getAllCharacters()); // Load from Wakattors database
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(true);
   const [showChatHistory, setShowChatHistory] = useState(false); // Hidden by default
-  const [isFullscreen, setIsFullscreen] = useState(false);
   
   // In mobile landscape, default to characters view (not chat history)
   // This effect ensures chat history is hidden when rotating to landscape
@@ -647,60 +651,36 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     }
   }, [isMobileLandscape]);
 
-  // Fullscreen API handlers (web only)
-  const toggleFullscreen = useCallback(async () => {
+  // Fullscreen toggle - sets Redux state (MainTabs handles UI hiding)
+  const toggleFullscreen = useCallback(() => {
     if (Platform.OS !== 'web') return;
-    
-    try {
-      const doc = document as any;
-      const docEl = document.documentElement as any;
-      
-      if (!doc.fullscreenElement && !doc.webkitFullscreenElement && !doc.mozFullScreenElement) {
-        // Enter fullscreen
-        if (docEl.requestFullscreen) {
-          await docEl.requestFullscreen();
-        } else if (docEl.webkitRequestFullscreen) {
-          await docEl.webkitRequestFullscreen();
-        } else if (docEl.mozRequestFullScreen) {
-          await docEl.mozRequestFullScreen();
-        }
-        setIsFullscreen(true);
-      } else {
-        // Exit fullscreen
-        if (doc.exitFullscreen) {
-          await doc.exitFullscreen();
-        } else if (doc.webkitExitFullscreen) {
-          await doc.webkitExitFullscreen();
-        } else if (doc.mozCancelFullScreen) {
-          await doc.mozCancelFullScreen();
-        }
-        setIsFullscreen(false);
-      }
-    } catch (error) {
-      console.error('[Fullscreen] Error toggling fullscreen:', error);
-    }
-  }, []);
+    dispatch(setFullscreen(!isFullscreen));
+  }, [dispatch, isFullscreen]);
 
-  // Listen for fullscreen change events
+  // Exit fullscreen function for ESC key
+  const exitFullscreen = useCallback(() => {
+    if (Platform.OS !== 'web') return;
+    if (isFullscreen) {
+      dispatch(setFullscreen(false));
+    }
+  }, [dispatch, isFullscreen]);
+
+  // Listen for ESC key to exit fullscreen
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     
-    const handleFullscreenChange = () => {
-      const doc = document as any;
-      const isCurrentlyFullscreen = !!(doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement);
-      setIsFullscreen(isCurrentlyFullscreen);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isFullscreen) {
+        dispatch(setFullscreen(false));
+      }
     };
     
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('keydown', handleKeyDown);
     
     return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [dispatch, isFullscreen]);
   
   // Character selector search and filter state
   const [characterSearchQuery, setCharacterSearchQuery] = useState('');

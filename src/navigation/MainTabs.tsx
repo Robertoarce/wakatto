@@ -49,7 +49,7 @@ export default function MainTabs() {
   const store = useStore();
   const { showAlert, AlertComponent } = useCustomAlert();
   const { conversations, currentConversation, messages } = useSelector((state: RootState) => state.conversations);
-  const { showSidebar } = useSelector((state: RootState) => state.ui);
+  const { showSidebar, isFullscreen } = useSelector((state: RootState) => state.ui);
   const { fonts, layout, isMobile, isMobileLandscape, spacing } = useResponsive();
   
   // Ref to prevent duplicate greeting processing
@@ -472,29 +472,27 @@ export default function MainTabs() {
     try {
       // Get the LATEST state from the store (not stale closure value)
       const state = store.getState() as RootState;
-      let conversation = state.conversations.currentConversation;
+      const conversation = state.conversations.currentConversation;
       
+      // Only save greeting if there's already a current conversation
+      // Do NOT automatically create new conversations - this was causing unwanted "Chat with..." chats
       if (!conversation) {
-        // Get character name for the conversation title
-        const character = getCharacter(characterId);
-        const title = `Chat with ${character.name}`;
-        conversation = await dispatch(createConversation(title) as any);
+        console.log('[MainTabs] No current conversation, skipping greeting (prevents auto-creation)');
+        return;
       }
       
-      if (conversation) {
-        // Save the greeting as an assistant message with the character ID
-        await dispatch(saveMessage(
-          conversation.id, 
-          'assistant', 
-          greetingMessage, 
-          characterId
-        ) as any);
-        
-        console.log('[MainTabs] Greeting saved successfully');
-        
-        // Reload conversations to update character count in sidebar
-        await dispatch(loadConversations() as any);
-      }
+      // Save the greeting as an assistant message with the character ID
+      await dispatch(saveMessage(
+        conversation.id, 
+        'assistant', 
+        greetingMessage, 
+        characterId
+      ) as any);
+      
+      console.log('[MainTabs] Greeting saved successfully');
+      
+      // Reload conversations to update character count in sidebar
+      await dispatch(loadConversations() as any);
     } catch (error: any) {
       console.error('[MainTabs] Failed to save greeting:', error);
     } finally {
@@ -505,22 +503,24 @@ export default function MainTabs() {
   return (
     <View style={styles.fullContainer}>
       <AlertComponent />
-      <Header />
+      {!isFullscreen && <Header />}
       <View style={styles.contentContainer}>
-        <ChatSidebar 
-          conversations={conversations}
-          currentConversation={currentConversation}
-          onSelectConversation={onSelectConversation}
-          onToggleSidebar={onToggleSidebar}
-          isOpen={showSidebar}
-          onNewConversation={onNewConversation}
-          onRenameConversation={onRenameConversation}
-          onDeleteConversation={onDeleteConversation}
-        />
+        {!isFullscreen && (
+          <ChatSidebar 
+            conversations={conversations}
+            currentConversation={currentConversation}
+            onSelectConversation={onSelectConversation}
+            onToggleSidebar={onToggleSidebar}
+            isOpen={showSidebar}
+            onNewConversation={onNewConversation}
+            onRenameConversation={onRenameConversation}
+            onDeleteConversation={onDeleteConversation}
+          />
+        )}
         <View style={[
           styles.mainContentWrapper,
-          // Only add sidebar margin on non-mobile (mobile uses overlay)
-          !isMobile && showSidebar && { marginLeft: layout.sidebarWidth },
+          // Only add sidebar margin on non-mobile (mobile uses overlay) and not in fullscreen
+          !isMobile && showSidebar && !isFullscreen && { marginLeft: layout.sidebarWidth },
         ]}>
         <Tab.Navigator
           screenOptions={{
@@ -530,7 +530,9 @@ export default function MainTabs() {
               { 
                 paddingBottom: isMobile ? spacing.xs : spacing.sm,
                 paddingTop: isMobile ? spacing.xs : spacing.sm,
-              }
+              },
+              // Hide tab bar in fullscreen mode
+              isFullscreen && { display: 'none' },
             ],
             tabBarActiveTintColor: '#8b5cf6',
             tabBarInactiveTintColor: '#a1a1aa',
