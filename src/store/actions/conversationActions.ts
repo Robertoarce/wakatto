@@ -345,3 +345,60 @@ export const deleteMessage = (messageId: string) => async (dispatch: any, getSta
   }
 };
 
+// Async action to save selected characters for a conversation
+export const saveSelectedCharacters = (conversationId: string, characterIds: string[]) => async (dispatch: any, getState: any) => {
+  try {
+    console.log('[saveSelectedCharacters] Saving characters for conversation:', conversationId, characterIds);
+
+    const { error } = await supabase
+      .from('conversations')
+      .update({
+        selected_characters: characterIds,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', conversationId);
+
+    if (error) {
+      console.error('[saveSelectedCharacters] Error:', error);
+      throw error;
+    }
+
+    // Update the current conversation in state if it matches
+    const { conversations } = getState();
+    if (conversations.currentConversation?.id === conversationId) {
+      dispatch(setCurrentConversation({
+        ...conversations.currentConversation,
+        selected_characters: characterIds,
+      }));
+    }
+
+    console.log('[saveSelectedCharacters] Saved successfully');
+  } catch (error) {
+    console.error('Error saving selected characters:', error);
+    // Don't throw - this is a non-critical operation
+  }
+};
+
+// Async action to load selected characters for a conversation
+export const loadSelectedCharacters = (conversationId: string) => async (dispatch: any): Promise<string[] | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('conversations')
+      .select('selected_characters')
+      .eq('id', conversationId)
+      .single();
+
+    if (error) {
+      console.error('[loadSelectedCharacters] Error:', error);
+      return null;
+    }
+
+    const selectedCharacters = data?.selected_characters || [];
+    console.log('[loadSelectedCharacters] Loaded characters:', selectedCharacters);
+    return selectedCharacters;
+  } catch (error) {
+    console.error('Error loading selected characters:', error);
+    return null;
+  }
+};
+

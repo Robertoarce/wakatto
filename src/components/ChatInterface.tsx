@@ -50,6 +50,12 @@ interface ChatInterfaceProps {
   earlyAnimationSetup?: EarlyAnimationSetup | null;
   // Callback for character greeting in new conversations
   onGreeting?: (characterId: string, greetingMessage: string) => void;
+  // Conversation context for persistence
+  conversationId?: string | null;
+  // Saved characters from database (used on initial load)
+  savedCharacters?: string[] | null;
+  // Callback when character selection changes (for persistence)
+  onCharacterSelectionChange?: (characterIds: string[]) => void;
 }
 
 // Export function to start animation playback from external components
@@ -651,7 +657,7 @@ function FloatingCharacterWrapper({
   );
 }
 
-export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting }: ChatInterfaceProps) {
+export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting, conversationId, savedCharacters, onCharacterSelectionChange }: ChatInterfaceProps) {
   const dispatch = useDispatch();
   const { isFullscreen } = useSelector((state: RootState) => state.ui);
   const { showAlert, AlertComponent } = useCustomAlert();
@@ -1211,40 +1217,50 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       (messages.length > 0 && selectedCharacters.length === 0 && !userHasSelectedCharacters.current);
 
     if (shouldRestoreCharacters) {
-      // Extract unique character IDs from assistant messages
-      const characterIds = messages
-        .filter(msg => msg.role === 'assistant' && msg.characterId)
-        .map(msg => msg.characterId as string);
-
-      const uniqueCharacterIds = Array.from(new Set(characterIds));
-
-      // Restore characters from conversation history (limit to max 5)
-      if (uniqueCharacterIds.length > 0) {
-        console.log('[ChatInterface] Restoring characters from conversation history:', uniqueCharacterIds);
-        setSelectedCharacters(uniqueCharacterIds);
+      // PRIORITY 1: Use saved characters from database (user's explicit selection)
+      if (savedCharacters && savedCharacters.length > 0) {
+        console.log('[ChatInterface] Restoring saved characters from database:', savedCharacters);
+        setSelectedCharacters(savedCharacters);
         hasRestoredInitialCharacters.current = true;
-        // Reset manual selection flag when switching conversations
         if (conversationChanged) {
           userHasSelectedCharacters.current = false;
         }
-      } else if ((conversationChanged || initialLoad) && !userHasSelectedCharacters.current) {
-        // New empty conversation or initial load with no assistant messages - set random character
-        // Note: Greeting is handled by the second useEffect for brand new conversations
-        // Only do this if user hasn't manually selected characters (preserves selection during first message send)
-        console.log('[ChatInterface] Empty conversation, selecting random character');
-        if (availableCharacters.length > 0) {
-          const randomIndex = Math.floor(Math.random() * availableCharacters.length);
-          const randomChar = availableCharacters[randomIndex];
-          setSelectedCharacters([randomChar.id]);
-        } else {
-          setSelectedCharacters([DEFAULT_CHARACTER]);
+      } else {
+        // PRIORITY 2: Extract unique character IDs from assistant messages (fallback)
+        const characterIds = messages
+          .filter(msg => msg.role === 'assistant' && msg.characterId)
+          .map(msg => msg.characterId as string);
+
+        const uniqueCharacterIds = Array.from(new Set(characterIds));
+
+        // Restore characters from conversation history (limit to max 5)
+        if (uniqueCharacterIds.length > 0) {
+          console.log('[ChatInterface] Restoring characters from conversation history:', uniqueCharacterIds);
+          setSelectedCharacters(uniqueCharacterIds);
+          hasRestoredInitialCharacters.current = true;
+          // Reset manual selection flag when switching conversations
+          if (conversationChanged) {
+            userHasSelectedCharacters.current = false;
+          }
+        } else if ((conversationChanged || initialLoad) && !userHasSelectedCharacters.current) {
+          // New empty conversation or initial load with no assistant messages - set random character
+          // Note: Greeting is handled by the second useEffect for brand new conversations
+          // Only do this if user hasn't manually selected characters (preserves selection during first message send)
+          console.log('[ChatInterface] Empty conversation, selecting random character');
+          if (availableCharacters.length > 0) {
+            const randomIndex = Math.floor(Math.random() * availableCharacters.length);
+            const randomChar = availableCharacters[randomIndex];
+            setSelectedCharacters([randomChar.id]);
+          } else {
+            setSelectedCharacters([DEFAULT_CHARACTER]);
+          }
+          hasRestoredInitialCharacters.current = true;
+          userHasSelectedCharacters.current = false;
+        } else if ((conversationChanged || initialLoad) && userHasSelectedCharacters.current) {
+          // User manually selected characters - preserve their selection
+          console.log('[ChatInterface] Preserving user-selected characters:', selectedCharacters);
+          hasRestoredInitialCharacters.current = true;
         }
-        hasRestoredInitialCharacters.current = true;
-        userHasSelectedCharacters.current = false;
-      } else if ((conversationChanged || initialLoad) && userHasSelectedCharacters.current) {
-        // User manually selected characters - preserve their selection
-        console.log('[ChatInterface] Preserving user-selected characters:', selectedCharacters);
-        hasRestoredInitialCharacters.current = true;
       }
     }
 
@@ -1256,7 +1272,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
     // Update previous messages reference
     previousMessagesRef.current = messages;
-  }, [messages, availableCharacters]);
+  }, [messages, availableCharacters, savedCharacters]);
 
   // Set random character for brand new conversations (no messages at all)
   // Only if we haven't restored characters yet
@@ -1314,6 +1330,23 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
     return () => clearTimeout(timer);
   }, [selectedCharacters]);
+
+  // Persist character selection to database when it changes
+  // Only persist after initial restore is complete and user has made selections
+  useEffect(() => {
+    // Don't persist during initial loading/restoration
+    if (!hasRestoredInitialCharacters.current) return;
+    // Need a conversation to persist to
+    if (!conversationId) return;
+    // Don't persist empty selections
+    if (selectedCharacters.length === 0) return;
+
+    // Call the persistence callback
+    if (onCharacterSelectionChange) {
+      console.log('[ChatInterface] Persisting character selection:', selectedCharacters);
+      onCharacterSelectionChange(selectedCharacters);
+    }
+  }, [selectedCharacters, conversationId, onCharacterSelectionChange]);
 
   // Clear entrance animation after duration (800ms)
   useEffect(() => {

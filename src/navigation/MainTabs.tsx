@@ -10,15 +10,16 @@ import { ChatSidebar } from '../components/ChatSidebar';
 import { useCustomAlert } from '../components/CustomAlert';
 import { toggleSidebar, setSidebarOpen } from '../store/actions/uiActions';
 import { useResponsive } from '../constants/Layout';
-import { 
-  loadConversations, 
-  selectConversation, 
+import {
+  loadConversations,
+  selectConversation,
   createConversation,
   saveMessage,
   renameConversation,
   deleteConversation,
   updateMessage,
-  deleteMessage
+  deleteMessage,
+  saveSelectedCharacters
 } from '../store/actions/conversationActions';
 import { getCharacter } from '../config/characters';
 import {
@@ -151,6 +152,14 @@ export default function MainTabs() {
       showAlert('Error', 'Failed to delete message: ' + error.message);
     }
   };
+
+  // Handle character selection changes - persist to database
+  const handleCharacterSelectionChange = useCallback((characterIds: string[]) => {
+    if (currentConversation?.id) {
+      console.log('[MainTabs] Saving character selection:', characterIds, 'for conversation:', currentConversation.id);
+      dispatch(saveSelectedCharacters(currentConversation.id, characterIds) as any);
+    }
+  }, [currentConversation?.id, dispatch]);
 
   const [isLoadingAI, setIsLoadingAI] = React.useState(false);
   const [animationScene, setAnimationScene] = useState<OrchestrationScene | null>(null);
@@ -551,7 +560,7 @@ export default function MainTabs() {
             }}
           >
             {() => (
-              <ChatInterface 
+              <ChatInterface
                 messages={messages}
                 onSendMessage={handleSendMessage}
                 showSidebar={showSidebar}
@@ -562,6 +571,9 @@ export default function MainTabs() {
                 animationScene={animationScene}
                 earlyAnimationSetup={earlyAnimationSetup}
                 onGreeting={handleGreeting}
+                conversationId={currentConversation?.id}
+                savedCharacters={currentConversation?.selected_characters}
+                onCharacterSelectionChange={handleCharacterSelectionChange}
               />
             )}
           </Tab.Screen>

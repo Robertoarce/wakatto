@@ -92,6 +92,8 @@ export class AnimationPlaybackEngine {
   private lastUpdateTime: number = 0;
   private updateThrottleMs: number = 16; // ~60fps
   private characterVoiceProfiles: Map<string, CharacterVoiceProfile> = new Map();
+  // Cache for post-speaking expressions to prevent flickering
+  private postSpeakingExpressionCache: Map<string, ComplementaryAnimation> = new Map();
 
   // ============================================
   // PUBLIC METHODS
@@ -111,19 +113,21 @@ export class AnimationPlaybackEngine {
    */
   play(scene: OrchestrationScene): void {
     this.stop(); // Clean up any existing playback
-    
+
     this.scene = scene;
     this.status = 'playing';
     this.startTime = performance.now();
     this.pausedAt = 0;
-    
+    // Clear cached expressions for new scene
+    this.postSpeakingExpressionCache.clear();
+
     console.log('[PlaybackEngine] Starting scene playback', {
       duration: scene.sceneDuration,
       characters: scene.timelines.map(t => t.characterId),
       nonSpeakers: Object.keys(scene.nonSpeakerBehavior),
       voiceProfilesSet: this.characterVoiceProfiles.size
     });
-    
+
     this.tick();
   }
 
@@ -419,10 +423,16 @@ export class AnimationPlaybackEngine {
     
     // After character's turn
     if (characterElapsed >= timeline.totalDuration) {
+      // Use cached expression to prevent flickering, or generate and cache a new one
+      let expression = this.postSpeakingExpressionCache.get(timeline.characterId);
+      if (!expression) {
+        expression = getRandomPostSpeakingExpression();
+        this.postSpeakingExpressionCache.set(timeline.characterId, expression);
+      }
       return {
         characterId: timeline.characterId,
         animation: 'idle',
-        complementary: getRandomPostSpeakingExpression(),
+        complementary: expression,
         isTalking: false,
         revealedText: timeline.content,
         isActive: false,
