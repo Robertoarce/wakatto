@@ -480,12 +480,13 @@ Use short keys: s=scene, dur=totalDuration, ch=characters, c=character, t=conten
 
 ## Rules
 - 1-2 sentences per response, casual and conversational
+- Max 1 question per response (99%), 2 questions extremely rare (1%)
+- When talking to/about another character, set "lk" to "at_left_character" or "at_right_character"
 - Use character ID (like "freud") in "c" field, NOT display name
 - No name prefix in "t" field
 - First character: d:0
 - Include ${Math.min(config.maxResponders, selectedCharacters.length)} characters maximum
 - Add "v" object to talking segments to control voice characteristics
-- Vary voice by mood/intent to match content (e.g., excited = fast pace, reassuring = soft volume)
 - If asked personal questions (birthday, history), characters answer AS THEMSELVES based on their real history
 ${config.includeInterruptions ? '- Characters can interrupt by overlapping d (use carefully!)' : ''}
 
@@ -528,14 +529,15 @@ ${getVoiceOptionsForPromptFull()}
 Create a CINEMATIC conversation scene with precise animation choreography:
 
 1. **Character Voice**: Maintain unique perspectives, CASUAL and conversational
-2. **Casual Tone**: Like friends chatting - use contractions, be warm and natural
-3. **Animation Flow**: 
+2. **Casual Tone**: Like friends texting - very short, warm and natural
+3. **Response Length**: 1-2 sentences per response, casual and conversational
+4. **Questions**: Max 1 question per response (99%), 2 questions extremely rare (1%)
+5. **Look Direction**: When talking to/about another character, use "at_left_character" or "at_right_character"
+6. **Animation Flow**:
    - Start with a reaction/thinking animation before speaking
    - Use "talking" animation when revealing text
    - End with a subtle expression (nod, smile, idle)
-4. **Timing**: Calculate durations based on text length (~80ms per character when talking)
-5. **Non-verbal Cues**: Use look directions and expressions to show attention
-6. **Response Length**: ${verbosityGuide}
+7. **Timing**: Calculate durations based on text length (~80ms per character when talking)
 
 ## REASONING (Required - Think through these BEFORE generating the scene)
 
@@ -815,13 +817,14 @@ Respond with VALID JSON only (no markdown code blocks):
 - Each response is from ONE character only - do not combine multiple characters in one response
 
 **Rules:**
+- 1 SHORT sentence only (max 10-15 words) - like a text message!
+- Max 1 question per response (99%), 2 questions extremely rare (1%)
 - Include ${Math.min(config.maxResponders, selectedCharacters.length)} characters maximum, but fewer is often better
 - If user addresses a specific character, include ONLY that character (unless others interrupt)
 - First response: "timing": "immediate", "interrupts": false
 - Subsequent responses: "timing": "delayed", may have "interrupts": true
 - Use "reactsTo": "character_id" when building on another's point
 - Maintain distinct voices for each character
-- Keep responses to 1 SENTENCE most of the time (97.9%), max 3 rarely (2%), max 5 extremely rarely (0.1%) - like texting a friend!
 - Return an empty "responses" array [] if no character has something meaningful to add
 - If asked personal questions (birthday, history), characters answer AS THEMSELVES based on their real history
 ${config.includeGestures ? '- Choose gestures that match the character\'s emotional state and message' : ''}

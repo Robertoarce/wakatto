@@ -214,6 +214,11 @@ ${otherCharacters}
    - 0.1% of the time: max 5 sentences (very rare, only for critical explanations)
    - Default to 1 sentence. Chat style, not essay style!
 
+8. **Questions**: Limit questions!
+   - Max 1 question per response (99% of the time)
+   - 2 questions is extremely rare (1% of responses)
+   - Most responses should have NO questions at all
+
 ### Recent conversation:
 ${formatRecentMessages(messageHistory, characterId)}
 `;
