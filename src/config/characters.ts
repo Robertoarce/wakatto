@@ -2,6 +2,7 @@
 
 import { TemperamentId } from './temperaments';
 import { CharacterVoiceProfile } from './voiceConfig';
+import { buildCharacterIdentityPrompt } from './characterIdentity';
 
 export type GenderType = 'male' | 'female' | 'neutral';
 export type SkinToneType = 'light' | 'medium' | 'tan' | 'dark';
@@ -563,6 +564,7 @@ export function getAllCharacters(): CharacterBehavior[] {
 }
 
 // Get the effective system prompt for a character
+// Now includes identity enforcement rules for staying in character
 export function getCharacterPrompt(character: CharacterBehavior): string {
-  return character.systemPrompt;
+  return buildCharacterIdentityPrompt(character);
 }

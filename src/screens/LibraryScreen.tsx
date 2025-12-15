@@ -18,7 +18,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { CharacterDisplay3D, AnimationState } from '../components/CharacterDisplay3D';
-import { CharacterBehavior, getAllCharacters } from '../config/characters';
+import { CharacterBehavior, getAllCharacters, registerCustomCharacters } from '../config/characters';
 import { getCustomWakattors } from '../services/customWakattorsService';
 import { Badge } from '../components/ui';
 import { useCustomAlert } from '../components/CustomAlert';
@@ -82,6 +82,11 @@ export default function LibraryScreen() {
       dbCharacters.forEach(char => characterMap.set(char.id, char));
 
       const allCharacters = Array.from(characterMap.values());
+
+      // Register database characters to the global registry
+      // This makes them available to getCharacter() for AI responses
+      registerCustomCharacters(dbCharacters);
+
       setCharacters(allCharacters);
       console.log('[LibraryScreen] Loaded', allCharacters.length, 'characters');
     } catch (error) {

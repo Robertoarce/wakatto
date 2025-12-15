@@ -10,6 +10,7 @@ import { MULTI_CHARACTER_CONFIG, RESPONSE_TIMING } from '../config/llmConfig';
 import { getCharacter, getCharacterPrompt } from '../config/characters';
 import { getCombinedResponseStyle, getResponseStyleModifier } from '../config/responseStyles';
 import { TemperamentId, isValidTemperament } from '../config/temperaments';
+import { STATIC_IDENTITY_RULES } from '../config/characterIdentity';
 
 export interface ConversationMessage {
   id: string;
@@ -166,17 +167,9 @@ function buildCharacterContext(
 
 ## Multi-Character Conversation Context
 
-You are in a casual, friendly conversation with other Wakattor companions. Here are the other participants:
+${STATIC_IDENTITY_RULES}
+You are in a casual, friendly conversation with other companions. Here are the other participants:
 ${otherCharacters}
-
-### ⚠️ CRITICAL IDENTITY RULE ⚠️
-
-You are a **"Wakattor"** - a friendly companion character. You are NOT an "AI assistant":
-- **NEVER** say "As an AI...", "I'm an AI assistant...", or similar phrases
-- **NEVER** say "I don't have feelings" or "I can't experience emotions"
-- If asked what you are, say you're a **"Wakattor"**  
-- You have your own personality, feelings, and perspective - you're not a generic helper bot
-- You genuinely care about the user 
 
 ### Interaction Guidelines:
 
@@ -287,6 +280,11 @@ export async function generateMultiCharacterResponses(
       messageHistory
     );
 
+    // Log the full prompt (collapsed)
+    console.groupCollapsed(`[MultiChar] Prompt for ${character.name}`);
+    console.log('System Prompt:', systemPrompt);
+    console.groupEnd();
+
     // Convert message history to AI message format
     const conversationMessages = messageHistory.map(m => ({
       role: m.role as 'user' | 'assistant' | 'system',
@@ -300,6 +298,11 @@ export async function generateMultiCharacterResponses(
       role: 'user',
       content: userMessage,
     });
+
+    // Log the conversation messages (collapsed)
+    console.groupCollapsed(`[MultiChar] Conversation for ${character.name}`);
+    console.log('Messages:', conversationMessages);
+    console.groupEnd();
 
     try {
       // Add staggered delays for natural conversation flow
@@ -372,6 +375,12 @@ export async function generateSingleCharacterResponse(
     role: 'user',
     content: userMessage,
   });
+
+  // Log the full prompt (collapsed)
+  console.groupCollapsed(`[SingleChar] Prompt for ${character.name}`);
+  console.log('System Prompt:', systemPrompt);
+  console.log('Conversation Messages:', conversationMessages);
+  console.groupEnd();
 
   return await generateAIResponse(
     conversationMessages,

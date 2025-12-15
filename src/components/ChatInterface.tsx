@@ -7,7 +7,7 @@ import { setFullscreen } from '../store/actions/uiActions';
 import { useCustomAlert } from './CustomAlert';
 import { CharacterDisplay3D, AnimationState, ComplementaryAnimation, LookDirection, EyeState, MouthState } from './CharacterDisplay3D';
 import { AnimatedArrowPointer } from './AnimatedArrowPointer';
-import { DEFAULT_CHARACTER, getAllCharacters, getCharacter, CharacterBehavior } from '../config/characters';
+import { DEFAULT_CHARACTER, getAllCharacters, getCharacter, CharacterBehavior, registerCustomCharacters } from '../config/characters';
 import { CharacterVoiceProfile } from '../config/voiceConfig';
 import { getCustomWakattors } from '../services/customWakattorsService';
 import { getVoiceRecorder, RecordingState } from '../services/voiceRecording';
@@ -1086,6 +1086,12 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         dbCharacters.forEach(char => characterMap.set(char.id, char));
 
         const allCharacters = Array.from(characterMap.values());
+
+        // IMPORTANT: Register database characters to the global registry
+        // This makes them available to getCharacter() for AI responses
+        registerCustomCharacters(dbCharacters);
+        console.log('[ChatInterface] Registered', dbCharacters.length, 'database characters to global registry');
+
         setAvailableCharacters(allCharacters);
         console.log('[ChatInterface] Loaded', allCharacters.length, 'characters (', builtInCharacters.length, 'built-in +', dbCharacters.length, 'from database)');
       } catch (error) {
@@ -1190,6 +1196,20 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       previousMessagesRef.current.length === 0 &&
       !hasRestoredInitialCharacters.current;
 
+    // DEBUG: Log state on every render of this effect
+    console.log('[ChatInterface:CharacterRestore] Effect triggered:', {
+      conversationId,
+      messagesLength: messages.length,
+      prevMessagesLength: previousMessagesRef.current.length,
+      conversationChanged,
+      initialLoad,
+      savedCharacters,
+      selectedCharactersLength: selectedCharacters.length,
+      hasRestoredInitialCharacters: hasRestoredInitialCharacters.current,
+      userHasSelectedCharacters: userHasSelectedCharacters.current,
+      hasTriggeredGreeting: hasTriggeredGreeting.current,
+    });
+
     // CLEANUP: Stop any running animations when conversation changes
     if (conversationChanged) {
       console.log('[ChatInterface] Conversation changed, stopping animations');
@@ -1211,15 +1231,20 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     // 1. Conversation switched (different first message)
     // 2. Initial load (messages just appeared)
     // 3. Loading a conversation for the first time (has messages but no characters selected)
+    // 4. savedCharacters from database are available but not yet applied
     const shouldRestoreCharacters =
       conversationChanged ||
       initialLoad ||
-      (messages.length > 0 && selectedCharacters.length === 0 && !userHasSelectedCharacters.current);
+      (messages.length > 0 && selectedCharacters.length === 0 && !userHasSelectedCharacters.current) ||
+      // NEW: Also restore if savedCharacters has values but selectedCharacters is empty
+      (savedCharacters && savedCharacters.length > 0 && selectedCharacters.length === 0 && !hasRestoredInitialCharacters.current);
+
+    console.log('[ChatInterface:CharacterRestore] shouldRestoreCharacters:', shouldRestoreCharacters);
 
     if (shouldRestoreCharacters) {
       // PRIORITY 1: Use saved characters from database (user's explicit selection)
       if (savedCharacters && savedCharacters.length > 0) {
-        console.log('[ChatInterface] Restoring saved characters from database:', savedCharacters);
+        console.log('[ChatInterface:CharacterRestore] Restoring saved characters from database:', savedCharacters);
         setSelectedCharacters(savedCharacters);
         hasRestoredInitialCharacters.current = true;
         if (conversationChanged) {
@@ -1281,21 +1306,59 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   // This prevents false "new conversation" detection during app reload
   useEffect(() => {
     // Don't run while characters are still loading
-    if (isLoadingCharacters) return;
+    if (isLoadingCharacters) {
+      console.log('[ChatInterface:NewConvEffect] Skipping - characters still loading');
+      return;
+    }
+
+    // DEBUG: Log the state before the timer
+    console.log('[ChatInterface:NewConvEffect] Effect starting, will wait 500ms:', {
+      conversationId,
+      messagesLength: messages.length,
+      selectedCharactersLength: selectedCharacters.length,
+      availableCharactersLength: availableCharacters.length,
+      hasRestoredInitialCharacters: hasRestoredInitialCharacters.current,
+      hasTriggeredGreeting: hasTriggeredGreeting.current,
+    });
 
     // Use a delay to give messages time to load from database
     // This prevents false positives when the app is reloading and messages haven't arrived yet
     const timer = setTimeout(() => {
-      if (
+      // DEBUG: Log again after timer
+      console.log('[ChatInterface:NewConvEffect] Timer fired, checking conditions:', {
+        conversationId,
+        messagesLength: messages.length,
+        selectedCharactersLength: selectedCharacters.length,
+        availableCharactersLength: availableCharacters.length,
+        hasRestoredInitialCharacters: hasRestoredInitialCharacters.current,
+        hasTriggeredGreeting: hasTriggeredGreeting.current,
+        willSelectRandomChar: messages.length === 0 && selectedCharacters.length === 0 && availableCharacters.length > 0 && !hasRestoredInitialCharacters.current,
+      });
+
+      // IMPORTANT: Only select a random character for truly NEW conversations
+      // NOT for existing conversations that are still loading their data
+      // Check: no messages, no selected chars, no saved chars from DB, and haven't restored yet
+      const isNewConversation =
         messages.length === 0 &&
         selectedCharacters.length === 0 &&
         availableCharacters.length > 0 &&
-        !hasRestoredInitialCharacters.current
-      ) {
+        !hasRestoredInitialCharacters.current &&
+        // If savedCharacters exists (even empty array from DB), this is an existing conversation
+        // savedCharacters === undefined means props haven't loaded yet, wait for them
+        savedCharacters !== undefined &&
+        savedCharacters.length === 0;
+
+      console.log('[ChatInterface:NewConvEffect] isNewConversation check:', {
+        isNewConversation,
+        savedCharacters,
+        savedCharactersIsUndefined: savedCharacters === undefined,
+      });
+
+      if (isNewConversation) {
         // Select a RANDOM character instead of the first one
         const randomIndex = Math.floor(Math.random() * availableCharacters.length);
         const randomChar = availableCharacters[randomIndex];
-        console.log('[ChatInterface] New conversation with no messages, selecting random character:', randomChar.name);
+        console.log('[ChatInterface:NewConvEffect] SELECTING RANDOM CHARACTER:', randomChar.name, randomChar.id);
         setSelectedCharacters([randomChar.id]);
 
         // Trigger entrance animation for new conversation
@@ -1316,7 +1379,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     }, 500); // Wait 500ms to allow messages to load from database
 
     return () => clearTimeout(timer);
-  }, [messages.length, selectedCharacters.length, availableCharacters, onGreeting, isLoadingCharacters]);
+  }, [messages.length, selectedCharacters.length, availableCharacters, onGreeting, isLoadingCharacters, savedCharacters, conversationId]);
 
   // Show character names when characters change or at conversation start
   useEffect(() => {

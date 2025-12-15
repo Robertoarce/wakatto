@@ -133,6 +133,11 @@ export const createConversation = (title: string = 'New Conversation') => async 
 // Async action to select a conversation and load its messages
 export const selectConversation = (conversation: any) => async (dispatch: any) => {
   try {
+    console.log('[selectConversation] Selecting conversation:', {
+      id: conversation.id,
+      title: conversation.title,
+      selected_characters: conversation.selected_characters,
+    });
     dispatch(setCurrentConversation(conversation));
 
     // Load messages for this conversation
@@ -150,6 +155,7 @@ export const selectConversation = (conversation: any) => async (dispatch: any) =
       characterId: msg.character_id,
     }));
 
+    console.log('[selectConversation] Loaded messages:', mappedMessages.length, 'messages');
     dispatch(setMessages(mappedMessages));
   } catch (error) {
     console.error('Error selecting conversation:', error);

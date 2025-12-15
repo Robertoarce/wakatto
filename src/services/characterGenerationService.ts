@@ -55,6 +55,12 @@ If this is a well-known character, provide:
 5. Colors: primary color (hex), bodyColor (hex), accessoryColor (hex), hairColor (hex)
 6. Response style: one word (e.g., "analytical", "playful", "wise", "heroic")
 7. Prompt style: choose from (compassionate, psychoanalytic, jungian, cognitive, mindfulness, socratic, creative, adlerian, existential, positive, narrative)
+8. System prompt: A 2-4 sentence instruction for embodying this character, including:
+   - Birth date (if known historical figure, e.g., "Born January 15, 1929")
+   - Death date (if applicable, e.g., "Died April 4, 1968")
+   - Era/time period they lived in
+   - Key biographical facts they would know about themselves
+   - Their typical speech patterns and personality
 
 If unknown or needs clarification, ask 2-3 questions to help create the character.
 
@@ -138,14 +144,40 @@ Respond with ONLY valid JSON, no markdown formatting.`;
 }
 
 /**
+ * Build a character-specific default prompt when none is provided
+ * This is much better than the generic "You are a helpful AI assistant"
+ */
+function buildDefaultCharacterPrompt(name?: string, role?: string, description?: string): string {
+  const charName = name || 'this character';
+  const charRole = role ? `a ${role}` : 'a unique individual';
+  const charDesc = description || '';
+
+  return `You are ${charName}, ${charRole}. ${charDesc}
+
+Your approach:
+- Respond authentically as yourself based on your life and experiences
+- Share your genuine perspective and worldview
+- Be warm, approachable, and engaging
+- Keep responses conversational and natural
+- Answer personal questions based on your actual history (birth date, memories, etc.)`;
+}
+
+/**
  * Create a full CharacterBehavior object from partial config
  */
 export function buildCharacterBehavior(
   partialConfig: Partial<CharacterBehavior>,
-  userId: string
+  _userId: string
 ): CharacterBehavior {
   const timestamp = Date.now();
   const characterId = `custom_${partialConfig.name?.toLowerCase().replace(/\s+/g, '_')}_${timestamp}`;
+
+  // Build default system prompt if not provided
+  const defaultPrompt = buildDefaultCharacterPrompt(
+    partialConfig.name,
+    partialConfig.role,
+    partialConfig.description
+  );
 
   // Provide defaults for any missing fields
   const character: CharacterBehavior = {
@@ -154,7 +186,7 @@ export function buildCharacterBehavior(
     description: partialConfig.description || 'A custom AI character',
     color: partialConfig.color || '#8b5cf6',
     role: partialConfig.role || 'Assistant',
-    systemPrompt: partialConfig.systemPrompt || 'You are a helpful AI assistant.',
+    systemPrompt: partialConfig.systemPrompt || defaultPrompt,
     responseStyle: partialConfig.responseStyle || 'balanced',
     model3D: {
       bodyColor: partialConfig.model3D?.bodyColor || partialConfig.customization?.bodyColor || '#8b5cf6',

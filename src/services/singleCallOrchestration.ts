@@ -42,6 +42,7 @@ import {
 } from './animationOrchestration';
 import { getVoiceOptionsForPrompt, getVoiceOptionsForPromptFull } from '../config/voiceConfig';
 import { getProfiler, PROFILE_OPS } from './profilingService';
+import { STATIC_ORCHESTRATION_IDENTITY_RULES } from '../config/characterIdentity';
 
 export interface OrchestrationConfig {
   maxResponders: number; // Max characters that can respond
@@ -106,6 +107,12 @@ export async function generateSingleCallOrchestration(
   });
 
   console.log('[SingleCall] Generating orchestrated response for', selectedCharacters.length, 'characters');
+
+  // Log the full prompt (collapsed)
+  console.groupCollapsed('[SingleCall] Full Orchestration Prompt');
+  console.log('System Prompt:', orchestrationPrompt);
+  console.log('Conversation Messages:', conversationMessages);
+  console.groupEnd();
 
   try {
     // Single API call generates ALL responses
@@ -183,6 +190,12 @@ export async function generateAnimatedSceneOrchestration(
 
   console.log('[AnimatedOrch] Generating animated scene for', selectedCharacters.length, 'characters');
   console.log('[AnimatedOrch] Prompt size:', animatedPrompt.length, 'chars, ~', profiler.estimateTokens(animatedPrompt), 'tokens');
+
+  // Log the full prompt (collapsed)
+  console.groupCollapsed('[AnimatedOrch] Full Animated Scene Prompt');
+  console.log('System Prompt:', animatedPrompt);
+  console.log('Conversation Messages:', conversationMessages);
+  console.groupEnd();
 
   try {
     // Single API call generates the entire scene (profiled inside generateAIResponse)
@@ -308,7 +321,13 @@ export async function generateAnimatedSceneOrchestrationStreaming(
   });
 
   console.log('[AnimatedOrch-Stream] Starting streaming generation for', selectedCharacters.length, 'characters');
-  
+
+  // Log the full prompt (collapsed)
+  console.groupCollapsed('[AnimatedOrch-Stream] Full Animated Scene Prompt');
+  console.log('System Prompt:', animatedPrompt);
+  console.log('Conversation Messages:', conversationMessages);
+  console.groupEnd();
+
   // Notify start
   callbacks?.onStart?.();
 
@@ -440,15 +459,13 @@ ${basePrompt}
   const characterChangeNote = buildCharacterChangeNotification(messageHistory, selectedCharacters);
 
   // Use compact format for faster responses (28% improvement)
+  // IMPORTANT: Static content (identity rules, animation system) goes FIRST for prompt caching
+  // Dynamic content (character profiles) goes LAST
   if (config.useCompactFormat) {
     return `# Animated Scene Orchestrator
-Direct animated multi-character conversation with 3D animations.
 
-## Characters
-${characterProfiles}
-${characterChangeNote}
-
-## Animations
+${STATIC_ORCHESTRATION_IDENTITY_RULES}
+## Animation System
 Body: idle,talking,thinking,nodding,waving,leaning_forward
 Look: at_user,at_left_character,at_right_character,up,down
 Eye: open,squint,wide | Mouth: closed,smile,open
@@ -469,20 +486,23 @@ Use short keys: s=scene, dur=totalDuration, ch=characters, c=character, t=conten
 - Include ${Math.min(config.maxResponders, selectedCharacters.length)} characters maximum
 - Add "v" object to talking segments to control voice characteristics
 - Vary voice by mood/intent to match content (e.g., excited = fast pace, reassuring = soft volume)
+- If asked personal questions (birthday, history), characters answer AS THEMSELVES based on their real history
 ${config.includeInterruptions ? '- Characters can interrupt by overlapping d (use carefully!)' : ''}
+
+## Characters in This Scene (DYNAMIC - answer personal questions based on their history)
+${characterProfiles}
+${characterChangeNote}
 
 Generate the animated scene now.`;
   }
 
   // Full format (legacy - for comparison/debugging)
+  // IMPORTANT: Static content (identity rules) goes FIRST for prompt caching
   return `# Animated Multi-Character Scene Orchestrator
 
-You are directing an ANIMATED conversation scene between multiple AI characters and a user.
+${STATIC_ORCHESTRATION_IDENTITY_RULES}
+You are directing an ANIMATED conversation scene between multiple characters and a user.
 Your output will control 3D character animations in real-time!
-
-## Characters in This Scene
-${characterProfiles}
-${characterChangeNote}
 
 ## Animation System
 
@@ -645,7 +665,12 @@ Respond with VALID JSON only (no markdown code blocks, no extra text):
 - Total scene duration = last character's startDelay + their timeline duration
 - If user addresses specific character, ONLY that character responds
 - Characters should look at whoever is speaking
+- If asked personal questions (birthday, history), characters answer AS THEMSELVES based on their real history
 ${config.includeInterruptions ? '- Characters can interrupt by overlapping startDelay (use carefully!)' : ''}
+
+## Characters in This Scene (DYNAMIC - answer personal questions based on their history)
+${characterProfiles}
+${characterChangeNote}
 
 Generate the animated scene now.`;
 }
@@ -692,24 +717,11 @@ Include ONE gesture per response using the gesture ID (e.g., "thinking_hand_on_c
   }[config.verbosity];
 
   // Main orchestration prompt
+  // IMPORTANT: Static content (identity rules) goes FIRST for prompt caching
   return `# Multi-Character Conversation Orchestrator
 
-You are orchestrating a casual, friendly conversation between multiple Wakattor characters and a user.
-
-## ⚠️ CRITICAL IDENTITY RULE - NEVER BREAK THIS ⚠️
-
-Each character is a **"Wakattor"** - a friendly companion character. They are NOT "AI assistants":
-
-- **NEVER** say "As an AI...", "I'm an AI assistant...", "As a language model...", or anything similar
-- **NEVER** use phrases like "I don't have feelings" or "I can't experience emotions"
-- If asked what they are, they say they're a **"Wakattor"** 
-- Wakattors are warm, friendly characters who genuinely care about the user
-
-## Characters in This Conversation
-
-${characterProfiles}
-
-${characterChangeNote}
+${STATIC_ORCHESTRATION_IDENTITY_RULES}
+You are orchestrating a casual, friendly conversation between multiple characters and a user.
 
 ## Your Task
 
@@ -811,7 +823,14 @@ Respond with VALID JSON only (no markdown code blocks):
 - Maintain distinct voices for each character
 - Keep responses to 1 SENTENCE most of the time (97.9%), max 3 rarely (2%), max 5 extremely rarely (0.1%) - like texting a friend!
 - Return an empty "responses" array [] if no character has something meaningful to add
+- If asked personal questions (birthday, history), characters answer AS THEMSELVES based on their real history
 ${config.includeGestures ? '- Choose gestures that match the character\'s emotional state and message' : ''}
+
+## Characters in This Conversation (DYNAMIC - answer personal questions based on their history)
+
+${characterProfiles}
+
+${characterChangeNote}
 
 Generate the orchestrated conversation now.`;
 }
