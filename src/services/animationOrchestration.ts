@@ -720,33 +720,64 @@ function resolveCharacterId(
 
 /**
  * Create default timeline when LLM doesn't provide one
+ * Splits long content into multiple segments to maintain consistent reading speed
  */
 export function createDefaultTimeline(content: string): AnimationSegment[] {
-  const talkingDuration = Math.max(
+  const totalTalkingDuration = Math.max(
     2000,
     content.length * DEFAULT_TALKING_SPEED
   );
-  
-  return [
+
+  // Calculate how many segments we need (each segment max 10 seconds)
+  const maxCharsPerSegment = Math.floor(MAX_SEGMENT_DURATION / DEFAULT_TALKING_SPEED);
+  const numTalkingSegments = Math.ceil(content.length / maxCharsPerSegment);
+
+  const segments: AnimationSegment[] = [
     {
       animation: 'thinking',
       duration: DEFAULT_THINKING_DURATION,
       isTalking: false,
       complementary: { lookDirection: 'up' }
-    },
-    {
-      animation: 'talking',
-      duration: talkingDuration,
-      isTalking: true,
-      textReveal: { startIndex: 0, endIndex: content.length }
-    },
-    {
-      animation: 'idle',
-      duration: 1000,
-      isTalking: false,
-      complementary: { mouthState: 'smile' }
     }
   ];
+
+  // Split content into multiple talking segments if needed
+  if (numTalkingSegments <= 1) {
+    // Short content - single segment
+    segments.push({
+      animation: 'talking',
+      duration: totalTalkingDuration,
+      isTalking: true,
+      textReveal: { startIndex: 0, endIndex: content.length }
+    });
+  } else {
+    // Long content - split into multiple segments for consistent speed
+    const charsPerSegment = Math.ceil(content.length / numTalkingSegments);
+
+    for (let i = 0; i < numTalkingSegments; i++) {
+      const startIndex = i * charsPerSegment;
+      const endIndex = Math.min((i + 1) * charsPerSegment, content.length);
+      const segmentChars = endIndex - startIndex;
+      const segmentDuration = segmentChars * DEFAULT_TALKING_SPEED;
+
+      segments.push({
+        animation: 'talking',
+        duration: segmentDuration,
+        isTalking: true,
+        textReveal: { startIndex, endIndex }
+      });
+    }
+  }
+
+  // End with idle
+  segments.push({
+    animation: 'idle',
+    duration: 1000,
+    isTalking: false,
+    complementary: { mouthState: 'smile' }
+  });
+
+  return segments;
 }
 
 /**
