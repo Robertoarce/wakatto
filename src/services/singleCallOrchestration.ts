@@ -481,7 +481,10 @@ Use short keys: s=scene, dur=totalDuration, ch=characters, c=character, t=conten
 ## Rules
 - 1-2 sentences per response, casual and conversational
 - Max 1 question per response (99%), 2 questions extremely rare (1%)
-- When talking to/about another character, set "lk" to "at_left_character" or "at_right_character"
+- Look direction when talking to another character (based on YOUR position):
+  * If YOU are on LEFT: look "at_right_character" to see others
+  * If YOU are on RIGHT: look "at_left_character" to see others
+  * If YOU are in CENTER: look "at_left_character" or "at_right_character" depending on who you're addressing
 - Use character ID (like "freud") in "c" field, NOT display name
 - No name prefix in "t" field
 - First character: d:0
@@ -532,7 +535,10 @@ Create a CINEMATIC conversation scene with precise animation choreography:
 2. **Casual Tone**: Like friends texting - very short, warm and natural
 3. **Response Length**: 1-2 sentences per response, casual and conversational
 4. **Questions**: Max 1 question per response (99%), 2 questions extremely rare (1%)
-5. **Look Direction**: When talking to/about another character, use "at_left_character" or "at_right_character"
+5. **Look Direction**: Based on YOUR character's position when talking to another:
+   - If YOU are on LEFT: look "at_right_character" to see others
+   - If YOU are on RIGHT: look "at_left_character" to see others
+   - If YOU are in CENTER: look toward the character you're addressing
 6. **Animation Flow**:
    - Start with a reaction/thinking animation before speaking
    - Use "talking" animation when revealing text
@@ -653,7 +659,10 @@ Respond with VALID JSON only (no markdown code blocks, no extra text):
 4. **"timeline"**: Array of animation segments that play sequentially
 5. **"textRange"**: [startIndex, endIndex] of text revealed during "talking" segments
 6. **"talking": true**: Only on segments where mouth should animate for speech
-7. **"look"**: Where character looks - use "at_left_character" or "at_right_character" for other characters
+7. **"look"**: Where character looks - based on YOUR position:
+   - LEFT position character looks "at_right_character" to see others
+   - RIGHT position character looks "at_left_character" to see others
+   - CENTER position looks toward who they're addressing
 8. **Duration calculation**: 
    - Thinking: 1000-2000ms
    - Talking: ~80ms × text length

@@ -477,14 +477,14 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           lookXOffset = 0.3;
           break;
         case 'at_left_character':
-          lookYOffset = -0.7;
-          lookXOffset = 0.1;
-          targetMeshRotY = -0.65;  // Body turns less than head (~half)
-          break;
-        case 'at_right_character':
           lookYOffset = 0.7;
           lookXOffset = 0.1;
-          targetMeshRotY = 0.65; // Body turns less than head (~half)
+          targetMeshRotY = 0.65;  // Body turns less than head (~half)
+          break;
+        case 'at_right_character':
+          lookYOffset = -0.7;
+          lookXOffset = 0.1;
+          targetMeshRotY = -0.65; // Body turns less than head (~half)
           break;
       }
 
