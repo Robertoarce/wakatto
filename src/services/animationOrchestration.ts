@@ -16,6 +16,7 @@ import {
   ComplementaryAnimation 
 } from '../components/CharacterDisplay3D';
 import { getCharacter } from '../config/characters';
+import { SegmentVoice, parseSegmentVoice } from '../config/voiceConfig';
 
 // ============================================
 // TYPE DEFINITIONS
@@ -42,6 +43,7 @@ export interface AnimationSegment {
     startIndex: number;
     endIndex: number;
   };
+  voice?: SegmentVoice; // Voice characteristics for this segment (pitch, tone, volume, pace, mood, intent)
 }
 
 /**
@@ -95,6 +97,8 @@ interface LLMCharacterResponse {
     effect?: string;
     talking?: boolean;
     textRange?: [number, number];
+    voice?: any; // Voice parameters (parsed via parseSegmentVoice)
+    v?: any; // Compact voice parameters
   }>;
 }
 
@@ -662,6 +666,15 @@ function parseSegment(
         startIndex: Math.max(0, Math.min(start, contentLength)),
         endIndex: Math.max(0, Math.min(end, contentLength))
       };
+    }
+  }
+  
+  // Parse voice parameters if provided (supports both "voice" and compact "v")
+  const voiceData = raw.voice || raw.v;
+  if (voiceData) {
+    const parsedVoice = parseSegmentVoice(voiceData);
+    if (parsedVoice) {
+      segment.voice = parsedVoice;
     }
   }
   

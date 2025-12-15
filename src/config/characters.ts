@@ -1,6 +1,7 @@
 // Character configuration for AI personalities
 
 import { TemperamentId } from './temperaments';
+import { CharacterVoiceProfile } from './voiceConfig';
 
 export type GenderType = 'male' | 'female' | 'neutral';
 export type SkinToneType = 'light' | 'medium' | 'tan' | 'dark';
@@ -28,6 +29,7 @@ export interface CharacterBehavior {
   systemPrompt: string; // System prompt for character behavior
   responseStyle: string;
   temperaments?: TemperamentId[]; // Array of temperament IDs for greeting/response style
+  voiceProfile?: CharacterVoiceProfile; // Voice characteristics for speech orchestration
   model3D: {
     bodyColor: string;
     accessoryColor: string;
@@ -60,6 +62,14 @@ export const CHARACTERS: Record<string, CharacterBehavior> = {
 Otherwise, favor concise, impactful insights.`,
     responseStyle: 'analytical',
     temperaments: ['analytical', 'nostalgic'],
+    voiceProfile: {
+      pitch: 'low',
+      tone: 'warm',
+      volume: 'soft',
+      pace: 'deliberate',
+      defaultMood: 'calm',
+      defaultIntent: 'explaining'
+    },
     model3D: {
       bodyColor: '#5c4a3a',
       accessoryColor: '#3a2a1a',
@@ -99,6 +109,14 @@ Otherwise, favor concise, impactful insights.`,
 Otherwise, favor concise, impactful insights.`,
     responseStyle: 'symbolic',
     temperaments: ['cryptic', 'brooding'],
+    voiceProfile: {
+      pitch: 'medium',
+      tone: 'smooth',
+      volume: 'soft',
+      pace: 'slow',
+      defaultMood: 'melancholic',
+      defaultIntent: 'questioning'
+    },
     model3D: {
       bodyColor: '#9a9a9a',
       accessoryColor: '#6a6a6a',
@@ -138,6 +156,14 @@ Otherwise, favor concise, impactful insights.`,
 Otherwise, favor concise, impactful insights.`,
     responseStyle: 'practical',
     temperaments: ['blunt', 'mentor'],
+    voiceProfile: {
+      pitch: 'medium',
+      tone: 'crisp',
+      volume: 'normal',
+      pace: 'normal',
+      defaultMood: 'confident',
+      defaultIntent: 'encouraging'
+    },
     model3D: {
       bodyColor: '#4a7c59',
       accessoryColor: '#2d5a3d',
@@ -177,6 +203,14 @@ Otherwise, favor concise, impactful insights.`,
 Otherwise, favor concise, impactful insights.`,
     responseStyle: 'hopeful',
     temperaments: ['joyful', 'enthusiastic'],
+    voiceProfile: {
+      pitch: 'medium',
+      tone: 'warm',
+      volume: 'normal',
+      pace: 'normal',
+      defaultMood: 'hopeful',
+      defaultIntent: 'encouraging'
+    },
     model3D: {
       bodyColor: '#059669',
       accessoryColor: '#047857',
@@ -216,6 +250,14 @@ Otherwise, favor concise, impactful insights.`,
 Otherwise, favor concise, impactful insights.`,
     responseStyle: 'vulnerable',
     temperaments: ['compassionate', 'intimate'],
+    voiceProfile: {
+      pitch: 'medium',
+      tone: 'warm',
+      volume: 'soft',
+      pace: 'deliberate',
+      defaultMood: 'calm',
+      defaultIntent: 'reassuring'
+    },
     model3D: {
       bodyColor: '#db2777',
       accessoryColor: '#be185d',
@@ -255,6 +297,14 @@ Otherwise, favor concise, impactful insights.`,
 Otherwise, favor concise, impactful insights.`,
     responseStyle: 'meaningful',
     temperaments: ['existential', 'sage'],
+    voiceProfile: {
+      pitch: 'low',
+      tone: 'gravelly',
+      volume: 'soft',
+      pace: 'slow',
+      defaultMood: 'melancholic',
+      defaultIntent: 'explaining'
+    },
     model3D: {
       bodyColor: '#475569',
       accessoryColor: '#334155',
@@ -294,6 +344,14 @@ Otherwise, favor concise, impactful insights.`,
 Otherwise, favor concise, impactful insights.`,
     responseStyle: 'stoic',
     temperaments: ['stoic', 'classical'],
+    voiceProfile: {
+      pitch: 'deep',
+      tone: 'crisp',
+      volume: 'normal',
+      pace: 'deliberate',
+      defaultMood: 'calm',
+      defaultIntent: 'explaining'
+    },
     model3D: {
       bodyColor: '#57534e',
       accessoryColor: '#44403c',
@@ -333,6 +391,14 @@ Otherwise, favor concise, impactful insights.`,
 Otherwise, favor concise, impactful insights.`,
     responseStyle: 'fierce',
     temperaments: ['fierce', 'rebellious'],
+    voiceProfile: {
+      pitch: 'low',
+      tone: 'brassy',
+      volume: 'loud',
+      pace: 'fast',
+      defaultMood: 'confident',
+      defaultIntent: 'commanding'
+    },
     model3D: {
       bodyColor: '#991b1b',
       accessoryColor: '#7f1d1d',
@@ -372,6 +438,14 @@ Otherwise, favor concise, impactful insights.`,
 Otherwise, favor concise, impactful insights.`,
     responseStyle: 'engaging',
     temperaments: ['enthusiastic', 'curious'],
+    voiceProfile: {
+      pitch: 'medium',
+      tone: 'warm',
+      volume: 'normal',
+      pace: 'fast',
+      defaultMood: 'excited',
+      defaultIntent: 'explaining'
+    },
     model3D: {
       bodyColor: '#2563eb',
       accessoryColor: '#1d4ed8',
@@ -411,6 +485,14 @@ Otherwise, favor concise, impactful insights.`,
 Otherwise, favor concise, impactful insights.`,
     responseStyle: 'peaceful',
     temperaments: ['zen', 'compassionate'],
+    voiceProfile: {
+      pitch: 'medium',
+      tone: 'silky',
+      volume: 'soft',
+      pace: 'slow',
+      defaultMood: 'calm',
+      defaultIntent: 'reassuring'
+    },
     model3D: {
       bodyColor: '#d97706',
       accessoryColor: '#b45309',

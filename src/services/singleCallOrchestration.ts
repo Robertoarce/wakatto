@@ -40,6 +40,7 @@ import {
   getMouthStatesList,
   getTimingGuidelines
 } from './animationOrchestration';
+import { getVoiceOptionsForPrompt, getVoiceOptionsForPromptFull } from '../config/voiceConfig';
 import { getProfiler, PROFILE_OPS } from './profilingService';
 
 export interface OrchestrationConfig {
@@ -452,10 +453,13 @@ Body: idle,talking,thinking,nodding,waving,leaning_forward
 Look: at_user,at_left_character,at_right_character,up,down
 Eye: open,squint,wide | Mouth: closed,smile,open
 
-## Output Format (COMPACT JSON)
-Use short keys: s=scene, dur=totalDuration, ch=characters, c=character, t=content, d=startDelay, tl=timeline, a=animation, ms=duration, lk=look
+## Voice (optional "v" object per segment)
+${getVoiceOptionsForPrompt()}
 
-{"s":{"dur":MS,"ch":[{"c":"ID","t":"TEXT","d":MS,"tl":[{"a":"thinking","ms":1500,"lk":"up"},{"a":"talking","ms":3000,"talking":true,"lk":"at_user"}]}]}}
+## Output Format (COMPACT JSON)
+Use short keys: s=scene, dur=totalDuration, ch=characters, c=character, t=content, d=startDelay, tl=timeline, a=animation, ms=duration, lk=look, v=voice
+
+{"s":{"dur":MS,"ch":[{"c":"ID","t":"TEXT","d":MS,"tl":[{"a":"thinking","ms":1500,"lk":"up"},{"a":"talking","ms":3000,"talking":true,"lk":"at_user","v":{"p":"low","t":"warm","pace":"deliberate","mood":"calm","int":"explaining"}}]}]}}
 
 ## Rules
 - 1-2 sentences per response, casual and conversational
@@ -463,6 +467,8 @@ Use short keys: s=scene, dur=totalDuration, ch=characters, c=character, t=conten
 - No name prefix in "t" field
 - First character: d:0
 - Include ${Math.min(config.maxResponders, selectedCharacters.length)} characters maximum
+- Add "v" object to talking segments to control voice characteristics
+- Vary voice by mood/intent to match content (e.g., excited = fast pace, reassuring = soft volume)
 ${config.includeInterruptions ? '- Characters can interrupt by overlapping d (use carefully!)' : ''}
 
 Generate the animated scene now.`;
@@ -494,6 +500,8 @@ ${getMouthStatesList()}
 
 ### Timing Guidelines
 ${getTimingGuidelines()}
+
+${getVoiceOptionsForPromptFull()}
 
 ## Your Task
 
@@ -563,7 +571,15 @@ Respond with VALID JSON only (no markdown code blocks, no extra text):
             "duration": 4000,
             "talking": true,
             "textRange": [0, 50],
-            "look": "center"
+            "look": "center",
+            "voice": {
+              "pitch": "low",
+              "tone": "warm",
+              "volume": "soft",
+              "pace": "deliberate",
+              "mood": "calm",
+              "intent": "reassuring"
+            }
           },
           {
             "animation": "idle",
@@ -587,7 +603,14 @@ Respond with VALID JSON only (no markdown code blocks, no extra text):
             "animation": "talking",
             "duration": 3000,
             "talking": true,
-            "textRange": [0, 35]
+            "textRange": [0, 35],
+            "voice": {
+              "pitch": "medium",
+              "tone": "crisp",
+              "pace": "fast",
+              "mood": "excited",
+              "intent": "encouraging"
+            }
           },
           {
             "animation": "nod",

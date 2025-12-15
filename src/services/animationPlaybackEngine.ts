@@ -9,7 +9,8 @@ import {
   OrchestrationScene,
   CharacterTimeline,
   AnimationSegment,
-  CharacterAnimationState
+  CharacterAnimationState,
+  DEFAULT_TALKING_SPEED
 } from './animationOrchestration';
 import {
   AnimationState,
@@ -17,6 +18,12 @@ import {
   MouthState,
   EyeState
 } from '../components/CharacterDisplay3D';
+import {
+  CharacterVoiceProfile,
+  SegmentVoice,
+  getPaceMultiplier,
+  mergeVoiceWithDefaults
+} from '../config/voiceConfig';
 
 // ============================================
 // POST-SPEAKING EXPRESSIONS
@@ -84,10 +91,20 @@ export class AnimationPlaybackEngine {
   private callbacks: Set<PlaybackCallback> = new Set();
   private lastUpdateTime: number = 0;
   private updateThrottleMs: number = 16; // ~60fps
+  private characterVoiceProfiles: Map<string, CharacterVoiceProfile> = new Map();
 
   // ============================================
   // PUBLIC METHODS
   // ============================================
+
+  /**
+   * Set character voice profiles for pace calculations
+   * Call this before play() to apply character-specific base voice settings
+   */
+  setCharacterVoiceProfiles(profiles: Map<string, CharacterVoiceProfile>): void {
+    this.characterVoiceProfiles = new Map(profiles);
+    console.log('[PlaybackEngine] Set voice profiles for', profiles.size, 'characters');
+  }
 
   /**
    * Start playing an orchestration scene
@@ -103,7 +120,8 @@ export class AnimationPlaybackEngine {
     console.log('[PlaybackEngine] Starting scene playback', {
       duration: scene.sceneDuration,
       characters: scene.timelines.map(t => t.characterId),
-      nonSpeakers: Object.keys(scene.nonSpeakerBehavior)
+      nonSpeakers: Object.keys(scene.nonSpeakerBehavior),
+      voiceProfilesSet: this.characterVoiceProfiles.size
     });
     
     this.tick();
@@ -197,7 +215,17 @@ export class AnimationPlaybackEngine {
   }
 
   /**
+   * Get the effective pace multiplier for a segment, considering character base voice
+   */
+  private getEffectivePaceMultiplier(characterId: string, segmentVoice?: SegmentVoice): number {
+    const baseVoice = this.characterVoiceProfiles.get(characterId);
+    const mergedVoice = mergeVoiceWithDefaults(baseVoice, segmentVoice);
+    return getPaceMultiplier(mergedVoice.pace);
+  }
+
+  /**
    * Get revealed text for a specific character at current time
+   * Now applies voice pace multipliers for variable speech speed
    */
   getRevealedText(characterId: string): string {
     if (!this.scene) return '';
@@ -211,7 +239,7 @@ export class AnimationPlaybackEngine {
     if (characterElapsed < 0) return '';
     if (characterElapsed >= timeline.totalDuration) return timeline.content;
     
-    // Find current segment and calculate revealed text
+    // Find current segment and calculate revealed text with pace adjustment
     let segmentStartTime = 0;
     
     for (const segment of timeline.segments) {
@@ -220,9 +248,15 @@ export class AnimationPlaybackEngine {
       if (characterElapsed < segmentEndTime) {
         // We're in this segment
         if (segment.textReveal) {
+          // Calculate base progress through segment
           const segmentProgress = (characterElapsed - segmentStartTime) / segment.duration;
+          
+          // Apply pace multiplier - higher pace = more text revealed for same progress
+          const paceMultiplier = this.getEffectivePaceMultiplier(characterId, segment.voice);
+          const adjustedProgress = Math.min(1, segmentProgress * paceMultiplier);
+          
           const textProgress = segment.textReveal.startIndex + 
-            Math.floor((segment.textReveal.endIndex - segment.textReveal.startIndex) * segmentProgress);
+            Math.floor((segment.textReveal.endIndex - segment.textReveal.startIndex) * adjustedProgress);
           return timeline.content.substring(0, Math.min(textProgress, timeline.content.length));
         }
         break;
@@ -244,8 +278,13 @@ export class AnimationPlaybackEngine {
           lastRevealedIndex = segment.textReveal.endIndex;
         } else {
           const progress = (characterElapsed - segmentStartTime) / segment.duration;
+          
+          // Apply pace multiplier
+          const paceMultiplier = this.getEffectivePaceMultiplier(characterId, segment.voice);
+          const adjustedProgress = Math.min(1, progress * paceMultiplier);
+          
           lastRevealedIndex = segment.textReveal.startIndex + 
-            Math.floor((segment.textReveal.endIndex - segment.textReveal.startIndex) * progress);
+            Math.floor((segment.textReveal.endIndex - segment.textReveal.startIndex) * adjustedProgress);
         }
       }
       
@@ -253,6 +292,31 @@ export class AnimationPlaybackEngine {
     }
     
     return timeline.content.substring(0, Math.min(lastRevealedIndex, timeline.content.length));
+  }
+
+  /**
+   * Get the current voice state for a character (merged base + segment voice)
+   * Useful for TTS integration or voice visualization
+   */
+  getCurrentVoice(characterId: string): SegmentVoice | null {
+    if (!this.scene) return null;
+    
+    const timeline = this.scene.timelines.find(t => t.characterId === characterId);
+    if (!timeline) return null;
+    
+    const elapsed = this.getElapsedTime();
+    const characterElapsed = elapsed - timeline.startDelay;
+    
+    if (characterElapsed < 0 || characterElapsed >= timeline.totalDuration) {
+      return null;
+    }
+    
+    // Find current segment
+    const currentSegment = this.findCurrentSegment(timeline.segments, characterElapsed);
+    
+    // Merge with character base voice
+    const baseVoice = this.characterVoiceProfiles.get(characterId);
+    return mergeVoiceWithDefaults(baseVoice, currentSegment.voice);
   }
 
   /**

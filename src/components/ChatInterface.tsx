@@ -7,7 +7,8 @@ import { setFullscreen } from '../store/actions/uiActions';
 import { useCustomAlert } from './CustomAlert';
 import { CharacterDisplay3D, AnimationState, ComplementaryAnimation, LookDirection, EyeState, MouthState } from './CharacterDisplay3D';
 import { AnimatedArrowPointer } from './AnimatedArrowPointer';
-import { DEFAULT_CHARACTER, getAllCharacters, getCharacter } from '../config/characters';
+import { DEFAULT_CHARACTER, getAllCharacters, getCharacter, CharacterBehavior } from '../config/characters';
+import { CharacterVoiceProfile } from '../config/voiceConfig';
 import { getCustomWakattors } from '../services/customWakattorsService';
 import { getVoiceRecorder, RecordingState } from '../services/voiceRecording';
 import { transcribeAudio, isWebSpeechSupported } from '../services/speechToText';
@@ -976,9 +977,38 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         estimatedDuration
       ) as OrchestrationScene;
       
+      // Set voice profiles before playing
+      const voiceProfiles = buildVoiceProfilesMap();
+      playbackEngineRef.current.setCharacterVoiceProfiles(voiceProfiles);
+      
       playbackEngineRef.current.play(thinkingScene);
     }
-  }, [earlyAnimationSetup, animationScene, selectedCharacters]);
+  }, [earlyAnimationSetup, animationScene, selectedCharacters, availableCharacters]);
+
+  // Helper function to build voice profiles map for selected characters
+  const buildVoiceProfilesMap = useCallback((): Map<string, CharacterVoiceProfile> => {
+    const profiles = new Map<string, CharacterVoiceProfile>();
+    
+    for (const characterId of selectedCharacters) {
+      try {
+        const character = getCharacter(characterId);
+        if (character?.voiceProfile) {
+          profiles.set(characterId, character.voiceProfile);
+        }
+      } catch (e) {
+        // Character not found, skip
+      }
+    }
+    
+    // Also check available characters (custom wakattors)
+    for (const wakattor of availableCharacters) {
+      if (selectedCharacters.includes(wakattor.id) && (wakattor as any).voiceProfile) {
+        profiles.set(wakattor.id, (wakattor as any).voiceProfile);
+      }
+    }
+    
+    return profiles;
+  }, [selectedCharacters, availableCharacters]);
 
   // Start animation playback when a new scene is provided
   useEffect(() => {
@@ -987,9 +1017,14 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         duration: animationScene.sceneDuration,
         timelines: animationScene.timelines.length
       });
+      
+      // Set character voice profiles before playing
+      const voiceProfiles = buildVoiceProfilesMap();
+      playbackEngineRef.current.setCharacterVoiceProfiles(voiceProfiles);
+      
       playbackEngineRef.current.play(animationScene);
     }
-  }, [animationScene]);
+  }, [animationScene, buildVoiceProfilesMap]);
 
   // Track which messages are being animated based on the current scene
   useEffect(() => {
@@ -1809,6 +1844,10 @@ Each silence, a cathedral where you still reside.`;
       characters: selectedCharacters.length,
       sceneDuration: maxEndTime,
     });
+
+    // Set voice profiles before playing
+    const voiceProfiles = buildVoiceProfilesMap();
+    playbackEngineRef.current.setCharacterVoiceProfiles(voiceProfiles);
 
     // Start playback
     playbackEngineRef.current.play(testScene);
