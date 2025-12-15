@@ -427,6 +427,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       // Target values - we'll lerp towards these
       let targetMeshY = 0;
       let targetMeshRotX = 0;
+      let targetMeshRotY = 0;  // Body Y rotation (for turning toward others)
       let targetHeadRotX = 0;
       let targetHeadRotY = 0;
       let targetHeadRotZ = 0;
@@ -459,9 +460,9 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       // =========================================
       // COMPLEMENTARY: Look Direction
       // =========================================
-      let lookYOffset = 0;
-      let lookXOffset = 0;
-      
+      let lookYOffset = 0;    // Head Y rotation offset
+      let lookXOffset = 0;    // Head X rotation offset
+
       switch (complementary?.lookDirection) {
         case 'left':
           lookYOffset = 0.5;
@@ -476,12 +477,14 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           lookXOffset = 0.3;
           break;
         case 'at_left_character':
-          lookYOffset = 0.7;
-          lookXOffset = 0.1;
-          break;
-        case 'at_right_character':
           lookYOffset = -0.7;
           lookXOffset = 0.1;
+          targetMeshRotY = -0.65;  // Body turns less than head (~half)
+          break;
+        case 'at_right_character':
+          lookYOffset = 0.7;
+          lookXOffset = 0.1;
+          targetMeshRotY = 0.65; // Body turns less than head (~half)
           break;
       }
 
@@ -1204,6 +1207,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       if (meshRef.current) {
         meshRef.current.position.y = lerp(meshRef.current.position.y, positionY + targetMeshY, transitionSpeed);
         meshRef.current.rotation.x = lerp(meshRef.current.rotation.x, targetMeshRotX, transitionSpeed);
+        meshRef.current.rotation.y = lerp(meshRef.current.rotation.y, targetMeshRotY, transitionSpeed);
       }
       if (headRef.current) {
         headRef.current.rotation.x = lerp(headRef.current.rotation.x, targetHeadRotX, transitionSpeed);
