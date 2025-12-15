@@ -226,7 +226,9 @@ export default function MainTabs() {
         }
 
         // Prepare conversation history for multi-character service
-        const conversationHistory: ConversationMessage[] = messages.map(msg => ({
+        // CRITICAL: For first message (new conversation), use empty history to prevent
+        // stale messages from previous conversations bleeding through due to React re-render timing
+        const conversationHistory: ConversationMessage[] = isFirstMessage ? [] : messages.map(msg => ({
           id: msg.id,
           role: msg.role as 'user' | 'assistant',
           content: msg.content,

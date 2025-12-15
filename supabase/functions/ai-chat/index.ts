@@ -1,12 +1,28 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+// Allowed origins for CORS - production and development
+const ALLOWED_ORIGINS = [
+  'https://www.wakatto.com',
+  'https://wakatto.com',
+  'http://localhost:8080',
+  'http://localhost:19006',
+  'http://localhost:3000',
+]
+
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('origin') || ''
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  }
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req)
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -47,20 +63,8 @@ serve(async (req) => {
     // Parse request body
     const { messages, provider = 'anthropic', model, parameters = {}, stream = false, enablePromptCache = true } = await req.json()
 
-    console.log(`[AI-Chat] User: ${user.id}, Provider: ${provider}, Stream: ${stream}, Messages: ${messages.length}`)
-    console.log(`[AI-Chat] Parameters:`, parameters)
-    
-    // Reduce logging for performance
-    if (!stream) {
-      console.log('[AI-Chat] Full prompt being sent:')
-      console.log('=== PROMPT START ===')
-      messages.forEach((msg: any, idx: number) => {
-        console.log(`[${idx}] ${msg.role.toUpperCase()}:`)
-        console.log(msg.content)
-        console.log('---')
-      })
-      console.log('=== PROMPT END ===')
-    }
+    // Log only non-sensitive metadata
+    console.log(`[AI-Chat] Provider: ${provider}, Stream: ${stream}, Messages: ${messages.length}`)
 
     // Handle streaming vs non-streaming
     // Support both 'anthropic' and 'anthropic_fast' providers
@@ -83,11 +87,6 @@ serve(async (req) => {
     } else {
       throw new Error(`Unsupported provider: ${provider}`)
     }
-
-    console.log('[AI-Chat] Response received:')
-    console.log('=== RESPONSE START ===')
-    console.log(response)
-    console.log('=== RESPONSE END ===')
 
     return new Response(
       JSON.stringify({ content: response }),
@@ -144,7 +143,6 @@ async function streamAnthropic(
           cache_control: { type: 'ephemeral' }  // Cache for session duration
         }
       ]
-      console.log('[AI-Chat] Prompt caching ENABLED for system prompt')
     } else {
       requestBody.system = systemMessage.content
     }
@@ -153,8 +151,6 @@ async function streamAnthropic(
   if (parameters.temperature !== undefined) requestBody.temperature = parameters.temperature
   if (parameters.topP !== undefined) requestBody.top_p = parameters.topP
   if (parameters.topK !== undefined) requestBody.top_k = parameters.topK
-
-  console.log('[AI-Chat] Starting streaming request to Anthropic')
 
   // Build headers - add beta header for prompt caching
   const headers: Record<string, string> = {
@@ -277,7 +273,6 @@ async function callAnthropic(
           cache_control: { type: 'ephemeral' }
         }
       ]
-      console.log('[AI-Chat] Prompt caching ENABLED for non-streaming request')
     } else {
       requestBody.system = systemMessage.content
     }

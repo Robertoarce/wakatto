@@ -97,7 +97,21 @@
       "Bash(perl:*)",
       "Bash(supabase migration repair --status reverted 20241111000000)",
       "Bash(supabase migration repair --status reverted 20241111000000 --linked)",
-      "Bash(open http://localhost:8080)"
+      "Bash(open http://localhost:8080)",
+      "Bash(git -C \"/Users/robertoarce/00 All/02 Projects/04 wakatto\" log --oneline -15)",
+      "Bash(git -C \"/Users/robertoarce/00 All/02 Projects/04 wakatto\" log --format=\"%h %s\" -10)",
+      "Bash(git -C \"/Users/robertoarce/00 All/02 Projects/04 wakatto\" show d686836 --stat)",
+      "Bash(git -C \"/Users/robertoarce/00 All/02 Projects/04 wakatto\" diff HEAD~4...HEAD --name-only)",
+      "Bash(git -C \"/Users/robertoarce/00 All/02 Projects/04 wakatto\" show ce959be --stat)",
+      "Bash(tree:*)",
+      "Bash(find:*)",
+      "Bash(git -C \"/Users/robertoarce/00 All/02 Projects/04 wakatto\" log --all --pretty=format:\"%H %s\" -50)",
+      "Bash(git -C '/Users/robertoarce/00 All/02 Projects/04 wakatto' log -p --all -- .env)",
+      "Bash(npm audit:*)",
+      "Bash(jq:*)",
+      "Bash(supabase projects:*)",
+      "Bash(SUPABASE_ACCESS_TOKEN=sbp_dfbbc3449088fb6bf1219e9b033746a123ca8d73 supabase functions deploy:*)",
+      "Bash(unset:*)"
     ],
     "deny": [],
     "ask": []

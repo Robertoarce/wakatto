@@ -95,8 +95,8 @@ module.exports = async function (env = {}, argv = {}) {
       '__BUILD_TIME__': JSON.stringify(new Date().toISOString()),
       // Ensure process.env is defined
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
-      // Inject environment variables from .env file
-      'process.env.CLAUDE_API_KEY': JSON.stringify(envVars.CLAUDE_API_KEY || ''),
+      // Note: CLAUDE_API_KEY is NOT bundled - it's handled server-side by Edge Functions
+      'process.env.CLAUDE_API_KEY': JSON.stringify(''),
     }),
     new webpack.BannerPlugin({
       banner: `/* Wakatto Build: ${Date.now()} | Polyfills: active | Target: web */`,

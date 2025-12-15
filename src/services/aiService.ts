@@ -166,7 +166,6 @@ export async function initializeAI() {
   if (model) config.model = model;
   if (apiKey) {
     config.apiKey = apiKey;
-    console.log('[AI] Initialized with API key from', process.env.CLAUDE_API_KEY ? 'environment' : 'secure storage');
   }
 }
 
@@ -213,19 +212,6 @@ export async function generateAIResponse(
   const estimatedPromptTokens = profiler.estimateTokens(promptText);
 
   try {
-    // Call Supabase Edge Function (avoids CORS issues)
-    console.log('[AI] Calling Edge Function with provider:', config.provider);
-    console.log('[AI] Using parameters:', finalParameters);
-    console.log('[AI] Estimated prompt tokens:', estimatedPromptTokens);
-    console.log('[AI] Full prompt being sent:');
-    console.log('=== PROMPT START ===');
-    fullMessages.forEach((msg, idx) => {
-      console.log(`[${idx}] ${msg.role.toUpperCase()}:`);
-      console.log(msg.content);
-      console.log('---');
-    });
-    console.log('=== PROMPT END ===');
-
     // Profile auth session fetch (using cache for speed)
     const authTimer = profiler.start(PROFILE_OPS.AUTH_SESSION);
     const session = await getCachedAuthSession();
@@ -270,11 +256,6 @@ export async function generateAIResponse(
       provider: config.provider,
     });
     
-    console.log('[AI] Edge Function success!');
-    console.log('[AI] Response received (est. tokens:', estimatedResponseTokens, '):');
-    console.log('=== RESPONSE START ===');
-    console.log(data.content);
-    console.log('=== RESPONSE END ===');
     return data.content;
   } catch (error: any) {
     console.error('[AI] Error:', error);

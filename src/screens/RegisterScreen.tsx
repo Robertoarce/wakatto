@@ -3,15 +3,11 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from '
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
-import { signUp, signIn } from '../services/supabaseService';
+import { signUp } from '../services/supabaseService';
 import { setSession } from '../store/actions/authActions';
 import { useCustomAlert } from '../components/CustomAlert';
 import { AnimatedBackground3D } from '../components/AnimatedBackground3D';
 import { Button, Input } from '../components/ui';
-
-// Dev credentials for quick setup during development
-const DEV_EMAIL = 'dev@phsyche.ai'; // Note: matches the user created in Supabase
-const DEV_PASSWORD = 'devpass123';
 
 export default function RegisterScreen() {
   const navigation = useNavigation();
@@ -66,37 +62,6 @@ export default function RegisterScreen() {
         errorMessage = 'Password must be at least 6 characters long.';
       }
       showAlert('Registration Failed', errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function createDevUser() {
-    setLoading(true);
-    try {
-      const devMetadata = { name: 'Dev User', phone: '' };
-      await signUp(DEV_EMAIL, DEV_PASSWORD, devMetadata);
-      showAlert(
-        'Dev User Created!',
-        'Dev user created successfully. You can now use Quick Dev Login.',
-        [{ text: 'Go to Login', onPress: () => navigation.navigate('Login') }]
-      );
-    } catch (error: any) {
-      // If user already exists, try to sign in
-      if (error.message.includes('already registered')) {
-        try {
-          const data = await signIn(DEV_EMAIL, DEV_PASSWORD);
-          // Update Redux store with session before navigating
-          if (data.session && data.user) {
-            dispatch(setSession(data.session, data.user));
-          }
-          navigation.navigate('Main');
-        } catch (signInError: any) {
-          showAlert('Error', 'Dev user exists but could not sign in: ' + signInError.message);
-        }
-      } else {
-        showAlert('Error', error.message);
-      }
     } finally {
       setLoading(false);
     }
@@ -231,19 +196,6 @@ export default function RegisterScreen() {
               size="lg"
               style={{ marginTop: 8 }}
             />
-
-            {/* Dev User Button */}
-            {__DEV__ && (
-              <Button
-                title="⚡ Create Dev User"
-                onPress={createDevUser}
-                disabled={loading}
-                variant="secondary"
-                fullWidth
-                size="md"
-                style={{ marginTop: 12 }}
-              />
-            )}
 
             {/* Skip Login Button */}
             <Button
