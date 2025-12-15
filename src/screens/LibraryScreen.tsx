@@ -17,17 +17,13 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { getCustomWakattors, CustomWakattor, addCharacterToWakattors } from '../services/customWakattorsService';
 import { CharacterDisplay3D, AnimationState } from '../components/CharacterDisplay3D';
-import { CharacterBehavior } from '../config/characters';
+import { CharacterBehavior, getAllCharacters } from '../config/characters';
+import { getCustomWakattors } from '../services/customWakattorsService';
 import { Badge } from '../components/ui';
 import { useCustomAlert } from '../components/CustomAlert';
 import { useResponsive } from '../constants/Layout';
 
-type SortOption = 'name' | 'recent' | 'popular';
-
-// Role/Profession filters
-const ROLE_FILTERS = ['All', 'Therapist', 'Coach', 'Analyst', 'Friend', 'Mentor', 'Guide', 'Counselor', 'Philosopher'];
 
 // Available animations for random selection
 const AVAILABLE_ANIMATIONS: AnimationState[] = [
@@ -50,20 +46,18 @@ export default function LibraryScreen() {
   const navigation = useNavigation();
   const { showAlert, AlertComponent } = useCustomAlert();
   const { fonts, spacing, layout, isMobile, isTablet } = useResponsive();
-  const [characters, setCharacters] = useState<CustomWakattor[]>([]);
+  const [characters, setCharacters] = useState<CharacterBehavior[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('All');
-  const [sortBy, setSortBy] = useState<SortOption>('recent');
-  const [selectedCharacter, setSelectedCharacter] = useState<CustomWakattor | null>(null);
+  const [selectedCharacter, setSelectedCharacter] = useState<CharacterBehavior | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [currentAnimation, setCurrentAnimation] = useState<AnimationState>('idle');
-  const [adding, setAdding] = useState(false);
 
   // Responsive card width
   const cardWidth = isMobile ? '100%' : '48%';
 
-  // Load characters
+  // Load ALL characters - combine built-in + database characters
   useEffect(() => {
     loadCharacters();
   }, []);
@@ -71,10 +65,29 @@ export default function LibraryScreen() {
   const loadCharacters = async () => {
     try {
       setLoading(true);
-      const data = await getCustomWakattors();
-      setCharacters(data as any);
+
+      // Get built-in characters
+      const builtInCharacters = getAllCharacters();
+
+      // Get database characters (from Supabase)
+      const dbCharacters = await getCustomWakattors();
+
+      // Combine both, with database characters taking priority for duplicates
+      const characterMap = new Map<string, CharacterBehavior>();
+
+      // Add built-in first
+      builtInCharacters.forEach(char => characterMap.set(char.id, char));
+
+      // Then add database characters (overwrites duplicates)
+      dbCharacters.forEach(char => characterMap.set(char.id, char));
+
+      const allCharacters = Array.from(characterMap.values());
+      setCharacters(allCharacters);
+      console.log('[LibraryScreen] Loaded', allCharacters.length, 'characters');
     } catch (error) {
       console.error('Failed to load characters:', error);
+      // Fallback to built-in only
+      setCharacters(getAllCharacters());
     } finally {
       setLoading(false);
     }
@@ -108,24 +121,15 @@ export default function LibraryScreen() {
       );
     }
 
-    // Sort
+    // Sort by name (alphabetical)
     filtered = [...filtered].sort((a, b) => {
-      switch (sortBy) {
-        case 'name':
-          return (a.name || '').localeCompare(b.name || '');
-        case 'recent':
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        case 'popular':
-          return 0; // Placeholder for popularity metric
-        default:
-          return 0;
-      }
+      return (a.name || '').localeCompare(b.name || '');
     });
 
     return filtered;
-  }, [characters, searchQuery, selectedRole, sortBy]);
+  }, [characters, searchQuery, selectedRole]);
 
-  const handleCharacterPress = (character: CustomWakattor) => {
+  const handleCharacterPress = (character: CharacterBehavior) => {
     setSelectedCharacter(character);
     setCurrentAnimation(getRandomAnimation()); // Set random animation
     setShowDetailModal(true);
@@ -136,62 +140,13 @@ export default function LibraryScreen() {
     setSelectedCharacter(null);
   };
 
-  const handleAddToWakattors = async () => {
-    if (!selectedCharacter) return;
-
-    setAdding(true);
-    try {
-      // Check if user has reached the 20 character limit
-      const currentWakattors = await getCustomWakattors();
-      if (currentWakattors.length >= 20) {
-        showAlert(
-          'Limit Reached',
-          'You can have a maximum of 20 Wakattors. Please remove some characters before adding new ones.',
-          [{ text: 'OK' }]
-        );
-        setAdding(false);
-        return;
-      }
-
-      const result = await addCharacterToWakattors(selectedCharacter);
-
-      if (result.alreadyExists) {
-        showAlert(
-          'Already Added',
-          `${selectedCharacter.name} is already in your Wakattors!`,
-          [{ text: 'OK' }]
-        );
-      } else {
-        showAlert(
-          'Success!',
-          `${selectedCharacter.name} has been added to your Wakattors!`,
-          [{ text: 'OK' }]
-        );
-      }
-
-      // Close modal and navigate to Wakattors tab with the new character ID
-      handleCloseDetail();
-      // @ts-ignore - Navigate to Wakattors tab
-      navigation.navigate('Wakattors', { newCharacterId: result.characterId });
-    } catch (error: any) {
-      console.error('[Library] Add to Wakattors error:', error);
-      showAlert(
-        'Error',
-        `Failed to add character: ${error.message}`,
-        [{ text: 'OK' }]
-      );
-    } finally {
-      setAdding(false);
-    }
-  };
-
-  const renderCharacterCard = (character: CustomWakattor) => {
+  const renderCharacterCard = (character: CharacterBehavior) => {
     return (
       <TouchableOpacity
         key={character.id}
         style={[
-          styles.characterCard, 
-          { 
+          styles.characterCard,
+          {
             width: cardWidth as any,
             minWidth: isMobile ? undefined : 160,
             maxWidth: isMobile ? undefined : 220,
@@ -233,9 +188,9 @@ export default function LibraryScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingHorizontal: spacing.lg, paddingVertical: spacing.lg }]}>
         <View style={[styles.headerLeft, { gap: spacing.md }]}>
-          <Ionicons name="library" size={isMobile ? 24 : 28} color="#8b5cf6" />
+          <MaterialCommunityIcons name="emoticon-happy-outline" size={isMobile ? 24 : 28} color="#8b5cf6" />
           <View>
-            <Text style={[styles.title, { fontSize: isMobile ? fonts.lg : fonts.xxl }]}>Character Library</Text>
+            <Text style={[styles.title, { fontSize: isMobile ? fonts.lg : fonts.xxl }]}>All Wakattors</Text>
             <Text style={styles.subtitle}>{filteredCharacters.length} of {characters.length} Characters</Text>
           </View>
         </View>
@@ -259,26 +214,6 @@ export default function LibraryScreen() {
             <Ionicons name="close-circle" size={20} color="#71717a" />
           </TouchableOpacity>
         )}
-      </View>
-
-      {/* Sort & Filter Bar */}
-      <View style={styles.filterBarContainer}>
-        <View style={styles.sortContainer}>
-          <Text style={styles.sortLabel}>Sort:</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortScroll}>
-            {(['recent', 'name', 'popular'] as SortOption[]).map((option) => (
-              <TouchableOpacity
-                key={option}
-                style={[styles.sortButton, sortBy === option && styles.sortButtonActive]}
-                onPress={() => setSortBy(option)}
-              >
-                <Text style={[styles.sortButtonText, sortBy === option && styles.sortButtonTextActive]}>
-                  {option.charAt(0).toUpperCase() + option.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
       </View>
 
       {/* Role/Profession Filter */}
@@ -358,7 +293,7 @@ export default function LibraryScreen() {
               {/* 3D Preview - Full Screen */}
               <View style={styles.preview3DFullScreen}>
                 <CharacterDisplay3D
-                  characterId={selectedCharacter.character_id}
+                  characterId={selectedCharacter.id}
                   animation={currentAnimation}
                 />
               </View>
@@ -368,28 +303,6 @@ export default function LibraryScreen() {
                 <Text style={[styles.characterInfoDescription, { fontSize: fonts.md }]}>
                   {selectedCharacter.description}
                 </Text>
-              </View>
-
-              {/* Action Button */}
-              <View style={[styles.modalActions, { padding: spacing.lg }]}>
-                <TouchableOpacity
-                  style={[
-                    styles.actionButton, 
-                    adding && styles.actionButtonDisabled,
-                    { minHeight: layout.minTouchTarget, paddingVertical: spacing.lg }
-                  ]}
-                  onPress={handleAddToWakattors}
-                  disabled={adding}
-                >
-                  {adding ? (
-                    <ActivityIndicator size="small" color="white" />
-                  ) : (
-                    <>
-                      <Ionicons name="add-circle-outline" size={isMobile ? 20 : 22} color="white" />
-                      <Text style={[styles.actionButtonText, { fontSize: fonts.md }]}>Add to Wakattors</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -464,46 +377,6 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     padding: 4,
-  },
-  filterBarContainer: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#27272a',
-  },
-  sortContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  sortLabel: {
-    fontSize: 13,
-    color: '#a1a1aa',
-    fontWeight: '600',
-  },
-  sortScroll: {
-    flex: 1,
-  },
-  sortButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginRight: 8,
-    backgroundColor: '#18181b',
-    borderWidth: 1,
-    borderColor: '#27272a',
-  },
-  sortButtonActive: {
-    backgroundColor: '#8b5cf6',
-    borderColor: '#8b5cf6',
-  },
-  sortButtonText: {
-    color: '#a1a1aa',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  sortButtonTextActive: {
-    color: 'white',
   },
   filterContainer: {
     paddingHorizontal: 16,
@@ -684,42 +557,5 @@ const styles = StyleSheet.create({
     color: '#d4d4d8',
     lineHeight: 24,
     textAlign: 'center',
-  },
-  modalActions: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#27272a',
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#8b5cf6',
-    paddingVertical: 16,
-    borderRadius: 12,
-    gap: 10,
-    ...Platform.select({
-      web: {
-        boxShadow: '0 4px 8px rgba(139, 92, 246, 0.3)',
-      },
-      ios: {
-        shadowColor: '#8b5cf6',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
-  },
-  actionButtonDisabled: {
-    opacity: 0.5,
-  },
-  actionButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '700',
   },
 });

@@ -1059,47 +1059,39 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     }
   }, [playbackState.isPlaying, animatingMessages.size]);
 
-  // Load characters from user's Wakattors collection (up to 20)
+  // Load ALL characters - combine built-in + database characters
   useEffect(() => {
-    const loadWakattorsCollection = async () => {
+    const loadAllCharacters = async () => {
       try {
-        // Load all custom wakattors from user's collection
-        const customWakattors = await getCustomWakattors();
+        // Get built-in characters
+        const builtInCharacters = getAllCharacters();
 
-        if (customWakattors.length > 0) {
-          setAvailableCharacters(customWakattors);
-          // IMPORTANT: Register custom characters so multiCharacterConversation can find them
-          const { registerCustomCharacters } = await import('../config/characters');
-          console.log('[ChatInterface] About to register custom characters:', customWakattors.map(c => ({ id: c.id, name: c.name })));
-          registerCustomCharacters(customWakattors);
-          console.log('[ChatInterface] Registered', customWakattors.length, 'custom characters for AI generation');
-        } else {
-          // Fallback to default characters if no custom wakattors
-          const defaultChars = getAllCharacters();
-          setAvailableCharacters(defaultChars);
-        }
+        // Get database characters (from Supabase)
+        const dbCharacters = await getCustomWakattors();
+
+        // Combine both, with database characters first (they include Marcus Aurelius, etc.)
+        // Use a Map to deduplicate by ID (database versions take priority)
+        const characterMap = new Map<string, CharacterBehavior>();
+
+        // Add built-in first
+        builtInCharacters.forEach(char => characterMap.set(char.id, char));
+
+        // Then add database characters (overwrites duplicates)
+        dbCharacters.forEach(char => characterMap.set(char.id, char));
+
+        const allCharacters = Array.from(characterMap.values());
+        setAvailableCharacters(allCharacters);
+        console.log('[ChatInterface] Loaded', allCharacters.length, 'characters (', builtInCharacters.length, 'built-in +', dbCharacters.length, 'from database)');
       } catch (error) {
-        console.error('[ChatInterface] Failed to load wakattors collection:', error);
-        // Fallback to default characters on error
+        console.error('[ChatInterface] Failed to load characters:', error);
+        // Fallback to built-in only
         setAvailableCharacters(getAllCharacters());
       } finally {
         setIsLoadingCharacters(false);
       }
     };
 
-    loadWakattorsCollection();
-
-    // Listen for custom events when wakattors collection changes
-    const handleWakattorsUpdate = () => {
-      console.log('[ChatInterface] Wakattors collection updated, reloading...');
-      loadWakattorsCollection();
-    };
-
-    window.addEventListener('wakattorsUpdated', handleWakattorsUpdate);
-
-    return () => {
-      window.removeEventListener('wakattorsUpdated', handleWakattorsUpdate);
-    };
+    loadAllCharacters();
   }, []);
 
   // Don't auto-select any wakattor - let user choose
@@ -1269,30 +1261,46 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   // Set random character for brand new conversations (no messages at all)
   // Only if we haven't restored characters yet
   // Also triggers an automatic greeting from the random character
+  // IMPORTANT: Use a debounce delay to ensure messages have had time to load from database
+  // This prevents false "new conversation" detection during app reload
   useEffect(() => {
-    if (messages.length === 0 && selectedCharacters.length === 0 && availableCharacters.length > 0 && !hasRestoredInitialCharacters.current) {
-      // Select a RANDOM character instead of the first one
-      const randomIndex = Math.floor(Math.random() * availableCharacters.length);
-      const randomChar = availableCharacters[randomIndex];
-      console.log('[ChatInterface] New conversation with no messages, selecting random character:', randomChar.name);
-      setSelectedCharacters([randomChar.id]);
-      
-      // Trigger entrance animation for new conversation
-      entranceAnimationKey.current += 1;
-      setShowEntranceAnimation(true);
-      
-      // Trigger greeting from the random character (after a short delay for entrance animation)
-      // Only trigger if greeting hasn't been triggered yet
-      if (onGreeting && !hasTriggeredGreeting.current) {
-        hasTriggeredGreeting.current = true;
-        setTimeout(() => {
-          const greeting = getRandomGreeting(randomChar.id, randomChar.name);
-          console.log('[ChatInterface] Triggering greeting from:', randomChar.name);
-          onGreeting(randomChar.id, greeting);
-        }, 1000); // Wait for entrance animation
+    // Don't run while characters are still loading
+    if (isLoadingCharacters) return;
+
+    // Use a delay to give messages time to load from database
+    // This prevents false positives when the app is reloading and messages haven't arrived yet
+    const timer = setTimeout(() => {
+      if (
+        messages.length === 0 &&
+        selectedCharacters.length === 0 &&
+        availableCharacters.length > 0 &&
+        !hasRestoredInitialCharacters.current
+      ) {
+        // Select a RANDOM character instead of the first one
+        const randomIndex = Math.floor(Math.random() * availableCharacters.length);
+        const randomChar = availableCharacters[randomIndex];
+        console.log('[ChatInterface] New conversation with no messages, selecting random character:', randomChar.name);
+        setSelectedCharacters([randomChar.id]);
+
+        // Trigger entrance animation for new conversation
+        entranceAnimationKey.current += 1;
+        setShowEntranceAnimation(true);
+
+        // Trigger greeting from the random character (after a short delay for entrance animation)
+        // Only trigger if greeting hasn't been triggered yet
+        if (onGreeting && !hasTriggeredGreeting.current) {
+          hasTriggeredGreeting.current = true;
+          setTimeout(() => {
+            const greeting = getRandomGreeting(randomChar.id, randomChar.name);
+            console.log('[ChatInterface] Triggering greeting from:', randomChar.name);
+            onGreeting(randomChar.id, greeting);
+          }, 1000); // Wait for entrance animation
+        }
       }
-    }
-  }, [messages.length, selectedCharacters.length, availableCharacters, onGreeting]);
+    }, 500); // Wait 500ms to allow messages to load from database
+
+    return () => clearTimeout(timer);
+  }, [messages.length, selectedCharacters.length, availableCharacters, onGreeting, isLoadingCharacters]);
 
   // Show character names when characters change or at conversation start
   useEffect(() => {

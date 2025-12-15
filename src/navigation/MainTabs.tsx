@@ -39,7 +39,6 @@ import { getProfiler, PROFILE_OPS, ProfileSession } from '../services/profilingS
 import { ProfilingDashboard, useProfilingDashboard } from '../components/ProfilingDashboard';
 import SettingsScreen from '../screens/SettingsScreen';
 import LibraryScreen from '../screens/LibraryScreen';
-import WakattorsScreenEnhanced from '../screens/WakattorsScreenEnhanced';
 import AnimationsScreen from '../screens/AnimationsScreen';
 
 const Tab = createBottomTabNavigator();
@@ -567,17 +566,8 @@ export default function MainTabs() {
             )}
           </Tab.Screen>
           <Tab.Screen
-            name="Library"
-            component={LibraryScreen}
-            options={{
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons name="library" color={color} size={size} />
-              ),
-            }}
-          />
-          <Tab.Screen
             name="Wakattors"
-            component={WakattorsScreenEnhanced}
+            component={LibraryScreen}
             options={{
               tabBarIcon: ({ color, size }) => (
                 <MaterialCommunityIcons name="emoticon-happy-outline" color={color} size={size} />
