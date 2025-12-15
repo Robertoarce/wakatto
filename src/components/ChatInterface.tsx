@@ -2083,20 +2083,25 @@ Each silence, a cathedral where you still reside.`;
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.characterSelectorScroll}>
             {(() => {
               // Filter characters based on search and role
-              const filteredCharacters = availableCharacters.filter((character) => {
-                const matchesSearch = characterSearchQuery === '' || 
+              let filteredCharacters = availableCharacters.filter((character) => {
+                const matchesSearch = characterSearchQuery === '' ||
                   character.name.toLowerCase().includes(characterSearchQuery.toLowerCase());
                 const matchesRole = selectedRoleFilter === null || character.role === selectedRoleFilter;
                 const isNotSelected = !selectedCharacters.includes(character.id);
                 return matchesSearch && matchesRole && isNotSelected;
               });
 
+              // Randomize order when showing "All" (no filter and no search)
+              if (selectedRoleFilter === null && characterSearchQuery === '') {
+                filteredCharacters = [...filteredCharacters].sort(() => Math.random() - 0.5);
+              }
+
               if (filteredCharacters.length === 0) {
                 return (
                   <View style={styles.noResultsContainer}>
                     <Text style={[styles.noResultsText, { fontSize: fonts.sm }]}>
-                      {characterSearchQuery || selectedRoleFilter 
-                        ? 'No matching characters' 
+                      {characterSearchQuery || selectedRoleFilter
+                        ? 'No matching characters'
                         : 'All characters selected'}
                     </Text>
                   </View>
