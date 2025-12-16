@@ -19,7 +19,6 @@ import {
   deleteConversation,
   updateMessage,
   deleteMessage,
-  saveSelectedCharacters
 } from '../store/actions/conversationActions';
 import { getCharacter } from '../config/characters';
 import {
@@ -41,6 +40,7 @@ import { ProfilingDashboard, useProfilingDashboard } from '../components/Profili
 import SettingsScreen from '../screens/SettingsScreen';
 import LibraryScreen from '../screens/LibraryScreen';
 import AnimationsScreen from '../screens/AnimationsScreen';
+import CharacterSelectionScreen from '../screens/CharacterSelectionScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -54,6 +54,9 @@ export default function MainTabs() {
   
   // Ref to prevent duplicate greeting processing
   const isProcessingGreeting = useRef(false);
+
+  // State for character selection screen (new conversation flow)
+  const [showCharacterSelection, setShowCharacterSelection] = useState(false);
 
   // Hide sidebar by default
   useEffect(() => {
@@ -99,27 +102,25 @@ export default function MainTabs() {
     dispatch(toggleSidebar());
   };
 
-  const onNewConversation = async () => {
+  // Show character selection screen when starting a new conversation
+  const onNewConversation = () => {
+    setShowCharacterSelection(true);
+  };
+
+  // Handle starting conversation with selected characters
+  const onStartConversationWithCharacters = async (selectedCharacterIds: string[]) => {
     try {
-      // Check if there's already an empty "New Conversation" we can reuse
-      // An empty conversation has no messages at all (messageCount === 0)
-      const existingEmptyConversation = conversations.find((conv: any) => 
-        conv.title === 'New Conversation' && 
-        (conv.messageCount === 0 || conv.messageCount === undefined)
-      );
-
-      if (existingEmptyConversation) {
-        // Just switch to the existing empty conversation - user can change Wakatto there
-        console.log('[MainTabs] Reusing existing empty conversation:', existingEmptyConversation.id);
-        dispatch(selectConversation(existingEmptyConversation) as any);
-        return;
-      }
-
-      // No empty conversation found, create a new one
-      await dispatch(createConversation('New Conversation') as any);
+      console.log('[MainTabs] Creating conversation with characters:', selectedCharacterIds);
+      await dispatch(createConversation('New Conversation', selectedCharacterIds) as any);
+      setShowCharacterSelection(false);
     } catch (error: any) {
       showAlert('Error', 'Failed to create conversation: ' + error.message);
     }
+  };
+
+  // Cancel character selection and return to conversation list
+  const onCancelCharacterSelection = () => {
+    setShowCharacterSelection(false);
   };
 
   const onRenameConversation = async (conversationId: string, newTitle: string) => {
@@ -161,13 +162,7 @@ export default function MainTabs() {
     }
   };
 
-  // Handle character selection changes - persist to database
-  const handleCharacterSelectionChange = useCallback((characterIds: string[]) => {
-    if (currentConversation?.id) {
-      console.log('[MainTabs] Saving character selection:', characterIds, 'for conversation:', currentConversation.id);
-      dispatch(saveSelectedCharacters(currentConversation.id, characterIds) as any);
-    }
-  }, [currentConversation?.id, dispatch]);
+  // Characters are now fixed at conversation creation - no dynamic changes needed
 
   const [isLoadingAI, setIsLoadingAI] = React.useState(false);
   const [animationScene, setAnimationScene] = useState<OrchestrationScene | null>(null);
@@ -195,12 +190,13 @@ export default function MainTabs() {
 
     setIsLoadingAI(true);
     try {
-      // If no current conversation, create one
+      // Conversations must have fixed characters - user must create one via character selection first
       let conversation = currentConversation;
       if (!conversation) {
-        const createTimer = profiler.start(PROFILE_OPS.DB_CREATE_CONVERSATION);
-        conversation = await dispatch(createConversation('New Conversation') as any);
-        createTimer.stop();
+        showAlert('No Conversation', 'Please start a new conversation first by selecting characters.');
+        setIsLoadingAI(false);
+        fullFlowTimer.stop();
+        return;
       }
 
       if (conversation) {
@@ -547,13 +543,26 @@ export default function MainTabs() {
     }
   }, [dispatch, store]);
 
+  // Show character selection screen for new conversation
+  if (showCharacterSelection) {
+    return (
+      <View style={styles.fullContainer}>
+        <AlertComponent />
+        <CharacterSelectionScreen
+          onStartConversation={onStartConversationWithCharacters}
+          onCancel={onCancelCharacterSelection}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.fullContainer}>
       <AlertComponent />
       {!isFullscreen && <Header />}
       <View style={styles.contentContainer}>
         {!isFullscreen && (
-          <ChatSidebar 
+          <ChatSidebar
             conversations={conversations}
             currentConversation={currentConversation}
             onSelectConversation={onSelectConversation}
@@ -610,7 +619,6 @@ export default function MainTabs() {
                 onGreeting={handleGreeting}
                 conversationId={currentConversation?.id}
                 savedCharacters={currentConversation?.selected_characters}
-                onCharacterSelectionChange={handleCharacterSelectionChange}
                 onSaveIdleMessage={handleSaveIdleMessage}
               />
             )}

@@ -197,25 +197,78 @@ export class AnimationPlaybackEngine {
 
   /**
    * Get current animation state for all characters
+   * Handles multiple timelines per character (e.g., idle conversations with back-and-forth)
    */
   getCurrentStates(): Map<string, CharacterAnimationState> {
     const states = new Map<string, CharacterAnimationState>();
-    
+
     if (!this.scene) return states;
-    
+
     const elapsed = this.getElapsedTime();
-    
-    // Get states for speaking characters
+
+    // Group timelines by character and find the currently active one for each
+    const characterTimelines = new Map<string, CharacterTimeline[]>();
     for (const timeline of this.scene.timelines) {
-      states.set(timeline.characterId, this.getCharacterState(timeline, elapsed));
+      const existing = characterTimelines.get(timeline.characterId) || [];
+      existing.push(timeline);
+      characterTimelines.set(timeline.characterId, existing);
     }
-    
+
+    // For each character, find their currently active timeline
+    for (const [characterId, timelines] of characterTimelines) {
+      const activeTimeline = this.findActiveTimeline(timelines, elapsed);
+      if (activeTimeline) {
+        states.set(characterId, this.getCharacterState(activeTimeline, elapsed));
+      } else {
+        // No active timeline - character is idle
+        states.set(characterId, {
+          characterId,
+          animation: 'idle',
+          complementary: {},
+          isTalking: false,
+          revealedText: '',
+          isActive: false,
+          isComplete: false
+        });
+      }
+    }
+
     // Get states for non-speaking characters
     for (const [characterId, segments] of Object.entries(this.scene.nonSpeakerBehavior)) {
       states.set(characterId, this.getNonSpeakerState(characterId, segments, elapsed));
     }
-    
+
     return states;
+  }
+
+  /**
+   * Find the currently active timeline for a character based on elapsed time
+   * Returns the timeline that is currently playing (between startDelay and startDelay + totalDuration)
+   */
+  private findActiveTimeline(timelines: CharacterTimeline[], elapsed: number): CharacterTimeline | null {
+    // Sort by startDelay to process in order
+    const sorted = [...timelines].sort((a, b) => a.startDelay - b.startDelay);
+
+    // Find the timeline that is currently active
+    for (const timeline of sorted) {
+      const timelineStart = timeline.startDelay;
+      const timelineEnd = timeline.startDelay + timeline.totalDuration;
+
+      if (elapsed >= timelineStart && elapsed < timelineEnd) {
+        return timeline;
+      }
+    }
+
+    // If no timeline is currently active, check if we're past all timelines
+    // Return the last completed timeline so we can show its final state
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const timeline = sorted[i];
+      if (elapsed >= timeline.startDelay + timeline.totalDuration) {
+        return timeline; // Return last completed timeline
+      }
+    }
+
+    return null;
   }
 
   /**

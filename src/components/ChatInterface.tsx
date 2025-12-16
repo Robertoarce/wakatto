@@ -6,7 +6,6 @@ import { RootState } from '../store';
 import { setFullscreen } from '../store/actions/uiActions';
 import { useCustomAlert } from './CustomAlert';
 import { CharacterDisplay3D, AnimationState, ComplementaryAnimation, LookDirection, EyeState, MouthState } from './CharacterDisplay3D';
-import { AnimatedArrowPointer } from './AnimatedArrowPointer';
 import { DEFAULT_CHARACTER, getAllCharacters, getCharacter, CharacterBehavior, registerCustomCharacters } from '../config/characters';
 import { CharacterVoiceProfile } from '../config/voiceConfig';
 import { getCustomWakattors } from '../services/customWakattorsService';
@@ -59,10 +58,8 @@ interface ChatInterfaceProps {
   onGreeting?: (characterId: string, greetingMessage: string) => void;
   // Conversation context for persistence
   conversationId?: string | null;
-  // Saved characters from database (used on initial load)
+  // Saved characters from database (fixed at conversation creation, read-only)
   savedCharacters?: string[] | null;
-  // Callback when character selection changes (for persistence)
-  onCharacterSelectionChange?: (characterIds: string[]) => void;
   // Callback to save idle conversation messages
   onSaveIdleMessage?: (characterId: string, content: string, metadata?: Record<string, any>) => void;
 }
@@ -666,7 +663,7 @@ function FloatingCharacterWrapper({
   );
 }
 
-export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting, conversationId, savedCharacters, onCharacterSelectionChange, onSaveIdleMessage }: ChatInterfaceProps) {
+export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting, conversationId, savedCharacters, onSaveIdleMessage }: ChatInterfaceProps) {
   const dispatch = useDispatch();
   const { isFullscreen } = useSelector((state: RootState) => state.ui);
   const { showAlert, AlertComponent } = useCustomAlert();
@@ -694,12 +691,10 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       return Math.floor(height * 0.35); // 35% on desktop
     }
   });
-  const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]); // Up to 5 characters, start empty
-  const [showCharacterSelector, setShowCharacterSelector] = useState(false);
+  const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]); // Fixed characters from conversation creation
   const [isMobileView, setIsMobileView] = useState(isMobile);
   const [showCharacterNames, setShowCharacterNames] = useState(true); // Show names at start
   const [nameKey, setNameKey] = useState(0); // Key to trigger re-animation
-  const [showArrowPointer, setShowArrowPointer] = useState(true); // Show arrow pointer initially
   const [availableCharacters, setAvailableCharacters] = useState(getAllCharacters()); // Load from Wakattors database
   const [isLoadingCharacters, setIsLoadingCharacters] = useState(true);
   const [showChatHistory, setShowChatHistory] = useState(false); // Hidden by default
@@ -775,10 +770,6 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [dispatch, isFullscreen]);
-  
-  // Character selector search and filter state
-  const [characterSearchQuery, setCharacterSearchQuery] = useState('');
-  const [selectedRoleFilter, setSelectedRoleFilter] = useState<string | null>(null);
   
   // Entrance animation state - triggered when conversation changes or new conversation is created
   const [showEntranceAnimation, setShowEntranceAnimation] = useState(false);
@@ -1302,43 +1293,9 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     return () => subscription?.remove();
   }, [showChatHistory]);
 
-  // Auto-hide character selector when switching to mobile view
-  useEffect(() => {
-    if (isMobileView && showCharacterSelector) {
-      setShowCharacterSelector(false);
-    }
-  }, [isMobileView]);
+  // Characters are now fixed at conversation creation - no dynamic selector
 
-
-  // Arrow pointer logic: hide after 20 seconds, or when user has conversation, or interacts with characters
-  useEffect(() => {
-    // Hide arrow if user has messages (conversation started)
-    if (messages.length > 0) {
-      setShowArrowPointer(false);
-      return;
-    }
-
-    // Hide arrow if user opened character selector
-    if (showCharacterSelector) {
-      setShowArrowPointer(false);
-      return;
-    }
-
-    // Hide arrow if user changed characters (not just the initial default)
-    if (selectedCharacters.length !== 1 || selectedCharacters[0] !== DEFAULT_CHARACTER) {
-      setShowArrowPointer(false);
-      return;
-    }
-
-    // Hide arrow after 20 seconds
-    const timer = setTimeout(() => {
-      setShowArrowPointer(false);
-    }, 20000); // 20 seconds
-
-    return () => clearTimeout(timer);
-  }, [messages.length, showCharacterSelector, selectedCharacters]);
-
-  // Restore characters from messages when conversation is loaded
+  // Restore characters from savedCharacters when conversation is loaded
   const userHasSelectedCharacters = useRef(false);
   const previousMessagesRef = useRef(messages);
   const hasRestoredInitialCharacters = useRef(false);
@@ -1505,8 +1462,9 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         availableCharacters.length > 0 &&
         !hasRestoredInitialCharacters.current &&
         // If savedCharacters exists (even empty array from DB), this is an existing conversation
-        // savedCharacters === undefined means props haven't loaded yet, wait for them
+        // savedCharacters === undefined/null means props haven't loaded yet, wait for them
         savedCharacters !== undefined &&
+        savedCharacters !== null &&
         savedCharacters.length === 0;
 
       console.log('[ChatInterface:NewConvEffect] isNewConversation check:', {
@@ -1555,22 +1513,8 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     return () => clearTimeout(timer);
   }, [selectedCharacters]);
 
-  // Persist character selection to database when it changes
-  // Only persist after initial restore is complete and user has made selections
-  useEffect(() => {
-    // Don't persist during initial loading/restoration
-    if (!hasRestoredInitialCharacters.current) return;
-    // Need a conversation to persist to
-    if (!conversationId) return;
-    // Don't persist empty selections
-    if (selectedCharacters.length === 0) return;
-
-    // Call the persistence callback
-    if (onCharacterSelectionChange) {
-      console.log('[ChatInterface] Persisting character selection:', selectedCharacters);
-      onCharacterSelectionChange(selectedCharacters);
-    }
-  }, [selectedCharacters, conversationId, onCharacterSelectionChange]);
+  // Characters are now fixed at conversation creation - no need to persist changes
+  // The savedCharacters prop is read-only and set when conversation is created
 
   // Clear entrance animation after duration (800ms)
   useEffect(() => {
@@ -1909,53 +1853,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     setEditingContent('');
   };
 
-  const toggleCharacter = (characterId: string) => {
-    // Mark that user has manually selected characters
-    userHasSelectedCharacters.current = true;
-
-    // Get character info for toast
-    const character = getCharacter(characterId);
-
-    // Use functional update to avoid stale closure issues
-    setSelectedCharacters(prev => {
-      const isCurrentlySelected = prev.includes(characterId);
-
-      if (isCurrentlySelected) {
-        // Don't allow removing if only one left
-        if (prev.length === 1) return prev;
-        
-        // Show toast for removal (schedule after state update)
-        setTimeout(() => {
-          setToastMessage(`Removed ${character.name}`);
-          setToastColor(character.color);
-          setToastVisible(true);
-        }, 0);
-        
-        return prev.filter(id => id !== characterId);
-      } else {
-        // Don't allow more than 5 characters - check against current state
-        if (prev.length >= 5) {
-          // Schedule alert after state update to avoid nested updates
-          setTimeout(() => {
-            showAlert('Maximum Reached', 'You can select up to 5 Wakattors maximum.', [{ text: 'OK' }]);
-          }, 0);
-          return prev;
-        }
-        
-        // Don't add duplicates
-        if (prev.includes(characterId)) return prev;
-        
-        // Show toast for addition (schedule after state update)
-        setTimeout(() => {
-          setToastMessage(`Added ${character.name}`);
-          setToastColor(character.color);
-          setToastVisible(true);
-        }, 0);
-        
-        return [...prev, characterId];
-      }
-    });
-  };
+  // Characters are fixed at conversation creation - no toggleCharacter function needed
 
   const confirmDeleteMessage = (messageId: string) => {
     showAlert(
@@ -2127,190 +2025,28 @@ Each silence, a cathedral where you still reside.`;
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
       >
-      {/* Full-screen backdrop for character selector */}
-      {showCharacterSelector && (
-        <TouchableOpacity
-          style={styles.characterSelectorBackdrop}
-          activeOpacity={1}
-          onPress={() => setShowCharacterSelector(false)}
-        />
-      )}
-
-      {/* Character Selector Panel - Must be sibling to backdrop for zIndex to work */}
-      {showCharacterSelector && (
-        <View
-          style={[
-            styles.characterSelectorPanel,
-            isMobileView && styles.characterSelectorPanelMobile,
-            { pointerEvents: 'box-none' }
-          ]}
-        >
-          <View style={styles.characterSelectorHeader}>
-            <Text style={[styles.characterSelectorTitle, { fontSize: fonts.sm }]}>Select Wakattors (Max 5)</Text>
-            {isMobileView && (
-              <TouchableOpacity onPress={() => setShowCharacterSelector(false)}>
-                <Ionicons name="close" size={24} color="#ff6b35" />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Search Input */}
-          <View style={styles.characterSearchContainer}>
-            <Ionicons name="search" size={16} color="#71717a" />
-            <TextInput
-              style={[styles.characterSearchInput, { fontSize: fonts.sm }]}
-              placeholder="Search by name..."
-              placeholderTextColor="#71717a"
-              value={characterSearchQuery}
-              onChangeText={setCharacterSearchQuery}
-            />
-            {characterSearchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setCharacterSearchQuery('')}>
-                <Ionicons name="close-circle" size={16} color="#71717a" />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Role Category Filters */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.roleFilterScroll}>
-            <TouchableOpacity
-              style={[
-                styles.roleFilterChip,
-                selectedRoleFilter === null && styles.roleFilterChipActive,
-              ]}
-              onPress={() => setSelectedRoleFilter(null)}
-            >
-              <Text style={[styles.roleFilterText, selectedRoleFilter === null && styles.roleFilterTextActive, { fontSize: fonts.xs }]}>
-                All
-              </Text>
-            </TouchableOpacity>
-            {Array.from(new Set(availableCharacters.map(c => c.role).filter(Boolean))).map((role) => (
-              <TouchableOpacity
-                key={role}
-                style={[
-                  styles.roleFilterChip,
-                  selectedRoleFilter === role && styles.roleFilterChipActive,
-                ]}
-                onPress={() => setSelectedRoleFilter(selectedRoleFilter === role ? null : role)}
-              >
-                <Text style={[styles.roleFilterText, selectedRoleFilter === role && styles.roleFilterTextActive, { fontSize: fonts.xs }]}>
-                  {role}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          {/* Selected Characters Section (at top with remove buttons) */}
-          {selectedCharacters.length > 0 && (
-            <>
-              <Text style={[styles.characterSectionLabel, { fontSize: fonts.xs }]}>
-                Selected ({selectedCharacters.length}/5)
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectedCharactersScroll}>
-                {selectedCharacters.map((characterId) => {
-                  const character = availableCharacters.find(c => c.id === characterId) || getCharacter(characterId);
-                  const isConversationOnly = !availableCharacters.some(c => c.id === characterId);
-                  return (
-                    <View
-                      key={characterId}
-                      style={[
-                        styles.selectedCharacterChip,
-                        { borderColor: character.color },
-                        isConversationOnly && styles.selectedCharacterChipConversationOnly,
-                      ]}
-                    >
-                      <View style={[styles.characterSelectorIndicator, { backgroundColor: character.color }]} />
-                      <Text style={[styles.selectedCharacterName, { fontSize: fonts.sm }]}>
-                        {character.name}
-                      </Text>
-                      <TouchableOpacity
-                        onPress={() => toggleCharacter(characterId)}
-                        style={styles.removeCharacterButton}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Ionicons name="close" size={14} color="#ef4444" />
-                      </TouchableOpacity>
-                    </View>
-                  );
-                })}
-              </ScrollView>
-              <View style={styles.characterSectionDivider} />
-            </>
-          )}
-
-          {/* Available Characters Section */}
-          <Text style={[styles.characterSectionLabel, { fontSize: fonts.xs }]}>
-            Available
-          </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.characterSelectorScroll}>
-            {(() => {
-              // Filter characters based on search and role
-              let filteredCharacters = availableCharacters.filter((character) => {
-                const matchesSearch = characterSearchQuery === '' ||
-                  character.name.toLowerCase().includes(characterSearchQuery.toLowerCase());
-                const matchesRole = selectedRoleFilter === null || character.role === selectedRoleFilter;
-                const isNotSelected = !selectedCharacters.includes(character.id);
-                return matchesSearch && matchesRole && isNotSelected;
-              });
-
-              // Randomize order when showing "All" (no filter and no search)
-              if (selectedRoleFilter === null && characterSearchQuery === '') {
-                filteredCharacters = [...filteredCharacters].sort(() => Math.random() - 0.5);
-              }
-
-              if (filteredCharacters.length === 0) {
-                return (
-                  <View style={styles.noResultsContainer}>
-                    <Text style={[styles.noResultsText, { fontSize: fonts.sm }]}>
-                      {characterSearchQuery || selectedRoleFilter
-                        ? 'No matching characters'
-                        : 'All characters selected'}
-                    </Text>
-                  </View>
-                );
-              }
-
-              return filteredCharacters.map((character) => (
-                <TouchableOpacity
-                  key={character.id}
-                  style={styles.characterSelectorCard}
-                  onPress={() => toggleCharacter(character.id)}
-                >
-                  <View style={[styles.characterSelectorIndicator, { backgroundColor: character.color }]} />
-                  <Text style={[styles.characterSelectorName, { fontSize: fonts.sm }]}>
-                    {character.name}
-                  </Text>
-                  <Ionicons name="add-circle" size={18} color={character.color} />
-                </TouchableOpacity>
-              ));
-            })()}
-          </ScrollView>
-        </View>
-      )}
-
       {/* 3D Character Display - Hidden in landscape when chat history is shown */}
       {!(isMobileLandscape && showChatHistory) && (
       <View style={[
-        styles.characterDisplayContainer, 
+        styles.characterDisplayContainer,
         // In mobile landscape, always take full available space
         isMobileLandscape ? { flex: 1 } : (showChatHistory ? { height: characterHeight } : { flex: 1 })
       ]}>
-        {/* 3D Animated Arrow Pointer - Positioned near character selector button */}
-        <AnimatedArrowPointer
-          visible={showArrowPointer}
-          message="Add more characters!"
-        />
-
-        {/* Character Selector Button */}
-        <TouchableOpacity
-          style={styles.characterSelectorButton}
-          onPress={() => setShowCharacterSelector(!showCharacterSelector)}
-        >
-          <Ionicons name="people" size={20} color="#ff6b35" />
-          <Text style={[styles.characterSelectorText, { fontSize: fonts.sm }]}>
+        {/* Read-only character indicator - shows which characters are in this conversation */}
+        <View style={styles.characterIndicatorRow}>
+          {selectedCharacters.map(charId => {
+            const char = getCharacter(charId);
+            return (
+              <View
+                key={charId}
+                style={[styles.characterDot, { backgroundColor: char.color }]}
+              />
+            );
+          })}
+          <Text style={[styles.characterCountText, { fontSize: fonts.xs }]}>
             {selectedCharacters.length} Wakattor{selectedCharacters.length !== 1 ? 's' : ''}
           </Text>
-        </TouchableOpacity>
+        </View>
 
         {/* Tell me a Poem Button */}
         <TouchableOpacity
@@ -2845,6 +2581,30 @@ const styles = StyleSheet.create({
   characterDisplayContainer: {
     borderBottomWidth: 0,
     overflow: 'visible',
+  },
+  // Read-only character indicator styles
+  characterIndicatorRow: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    zIndex: 100,
+    backgroundColor: 'rgba(23, 23, 23, 0.8)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  characterDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  characterCountText: {
+    color: '#a1a1aa',
+    fontSize: 12,
+    marginLeft: 4,
   },
   divider: {
     height: 1,

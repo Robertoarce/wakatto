@@ -95,7 +95,11 @@ export const loadConversations = () => async (dispatch: any, getState: any) => {
 };
 
 // Async action to create a new conversation
-export const createConversation = (title: string = 'New Conversation') => async (dispatch: any, getState: any) => {
+// selectedCharacters parameter is required - conversations must have fixed characters at creation
+export const createConversation = (
+  title: string = 'New Conversation',
+  selectedCharacters: string[] = []
+) => async (dispatch: any, getState: any) => {
   try {
     const { auth } = getState();
     if (!auth.user) {
@@ -106,9 +110,10 @@ export const createConversation = (title: string = 'New Conversation') => async 
     const { data, error } = await supabase
       .from('conversations')
       .insert([
-        { 
-          user_id: auth.user.id, 
+        {
+          user_id: auth.user.id,
           title,
+          selected_characters: selectedCharacters,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }
