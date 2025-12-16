@@ -145,7 +145,7 @@ interface CharacterDisplay3DProps {
 function ConfettiEffect({ color = '#8b5cf6', speed = 1 }: { color?: string; speed?: number }) {
   const particlesRef = useRef<THREE.Points>(null);
   const particleCount = 100;
-  
+
   const positions = useMemo(() => {
     const pos = new Float32Array(particleCount * 3);
     for (let i = 0; i < particleCount; i++) {
@@ -168,16 +168,27 @@ function ConfettiEffect({ color = '#8b5cf6', speed = 1 }: { color?: string; spee
     return cols;
   }, [color]);
 
+  // Cleanup geometry and material on unmount
+  useEffect(() => {
+    return () => {
+      if (particlesRef.current) {
+        particlesRef.current.geometry?.dispose();
+        const material = particlesRef.current.material as THREE.Material;
+        material?.dispose();
+      }
+    };
+  }, []);
+
   useFrame((_, delta) => {
     if (!particlesRef.current) return;
     const positions = particlesRef.current.geometry.attributes.position.array as Float32Array;
-    
+
     for (let i = 0; i < particleCount; i++) {
       // Fall down
       positions[i * 3 + 1] -= delta * 2 * speed;
       // Sway side to side
       positions[i * 3] += Math.sin(Date.now() * 0.003 * speed + i) * delta * 0.5;
-      
+
       // Reset if below ground
       if (positions[i * 3 + 1] < -1) {
         positions[i * 3 + 1] = 4;
@@ -202,7 +213,18 @@ function ConfettiEffect({ color = '#8b5cf6', speed = 1 }: { color?: string; spee
 function SpotlightEffect({ color = '#ffd700', speed = 1 }: { color?: string; speed?: number }) {
   const lightRef = useRef<THREE.SpotLight>(null);
   const coneRef = useRef<THREE.Mesh>(null);
-  
+
+  // Cleanup geometry and material on unmount
+  useEffect(() => {
+    return () => {
+      if (coneRef.current) {
+        coneRef.current.geometry?.dispose();
+        const material = coneRef.current.material as THREE.Material;
+        material?.dispose();
+      }
+    };
+  }, []);
+
   useFrame(() => {
     const time = Date.now() * 0.001 * speed;
     if (lightRef.current) {
@@ -240,7 +262,7 @@ function SpotlightEffect({ color = '#ffd700', speed = 1 }: { color?: string; spe
 function SparklesEffect({ color = '#ffd700', speed = 1 }: { color?: string; speed?: number }) {
   const particlesRef = useRef<THREE.Points>(null);
   const particleCount = 50;
-  
+
   const positions = useMemo(() => {
     const pos = new Float32Array(particleCount * 3);
     for (let i = 0; i < particleCount; i++) {
@@ -253,11 +275,22 @@ function SparklesEffect({ color = '#ffd700', speed = 1 }: { color?: string; spee
     return pos;
   }, []);
 
+  // Cleanup geometry and material on unmount
+  useEffect(() => {
+    return () => {
+      if (particlesRef.current) {
+        particlesRef.current.geometry?.dispose();
+        const material = particlesRef.current.material as THREE.Material;
+        material?.dispose();
+      }
+    };
+  }, []);
+
   useFrame(() => {
     if (!particlesRef.current) return;
     const positions = particlesRef.current.geometry.attributes.position.array as Float32Array;
     const time = Date.now() * 0.002 * speed;
-    
+
     for (let i = 0; i < particleCount; i++) {
       const baseAngle = time + i * 0.5;
       const radius = 0.5 + Math.sin(time + i) * 0.5 + 1;
@@ -282,7 +315,7 @@ function SparklesEffect({ color = '#ffd700', speed = 1 }: { color?: string; spee
 function HeartsEffect({ color = '#ff6b6b', speed = 1 }: { color?: string; speed?: number }) {
   const groupRef = useRef<THREE.Group>(null);
   const heartCount = 8;
-  
+
   const heartPositions = useMemo(() => {
     return Array.from({ length: heartCount }, (_, i) => ({
       x: (Math.random() - 0.5) * 2,
@@ -293,6 +326,21 @@ function HeartsEffect({ color = '#ff6b6b', speed = 1 }: { color?: string; speed?
     }));
   }, []);
 
+  // Cleanup all heart geometries and materials on unmount
+  useEffect(() => {
+    return () => {
+      if (groupRef.current) {
+        groupRef.current.children.forEach((child) => {
+          if (child instanceof THREE.Mesh) {
+            child.geometry?.dispose();
+            const material = child.material as THREE.Material;
+            material?.dispose();
+          }
+        });
+      }
+    };
+  }, []);
+
   useFrame((_, delta) => {
     if (!groupRef.current) return;
     groupRef.current.children.forEach((child, i) => {
@@ -300,7 +348,7 @@ function HeartsEffect({ color = '#ff6b6b', speed = 1 }: { color?: string; speed?
       child.position.y += delta * data.speed * speed;
       child.position.x = data.x + Math.sin(Date.now() * 0.002 * speed + data.phase) * 0.3;
       child.rotation.z = Math.sin(Date.now() * 0.003 * speed + data.phase) * 0.2;
-      
+
       if (child.position.y > 3) {
         child.position.y = -0.5;
       }

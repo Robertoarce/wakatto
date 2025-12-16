@@ -94,6 +94,8 @@ export class AnimationPlaybackEngine {
   private characterVoiceProfiles: Map<string, CharacterVoiceProfile> = new Map();
   // Cache for post-speaking expressions to prevent flickering
   private postSpeakingExpressionCache: Map<string, ComplementaryAnimation> = new Map();
+  // Maximum number of callbacks to prevent memory leaks
+  private static readonly MAX_CALLBACKS = 10;
 
   // ============================================
   // PUBLIC METHODS
@@ -170,12 +172,14 @@ export class AnimationPlaybackEngine {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
-    
+
     this.status = 'idle';
     this.scene = null;
     this.startTime = 0;
     this.pausedAt = 0;
-    
+    // Clear caches to prevent memory accumulation
+    this.postSpeakingExpressionCache.clear();
+
     console.log('[PlaybackEngine] Stopped');
   }
 
@@ -383,10 +387,28 @@ export class AnimationPlaybackEngine {
 
   /**
    * Subscribe to playback state changes
+   * Limited to MAX_CALLBACKS to prevent memory leaks
    */
   subscribe(callback: PlaybackCallback): () => void {
+    // Warn and evict oldest callbacks if limit exceeded
+    if (this.callbacks.size >= AnimationPlaybackEngine.MAX_CALLBACKS) {
+      console.warn(`[PlaybackEngine] Max callbacks (${AnimationPlaybackEngine.MAX_CALLBACKS}) reached, clearing oldest`);
+      // Remove first (oldest) callback
+      const firstCallback = this.callbacks.values().next().value;
+      if (firstCallback) {
+        this.callbacks.delete(firstCallback);
+      }
+    }
     this.callbacks.add(callback);
     return () => this.callbacks.delete(callback);
+  }
+
+  /**
+   * Clear all callbacks - useful for cleanup
+   */
+  clearCallbacks(): void {
+    this.callbacks.clear();
+    console.log('[PlaybackEngine] All callbacks cleared');
   }
 
   /**

@@ -183,6 +183,22 @@ export class IdleConversationManager {
   }
 
   /**
+   * Fully destroy the manager and clean up all resources
+   */
+  destroy(): void {
+    this.stop();
+    this.conversationCount = 0;
+    this.selectedCharacters = [];
+    // Clear any references that could cause memory leaks
+    this.callbacks = {
+      onStateChange: () => {},
+      onConversationStart: async () => {},
+      onConversationComplete: () => {},
+      onUserReturnInterruption: () => {},
+    };
+  }
+
+  /**
    * Update characters (when selection changes)
    */
   updateCharacters(characters: string[]): void {
@@ -390,7 +406,7 @@ export function initIdleConversationManager(
 
 export function destroyIdleConversationManager(): void {
   if (idleConversationManager) {
-    idleConversationManager.stop();
+    idleConversationManager.destroy();
     idleConversationManager = null;
   }
 }

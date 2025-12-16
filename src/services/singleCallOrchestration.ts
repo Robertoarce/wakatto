@@ -488,7 +488,7 @@ ${basePrompt}
   // Build character change notification
   const characterChangeNote = buildCharacterChangeNotification(messageHistory, selectedCharacters);
 
-  // Use compact format for faster responses (28% improvement)
+  // Use simplified format (no ms values - client calculates timing)
   // IMPORTANT: Static content (identity rules, animation system) goes FIRST for prompt caching
   // Dynamic content (character profiles) goes LAST
   if (config.useCompactFormat) {
@@ -505,10 +505,21 @@ Effect: none,confetti,spotlight,sparkles,hearts
 ## Voice (optional "v" object per segment)
 ${getVoiceOptionsForPrompt()}
 
-## Output Format (COMPACT JSON)
-Use short keys: s=scene, dur=totalDuration, ch=characters, c=character, t=content, d=startDelay, tl=timeline, a=animation, ms=duration, lk=look, ey=eyes, eb=eyebrow, m=mouth, fc=face, fx=effect, v=voice
+## Output Format (SIMPLIFIED - NO ms/duration values!)
+Keys: s=scene, ch=characters, c=character, t=content, ord=speakerOrder, tl=timeline, a=animation, sp=speed, lk=look, ey=eyes, eb=eyebrow, m=mouth, fc=face, fx=effect, v=voice
 
-{"s":{"dur":MS,"ch":[{"c":"ID","t":"TEXT","d":MS,"tl":[{"a":"thinking","ms":1500,"lk":"up","eb":"raised"},{"a":"talking","ms":3000,"talking":true,"lk":"at_user","m":"smile","v":{"p":"low","t":"warm","pace":"slow","mood":"calm","int":"explaining"}}]}]}}
+Speed (sp): "slow" | "normal" | "fast"
+- slow: Thoughtful, measured - important/emotional moments
+- normal: Conversational pace (default)
+- fast: Energetic, quick reactions
+
+{"s":{"ch":[{"c":"ID","t":"TEXT","ord":1,"tl":[{"a":"thinking","sp":"normal","lk":"up","eb":"raised"},{"a":"talking","sp":"normal","talking":true,"lk":"center","m":"smile","v":{"p":"low","t":"warm","pace":"slow","mood":"calm","int":"explaining"}}]}]}}
+
+## CRITICAL FORMAT RULES
+- DO NOT include: ms, duration, dur, d, startDelay, textRange
+- Use "ord" for speaker order (1, 2, 3...) - first speaker is ord:1
+- Use "sp" for speed qualifier (slow/normal/fast)
+- Use "int": true for interruptions (optional)
 
 ## Rules
 - 1-2 sentences per response, casual and conversational
@@ -519,11 +530,10 @@ Use short keys: s=scene, dur=totalDuration, ch=characters, c=character, t=conten
   * Example: If you're at position 2 and addressing someone at position 4, look "at_right_character"
 - Use character ID (like "freud") in "c" field, NOT display name
 - No name prefix in "t" field
-- First character: d:0
 - Include ${Math.min(config.maxResponders, selectedCharacters.length)} characters maximum
 - Add "v" object to talking segments to control voice characteristics
 - If asked personal questions (birthday, history), characters answer AS THEMSELVES based on their real history
-${config.includeInterruptions ? '- Characters can interrupt by overlapping d (use carefully!)' : ''}
+${config.includeInterruptions ? '- Characters can interrupt by setting "int": true' : ''}
 
 ## Characters in This Scene (DYNAMIC - answer personal questions based on their history)
 ${characterProfiles}

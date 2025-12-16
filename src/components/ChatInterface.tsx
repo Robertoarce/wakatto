@@ -856,16 +856,19 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     });
   }, [selectedCharacters, updateCharacterIdleAnimation, scheduleNextIdleAnimation]);
   
-  // Stop all idle animation cycles
+  // Stop all idle animation cycles and clear state
   const stopIdleCycle = useCallback(() => {
     isIdleCycleActiveRef.current = false;
-    
+
     // Clear all character timers
     idleTimersRef.current.forEach((timer) => {
       clearTimeout(timer);
     });
     idleTimersRef.current.clear();
-    
+
+    // Clear the idle animations state Map to prevent memory accumulation
+    setIdleAnimations(new Map());
+
     if (idleStartDelayRef.current) {
       clearTimeout(idleStartDelayRef.current);
       idleStartDelayRef.current = null;
@@ -873,20 +876,33 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   }, []);
   
   // Effect: Start/stop idle cycle based on playback and loading state
+  // IMPORTANT: Always clear and restart the idle timer when someone talks
+  // This prevents idle animations from interrupting responses
   useEffect(() => {
     const shouldBeIdle = !playbackState.isPlaying && !isLoading && !showEntranceAnimation;
-    
+
+    // Always clear any pending idle start timer first
+    // This restarts the idle countdown whenever playback state changes
+    if (idleStartDelayRef.current) {
+      clearTimeout(idleStartDelayRef.current);
+      idleStartDelayRef.current = null;
+    }
+
     if (shouldBeIdle) {
       // Start idle cycle after a 5 second delay (to let post-speaking expression show)
       idleStartDelayRef.current = setTimeout(() => {
         startIdleCycle();
       }, 5000);
     } else {
-      // Stop idle cycle when playback starts
+      // Stop idle cycle when playback starts or loading begins
       stopIdleCycle();
     }
-    
+
     return () => {
+      if (idleStartDelayRef.current) {
+        clearTimeout(idleStartDelayRef.current);
+        idleStartDelayRef.current = null;
+      }
       stopIdleCycle();
     };
   }, [playbackState.isPlaying, isLoading, showEntranceAnimation, startIdleCycle, stopIdleCycle]);

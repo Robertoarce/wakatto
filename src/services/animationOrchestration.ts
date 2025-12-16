@@ -186,7 +186,125 @@ const VALID_EFFECTS: VisualEffect[] = [
 const MIN_SEGMENT_DURATION = 300; // ms
 const MAX_SEGMENT_DURATION = 10000; // ms
 export const DEFAULT_TALKING_SPEED = 65; // ms per character of text
-const DEFAULT_THINKING_DURATION = 1500; // ms 
+const DEFAULT_THINKING_DURATION = 1500; // ms
+
+// ============================================
+// SPEED QUALIFIER SYSTEM (Client-side timing)
+// ============================================
+
+/**
+ * Speed qualifiers that the LLM outputs instead of ms values
+ * Client calculates actual durations based on these
+ */
+export type SpeedQualifier = 'slow' | 'normal' | 'fast';
+
+/**
+ * Multipliers applied to base durations based on speed qualifier
+ */
+const SPEED_MULTIPLIERS: Record<SpeedQualifier, number> = {
+  slow: 1.5,    // 1.5x longer - thoughtful, emotional moments
+  normal: 1.0,  // Base duration - conversational pace
+  fast: 0.6     // 0.6x = faster - energetic, quick reactions
+};
+
+/**
+ * Default durations for non-talking animations (in ms)
+ */
+const DEFAULT_ANIMATION_DURATIONS: Record<string, number> = {
+  thinking: 1500,
+  idle: 1000,
+  nod: 700,
+  shake_head: 800,
+  shrug: 900,
+  wave: 1200,
+  clap: 1000,
+  bow: 1200,
+  facepalm: 1200,
+  dance: 2000,
+  laugh: 1500,
+  cry: 2000,
+  angry: 1500,
+  nervous: 1200,
+  celebrate: 2000,
+  peek: 800,
+  doze: 1500,
+  stretch: 1500,
+  kick_ground: 800,
+  meh: 1000,
+  foot_tap: 1000,
+  look_around: 1200,
+  yawn: 1500,
+  fidget: 1000,
+  rub_eyes: 1200,
+  weight_shift: 800,
+  head_tilt: 600,
+  chin_stroke: 1200,
+  lean_forward: 800,
+  lean_back: 800,
+  cross_arms: 1000,
+  point: 800,
+  jump: 800,
+  surprise_jump: 1000,
+  surprise_happy: 1200,
+  walking: 2000,
+  confused: 1200,
+  happy: 1000,
+  excited: 1500,
+  winning: 2000,
+  _default: 1000
+};
+
+/**
+ * Gap between character turns (ms)
+ */
+const CHARACTER_TURN_GAP = 500;
+
+// ============================================
+// CLIENT-SIDE TIMING CALCULATIONS
+// ============================================
+
+/**
+ * Calculate duration for a talking segment based on text length and speed
+ */
+function calculateTalkingDuration(textLength: number, speed: SpeedQualifier = 'normal'): number {
+  const multiplier = SPEED_MULTIPLIERS[speed];
+  const duration = Math.round(textLength * DEFAULT_TALKING_SPEED * multiplier);
+  return clampDuration(Math.max(MIN_SEGMENT_DURATION, duration));
+}
+
+/**
+ * Calculate duration for a non-talking animation based on animation type and speed
+ */
+function calculateNonTalkingDuration(animation: string, speed: SpeedQualifier = 'normal'): number {
+  const baseDuration = DEFAULT_ANIMATION_DURATIONS[animation] || DEFAULT_ANIMATION_DURATIONS._default;
+  return clampDuration(Math.round(baseDuration * SPEED_MULTIPLIERS[speed]));
+}
+
+/**
+ * Calculate text range for a talking segment
+ * Distributes text evenly across talking segments
+ */
+function calculateTextRange(
+  segmentIndex: number,
+  totalTalkingSegments: number,
+  contentLength: number
+): { startIndex: number; endIndex: number } {
+  const charsPerSegment = Math.ceil(contentLength / totalTalkingSegments);
+  return {
+    startIndex: segmentIndex * charsPerSegment,
+    endIndex: Math.min((segmentIndex + 1) * charsPerSegment, contentLength)
+  };
+}
+
+/**
+ * Validate and parse speed qualifier from LLM output
+ */
+function parseSpeedQualifier(sp?: string): SpeedQualifier {
+  if (sp === 'slow' || sp === 'normal' || sp === 'fast') {
+    return sp;
+  }
+  return 'normal'; // Default fallback
+}
 
 // ============================================
 // VALIDATION HELPERS
@@ -454,6 +572,203 @@ function normalizeCompactJSON(compact: CompactSceneResponse): LLMSceneResponse {
   };
 }
 
+// ============================================
+// SIMPLIFIED FORMAT SUPPORT (NO MS VALUES)
+// ============================================
+
+/**
+ * Simplified JSON format where LLM outputs speed qualifiers instead of ms values
+ * Client calculates actual durations
+ */
+interface SimplifiedSceneResponse {
+  s: {
+    ch: Array<{
+      c: string;       // character ID
+      t: string;       // content text
+      ord: number;     // speaker order (1, 2, 3...)
+      int?: boolean;   // interruption flag
+      tl: Array<{
+        a: string;          // animation
+        sp?: string;        // speed: 'slow' | 'normal' | 'fast'
+        lk?: string;        // look direction
+        talking?: boolean;  // is talking segment
+        ey?: string;        // eyes
+        eb?: string;        // eyebrow
+        m?: string;         // mouth
+        fc?: string;        // face
+        fx?: string;        // effect
+        v?: any;            // voice
+      }>;
+    }>;
+  };
+}
+
+/**
+ * Detect if response is in simplified format (no ms values, has ord instead of d)
+ */
+function isSimplifiedFormat(parsed: any): parsed is SimplifiedSceneResponse {
+  const firstChar = parsed?.s?.ch?.[0];
+  // Simplified format has 'ord' (speaker order) but no 'd' (startDelay in ms)
+  return firstChar && typeof firstChar.ord === 'number' && firstChar.d === undefined;
+}
+
+/**
+ * Convert a single simplified segment to AnimationSegment with calculated timing
+ */
+function convertSimplifiedSegment(
+  seg: SimplifiedSceneResponse['s']['ch'][0]['tl'][0],
+  contentLength: number,
+  segmentIndex: number,
+  totalTalkingSegments: number
+): AnimationSegment {
+  const animation = validateAnimation(seg.a || 'idle');
+  const speed = parseSpeedQualifier(seg.sp);
+
+  // Calculate duration based on whether this is a talking segment
+  let duration: number;
+  if (seg.talking) {
+    // For talking segments, calculate based on text portion and speed
+    const charsInSegment = Math.ceil(contentLength / totalTalkingSegments);
+    duration = calculateTalkingDuration(charsInSegment, speed);
+  } else {
+    // For non-talking segments, use animation-based duration
+    duration = calculateNonTalkingDuration(animation, speed);
+  }
+
+  const complementary: AnimationSegment['complementary'] = {};
+
+  const lookDir = validateLookDirection(seg.lk);
+  if (lookDir) complementary.lookDirection = lookDir;
+
+  const eyeState = validateEyeState(seg.ey);
+  if (eyeState) complementary.eyeState = eyeState;
+
+  const eyebrowState = validateEyebrowState(seg.eb);
+  if (eyebrowState) complementary.eyebrowState = eyebrowState;
+
+  const mouthState = validateMouthState(seg.m);
+  if (mouthState) complementary.mouthState = mouthState;
+
+  const faceState = validateFaceState(seg.fc);
+  if (faceState) complementary.faceState = faceState;
+
+  const effect = validateEffect(seg.fx);
+  if (effect && effect !== 'none') complementary.effect = effect;
+
+  const segment: AnimationSegment = {
+    animation,
+    duration,
+    isTalking: seg.talking === true
+  };
+
+  if (Object.keys(complementary).length > 0) {
+    segment.complementary = complementary;
+  }
+
+  // Parse voice parameters if provided
+  if (seg.v) {
+    const parsedVoice = parseSegmentVoice(seg.v);
+    if (parsedVoice) {
+      segment.voice = parsedVoice;
+    }
+  }
+
+  return segment;
+}
+
+/**
+ * Convert simplified scene format to OrchestrationScene
+ * Calculates all timing client-side based on speed qualifiers
+ */
+function convertSimplifiedScene(
+  simplified: SimplifiedSceneResponse,
+  selectedCharacters: string[]
+): OrchestrationScene {
+  console.log('[AnimOrch] Converting simplified format - calculating timing client-side');
+
+  // Sort characters by speaker order
+  const sorted = [...simplified.s.ch].sort((a, b) => a.ord - b.ord);
+
+  const timelines: CharacterTimeline[] = [];
+  let previousEndTime = 0;
+
+  for (const char of sorted) {
+    const contentLength = char.t.length;
+
+    // Count talking segments to distribute text
+    const talkingSegments = char.tl.filter(seg => seg.talking);
+    const totalTalkingSegments = Math.max(1, talkingSegments.length);
+    let talkingSegmentIndex = 0;
+
+    // Convert all segments with calculated timing
+    const segments: AnimationSegment[] = [];
+    for (const seg of char.tl) {
+      const segment = convertSimplifiedSegment(
+        seg,
+        contentLength,
+        seg.talking ? talkingSegmentIndex : 0,
+        totalTalkingSegments
+      );
+
+      // Calculate text range for talking segments
+      if (seg.talking) {
+        segment.textReveal = calculateTextRange(
+          talkingSegmentIndex,
+          totalTalkingSegments,
+          contentLength
+        );
+        talkingSegmentIndex++;
+      }
+
+      segments.push(segment);
+    }
+
+    const totalDuration = segments.reduce((sum, s) => sum + s.duration, 0);
+
+    // Calculate start delay based on speaker order
+    let startDelay: number;
+    if (char.ord === 1) {
+      // First speaker starts immediately
+      startDelay = 0;
+    } else if (char.int) {
+      // Interruption: start slightly before previous ends
+      startDelay = Math.max(0, previousEndTime - 500);
+    } else {
+      // Normal: start after previous ends with gap
+      startDelay = previousEndTime + CHARACTER_TURN_GAP;
+    }
+
+    // Resolve character ID
+    const characterId = resolveCharacterId(char.c, selectedCharacters);
+    if (!characterId) {
+      console.warn(`[AnimOrch] Could not resolve character: ${char.c}`);
+      continue;
+    }
+
+    timelines.push({
+      characterId,
+      content: char.t,
+      totalDuration,
+      segments,
+      startDelay,
+      isInterruption: char.int || false
+    });
+
+    previousEndTime = startDelay + totalDuration;
+  }
+
+  // Calculate total scene duration
+  const sceneDuration = timelines.reduce((max, t) =>
+    Math.max(max, t.startDelay + t.totalDuration), 0
+  );
+
+  return {
+    timelines,
+    sceneDuration,
+    nonSpeakerBehavior: {} // Will be filled by fillGapsForNonSpeakers
+  };
+}
+
 /**
  * Parse raw LLM response into OrchestrationScene
  */
@@ -465,16 +780,23 @@ export function parseOrchestrationScene(
     // Clean and extract JSON
     let cleaned = rawResponse.trim();
     cleaned = cleaned.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-    
+
     // Try to find the full JSON object (may include reasoning)
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       cleaned = jsonMatch[0];
     }
-    
+
     let parsed: any = JSON.parse(cleaned);
-    
-    // Check if this is compact format and normalize it
+
+    // Check for SIMPLIFIED format first (no ms values, client calculates timing)
+    if (isSimplifiedFormat(parsed)) {
+      console.log('[AnimOrch] Detected simplified format - calculating timing client-side');
+      const scene = convertSimplifiedScene(parsed, selectedCharacters);
+      return fillGapsForNonSpeakers(scene, selectedCharacters);
+    }
+
+    // Check if this is compact format (legacy with ms values) and normalize it
     if (isCompactFormat(parsed)) {
       parsed = normalizeCompactJSON(parsed);
     }
