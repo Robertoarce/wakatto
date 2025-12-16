@@ -260,12 +260,6 @@ export default function CharacterSelectionScreen({
           <MaterialCommunityIcons name="emoticon-happy-outline" size={isMobile ? 24 : 28} color="#8b5cf6" />
           <Text style={[styles.title, { fontSize: isMobile ? fonts.lg : fonts.xxl }]}>Select Wakattors</Text>
         </View>
-
-        <View style={styles.headerRight}>
-          <Text style={[styles.counterText, { fontSize: fonts.sm }]}>
-            {selectedCharacterIds.length}/{MAX_CHARACTERS}
-          </Text>
-        </View>
       </View>
 
       {/* Selected Characters Section */}
@@ -372,15 +366,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#27272a',
   },
-  cancelButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  cancelText: {
-    color: '#a1a1aa',
-    fontSize: 14,
-  },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -420,18 +405,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  headerRight: {
-    minWidth: 50,
-    alignItems: 'flex-end',
-  },
   title: {
     fontSize: 20,
     fontWeight: '700',
     color: 'white',
-  },
-  counterText: {
-    color: '#8b5cf6',
-    fontWeight: '600',
   },
   selectedSection: {
     paddingHorizontal: 16,
@@ -641,21 +618,5 @@ const styles = StyleSheet.create({
     color: '#71717a',
     marginTop: 8,
     textAlign: 'center',
-  },
-  startButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#22c55e',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    gap: 6,
-    flexShrink: 0,
-  },
-  startButtonText: {
-    color: 'white',
-    fontWeight: '700',
-    fontSize: 14,
   },
 });

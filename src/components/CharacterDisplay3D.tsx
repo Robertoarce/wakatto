@@ -477,14 +477,16 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           lookXOffset = 0.3;
           break;
         case 'at_left_character':
-          lookYOffset = 0.7;   // Positive Y = turn head left (in Three.js)
+          // Look at character to my LEFT = turn toward screen-RIGHT (positive Y)
+          lookYOffset = 0.7;
           lookXOffset = 0.1;
-          targetMeshRotY = 0.65;  // Body turns less than head (~half)
+          targetMeshRotY = 0.65;
           break;
         case 'at_right_character':
-          lookYOffset = -0.7;  // Negative Y = turn head right (in Three.js)
+          // Look at character to my RIGHT = turn toward screen-LEFT (negative Y)
+          lookYOffset = -0.7;
           lookXOffset = 0.1;
-          targetMeshRotY = -0.65; // Body turns less than head (~half)
+          targetMeshRotY = -0.65;
           break;
       }
 

@@ -502,24 +502,26 @@ function CharacterSpeechBubble({
 const MemoizedCharacterSpeechBubble = React.memo(CharacterSpeechBubble);
 
 // Floating animation wrapper for characters with hover name display
-function FloatingCharacterWrapper({ 
-  children, 
-  index, 
-  style, 
-  characterName, 
+function FloatingCharacterWrapper({
+  children,
+  index,
+  style,
+  characterName,
   characterColor,
   entranceAnimation = false,
   entranceKey = 0,
   isLeftSide = false,
-}: { 
-  children: React.ReactNode; 
-  index: number; 
+  lastMessage,
+}: {
+  children: React.ReactNode;
+  index: number;
   style?: any;
   characterName: string;
   characterColor: string;
   entranceAnimation?: boolean;
   entranceKey?: number;
   isLeftSide?: boolean;
+  lastMessage?: string;
 }) {
   const floatAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -640,25 +642,31 @@ function FloatingCharacterWrapper({
         },
       ]}
       // @ts-ignore - web-specific props
-      onMouseEnter={() => setIsHovered(true)}
+      onMouseDown={() => setIsHovered(true)}
+      onMouseUp={() => setIsHovered(false)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {children}
-      {/* Hover name tooltip */}
-      <Animated.View
-        style={[
-          styles.hoverNameContainer,
-          {
-            opacity: nameOpacity,
-            transform: [{ translateY: nameTranslateY }],
-            pointerEvents: 'none',
-          }
-        ]}
-      >
-        <View style={[styles.hoverNameBubble, { backgroundColor: characterColor }]}>
-          <Text style={[styles.hoverNameText, { fontSize: fonts.lg }]}>{characterName}</Text>
-        </View>
-      </Animated.View>
+      {/* Click-and-hold tooltip - shows last message if available */}
+      {lastMessage && (
+        <Animated.View
+          style={[
+            styles.hoverMessageContainer,
+            {
+              opacity: nameOpacity,
+              transform: [{ translateY: nameTranslateY }],
+              pointerEvents: 'none',
+            }
+          ]}
+        >
+          <View style={[styles.hoverMessageBubble, { borderColor: characterColor }]}>
+            <Text style={[styles.hoverMessageName, { color: characterColor, fontSize: fonts.sm }]}>{characterName}</Text>
+            <Text style={[styles.hoverMessageText, { fontSize: fonts.sm }]} numberOfLines={4}>
+              {lastMessage}
+            </Text>
+          </View>
+        </Animated.View>
+      )}
     </Animated.View>
   );
 }
@@ -673,6 +681,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [isPaused, setIsPaused] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [replayOffset, setReplayOffset] = useState(0); // Tracks how far back we are in replay (0 = last 5, 5 = 6-10, etc.)
   const [liveTranscript, setLiveTranscript] = useState('');
   const scrollViewRef = useRef<ScrollView>(null);
   const voiceRecorderRef = useRef(getVoiceRecorder());
@@ -2017,6 +2026,120 @@ Each silence, a cathedral where you still reside.`;
     playbackEngineRef.current.play(testScene);
   };
 
+  // Replay function - replays messages in batches of 5, going further back each press
+  const handleReplay = () => {
+    // Get only character messages (not user messages)
+    const characterMessages = messages.filter(m => m.characterId && m.content);
+
+    if (characterMessages.length === 0) {
+      showAlert('No Messages', 'No messages to replay yet.');
+      return;
+    }
+
+    // Calculate which messages to replay based on offset
+    const batchSize = 5;
+    const startIndex = Math.max(0, characterMessages.length - batchSize - replayOffset);
+    const endIndex = Math.max(0, characterMessages.length - replayOffset);
+
+    // If we've gone past all messages, reset to beginning
+    if (startIndex >= endIndex || endIndex <= 0) {
+      setReplayOffset(0);
+      showAlert('Start Over', 'Reached the beginning. Starting from the latest messages.');
+      return;
+    }
+
+    const messagesToReplay = characterMessages.slice(startIndex, endIndex);
+
+    if (messagesToReplay.length === 0) {
+      setReplayOffset(0);
+      return;
+    }
+
+    console.log('[ChatInterface] Replaying messages', {
+      offset: replayOffset,
+      startIndex,
+      endIndex,
+      count: messagesToReplay.length,
+    });
+
+    // Build timelines from messages
+    const msPerChar = DEFAULT_TALKING_SPEED;
+    let currentDelay = 0;
+
+    const timelines: CharacterTimeline[] = messagesToReplay.map((message) => {
+      const textDuration = message.content.length * msPerChar;
+      const startDelay = currentDelay;
+
+      const segments: AnimationSegment[] = [
+        {
+          animation: 'talking' as AnimationState,
+          duration: textDuration,
+          complementary: {
+            lookDirection: 'center' as LookDirection,
+            eyeState: 'open' as EyeState,
+            mouthState: 'open' as MouthState,
+          },
+          isTalking: true,
+          textReveal: {
+            startIndex: 0,
+            endIndex: message.content.length,
+          },
+        },
+        {
+          animation: 'idle' as AnimationState,
+          duration: 500,
+          complementary: {
+            lookDirection: 'center' as LookDirection,
+          },
+          isTalking: false,
+        },
+      ];
+
+      // Add 1 second gap between messages
+      currentDelay += textDuration + 1500;
+
+      return {
+        characterId: message.characterId!,
+        content: message.content,
+        totalDuration: textDuration + 500,
+        segments,
+        startDelay,
+      };
+    });
+
+    const maxEndTime = Math.max(...timelines.map(t => t.startDelay + t.totalDuration));
+
+    const replayScene: OrchestrationScene = {
+      timelines,
+      sceneDuration: maxEndTime,
+      nonSpeakerBehavior: {},
+    };
+
+    // Set voice profiles before playing
+    const voiceProfiles = buildVoiceProfilesMap();
+    playbackEngineRef.current.setCharacterVoiceProfiles(voiceProfiles);
+
+    // Start playback
+    playbackEngineRef.current.play(replayScene);
+
+    // Increment offset for next press
+    setReplayOffset(prev => prev + batchSize);
+  };
+
+  // Reset replay offset when playback stops
+  useEffect(() => {
+    if (!playbackState.isPlaying && replayOffset > 0) {
+      // Don't reset immediately - allow user to continue pressing replay
+      // Reset after 5 seconds of no playback
+      const timeout = setTimeout(() => {
+        if (!playbackState.isPlaying) {
+          setReplayOffset(0);
+        }
+      }, 5000);
+      return () => clearTimeout(timeout);
+    }
+  }, [playbackState.isPlaying, replayOffset]);
+
   return (
     <>
       <AlertComponent />
@@ -2032,21 +2155,21 @@ Each silence, a cathedral where you still reside.`;
         // In mobile landscape, always take full available space
         isMobileLandscape ? { flex: 1 } : (showChatHistory ? { height: characterHeight } : { flex: 1 })
       ]}>
-        {/* Read-only character indicator - shows which characters are in this conversation */}
-        <View style={styles.characterIndicatorRow}>
-          {selectedCharacters.map(charId => {
-            const char = getCharacter(charId);
-            return (
-              <View
-                key={charId}
-                style={[styles.characterDot, { backgroundColor: char.color }]}
-              />
-            );
-          })}
-          <Text style={[styles.characterCountText, { fontSize: fonts.xs }]}>
-            {selectedCharacters.length} Wakattor{selectedCharacters.length !== 1 ? 's' : ''}
+        {/* Replay Button */}
+        <TouchableOpacity
+          style={styles.replayButton}
+          onPress={handleReplay}
+          disabled={playbackState.isPlaying}
+        >
+          <Ionicons
+            name="refresh"
+            size={18}
+            color={playbackState.isPlaying ? "#71717a" : "#3b82f6"}
+          />
+          <Text style={[styles.replayButtonText, playbackState.isPlaying && styles.replayButtonTextDisabled, { fontSize: fonts.sm }]}>
+            Replay{replayOffset > 0 ? ` (-${replayOffset + 5})` : ''}
           </Text>
-        </View>
+        </TouchableOpacity>
 
         {/* Tell me a Poem Button */}
         <TouchableOpacity
@@ -2054,10 +2177,10 @@ Each silence, a cathedral where you still reside.`;
           onPress={handleTestSpeech}
           disabled={playbackState.isPlaying}
         >
-          <Ionicons 
-            name={playbackState.isPlaying ? "stop-circle" : "play-circle"} 
-            size={20} 
-            color={playbackState.isPlaying ? "#ef4444" : "#22c55e"} 
+          <Ionicons
+            name={playbackState.isPlaying ? "stop-circle" : "play-circle"}
+            size={20}
+            color={playbackState.isPlaying ? "#ef4444" : "#22c55e"}
           />
           <Text style={[styles.testSpeechText, playbackState.isPlaying && styles.testSpeechTextActive, { fontSize: fonts.sm }]}>
             {playbackState.isPlaying ? 'Playing...' : 'Tell me a Poem'}
@@ -2183,7 +2306,12 @@ Each silence, a cathedral where you still reside.`;
               const revealedText = usePlayback ? playbackEngineRef.current.getRevealedText(characterId) : '';
               const isSpeaking = usePlayback && charPlaybackState?.isTalking;
               const isTyping = usePlayback && revealedText && revealedText.length > 0;
-              
+
+              // Get the last message this character said (for hover display)
+              const lastCharacterMessage = messages
+                .filter(m => m.characterId === characterId && m.content)
+                .slice(-1)[0]?.content;
+
               return (
                 <FloatingCharacterWrapper
                   key={characterId}
@@ -2193,6 +2321,7 @@ Each silence, a cathedral where you still reside.`;
                   entranceAnimation={showEntranceAnimation}
                   entranceKey={entranceAnimationKey.current}
                   isLeftSide={horizontalOffset < 0}
+                  lastMessage={lastCharacterMessage}
                   style={[
                     styles.characterWrapper,
                     {
@@ -2581,30 +2710,6 @@ const styles = StyleSheet.create({
   characterDisplayContainer: {
     borderBottomWidth: 0,
     overflow: 'visible',
-  },
-  // Read-only character indicator styles
-  characterIndicatorRow: {
-    position: 'absolute',
-    bottom: 12,
-    right: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    zIndex: 100,
-    backgroundColor: 'rgba(23, 23, 23, 0.8)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  characterDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  characterCountText: {
-    color: '#a1a1aa',
-    fontSize: 12,
-    marginLeft: 4,
   },
   divider: {
     height: 1,
@@ -2999,6 +3104,45 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 8,
   },
+  hoverMessageContainer: {
+    position: 'absolute',
+    top: -10,
+    left: '50%',
+    transform: [{ translateX: -120 }],
+    width: 240,
+    alignItems: 'center',
+    zIndex: 200,
+  },
+  hoverMessageBubble: {
+    backgroundColor: 'rgba(24, 24, 27, 0.95)',
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    maxWidth: 240,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  hoverMessageName: {
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  hoverMessageText: {
+    color: '#e4e4e7',
+    lineHeight: 18,
+  },
   characterSelectorButton: {
     position: 'absolute',
     bottom: 8,
@@ -3019,10 +3163,33 @@ const styles = StyleSheet.create({
     color: '#ff6b35',
     fontSize: 14,
   },
-  testSpeechButton: {
+  replayButton: {
     position: 'absolute',
     bottom: 8,
     left: 160,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(15, 15, 15, 0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#27272a',
+    zIndex: 10,
+  },
+  replayButtonText: {
+    color: '#3b82f6',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  replayButtonTextDisabled: {
+    color: '#71717a',
+  },
+  testSpeechButton: {
+    position: 'absolute',
+    bottom: 8,
+    left: 280,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,

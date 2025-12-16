@@ -63,6 +63,23 @@ const DEFAULT_CONFIG: OrchestrationConfig = {
   useCompactFormat: true // Default to compact format for 28% faster responses
 };
 
+/**
+ * Get position label for a character based on index and total count
+ * Positions characters left-to-right as they appear on screen
+ */
+function getPositionLabel(index: number, total: number): string {
+  if (total === 1) return 'center';
+  if (total === 2) return index === 0 ? 'left' : 'right';
+  if (total === 3) return index === 0 ? 'left' : index === 1 ? 'center' : 'right';
+  if (total === 4) {
+    const labels = ['far-left', 'left-center', 'right-center', 'far-right'];
+    return labels[index];
+  }
+  // 5 characters
+  const labels = ['far-left', 'left', 'center', 'right', 'far-right'];
+  return labels[index] || 'right';
+}
+
 interface OrchestrationResponse {
   character: string;
   content: string;
@@ -454,7 +471,7 @@ function buildAnimatedScenePrompt(
         const character = getCharacter(charId);
         const basePrompt = getCharacterPrompt(character);
         return `
-### ${character.name} (ID: ${charId}, Position: ${index === 0 ? 'left' : index === 1 ? 'center' : 'right'})
+### ${character.name} (ID: ${charId}, Position: ${getPositionLabel(index, selectedCharacters.length)})
 ${character.description}
 
 Friendly Approach:
@@ -496,10 +513,10 @@ Use short keys: s=scene, dur=totalDuration, ch=characters, c=character, t=conten
 ## Rules
 - 1-2 sentences per response, casual and conversational
 - Max 1 question per response (99%), 2 questions extremely rare (1%)
-- Look direction when talking to another character (based on YOUR position):
-  * If YOU are on LEFT: look "at_right_character" to see others
-  * If YOU are on RIGHT: look "at_left_character" to see others
-  * If YOU are in CENTER: look "at_left_character" or "at_right_character" depending on who you're addressing
+- Look direction when addressing another character (based on their position relative to YOU):
+  * If target is to YOUR LEFT (lower index): look "at_left_character"
+  * If target is to YOUR RIGHT (higher index): look "at_right_character"
+  * Example: If you're at position 2 and addressing someone at position 4, look "at_right_character"
 - Use character ID (like "freud") in "c" field, NOT display name
 - No name prefix in "t" field
 - First character: d:0
@@ -550,10 +567,10 @@ Create a CINEMATIC conversation scene with precise animation choreography:
 2. **Casual Tone**: Like friends texting - very short, warm and natural
 3. **Response Length**: 1-2 sentences per response, casual and conversational
 4. **Questions**: Max 1 question per response (99%), 2 questions extremely rare (1%)
-5. **Look Direction**: Based on YOUR character's position when talking to another:
-   - If YOU are on LEFT: look "at_right_character" to see others
-   - If YOU are on RIGHT: look "at_left_character" to see others
-   - If YOU are in CENTER: look toward the character you're addressing
+5. **Look Direction**: Based on the TARGET character's position relative to YOU:
+   - If target is to YOUR LEFT (lower index): look "at_left_character"
+   - If target is to YOUR RIGHT (higher index): look "at_right_character"
+   - Example: Position 0 talking to position 4 → look "at_right_character"
 6. **Animation Flow**:
    - Start with a reaction/thinking animation before speaking
    - Use "talking" animation when revealing text
@@ -674,10 +691,9 @@ Respond with VALID JSON only (no markdown code blocks, no extra text):
 4. **"timeline"**: Array of animation segments that play sequentially
 5. **"textRange"**: [startIndex, endIndex] of text revealed during "talking" segments
 6. **"talking": true**: Only on segments where mouth should animate for speech
-7. **"look"**: Where character looks - based on YOUR position:
-   - LEFT position character looks "at_right_character" to see others
-   - RIGHT position character looks "at_left_character" to see others
-   - CENTER position looks toward who they're addressing
+7. **"look"**: Where character looks - based on TARGET's position relative to YOU:
+   - Target to YOUR LEFT (lower index) → "at_left_character"
+   - Target to YOUR RIGHT (higher index) → "at_right_character"
 8. **Duration calculation**: 
    - Thinking: 1000-2000ms
    - Talking: ~80ms × text length
