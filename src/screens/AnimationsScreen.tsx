@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { 
@@ -17,6 +17,16 @@ import {
 } from '../components/CharacterDisplay3D';
 import { getCharacter } from '../config/characters';
 import { Card, Badge } from '../components/ui';
+import { PACE_MULTIPLIERS, VoicePace } from '../config/voiceConfig';
+
+// Speech bubble speed demo settings
+const SPEECH_SPEEDS: { value: VoicePace; label: string; description: string }[] = [
+  { value: 'slow', label: 'Slow', description: 'Thoughtful, measured pace' },
+  { value: 'normal', label: 'Normal', description: 'Standard conversational' },
+  { value: 'fast', label: 'Fast', description: 'Energetic, urgent' },
+];
+
+const DEMO_TEXT = "Hello! This is how text appears in speech bubbles at different speeds. Watch how the characters reveal one by one...";
 
 // All available base animations
 const ALL_ANIMATIONS: { name: AnimationState; description: string; category: string }[] = [
@@ -190,6 +200,53 @@ const AnimationsScreen = (): JSX.Element => {
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'base' | 'complementary'>('base');
+
+  // Speech bubble speed demo state
+  const [speechSpeed, setSpeechSpeed] = useState<VoicePace>('normal');
+  const [displayedText, setDisplayedText] = useState('');
+  const [isPlaying, setIsPlaying] = useState(false);
+  const animationRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Calculate ms per character based on pace
+  const BASE_MS_PER_CHAR = 65;
+  const getMsPerChar = (pace: VoicePace) => {
+    return Math.round(BASE_MS_PER_CHAR / PACE_MULTIPLIERS[pace]);
+  };
+
+  // Play speech bubble animation
+  const playSpeechDemo = () => {
+    // Clear any existing animation
+    if (animationRef.current) {
+      clearTimeout(animationRef.current);
+    }
+
+    setDisplayedText('');
+    setIsPlaying(true);
+
+    const msPerChar = getMsPerChar(speechSpeed);
+    let currentIndex = 0;
+
+    const revealNextChar = () => {
+      if (currentIndex < DEMO_TEXT.length) {
+        setDisplayedText(DEMO_TEXT.slice(0, currentIndex + 1));
+        currentIndex++;
+        animationRef.current = setTimeout(revealNextChar, msPerChar);
+      } else {
+        setIsPlaying(false);
+      }
+    };
+
+    revealNextChar();
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (animationRef.current) {
+        clearTimeout(animationRef.current);
+      }
+    };
+  }, []);
 
   const character = getCharacter(selectedCharacter);
   const categories = [...new Set(ALL_ANIMATIONS.map(a => a.category))];
@@ -466,6 +523,65 @@ const AnimationsScreen = (): JSX.Element => {
               </>
             ) : (
               <>
+                {/* Speech Bubble Speed Demo */}
+                <View style={styles.controlGroup}>
+                  <Text style={styles.controlGroupTitle}>💬 Speech Bubble Speed</Text>
+                  <Text style={styles.controlGroupSubtitle}>
+                    Controls how fast text appears in chat bubbles
+                  </Text>
+
+                  {/* Speed selector buttons */}
+                  <View style={styles.speechSpeedButtons}>
+                    {SPEECH_SPEEDS.map((speedOption) => (
+                      <TouchableOpacity
+                        key={speedOption.value}
+                        style={[
+                          styles.speechSpeedButton,
+                          speechSpeed === speedOption.value && styles.speechSpeedButtonActive
+                        ]}
+                        onPress={() => setSpeechSpeed(speedOption.value)}
+                      >
+                        <Text style={[
+                          styles.speechSpeedLabel,
+                          speechSpeed === speedOption.value && styles.speechSpeedLabelActive
+                        ]}>
+                          {speedOption.label}
+                        </Text>
+                        <Text style={styles.speechSpeedDesc}>{speedOption.description}</Text>
+                        <Text style={styles.speechSpeedMs}>
+                          {getMsPerChar(speedOption.value)}ms/char
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {/* Demo bubble */}
+                  <View style={styles.demoBubbleContainer}>
+                    <View style={styles.demoBubble}>
+                      <Text style={styles.demoBubbleText}>
+                        {displayedText || 'Press Play to see the demo...'}
+                        {isPlaying && <Text style={styles.cursor}>|</Text>}
+                      </Text>
+                    </View>
+
+                    {/* Play button */}
+                    <TouchableOpacity
+                      style={[styles.playButton, isPlaying && styles.playButtonActive]}
+                      onPress={playSpeechDemo}
+                      disabled={isPlaying}
+                    >
+                      <Ionicons
+                        name={isPlaying ? "hourglass" : "play"}
+                        size={20}
+                        color="#ffffff"
+                      />
+                      <Text style={styles.playButtonText}>
+                        {isPlaying ? 'Playing...' : 'Play Demo'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
                 {/* Speed Control */}
                 <View style={styles.controlGroup}>
                   <Text style={styles.controlGroupTitle}>⏱️ Animation Speed</Text>
@@ -1146,6 +1262,89 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#a1a1aa',
     textAlign: 'center',
+  },
+  // Speech bubble speed demo styles
+  controlGroupSubtitle: {
+    fontSize: 12,
+    color: '#71717a',
+    marginBottom: 12,
+  },
+  speechSpeedButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  speechSpeedButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 10,
+    backgroundColor: '#27272a',
+    borderWidth: 2,
+    borderColor: '#3f3f46',
+    alignItems: 'center',
+  },
+  speechSpeedButtonActive: {
+    borderColor: '#8b5cf6',
+    backgroundColor: '#1e1b4b',
+  },
+  speechSpeedLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#e4e4e7',
+    marginBottom: 4,
+  },
+  speechSpeedLabelActive: {
+    color: '#c4b5fd',
+  },
+  speechSpeedDesc: {
+    fontSize: 10,
+    color: '#71717a',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  speechSpeedMs: {
+    fontSize: 11,
+    color: '#8b5cf6',
+    fontFamily: 'monospace',
+    fontWeight: '600',
+  },
+  demoBubbleContainer: {
+    gap: 12,
+  },
+  demoBubble: {
+    backgroundColor: '#27272a',
+    borderRadius: 16,
+    borderTopLeftRadius: 4,
+    padding: 16,
+    minHeight: 80,
+  },
+  demoBubbleText: {
+    fontSize: 14,
+    color: '#e4e4e7',
+    lineHeight: 22,
+  },
+  cursor: {
+    color: '#8b5cf6',
+    fontWeight: '700',
+  },
+  playButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+    backgroundColor: '#8b5cf6',
+  },
+  playButtonActive: {
+    backgroundColor: '#6366f1',
+    opacity: 0.7,
+  },
+  playButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
   },
 });
 

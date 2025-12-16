@@ -47,9 +47,9 @@ export const VOICE_VOLUMES: VoiceVolume[] = ['whispered', 'soft', 'normal', 'lou
 /**
  * Pace/Tempo - The speed of speech (affects text reveal timing)
  */
-export type VoicePace = 'slow' | 'deliberate' | 'normal' | 'fast' | 'rushed' | 'staccato';
+export type VoicePace = 'slow' | 'normal' | 'fast';
 
-export const VOICE_PACES: VoicePace[] = ['slow', 'deliberate', 'normal', 'fast', 'rushed', 'staccato'];
+export const VOICE_PACES: VoicePace[] = ['slow', 'normal', 'fast'];
 
 /**
  * Pace multipliers for text reveal speed calculation
@@ -57,12 +57,9 @@ export const VOICE_PACES: VoicePace[] = ['slow', 'deliberate', 'normal', 'fast',
  * Base speed is 65ms per character (DEFAULT_TALKING_SPEED)
  */
 export const PACE_MULTIPLIERS: Record<VoicePace, number> = {
-  slow: 0.6,       // ~108ms per char - very measured
-  deliberate: 0.8, // ~81ms per char - thoughtful
-  normal: 1.0,     // 65ms per char - standard
-  fast: 1.3,       // ~50ms per char - energetic
-  rushed: 1.6,     // ~40ms per char - urgent
-  staccato: 1.4    // ~46ms per char - choppy rhythm
+  slow: 0.6,   // ~108ms per char - measured, thoughtful
+  normal: 1.0, // 65ms per char - standard
+  fast: 1.5    // ~43ms per char - energetic, urgent
 };
 
 // ============================================

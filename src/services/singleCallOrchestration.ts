@@ -28,6 +28,7 @@
 import { generateAIResponse, generateAIResponseStreaming, isStreamingSupported } from './aiService';
 import { getCharacter, getCharacterPrompt } from '../config/characters';
 import { formatGesturesForPrompt } from '../config/characterGestures';
+import { getCombinedResponseStyle } from '../config/responseStyles';
 import { ConversationMessage, CharacterResponse } from './multiCharacterConversation';
 import {
   OrchestrationScene,
@@ -430,13 +431,25 @@ function buildAnimatedScenePrompt(
   messageHistory: ConversationMessage[],
   config: OrchestrationConfig
 ): string {
-  // Get character profiles - use compact format when enabled
+  // Get character profiles - enhanced with full systemPrompt + temperament modifiers
   const characterProfiles = config.useCompactFormat
     ? selectedCharacters.map((charId, index) => {
         const character = getCharacter(charId);
         const pos = index === 0 ? 'L' : index === 1 ? 'C' : 'R';
-        return `${character.name}(${charId},${pos}): ${character.description.substring(0, 80)}`;
-      }).join('\n')
+
+        // Build enhanced profile with systemPrompt and temperament
+        let profile = `### ${character.name} (${charId}, Position: ${pos})\n`;
+        profile += `${character.description}\n\n`;
+        profile += `**Approach:**\n${character.systemPrompt}\n`;
+
+        // Add temperament modifiers if available
+        if (character.temperaments && character.temperaments.length > 0) {
+          const styleModifier = getCombinedResponseStyle(character.temperaments);
+          profile += `\n${styleModifier}`;
+        }
+
+        return profile;
+      }).join('\n\n---\n\n')
     : selectedCharacters.map((charId, index) => {
         const character = getCharacter(charId);
         const basePrompt = getCharacterPrompt(character);
@@ -476,7 +489,7 @@ ${getVoiceOptionsForPrompt()}
 ## Output Format (COMPACT JSON)
 Use short keys: s=scene, dur=totalDuration, ch=characters, c=character, t=content, d=startDelay, tl=timeline, a=animation, ms=duration, lk=look, v=voice
 
-{"s":{"dur":MS,"ch":[{"c":"ID","t":"TEXT","d":MS,"tl":[{"a":"thinking","ms":1500,"lk":"up"},{"a":"talking","ms":3000,"talking":true,"lk":"at_user","v":{"p":"low","t":"warm","pace":"deliberate","mood":"calm","int":"explaining"}}]}]}}
+{"s":{"dur":MS,"ch":[{"c":"ID","t":"TEXT","d":MS,"tl":[{"a":"thinking","ms":1500,"lk":"up"},{"a":"talking","ms":3000,"talking":true,"lk":"at_user","v":{"p":"low","t":"warm","pace":"slow","mood":"calm","int":"explaining"}}]}]}}
 
 ## Rules
 - 1-2 sentences per response, casual and conversational
@@ -604,7 +617,7 @@ Respond with VALID JSON only (no markdown code blocks, no extra text):
               "pitch": "low",
               "tone": "warm",
               "volume": "soft",
-              "pace": "deliberate",
+              "pace": "slow",
               "mood": "calm",
               "intent": "reassuring"
             }
