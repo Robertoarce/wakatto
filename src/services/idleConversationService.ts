@@ -83,8 +83,6 @@ export class IdleConversationManager {
     this.selectedCharacters = selectedCharacters;
     this.callbacks = callbacks;
     this.config = { ...DEFAULT_CONFIG, ...config };
-
-    console.log('[IdleConv] Manager created with', selectedCharacters.length, 'characters');
   }
 
   /**
@@ -133,8 +131,6 @@ export class IdleConversationManager {
   handleUserTyping(): boolean {
     // If in an active conversation, trigger interruption
     if (this.state === 'IDLE_CONVERSATION_1' || this.state === 'IDLE_CONVERSATION_2') {
-      console.log('[IdleConv] User typing detected during conversation, interrupting');
-
       // Generate and play interruption scene
       const interruptionScene = this.generateUserReturnInterruption();
       this.callbacks.onUserReturnInterruption(interruptionScene);
@@ -157,14 +153,10 @@ export class IdleConversationManager {
    */
   start(): void {
     if (this.isStarted) return;
-    if (this.selectedCharacters.length < 2) {
-      console.log('[IdleConv] Not starting - need at least 2 characters');
-      return;
-    }
+    if (this.selectedCharacters.length < 2) return;
 
     this.isStarted = true;
     this.lastActivityTime = Date.now();
-    console.log('[IdleConv] Starting idle conversation monitoring');
 
     // Start inactivity timer if we haven't maxed out conversations
     if (this.conversationCount < this.config.maxConversations) {
@@ -179,7 +171,6 @@ export class IdleConversationManager {
     this.isStarted = false;
     this.clearTimers();
     this.conversationInProgress = false;
-    console.log('[IdleConv] Stopped');
   }
 
   /**
@@ -189,7 +180,6 @@ export class IdleConversationManager {
     this.stop();
     this.conversationCount = 0;
     this.transitionTo('ACTIVE');
-    console.log('[IdleConv] Reset');
   }
 
   /**
@@ -199,8 +189,6 @@ export class IdleConversationManager {
     const hadEnoughCharacters = this.selectedCharacters.length >= 2;
     this.selectedCharacters = characters;
     const hasEnoughCharacters = characters.length >= 2;
-
-    console.log('[IdleConv] Characters updated:', characters.length);
 
     // If we now have enough characters and didn't before, start
     if (!hadEnoughCharacters && hasEnoughCharacters && this.isStarted) {
@@ -223,8 +211,6 @@ export class IdleConversationManager {
     this.conversationInProgress = false;
     this.conversationCount++;
 
-    console.log('[IdleConv] Conversation', this.conversationCount, 'complete');
-
     // Notify callback
     this.callbacks.onConversationComplete();
 
@@ -235,7 +221,6 @@ export class IdleConversationManager {
     } else {
       // We're done with all conversations
       this.transitionTo('IDLE_DONE');
-      console.log('[IdleConv] All conversations complete, entering IDLE_DONE state');
     }
   }
 
@@ -245,11 +230,7 @@ export class IdleConversationManager {
 
   private transitionTo(newState: IdleConversationState): void {
     if (this.state === newState) return;
-
-    const oldState = this.state;
     this.state = newState;
-
-    console.log('[IdleConv] State:', oldState, '->', newState);
     this.callbacks.onStateChange(newState);
   }
 
@@ -274,8 +255,6 @@ export class IdleConversationManager {
         this.triggerIdleConversation();
       }
     }, this.config.inactivityTimeout);
-
-    console.log('[IdleConv] Inactivity timer started:', this.config.inactivityTimeout, 'ms');
   }
 
   private startCooldownTimer(): void {
@@ -286,26 +265,16 @@ export class IdleConversationManager {
         this.triggerIdleConversation();
       }
     }, this.config.cooldownDuration);
-
-    console.log('[IdleConv] Cooldown timer started:', this.config.cooldownDuration, 'ms');
   }
 
   /**
    * Manually trigger an idle conversation (for testing)
    */
   async triggerIdleConversation(): Promise<void> {
-    if (this.conversationInProgress) {
-      console.log('[IdleConv] Conversation already in progress, skipping');
-      return;
-    }
-
-    if (this.selectedCharacters.length < 2) {
-      console.log('[IdleConv] Need at least 2 characters for idle conversation');
-      return;
-    }
+    if (this.conversationInProgress) return;
+    if (this.selectedCharacters.length < 2) return;
 
     const conversationNumber = this.conversationCount + 1;
-    console.log('[IdleConv] Triggering idle conversation', conversationNumber);
 
     // Update state
     this.transitionTo(
@@ -339,8 +308,6 @@ export class IdleConversationManager {
     const speakerIndex = Math.floor(Math.random() * this.selectedCharacters.length);
     const speakerId = this.selectedCharacters[speakerIndex];
     const phrase = INTERRUPTION_PHRASES[Math.floor(Math.random() * INTERRUPTION_PHRASES.length)];
-
-    console.log('[IdleConv] Generating interruption for', speakerId, ':', phrase);
 
     // Build speaker timeline
     const speakerTimeline: CharacterTimeline = {

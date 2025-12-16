@@ -165,8 +165,6 @@ export async function generateIdleConversationScene(
   selectedCharacters: string[],
   conversationNumber: number
 ): Promise<OrchestrationScene> {
-  console.log('[IdlePrompts] Generating idle conversation', conversationNumber, 'for', selectedCharacters);
-
   const prompt = buildIdleConversationPrompt(selectedCharacters, conversationNumber);
 
   // Anthropic API requires at least one user message - use a trigger message
@@ -177,61 +175,42 @@ export async function generateIdleConversationScene(
   let rawResponse = '';
 
   try {
-    console.log('[IdlePrompts] Checking streaming support...');
     if (isStreamingSupported()) {
-      console.log('[IdlePrompts] Streaming supported, calling AI...');
       rawResponse = await generateAIResponseStreaming(
         conversationMessages,
         prompt,
-        'orchestrator', // Use standard orchestrator character type
+        'orchestrator',
         {
-          onStart: () => console.log('[IdlePrompts] Stream started'),
-          onDelta: (delta, accumulated) => {
-            // Log progress every 500 chars
-            if (accumulated.length % 500 < 50) {
-              console.log('[IdlePrompts] Accumulated', accumulated.length, 'chars');
-            }
-          },
-          onDone: (fullText, durationMs) => {
-            console.log('[IdlePrompts] Stream complete in', durationMs.toFixed(0), 'ms, length:', fullText.length);
-          },
           onError: (error) => {
             console.error('[IdlePrompts] Stream error:', error);
           },
         }
       );
-      console.log('[IdlePrompts] AI call completed, response length:', rawResponse.length);
     } else {
-      console.warn('[IdlePrompts] Streaming NOT supported!');
       throw new Error('Non-streaming not implemented for idle conversations');
     }
   } catch (error) {
     console.error('[IdlePrompts] Error generating idle conversation:', error);
-    // Return a fallback scene
     return createFallbackIdleScene(selectedCharacters);
   }
-
-  console.log('[IdlePrompts] Raw response (first 1000 chars):', rawResponse.substring(0, 1000));
 
   // Parse the response
   let scene = parseOrchestrationScene(rawResponse, selectedCharacters);
 
   if (!scene) {
-    console.warn('[IdlePrompts] Failed to parse scene, raw response was:', rawResponse.substring(0, 500));
-    console.warn('[IdlePrompts] Using fallback scene');
     return createFallbackIdleScene(selectedCharacters);
   }
 
   // Ensure all characters face each other (validation)
   scene = enforceCharacterFacing(scene, selectedCharacters);
 
-  console.log('[IdlePrompts] Scene generated with', scene.timelines.length, 'timelines, duration:', scene.sceneDuration, 'ms');
-
   return scene;
 }
 
 /**
- * Enforce that characters face each other based on their positions
+ * Enforce that characters ALWAYS face each other during idle conversations.
+ * This overrides ANY lookDirection from the AI to ensure characters are always
+ * facing each other until the user returns.
  */
 function enforceCharacterFacing(
   scene: OrchestrationScene,
@@ -242,20 +221,20 @@ function enforceCharacterFacing(
     characterPositions[charId] = index === 0 ? 'left' : index === selectedCharacters.length - 1 ? 'right' : 'center';
   });
 
-  // Update each timeline to ensure proper facing
+  // ALWAYS override lookDirection to face other character - no exceptions
   scene.timelines = scene.timelines.map(timeline => {
     const position = characterPositions[timeline.characterId];
-    const defaultLook = position === 'left' ? 'at_right_character' :
-                       position === 'right' ? 'at_left_character' : 'at_right_character';
+    // Left character always looks at right character, right looks at left
+    const forcedLookDirection = position === 'left' ? 'at_right_character' :
+                                position === 'right' ? 'at_left_character' :
+                                'at_right_character'; // center defaults to right
 
     timeline.segments = timeline.segments.map(segment => {
-      // If no look direction specified, set default based on position
-      if (!segment.complementary?.lookDirection) {
-        segment.complementary = {
-          ...segment.complementary,
-          lookDirection: defaultLook as any
-        };
-      }
+      // FORCE lookDirection for ALL segments - override whatever AI generated
+      segment.complementary = {
+        ...segment.complementary,
+        lookDirection: forcedLookDirection as any
+      };
       return segment;
     });
 
