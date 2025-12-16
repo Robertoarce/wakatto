@@ -140,7 +140,7 @@ const RESPONSE_STYLE_TO_TEMPERAMENT: Record<string, TemperamentId> = {
   'vulnerable': 'compassionate', // Brown's vulnerable style
   'meaningful': 'existential',   // Frankl's meaning-focused style
   'stoic': 'stoic',           // Epictetus
-  'fierce': 'fierce',         // Nietzsche
+  'fierce': 'rebellious',     // Nietzsche
   'engaging': 'enthusiastic', // Csikszentmihalyi's engaging style
   'peaceful': 'zen',          // Thich Nhat Hanh
 };
@@ -171,4 +171,18 @@ export function getGreetingByResponseStyle(
 
   // Fallback
   return getFallbackGreeting(characterName);
+}
+
+/**
+ * Get Bob's tutorial greeting message
+ * This is a fixed greeting for the tutorial character
+ */
+export function getBobGreeting(): string {
+  return `yo! i'm Bob, your guide to this place.
+
+so here's the deal—you're basically in a chat app where you can talk to different AI characters. each one has their own vibe and expertise.
+
+right now though, we gotta talk business. the app ain't free (shocking, i know). but hey, before you bounce—let me show you around first. ask me anything about how this works.
+
+what do you wanna know? or we can just skip to the payment negotiation part`;
 }

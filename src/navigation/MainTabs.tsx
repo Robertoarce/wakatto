@@ -21,6 +21,7 @@ import {
   deleteMessage,
 } from '../store/actions/conversationActions';
 import { getCharacter } from '../config/characters';
+import { getBobGreeting } from '../services/characterGreetings';
 import {
   generateSingleCharacterResponse,
   ConversationMessage
@@ -55,6 +56,12 @@ export default function MainTabs() {
   // Ref to prevent duplicate greeting processing
   const isProcessingGreeting = useRef(false);
 
+  // Ref to prevent duplicate tutorial creation
+  const isCreatingTutorial = useRef(false);
+
+  // Track if conversations have been loaded at least once
+  const [conversationsLoaded, setConversationsLoaded] = useState(false);
+
   // State for character selection screen (new conversation flow)
   const [showCharacterSelection, setShowCharacterSelection] = useState(false);
 
@@ -73,7 +80,9 @@ export default function MainTabs() {
   // Load conversations on mount
   useEffect(() => {
     console.log('[MainTabs] Loading conversations on mount...');
-    dispatch(loadConversations() as any);
+    dispatch(loadConversations() as any).then(() => {
+      setConversationsLoaded(true);
+    });
   }, [dispatch]);
 
   // If no conversation is selected and we have conversations, select the first one
@@ -89,6 +98,40 @@ export default function MainTabs() {
       dispatch(selectConversation(conversations[0]) as any);
     }
   }, [conversations, currentConversation, dispatch]);
+
+  // Create tutorial conversation for users with no conversations
+  useEffect(() => {
+    const createTutorialIfNeeded = async () => {
+      // Only run after conversations are loaded and if there are none
+      if (!conversationsLoaded || conversations.length > 0 || isCreatingTutorial.current) {
+        return;
+      }
+
+      isCreatingTutorial.current = true;
+      console.log('[MainTabs] No conversations found, creating tutorial with Bob...');
+
+      try {
+        // Create tutorial conversation with Bob
+        const tutorialConv = await dispatch(
+          createConversation('Tutorial', ['bob-tutorial']) as any
+        );
+
+        if (tutorialConv) {
+          // Add Bob's greeting message
+          const greeting = getBobGreeting();
+          await dispatch(
+            saveMessage(tutorialConv.id, 'assistant', greeting, 'bob-tutorial') as any
+          );
+          console.log('[MainTabs] Tutorial conversation created with Bob\'s greeting');
+        }
+      } catch (error) {
+        console.error('[MainTabs] Failed to create tutorial:', error);
+        isCreatingTutorial.current = false; // Allow retry on failure
+      }
+    };
+
+    createTutorialIfNeeded();
+  }, [conversationsLoaded, conversations.length, dispatch]);
 
   const onSelectConversation = (conversation: any) => {
     dispatch(selectConversation(conversation) as any);

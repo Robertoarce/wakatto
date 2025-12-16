@@ -282,95 +282,107 @@ export class AnimationPlaybackEngine {
 
   /**
    * Get revealed text for a specific character at current time
-   * Now applies voice pace multipliers for variable speech speed
+   * Handles multiple timelines per character (finds the currently active one)
+   * Applies voice pace multipliers for variable speech speed
    */
   getRevealedText(characterId: string): string {
     if (!this.scene) return '';
-    
-    const timeline = this.scene.timelines.find(t => t.characterId === characterId);
-    if (!timeline) return '';
-    
+
     const elapsed = this.getElapsedTime();
+
+    // Find all timelines for this character and get the active one
+    const characterTimelines = this.scene.timelines.filter(t => t.characterId === characterId);
+    if (characterTimelines.length === 0) return '';
+
+    const timeline = this.findActiveTimeline(characterTimelines, elapsed);
+    if (!timeline) return '';
+
     const characterElapsed = elapsed - timeline.startDelay;
-    
+
     if (characterElapsed < 0) return '';
     if (characterElapsed >= timeline.totalDuration) return timeline.content;
-    
+
     // Find current segment and calculate revealed text with pace adjustment
     let segmentStartTime = 0;
-    
+
     for (const segment of timeline.segments) {
       const segmentEndTime = segmentStartTime + segment.duration;
-      
+
       if (characterElapsed < segmentEndTime) {
         // We're in this segment
         if (segment.textReveal) {
           // Calculate base progress through segment
           const segmentProgress = (characterElapsed - segmentStartTime) / segment.duration;
-          
+
           // Apply pace multiplier - higher pace = more text revealed for same progress
           const paceMultiplier = this.getEffectivePaceMultiplier(characterId, segment.voice);
           const adjustedProgress = Math.min(1, segmentProgress * paceMultiplier);
-          
-          const textProgress = segment.textReveal.startIndex + 
+
+          const textProgress = segment.textReveal.startIndex +
             Math.floor((segment.textReveal.endIndex - segment.textReveal.startIndex) * adjustedProgress);
           return timeline.content.substring(0, Math.min(textProgress, timeline.content.length));
         }
         break;
       }
-      
+
       segmentStartTime = segmentEndTime;
     }
-    
+
     // If no text reveal in current segment, find last revealed position
     let lastRevealedIndex = 0;
     segmentStartTime = 0;
-    
+
     for (const segment of timeline.segments) {
       if (segmentStartTime > characterElapsed) break;
-      
+
       if (segment.textReveal) {
         const segmentEndTime = segmentStartTime + segment.duration;
         if (characterElapsed >= segmentEndTime) {
           lastRevealedIndex = segment.textReveal.endIndex;
         } else {
           const progress = (characterElapsed - segmentStartTime) / segment.duration;
-          
+
           // Apply pace multiplier
           const paceMultiplier = this.getEffectivePaceMultiplier(characterId, segment.voice);
           const adjustedProgress = Math.min(1, progress * paceMultiplier);
-          
-          lastRevealedIndex = segment.textReveal.startIndex + 
+
+          lastRevealedIndex = segment.textReveal.startIndex +
             Math.floor((segment.textReveal.endIndex - segment.textReveal.startIndex) * adjustedProgress);
         }
       }
-      
+
       segmentStartTime += segment.duration;
     }
-    
+
     return timeline.content.substring(0, Math.min(lastRevealedIndex, timeline.content.length));
   }
 
   /**
    * Get the current voice state for a character (merged base + segment voice)
+   * Handles multiple timelines per character (finds the currently active one)
    * Useful for TTS integration or voice visualization
    */
   getCurrentVoice(characterId: string): SegmentVoice | null {
     if (!this.scene) return null;
-    
-    const timeline = this.scene.timelines.find(t => t.characterId === characterId);
-    if (!timeline) return null;
-    
+
     const elapsed = this.getElapsedTime();
+
+    // Find all timelines for this character and get the active one
+    const characterTimelines = this.scene.timelines.filter(t => t.characterId === characterId);
+    if (characterTimelines.length === 0) return null;
+
+    const timeline = this.findActiveTimeline(characterTimelines, elapsed);
+    if (!timeline) return null;
+
     const characterElapsed = elapsed - timeline.startDelay;
-    
+
     if (characterElapsed < 0 || characterElapsed >= timeline.totalDuration) {
       return null;
     }
-    
+
     // Find current segment
     const currentSegment = this.findCurrentSegment(timeline.segments, characterElapsed);
-    
+
     // Merge with character base voice
     const baseVoice = this.characterVoiceProfiles.get(characterId);
     return mergeVoiceWithDefaults(baseVoice, currentSegment.voice);

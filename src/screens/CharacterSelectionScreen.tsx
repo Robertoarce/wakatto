@@ -12,7 +12,6 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { CharacterBehavior, getAllCharacters, registerCustomCharacters } from '../config/characters';
@@ -112,10 +111,8 @@ export default function CharacterSelectionScreen({
       );
     }
 
-    // Sort by name (alphabetical)
-    filtered = [...filtered].sort((a, b) => {
-      return (a.name || '').localeCompare(b.name || '');
-    });
+    // Randomize order (shuffle)
+    filtered = [...filtered].sort(() => Math.random() - 0.5);
 
     return filtered;
   }, [characters, searchQuery, selectedRole]);
@@ -207,14 +204,22 @@ export default function CharacterSelectionScreen({
         </Text>
 
         <View style={[styles.cardFooter, { marginTop: spacing.sm, paddingTop: spacing.md }]}>
-          <Text style={[styles.selectText, { fontSize: fonts.sm, color: isSelected ? '#ef4444' : '#22c55e' }]}>
-            {isSelected ? 'Tap to remove' : 'Tap to select'}
-          </Text>
-          <Ionicons
-            name={isSelected ? "remove-circle" : "add-circle"}
-            size={isMobile ? 18 : 20}
-            color={isSelected ? '#ef4444' : '#22c55e'}
-          />
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              isSelected ? styles.removeButton : styles.addButton,
+            ]}
+            onPress={() => toggleCharacter(character.id)}
+          >
+            <Ionicons
+              name={isSelected ? "remove-circle" : "add-circle"}
+              size={18}
+              color="white"
+            />
+            <Text style={styles.actionButtonText}>
+              {isSelected ? 'Remove' : 'Add'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     );
@@ -252,15 +257,28 @@ export default function CharacterSelectionScreen({
         </View>
       </View>
 
-      {/* Selected Characters Section */}
+      {/* Selected Characters Section + Start Button */}
       {selectedCharacterIds.length > 0 && (
         <View style={styles.selectedSection}>
-          <Text style={[styles.sectionLabel, { fontSize: fonts.sm }]}>
-            Selected ({selectedCharacterIds.length}/{MAX_CHARACTERS})
-          </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectedScroll}>
-            {selectedCharacterIds.map(renderSelectedCharacter)}
-          </ScrollView>
+          <View style={styles.selectedHeader}>
+            <View style={styles.selectedChipsContainer}>
+              <Text style={[styles.sectionLabel, { fontSize: fonts.sm }]}>
+                Selected ({selectedCharacterIds.length}/{MAX_CHARACTERS})
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectedScroll}>
+                {selectedCharacterIds.map(renderSelectedCharacter)}
+              </ScrollView>
+            </View>
+            <TouchableOpacity
+              style={styles.startButton}
+              onPress={handleStartConversation}
+            >
+              <Ionicons name="chatbubbles" size={18} color="white" />
+              <Text style={[styles.startButtonText, { fontSize: fonts.sm }]}>
+                Start Conversation
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 
@@ -301,8 +319,12 @@ export default function CharacterSelectionScreen({
         </ScrollView>
       </View>
 
-      {/* Character Grid */}
-      <ScrollView style={styles.characterList} contentContainerStyle={styles.characterListContent}>
+      {/* Character Grid - Scrollable */}
+      <ScrollView
+        style={styles.characterList}
+        contentContainerStyle={styles.characterListContent}
+        showsVerticalScrollIndicator={true}
+      >
         {filteredCharacters.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="search-outline" size={64} color="#52525b" />
@@ -319,25 +341,6 @@ export default function CharacterSelectionScreen({
           </View>
         )}
       </ScrollView>
-
-      {/* Start Conversation Button */}
-      <View style={[styles.footer, { padding: spacing.lg }]}>
-        <TouchableOpacity
-          style={[
-            styles.startButton,
-            selectedCharacterIds.length === 0 && styles.startButtonDisabled,
-          ]}
-          onPress={handleStartConversation}
-          disabled={selectedCharacterIds.length === 0}
-        >
-          <Ionicons name="chatbubbles" size={20} color="white" />
-          <Text style={[styles.startButtonText, { fontSize: fonts.md }]}>
-            {selectedCharacterIds.length === 0
-              ? 'Select at least 1 Wakattor'
-              : `Start Conversation (${selectedCharacterIds.length})`}
-          </Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
@@ -400,6 +403,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#27272a',
     backgroundColor: '#18181b',
+  },
+  selectedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  selectedChipsContainer: {
+    flex: 1,
+    minWidth: 0,
   },
   sectionLabel: {
     color: '#a1a1aa',
@@ -494,7 +507,7 @@ const styles = StyleSheet.create({
   },
   characterListContent: {
     padding: 16,
-    paddingBottom: 100, // Space for the footer button
+    paddingBottom: 32,
   },
   characterMosaic: {
     flexDirection: 'row',
@@ -546,15 +559,32 @@ const styles = StyleSheet.create({
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     marginTop: 8,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#27272a',
   },
-  selectText: {
-    fontSize: 13,
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 6,
+    flex: 1,
+  },
+  addButton: {
+    backgroundColor: '#22c55e',
+  },
+  removeButton: {
+    backgroundColor: '#ef4444',
+  },
+  actionButtonText: {
+    color: 'white',
     fontWeight: '600',
+    fontSize: 14,
   },
   emptyState: {
     flex: 1,
@@ -576,46 +606,20 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
   },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#18181b',
-    borderTopWidth: 1,
-    borderTopColor: '#27272a',
-    padding: 16,
-    ...Platform.select({
-      web: {
-        boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.5)',
-      },
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 10,
-      },
-      android: {
-        elevation: 10,
-      },
-    }),
-  },
   startButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#8b5cf6',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    gap: 8,
-  },
-  startButtonDisabled: {
-    backgroundColor: '#3f3f46',
+    backgroundColor: '#22c55e',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    gap: 6,
+    flexShrink: 0,
   },
   startButtonText: {
     color: 'white',
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: 14,
   },
 });
