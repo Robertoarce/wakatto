@@ -126,6 +126,8 @@ function CharacterNameLabel({ name, color, visible }: { name: string; color: str
   const { fonts } = useResponsive();
 
   useEffect(() => {
+    let fadeOutTimer: NodeJS.Timeout | null = null;
+
     if (visible) {
       // Fade in quickly
       Animated.timing(fadeAnim, {
@@ -135,7 +137,7 @@ function CharacterNameLabel({ name, color, visible }: { name: string; color: str
       }).start();
 
       // Then fade out slowly after 2 seconds (3 second fade duration)
-      setTimeout(() => {
+      fadeOutTimer = setTimeout(() => {
         Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 3000,
@@ -143,6 +145,12 @@ function CharacterNameLabel({ name, color, visible }: { name: string; color: str
         }).start();
       }, 2000);
     }
+
+    return () => {
+      if (fadeOutTimer) {
+        clearTimeout(fadeOutTimer);
+      }
+    };
   }, [visible]);
 
   if (!visible) return null;
@@ -395,7 +403,7 @@ function CharacterSpeechBubble({
 
   // Calculate responsive position offsets with screen boundary clamping
   const getPositionStyles = () => {
-    const padding = 8; // Minimum padding from screen edge
+    const padding = 16; // Minimum padding from screen edge
     const effectiveScreenWidth = bubbleScreenWidth || viewportWidth || 400;
     const effectiveScreenHeight = viewportHeight || 600;
     
@@ -2342,8 +2350,8 @@ Each silence, a cathedral where you still reside.`;
                     styles.characterWrapper,
                     {
                       position: 'absolute',
-                      left: `${50 + horizontalOffset - (100 / total / 2)}%`, // Centered
-                      width: `${Math.max(100 / total, 25)}%`,
+                      left: `${48 + horizontalOffset - (100 / total / 2)}%`, // Centered
+                      width: `${Math.max(100 / total, 22)}%`,
                       top: `${25 + (20 - verticalPosition)}%`, // Center higher up, edges lower
                       transform: [{ scale }],
                       zIndex: zIndex,
@@ -3532,16 +3540,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
     minWidth: 150,
-  },
-  speechBubbleLeft: {
-    right: 70,
-    top: -140,
-    transform: [{ translateX: 30 }], // moves bubble to the left
-  },
-  speechBubbleRight: {
-    left: 80,
-    top: -140,
-    transform: [{ translateX: -30 }], // moves bubble to the right
   },
   speechBubbleSingle: {
     // For single character - position bubble above and centered

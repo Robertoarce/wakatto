@@ -144,6 +144,7 @@ interface CharacterDisplay3DProps {
 // Confetti particle effect
 function ConfettiEffect({ color = '#8b5cf6', speed = 1 }: { color?: string; speed?: number }) {
   const particlesRef = useRef<THREE.Points>(null);
+  const timeRef = useRef(0); // Accumulate time instead of calling Date.now() each frame
   const particleCount = 100;
 
   const positions = useMemo(() => {
@@ -181,13 +182,14 @@ function ConfettiEffect({ color = '#8b5cf6', speed = 1 }: { color?: string; spee
 
   useFrame((_, delta) => {
     if (!particlesRef.current) return;
+    timeRef.current += delta * 1000; // Accumulate time in ms
     const positions = particlesRef.current.geometry.attributes.position.array as Float32Array;
 
     for (let i = 0; i < particleCount; i++) {
       // Fall down
       positions[i * 3 + 1] -= delta * 2 * speed;
-      // Sway side to side
-      positions[i * 3] += Math.sin(Date.now() * 0.003 * speed + i) * delta * 0.5;
+      // Sway side to side - use accumulated time instead of Date.now()
+      positions[i * 3] += Math.sin(timeRef.current * 0.003 * speed + i) * delta * 0.5;
 
       // Reset if below ground
       if (positions[i * 3 + 1] < -1) {
@@ -213,6 +215,7 @@ function ConfettiEffect({ color = '#8b5cf6', speed = 1 }: { color?: string; spee
 function SpotlightEffect({ color = '#ffd700', speed = 1 }: { color?: string; speed?: number }) {
   const lightRef = useRef<THREE.SpotLight>(null);
   const coneRef = useRef<THREE.Mesh>(null);
+  const timeRef = useRef(0); // Accumulate time instead of calling Date.now() each frame
 
   // Cleanup geometry and material on unmount
   useEffect(() => {
@@ -225,8 +228,9 @@ function SpotlightEffect({ color = '#ffd700', speed = 1 }: { color?: string; spe
     };
   }, []);
 
-  useFrame(() => {
-    const time = Date.now() * 0.001 * speed;
+  useFrame((_, delta) => {
+    timeRef.current += delta * speed;
+    const time = timeRef.current;
     if (lightRef.current) {
       lightRef.current.position.x = Math.sin(time * 0.5) * 1.5;
       lightRef.current.intensity = 2 + Math.sin(time * 2) * 0.5;
@@ -261,6 +265,7 @@ function SpotlightEffect({ color = '#ffd700', speed = 1 }: { color?: string; spe
 // Sparkles effect
 function SparklesEffect({ color = '#ffd700', speed = 1 }: { color?: string; speed?: number }) {
   const particlesRef = useRef<THREE.Points>(null);
+  const timeRef = useRef(0); // Accumulate time instead of calling Date.now() each frame
   const particleCount = 50;
 
   const positions = useMemo(() => {
@@ -286,10 +291,11 @@ function SparklesEffect({ color = '#ffd700', speed = 1 }: { color?: string; spee
     };
   }, []);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (!particlesRef.current) return;
+    timeRef.current += delta * 1000 * speed; // Accumulate time in ms
     const positions = particlesRef.current.geometry.attributes.position.array as Float32Array;
-    const time = Date.now() * 0.002 * speed;
+    const time = timeRef.current * 0.002;
 
     for (let i = 0; i < particleCount; i++) {
       const baseAngle = time + i * 0.5;
@@ -314,6 +320,7 @@ function SparklesEffect({ color = '#ffd700', speed = 1 }: { color?: string; spee
 // Hearts effect
 function HeartsEffect({ color = '#ff6b6b', speed = 1 }: { color?: string; speed?: number }) {
   const groupRef = useRef<THREE.Group>(null);
+  const timeRef = useRef(0); // Accumulate time instead of calling Date.now() each frame
   const heartCount = 8;
 
   const heartPositions = useMemo(() => {
@@ -343,11 +350,12 @@ function HeartsEffect({ color = '#ff6b6b', speed = 1 }: { color?: string; speed?
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
+    timeRef.current += delta * 1000; // Accumulate time in ms
     groupRef.current.children.forEach((child, i) => {
       const data = heartPositions[i];
       child.position.y += delta * data.speed * speed;
-      child.position.x = data.x + Math.sin(Date.now() * 0.002 * speed + data.phase) * 0.3;
-      child.rotation.z = Math.sin(Date.now() * 0.003 * speed + data.phase) * 0.2;
+      child.position.x = data.x + Math.sin(timeRef.current * 0.002 * speed + data.phase) * 0.3;
+      child.rotation.z = Math.sin(timeRef.current * 0.003 * speed + data.phase) * 0.2;
 
       if (child.position.y > 3) {
         child.position.y = -0.5;

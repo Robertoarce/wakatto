@@ -96,6 +96,10 @@ export class AnimationPlaybackEngine {
   private postSpeakingExpressionCache: Map<string, ComplementaryAnimation> = new Map();
   // Maximum number of callbacks to prevent memory leaks
   private static readonly MAX_CALLBACKS = 10;
+  // Cache for character states to prevent creating new Map every frame
+  private cachedStates: Map<string, CharacterAnimationState> = new Map();
+  private lastCachedElapsed: number = -1;
+  private lastCachedStatus: PlaybackStatus = 'idle';
 
   // ============================================
   // PUBLIC METHODS
@@ -179,6 +183,9 @@ export class AnimationPlaybackEngine {
     this.pausedAt = 0;
     // Clear caches to prevent memory accumulation
     this.postSpeakingExpressionCache.clear();
+    this.cachedStates.clear();
+    this.lastCachedElapsed = -1;
+    this.lastCachedStatus = 'idle';
 
     console.log('[PlaybackEngine] Stopped');
   }
@@ -202,13 +209,29 @@ export class AnimationPlaybackEngine {
   /**
    * Get current animation state for all characters
    * Handles multiple timelines per character (e.g., idle conversations with back-and-forth)
+   * Uses caching to avoid creating new Map objects every frame
    */
   getCurrentStates(): Map<string, CharacterAnimationState> {
-    const states = new Map<string, CharacterAnimationState>();
-
-    if (!this.scene) return states;
+    if (!this.scene) {
+      if (this.cachedStates.size > 0) {
+        this.cachedStates.clear();
+      }
+      return this.cachedStates;
+    }
 
     const elapsed = this.getElapsedTime();
+
+    // Return cached states if elapsed time hasn't changed significantly (within 1ms)
+    // This prevents creating new objects when nothing has changed
+    if (Math.abs(elapsed - this.lastCachedElapsed) < 1 && this.status === this.lastCachedStatus) {
+      return this.cachedStates;
+    }
+
+    this.lastCachedElapsed = elapsed;
+    this.lastCachedStatus = this.status;
+
+    // Clear cache and rebuild - reusing the same Map object
+    this.cachedStates.clear();
 
     // Group timelines by character and find the currently active one for each
     const characterTimelines = new Map<string, CharacterTimeline[]>();
@@ -222,10 +245,10 @@ export class AnimationPlaybackEngine {
     for (const [characterId, timelines] of characterTimelines) {
       const activeTimeline = this.findActiveTimeline(timelines, elapsed);
       if (activeTimeline) {
-        states.set(characterId, this.getCharacterState(activeTimeline, elapsed));
+        this.cachedStates.set(characterId, this.getCharacterState(activeTimeline, elapsed));
       } else {
         // No active timeline - character is idle
-        states.set(characterId, {
+        this.cachedStates.set(characterId, {
           characterId,
           animation: 'idle',
           complementary: {},
@@ -239,10 +262,10 @@ export class AnimationPlaybackEngine {
 
     // Get states for non-speaking characters
     for (const [characterId, segments] of Object.entries(this.scene.nonSpeakerBehavior)) {
-      states.set(characterId, this.getNonSpeakerState(characterId, segments, elapsed));
+      this.cachedStates.set(characterId, this.getNonSpeakerState(characterId, segments, elapsed));
     }
 
-    return states;
+    return this.cachedStates;
   }
 
   /**
