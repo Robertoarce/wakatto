@@ -477,6 +477,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
     if (!meshRef.current || !headRef.current) return;
 
     let animationId: number;
+
     const animate = () => {
       const time = Date.now() * 0.001 * animSpeed;
 
@@ -2332,8 +2333,6 @@ export function CharacterDisplay3D({
   useEffect(() => {
     return () => {
       // React-three-fiber automatically disposes geometries and materials
-      // but we ensure canvas is properly cleaned up
-      console.log(`[CharacterDisplay3D] Cleanup for character ${character.name}`);
     };
   }, [character.name]);
 

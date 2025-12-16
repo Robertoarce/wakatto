@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, PanResponder, Dimensions, Animated, Easing } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
@@ -509,6 +509,21 @@ function CharacterSpeechBubble({
 // Memoize CharacterSpeechBubble for performance
 const MemoizedCharacterSpeechBubble = React.memo(CharacterSpeechBubble);
 
+// Memoize CharacterDisplay3D to prevent re-renders when messages change
+const MemoizedCharacterDisplay3D = memo(CharacterDisplay3D, (prevProps, nextProps) => {
+  // Only re-render if these specific props change (not on every parent re-render)
+  return (
+    prevProps.character?.id === nextProps.character?.id &&
+    prevProps.isActive === nextProps.isActive &&
+    prevProps.animation === nextProps.animation &&
+    prevProps.isTalking === nextProps.isTalking &&
+    prevProps.showName === nextProps.showName &&
+    prevProps.nameKey === nextProps.nameKey &&
+    // Deep compare complementary (it changes during animation)
+    JSON.stringify(prevProps.complementary) === JSON.stringify(nextProps.complementary)
+  );
+});
+
 // Floating animation wrapper for characters with hover name display
 function FloatingCharacterWrapper({
   children,
@@ -798,6 +813,8 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     characterStates: Map<string, CharacterAnimationState>;
   }>({ isPlaying: false, characterStates: new Map() });
   const playbackEngineRef = useRef(getPlaybackEngine());
+  // Synchronous ref to track playback state without triggering re-renders
+  const isPlayingRef = useRef(false);
   
   // Track which messages are being animated (by characterId -> messageId)
   const [animatingMessages, setAnimatingMessages] = useState<Map<string, string>>(new Map());
@@ -958,11 +975,11 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [idleConversationState, setIdleConversationState] = useState<IdleConversationState>('ACTIVE');
   const idleManagerRef = useRef<IdleConversationManager | null>(null);
   const [idleAnimationSceneOverride, setIdleAnimationSceneOverride] = useState<OrchestrationScene | null>(null);
+  // PERFORMANCE: Batch pending messages to save after playback completes (prevents re-renders during playback)
+  const pendingIdleMessagesRef = useRef<Array<{ characterId: string; content: string; metadata?: Record<string, any> }>>([]);
 
-  // Handle idle conversation start - play the animation and save messages
+  // Handle idle conversation start - play the animation, defer message saves
   const handleIdleConversationStart = useCallback(async (scene: OrchestrationScene) => {
-    console.log('[ChatInterface] Idle conversation starting with', scene.timelines.length, 'characters');
-
     // Set the scene to play - use override to not conflict with normal animationScene prop
     setIdleAnimationSceneOverride(scene);
 
@@ -970,41 +987,52 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     const engine = getPlaybackEngine();
     engine.play(scene);
 
-    // Save each character's lines to the conversation with idle marker
+    // PERFORMANCE: Queue messages to save AFTER playback completes (not during)
+    // This prevents Redux updates from triggering re-renders during animation
     if (onSaveIdleMessage && conversationId) {
-      for (const timeline of scene.timelines) {
-        if (timeline.content) {
-          await onSaveIdleMessage(timeline.characterId, timeline.content, { is_idle_conversation: true });
-        }
-      }
+      pendingIdleMessagesRef.current = scene.timelines
+        .filter(timeline => timeline.content)
+        .map(timeline => ({
+          characterId: timeline.characterId,
+          content: timeline.content,
+          metadata: { is_idle_conversation: true }
+        }));
     }
   }, [onSaveIdleMessage, conversationId]);
 
-  // Handle idle conversation complete
-  const handleIdleConversationComplete = useCallback(() => {
-    console.log('[ChatInterface] Idle conversation complete');
+  // Handle idle conversation complete - now save all queued messages
+  const handleIdleConversationComplete = useCallback(async () => {
     setIdleAnimationSceneOverride(null);
+
+    // Save all pending messages in batch AFTER playback completes
+    if (onSaveIdleMessage && pendingIdleMessagesRef.current.length > 0) {
+      for (const msg of pendingIdleMessagesRef.current) {
+        await onSaveIdleMessage(msg.characterId, msg.content, msg.metadata);
+      }
+      pendingIdleMessagesRef.current = []; // Clear the queue
+    }
 
     // Notify the manager that we're done
     idleManagerRef.current?.onConversationComplete();
-  }, []);
+  }, [onSaveIdleMessage]);
 
   // Handle user return interruption
   const handleUserReturnInterruption = useCallback((scene: OrchestrationScene) => {
-    console.log('[ChatInterface] User returned, playing interruption');
-
     // Play the interruption scene
     setIdleAnimationSceneOverride(scene);
     const engine = getPlaybackEngine();
     engine.play(scene);
 
-    // Save the interruption message (the "shut up!" message)
+    // PERFORMANCE: Queue interruption messages to save after playback (same as idle conversation)
     if (onSaveIdleMessage && conversationId) {
-      for (const timeline of scene.timelines) {
-        if (timeline.content) {
-          onSaveIdleMessage(timeline.characterId, timeline.content, { is_idle_conversation: true });
-        }
-      }
+      const newMessages = scene.timelines
+        .filter(timeline => timeline.content)
+        .map(timeline => ({
+          characterId: timeline.characterId,
+          content: timeline.content,
+          metadata: { is_idle_conversation: true }
+        }));
+      pendingIdleMessagesRef.current = [...pendingIdleMessagesRef.current, ...newMessages];
     }
   }, [onSaveIdleMessage, conversationId]);
 
@@ -1017,8 +1045,6 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   useEffect(() => {
     // Only enable if 2+ characters selected and we have a conversation
     if (selectedCharacters.length >= 2 && conversationId) {
-      console.log('[ChatInterface] Initializing idle conversation manager with', selectedCharacters.length, 'characters');
-
       idleManagerRef.current = initIdleConversationManager(
         selectedCharacters,
         {
@@ -1134,22 +1160,53 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     return baseOffset - (index * staggerAmount / Math.max(1, characterCount * 0.5));
   }, [isMobile, isMobileLandscape, characterCount]);
 
-  // Subscribe to animation playback engine
+  // Subscribe to animation playback engine - SMART UPDATES to prevent excessive re-renders
+  // Only update React state on SIGNIFICANT changes (status, talking, animation changes)
   useEffect(() => {
     const engine = playbackEngineRef.current;
-    
+    // Track previous state to detect significant changes
+    let prevStatus: string | null = null;
+    let prevTalkingMap = new Map<string, boolean>();
+    let prevAnimationMap = new Map<string, string>();
+
     const unsubscribe = engine.subscribe((state: PlaybackState) => {
-      setPlaybackState({
-        isPlaying: state.status === 'playing',
-        characterStates: state.characterStates
-      });
-      
-      // When playback completes, ensure we have all text revealed
-      if (state.status === 'complete') {
-        console.log('[ChatInterface] Animation playback complete');
+      // Always update ref synchronously (used by effects to skip processing during playback)
+      isPlayingRef.current = state.status === 'playing';
+
+      // Check for significant changes
+      let hasSignificantChange = false;
+
+      // 1. Status changed (idle -> playing -> complete)
+      if (state.status !== prevStatus) {
+        hasSignificantChange = true;
+        prevStatus = state.status;
+      }
+
+      // 2. Any character's talking status changed
+      for (const [charId, charState] of state.characterStates) {
+        const wasTalking = prevTalkingMap.get(charId) || false;
+        if (charState.isTalking !== wasTalking) {
+          hasSignificantChange = true;
+          prevTalkingMap.set(charId, charState.isTalking);
+        }
+
+        // 3. Any character's animation changed
+        const prevAnimation = prevAnimationMap.get(charId) || '';
+        if (charState.animation !== prevAnimation) {
+          hasSignificantChange = true;
+          prevAnimationMap.set(charId, charState.animation);
+        }
+      }
+
+      // Only update React state if something significant changed
+      if (hasSignificantChange) {
+        setPlaybackState({
+          isPlaying: state.status === 'playing',
+          characterStates: state.characterStates
+        });
       }
     });
-    
+
     return () => {
       unsubscribe();
     };
@@ -1160,12 +1217,10 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   useEffect(() => {
     if (earlyAnimationSetup?.canStartThinkingAnimation && !animationScene) {
       // Use all selected characters, not just detected ones from early setup
-      const charactersToAnimate = selectedCharacters.length > 0 
-        ? selectedCharacters 
+      const charactersToAnimate = selectedCharacters.length > 0
+        ? selectedCharacters
         : earlyAnimationSetup.detectedCharacters;
-      
-      console.log('[ChatInterface] Starting varied processing animations for:', charactersToAnimate);
-      
+
       // Generate varied processing animations for all characters
       const estimatedDuration = earlyAnimationSetup.estimatedDuration || 15000;
       const thinkingScene = generateProcessingScene(
@@ -1209,11 +1264,6 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   // Start animation playback when a new scene is provided
   useEffect(() => {
     if (animationScene) {
-      console.log('[ChatInterface] Starting animation scene playback', {
-        duration: animationScene.sceneDuration,
-        timelines: animationScene.timelines.length
-      });
-
       // Clear pending user message when wakattors start responding
       setPendingUserMessage(null);
 
@@ -1239,7 +1289,6 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         
         if (charMessages.length > 0) {
           newAnimatingMessages.set(timeline.characterId, charMessages[0].id);
-          console.log(`[ChatInterface] Animating message ${charMessages[0].id} for ${timeline.characterId}`);
         }
       }
       
@@ -1355,23 +1404,16 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       previousMessagesRef.current.length === 0 &&
       !hasRestoredInitialCharacters.current;
 
-    // DEBUG: Log state on every render of this effect
-    console.log('[ChatInterface:CharacterRestore] Effect triggered:', {
-      conversationId,
-      messagesLength: messages.length,
-      prevMessagesLength: previousMessagesRef.current.length,
-      conversationChanged,
-      initialLoad,
-      savedCharacters,
-      selectedCharactersLength: selectedCharacters.length,
-      hasRestoredInitialCharacters: hasRestoredInitialCharacters.current,
-      userHasSelectedCharacters: userHasSelectedCharacters.current,
-      hasTriggeredGreeting: hasTriggeredGreeting.current,
-    });
+    // PERFORMANCE: Skip processing during active playback unless conversation actually changed
+    // This prevents re-render cascades from message saves during idle conversation
+    if (isPlayingRef.current && !conversationChanged && !initialLoad) {
+      // Just update the reference without any other processing
+      previousMessagesRef.current = messages;
+      return;
+    }
 
     // CLEANUP: Stop any running animations when conversation changes
     if (conversationChanged) {
-      console.log('[ChatInterface] Conversation changed, stopping animations');
       playbackEngineRef.current.stop();
       setAnimatingMessages(new Map());
       setPlaybackState({ isPlaying: false, characterStates: new Map() });
@@ -1395,15 +1437,12 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       conversationChanged ||
       initialLoad ||
       (messages.length > 0 && selectedCharacters.length === 0 && !userHasSelectedCharacters.current) ||
-      // NEW: Also restore if savedCharacters has values but selectedCharacters is empty
+      // Also restore if savedCharacters has values but selectedCharacters is empty
       (savedCharacters && savedCharacters.length > 0 && selectedCharacters.length === 0 && !hasRestoredInitialCharacters.current);
-
-    console.log('[ChatInterface:CharacterRestore] shouldRestoreCharacters:', shouldRestoreCharacters);
 
     if (shouldRestoreCharacters) {
       // PRIORITY 1: Use saved characters from database (user's explicit selection)
       if (savedCharacters && savedCharacters.length > 0) {
-        console.log('[ChatInterface:CharacterRestore] Restoring saved characters from database:', savedCharacters);
         setSelectedCharacters(savedCharacters);
         hasRestoredInitialCharacters.current = true;
         if (conversationChanged) {
@@ -1419,7 +1458,6 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
         // Restore characters from conversation history (limit to max 5)
         if (uniqueCharacterIds.length > 0) {
-          console.log('[ChatInterface] Restoring characters from conversation history:', uniqueCharacterIds);
           setSelectedCharacters(uniqueCharacterIds);
           hasRestoredInitialCharacters.current = true;
           // Reset manual selection flag when switching conversations
@@ -1429,8 +1467,6 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         } else if ((conversationChanged || initialLoad) && !userHasSelectedCharacters.current) {
           // New empty conversation or initial load with no assistant messages - set random character
           // Note: Greeting is handled by the second useEffect for brand new conversations
-          // Only do this if user hasn't manually selected characters (preserves selection during first message send)
-          console.log('[ChatInterface] Empty conversation, selecting random character');
           if (availableCharacters.length > 0) {
             const randomIndex = Math.floor(Math.random() * availableCharacters.length);
             const randomChar = availableCharacters[randomIndex];
@@ -1442,7 +1478,6 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
           userHasSelectedCharacters.current = false;
         } else if ((conversationChanged || initialLoad) && userHasSelectedCharacters.current) {
           // User manually selected characters - preserve their selection
-          console.log('[ChatInterface] Preserving user-selected characters:', selectedCharacters);
           hasRestoredInitialCharacters.current = true;
         }
       }
@@ -1464,61 +1499,35 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   // IMPORTANT: Use a debounce delay to ensure messages have had time to load from database
   // This prevents false "new conversation" detection during app reload
   useEffect(() => {
-    // Don't run while characters are still loading
-    if (isLoadingCharacters) {
-      console.log('[ChatInterface:NewConvEffect] Skipping - characters still loading');
+    // PERFORMANCE: Skip during active playback - no need to check for new conversation
+    if (isPlayingRef.current) {
       return;
     }
 
-    // DEBUG: Log the state before the timer
-    console.log('[ChatInterface:NewConvEffect] Effect starting, will wait 500ms:', {
-      conversationId,
-      messagesLength: messages.length,
-      selectedCharactersLength: selectedCharacters.length,
-      availableCharactersLength: availableCharacters.length,
-      hasRestoredInitialCharacters: hasRestoredInitialCharacters.current,
-      hasTriggeredGreeting: hasTriggeredGreeting.current,
-    });
+    // Don't run while characters are still loading
+    if (isLoadingCharacters) {
+      return;
+    }
 
     // Use a delay to give messages time to load from database
     // This prevents false positives when the app is reloading and messages haven't arrived yet
     const timer = setTimeout(() => {
-      // DEBUG: Log again after timer
-      console.log('[ChatInterface:NewConvEffect] Timer fired, checking conditions:', {
-        conversationId,
-        messagesLength: messages.length,
-        selectedCharactersLength: selectedCharacters.length,
-        availableCharactersLength: availableCharacters.length,
-        hasRestoredInitialCharacters: hasRestoredInitialCharacters.current,
-        hasTriggeredGreeting: hasTriggeredGreeting.current,
-        willSelectRandomChar: messages.length === 0 && selectedCharacters.length === 0 && availableCharacters.length > 0 && !hasRestoredInitialCharacters.current,
-      });
-
-      // IMPORTANT: Only select a random character for truly NEW conversations
+      // Only select a random character for truly NEW conversations
       // NOT for existing conversations that are still loading their data
-      // Check: no messages, no selected chars, no saved chars from DB, and haven't restored yet
       const isNewConversation =
         messages.length === 0 &&
         selectedCharacters.length === 0 &&
         availableCharacters.length > 0 &&
         !hasRestoredInitialCharacters.current &&
         // If savedCharacters exists (even empty array from DB), this is an existing conversation
-        // savedCharacters === undefined/null means props haven't loaded yet, wait for them
         savedCharacters !== undefined &&
         savedCharacters !== null &&
         savedCharacters.length === 0;
-
-      console.log('[ChatInterface:NewConvEffect] isNewConversation check:', {
-        isNewConversation,
-        savedCharacters,
-        savedCharactersIsUndefined: savedCharacters === undefined,
-      });
 
       if (isNewConversation) {
         // Select a RANDOM character instead of the first one
         const randomIndex = Math.floor(Math.random() * availableCharacters.length);
         const randomChar = availableCharacters[randomIndex];
-        console.log('[ChatInterface:NewConvEffect] SELECTING RANDOM CHARACTER:', randomChar.name, randomChar.id);
         setSelectedCharacters([randomChar.id]);
 
         // Trigger entrance animation for new conversation
@@ -1526,12 +1535,10 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         setShowEntranceAnimation(true);
 
         // Trigger greeting from the random character (after a short delay for entrance animation)
-        // Only trigger if greeting hasn't been triggered yet
         if (onGreeting && !hasTriggeredGreeting.current) {
           hasTriggeredGreeting.current = true;
           setTimeout(() => {
             const greeting = getRandomGreeting(randomChar.id, randomChar.name);
-            console.log('[ChatInterface] Triggering greeting from:', randomChar.name);
             onGreeting(randomChar.id, greeting);
           }, 1000); // Wait for entrance animation
         }
@@ -2045,11 +2052,6 @@ Each silence, a cathedral where you still reside.`;
       nonSpeakerBehavior: {},
     };
 
-    console.log('[ChatInterface] Starting test speech playback', {
-      characters: selectedCharacters.length,
-      sceneDuration: maxEndTime,
-    });
-
     // Set voice profiles before playing
     const voiceProfiles = buildVoiceProfilesMap();
     playbackEngineRef.current.setCharacterVoiceProfiles(voiceProfiles);
@@ -2086,13 +2088,6 @@ Each silence, a cathedral where you still reside.`;
       setReplayOffset(0);
       return;
     }
-
-    console.log('[ChatInterface] Replaying messages', {
-      offset: replayOffset,
-      startIndex,
-      endIndex,
-      count: messagesToReplay.length,
-    });
 
     // Build timelines from messages
     const msPerChar = DEFAULT_TALKING_SPEED;
@@ -2426,7 +2421,7 @@ Each silence, a cathedral where you still reside.`;
                       : idleState?.complementary;
                     
                     return (
-                      <CharacterDisplay3D
+                      <MemoizedCharacterDisplay3D
                         character={character}
                         isActive={(usePlayback && charPlaybackState.isActive) || showEntranceAnimation || !!idleState}
                         animation={finalAnimation}

@@ -111,7 +111,6 @@ export class AnimationPlaybackEngine {
    */
   setCharacterVoiceProfiles(profiles: Map<string, CharacterVoiceProfile>): void {
     this.characterVoiceProfiles = new Map(profiles);
-    console.log('[PlaybackEngine] Set voice profiles for', profiles.size, 'characters');
   }
 
   /**
@@ -126,13 +125,6 @@ export class AnimationPlaybackEngine {
     this.pausedAt = 0;
     // Clear cached expressions for new scene
     this.postSpeakingExpressionCache.clear();
-
-    console.log('[PlaybackEngine] Starting scene playback', {
-      duration: scene.sceneDuration,
-      characters: scene.timelines.map(t => t.characterId),
-      nonSpeakers: Object.keys(scene.nonSpeakerBehavior),
-      voiceProfilesSet: this.characterVoiceProfiles.size
-    });
 
     this.tick();
   }
@@ -150,8 +142,6 @@ export class AnimationPlaybackEngine {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
-    
-    console.log('[PlaybackEngine] Paused at', this.pausedAt, 'ms');
   }
 
   /**
@@ -159,12 +149,10 @@ export class AnimationPlaybackEngine {
    */
   resume(): void {
     if (this.status !== 'paused' || !this.scene) return;
-    
+
     this.status = 'playing';
     this.startTime = performance.now() - this.pausedAt;
-    
-    console.log('[PlaybackEngine] Resumed from', this.pausedAt, 'ms');
-    
+
     this.tick();
   }
 
@@ -186,8 +174,6 @@ export class AnimationPlaybackEngine {
     this.cachedStates.clear();
     this.lastCachedElapsed = -1;
     this.lastCachedStatus = 'idle';
-
-    console.log('[PlaybackEngine] Stopped');
   }
 
   /**
@@ -423,7 +409,9 @@ export class AnimationPlaybackEngine {
       }
     }
     this.callbacks.add(callback);
-    return () => this.callbacks.delete(callback);
+    return () => {
+      this.callbacks.delete(callback);
+    };
   }
 
   /**
@@ -431,7 +419,6 @@ export class AnimationPlaybackEngine {
    */
   clearCallbacks(): void {
     this.callbacks.clear();
-    console.log('[PlaybackEngine] All callbacks cleared');
   }
 
   /**
@@ -457,10 +444,10 @@ export class AnimationPlaybackEngine {
    */
   private tick = (): void => {
     if (this.status !== 'playing' || !this.scene) return;
-    
+
     const now = performance.now();
     const elapsed = now - this.startTime;
-    
+
     // Throttle updates
     if (now - this.lastUpdateTime < this.updateThrottleMs) {
       this.animationFrameId = requestAnimationFrame(this.tick);
@@ -472,7 +459,6 @@ export class AnimationPlaybackEngine {
     if (elapsed >= this.scene.sceneDuration) {
       this.status = 'complete';
       this.notifyCallbacks();
-      console.log('[PlaybackEngine] Scene complete');
       return;
     }
     

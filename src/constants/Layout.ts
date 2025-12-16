@@ -214,7 +214,7 @@ export function useResponsive(): ResponsiveValues {
     };
 
     const subscription = Dimensions.addEventListener('change', handleChange);
-    
+
     return () => {
       subscription?.remove();
     };
