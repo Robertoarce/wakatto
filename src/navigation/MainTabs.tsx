@@ -243,8 +243,10 @@ export default function MainTabs() {
       }
 
       if (conversation) {
-        // Check if this is the first user message (for title generation)
-        const isFirstMessage = messages.length === 0;
+        // Check if this is the first USER message (for title generation)
+        // Count only user messages, not assistant greetings
+        const userMessageCount = messages.filter(m => m.role === 'user').length;
+        const isFirstUserMessage = userMessageCount === 0;
 
         // Save user message in BACKGROUND (non-blocking parallel save)
         // This allows AI generation to start immediately while message is being saved
@@ -261,7 +263,11 @@ export default function MainTabs() {
 
         // Generate conversation title in BACKGROUND (deferred - doesn't block AI response)
         // This saves 1-2 seconds on first message by not waiting for title generation
-        if (isFirstMessage && conversation.title === 'New Conversation') {
+        // Also handle 'Tutorial' conversations that need renaming after first user message
+        const needsTitleGeneration = isFirstUserMessage &&
+          (conversation.title === 'New Conversation' || conversation.title === 'Tutorial');
+
+        if (needsTitleGeneration) {
           console.log('[Chat] Deferring title generation to background');
           const conversationId = conversation.id;
           
@@ -281,9 +287,8 @@ export default function MainTabs() {
         }
 
         // Prepare conversation history for multi-character service
-        // CRITICAL: For first message (new conversation), use empty history to prevent
-        // stale messages from previous conversations bleeding through due to React re-render timing
-        const conversationHistory: ConversationMessage[] = isFirstMessage ? [] : messages.map(msg => ({
+        // Include all existing messages (greetings, etc.) for context
+        const conversationHistory: ConversationMessage[] = messages.map(msg => ({
           id: msg.id,
           role: msg.role as 'user' | 'assistant',
           content: msg.content,

@@ -57,6 +57,7 @@ export interface CharacterTimeline {
   totalDuration: number;
   segments: AnimationSegment[];
   startDelay: number; // Ms delay before this character starts
+  isInterruption?: boolean; // If true, this timeline can overlap with previous
 }
 
 /**
@@ -90,6 +91,7 @@ interface LLMCharacterResponse {
   character: string;
   content: string;
   startDelay: number;
+  interrupts?: boolean; // If true, this character is interrupting the previous speaker
   timeline: Array<{
     animation: string;
     duration: number;
@@ -388,6 +390,7 @@ interface CompactSceneResponse {
       c: string;
       t: string;
       d: number;
+      int?: boolean; // interrupts (compact)
       tl: Array<{
         a: string;
         ms: number;
@@ -432,6 +435,7 @@ function normalizeCompactJSON(compact: CompactSceneResponse): LLMSceneResponse {
         character: ch.c,
         content: ch.t,
         startDelay: ch.d,
+        interrupts: ch.int || false,
         timeline: ch.tl.map(seg => ({
           animation: seg.a,
           duration: seg.ms,
@@ -550,15 +554,18 @@ export function parseOrchestrationScene(
     
     // Validate parsed timelines for guideline violations
     validateTimelines(timelines, selectedCharacters);
-    
+
+    // Enforce minimum 1-second gap between character turns (unless interrupting)
+    const adjustedTimelines = enforceMinimumGaps(timelines, 1000);
+
     // Calculate scene duration
     const sceneDuration = Math.max(
       parsed.scene.totalDuration || 0,
-      ...timelines.map(t => t.startDelay + t.totalDuration)
+      ...adjustedTimelines.map(t => t.startDelay + t.totalDuration)
     );
-    
+
     return {
-      timelines,
+      timelines: adjustedTimelines,
       sceneDuration,
       nonSpeakerBehavior: {} // Will be filled by fillGapsForNonSpeakers
     };
@@ -567,6 +574,53 @@ export function parseOrchestrationScene(
     console.error('[AnimOrch] Failed to parse scene:', error);
     return null;
   }
+}
+
+/**
+ * Enforce minimum gap between character turns
+ * Ensures there's at least `minGapMs` milliseconds between when one character
+ * finishes speaking and the next character starts (unless marked as interruption)
+ */
+function enforceMinimumGaps(timelines: CharacterTimeline[], minGapMs: number): CharacterTimeline[] {
+  if (timelines.length <= 1) return timelines;
+
+  // Sort by startDelay to process in order
+  const sorted = [...timelines].sort((a, b) => a.startDelay - b.startDelay);
+  const adjusted: CharacterTimeline[] = [];
+
+  for (let i = 0; i < sorted.length; i++) {
+    const timeline = { ...sorted[i] };
+
+    if (i === 0) {
+      // First timeline stays as-is
+      adjusted.push(timeline);
+      continue;
+    }
+
+    // Skip gap enforcement for interruptions
+    if (timeline.isInterruption) {
+      adjusted.push(timeline);
+      continue;
+    }
+
+    // Find when the previous timeline ends
+    const prevTimeline = adjusted[adjusted.length - 1];
+    const prevEndTime = prevTimeline.startDelay + prevTimeline.totalDuration;
+
+    // Calculate minimum start time with gap
+    const minStartTime = prevEndTime + minGapMs;
+
+    // If current startDelay is before minStartTime, adjust it
+    if (timeline.startDelay < minStartTime) {
+      const adjustment = minStartTime - timeline.startDelay;
+      console.log(`[AnimOrch] Adjusting timeline for ${timeline.characterId}: adding ${adjustment}ms gap`);
+      timeline.startDelay = minStartTime;
+    }
+
+    adjusted.push(timeline);
+  }
+
+  return adjusted;
 }
 
 /**
@@ -668,13 +722,14 @@ function parseCharacterTimeline(
   
   // Validate and fix text reveal ranges
   validateTextRanges(segments, response.content.length);
-  
+
   return {
     characterId,
     content: response.content,
     totalDuration,
     segments,
-    startDelay: Math.max(0, response.startDelay || 0)
+    startDelay: Math.max(0, response.startDelay || 0),
+    isInterruption: response.interrupts || false
   };
 }
 

@@ -2585,8 +2585,8 @@ const styles = StyleSheet.create({
   // Read-only character indicator styles
   characterIndicatorRow: {
     position: 'absolute',
-    top: 12,
-    left: 12,
+    bottom: 12,
+    right: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,

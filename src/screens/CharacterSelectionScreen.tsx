@@ -240,10 +240,21 @@ export default function CharacterSelectionScreen({
 
       {/* Header */}
       <View style={[styles.header, { paddingHorizontal: spacing.lg, paddingVertical: spacing.lg }]}>
-        <TouchableOpacity onPress={onCancel} style={styles.cancelButton}>
-          <Ionicons name="arrow-back" size={24} color="#a1a1aa" />
-          <Text style={[styles.cancelText, { fontSize: fonts.md }]}>Cancel</Text>
-        </TouchableOpacity>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity
+            style={[styles.headerStartButton, selectedCharacterIds.length === 0 && styles.headerStartButtonDisabled]}
+            onPress={handleStartConversation}
+            disabled={selectedCharacterIds.length === 0}
+          >
+            <Ionicons name="chatbubbles" size={18} color="white" />
+            <Text style={[styles.headerStartButtonText, { fontSize: fonts.sm }]}>
+              Start Conversation
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onCancel} style={styles.headerCancelButton}>
+            <Text style={[styles.headerCancelText, { fontSize: fonts.sm }]}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.headerCenter}>
           <MaterialCommunityIcons name="emoticon-happy-outline" size={isMobile ? 24 : 28} color="#8b5cf6" />
@@ -257,7 +268,7 @@ export default function CharacterSelectionScreen({
         </View>
       </View>
 
-      {/* Selected Characters Section + Start Button */}
+      {/* Selected Characters Section */}
       {selectedCharacterIds.length > 0 && (
         <View style={styles.selectedSection}>
           <View style={styles.selectedHeader}>
@@ -269,15 +280,6 @@ export default function CharacterSelectionScreen({
                 {selectedCharacterIds.map(renderSelectedCharacter)}
               </ScrollView>
             </View>
-            <TouchableOpacity
-              style={styles.startButton}
-              onPress={handleStartConversation}
-            >
-              <Ionicons name="chatbubbles" size={18} color="white" />
-              <Text style={[styles.startButtonText, { fontSize: fonts.sm }]}>
-                Start Conversation
-              </Text>
-            </TouchableOpacity>
           </View>
         </View>
       )}
@@ -377,6 +379,40 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     color: '#a1a1aa',
+    fontSize: 14,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerStartButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#22c55e',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  headerStartButtonDisabled: {
+    backgroundColor: '#4c4c4c',
+    opacity: 0.6,
+  },
+  headerStartButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  headerCancelButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#dc2626',
+    borderRadius: 8,
+  },
+  headerCancelText: {
+    color: 'white',
+    fontWeight: '600',
     fontSize: 14,
   },
   headerCenter: {

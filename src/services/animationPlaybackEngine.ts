@@ -311,15 +311,11 @@ export class AnimationPlaybackEngine {
       if (characterElapsed < segmentEndTime) {
         // We're in this segment
         if (segment.textReveal) {
-          // Calculate base progress through segment
+          // Calculate progress through segment - text syncs exactly with segment timing
           const segmentProgress = (characterElapsed - segmentStartTime) / segment.duration;
 
-          // Apply pace multiplier - higher pace = more text revealed for same progress
-          const paceMultiplier = this.getEffectivePaceMultiplier(characterId, segment.voice);
-          const adjustedProgress = Math.min(1, segmentProgress * paceMultiplier);
-
           const textProgress = segment.textReveal.startIndex +
-            Math.floor((segment.textReveal.endIndex - segment.textReveal.startIndex) * adjustedProgress);
+            Math.floor((segment.textReveal.endIndex - segment.textReveal.startIndex) * segmentProgress);
           return timeline.content.substring(0, Math.min(textProgress, timeline.content.length));
         }
         break;
@@ -340,14 +336,11 @@ export class AnimationPlaybackEngine {
         if (characterElapsed >= segmentEndTime) {
           lastRevealedIndex = segment.textReveal.endIndex;
         } else {
+          // Text syncs exactly with segment timing
           const progress = (characterElapsed - segmentStartTime) / segment.duration;
 
-          // Apply pace multiplier
-          const paceMultiplier = this.getEffectivePaceMultiplier(characterId, segment.voice);
-          const adjustedProgress = Math.min(1, progress * paceMultiplier);
-
           lastRevealedIndex = segment.textReveal.startIndex +
-            Math.floor((segment.textReveal.endIndex - segment.textReveal.startIndex) * adjustedProgress);
+            Math.floor((segment.textReveal.endIndex - segment.textReveal.startIndex) * progress);
         }
       }
 
