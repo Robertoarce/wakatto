@@ -699,7 +699,35 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastColor, setToastColor] = useState<string | undefined>();
-  
+
+  // Pending user message (shown while waiting for wakattors to respond)
+  const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null);
+  const [typedUserMessage, setTypedUserMessage] = useState<string>(''); // Animated typing effect
+
+  // Typing animation effect for user message bubble
+  useEffect(() => {
+    if (!pendingUserMessage) {
+      setTypedUserMessage('');
+      return;
+    }
+
+    // Reset and start typing animation
+    setTypedUserMessage('');
+    let currentIndex = 0;
+    const typingSpeed = 30; // ms per character (fast typing)
+
+    const typingInterval = setInterval(() => {
+      if (currentIndex < pendingUserMessage.length) {
+        setTypedUserMessage(pendingUserMessage.slice(0, currentIndex + 1));
+        currentIndex++;
+      } else {
+        clearInterval(typingInterval);
+      }
+    }, typingSpeed);
+
+    return () => clearInterval(typingInterval);
+  }, [pendingUserMessage]);
+
   // In mobile landscape, default to characters view (not chat history)
   // This effect ensures chat history is hidden when rotating to landscape
   useEffect(() => {
@@ -1023,11 +1051,14 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         duration: animationScene.sceneDuration,
         timelines: animationScene.timelines.length
       });
-      
+
+      // Clear pending user message when wakattors start responding
+      setPendingUserMessage(null);
+
       // Set character voice profiles before playing
       const voiceProfiles = buildVoiceProfilesMap();
       playbackEngineRef.current.setCharacterVoiceProfiles(voiceProfiles);
-      
+
       playbackEngineRef.current.play(animationScene);
     }
   }, [animationScene, buildVoiceProfilesMap]);
@@ -1523,6 +1554,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
   const handleSendMessagePress = () => {
     if (input.trim()) {
+      setPendingUserMessage(input.trim()); // Show user message in speech bubble
       onSendMessage(input, selectedCharacters);
       setInput('');
     }
@@ -2166,11 +2198,17 @@ Each silence, a cathedral where you still reside.`;
           </Text>
         </TouchableOpacity>
 
-        {/* Sending Message Indicator - Top button when loading */}
-        {isLoading && (
-          <View style={styles.sendingMessageButton}>
-            <ActivityIndicator size="small" color="#8b5cf6" />
-            <Text style={[styles.sendingMessageText, { fontSize: fonts.sm }]}>Sending message...</Text>
+        {/* User Speech Bubble - Shows user's message with typing animation */}
+        {pendingUserMessage && (
+          <View style={styles.userSpeechBubbleContainer}>
+            <View style={styles.userSpeechBubble}>
+              <Text style={[styles.userSpeechText, { fontSize: fonts.sm }]}>
+                {typedUserMessage}
+                {typedUserMessage.length < pendingUserMessage.length && (
+                  <Text style={styles.typingCursor}>|</Text>
+                )}
+              </Text>
+            </View>
           </View>
         )}
 
@@ -2797,25 +2835,37 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
-  sendingMessageButton: {
+  userSpeechBubbleContainer: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(139, 92, 246, 0.2)',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#8b5cf6',
+    bottom: 60,
+    left: '15%',
+    right: '15%',
     zIndex: 10,
+    alignItems: 'center',
   },
-  sendingMessageText: {
-    fontFamily: 'Inter-SemiBold',
-    color: '#8b5cf6',
-    fontSize: 13,
+  userSpeechBubble: {
+    backgroundColor: '#8a5cf6ae',
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minHeight: 40,
+    maxWidth: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  userSpeechText: {
+    fontFamily: 'Inter-Medium',
+    color: '#ffffff',
+    fontSize: 20,
+    lineHeight: 20,
+  },
+  typingCursor: {
+    color: '#ffffff',
+    fontWeight: '300',
+    opacity: 0.8,
   },
   chatScrollView: {
     flex: 1,
