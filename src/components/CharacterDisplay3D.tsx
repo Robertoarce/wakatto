@@ -2287,29 +2287,40 @@ export function CharacterDisplay3D({
   const effectColor = complementary?.effectColor || character.color;
 
   // Calculate responsive scale based on screen width ( CHARACTER DISTANCE FROM CAMERA)
+  // Proportional scaling - characters scale smoothly with screen width
+  // Small on mobile, normal/big on tablet and desktop
   useEffect(() => {
     const updateScale = () => {
       const { width } = Dimensions.get('window');
 
-      // Mobile: < 768px, Tablet: 768-1024px, Desktop: > 1024px
-      // Lower camera distance = character appears larger
-      if (width < 480) {
-        // Very small mobile - closer camera for bigger character
-        setResponsiveScale(1.1);
-        setCameraDistance(1.6);
-      } else if (width < 768) {
-        // Mobile - closer camera for better visibility
-        setResponsiveScale(1.0);
-        setCameraDistance(1.8);
-      } else if (width < 1024) {
-        // Tablet
-        setResponsiveScale(1.0);
-        setCameraDistance(2.2);
+      // Reference points for proportional scaling:
+      // - 320px (min mobile) -> scale 0.4, camera 3.8 (small)
+      // - 768px (tablet) -> scale 0.7, camera 2.6 (medium)
+      // - 1440px (desktop) -> scale 0.85, camera 2.4 (normal)
+
+      // Clamp width to reasonable range
+      const minWidth = 280;
+      const maxWidth = 1440;
+      const clampedWidth = Math.max(minWidth, Math.min(maxWidth, width));
+
+      // Calculate proportional scale
+      let scale: number;
+      let camera: number;
+
+      if (clampedWidth < 768) {
+        // Mobile range: 320px -> 768px maps to 0.4 -> 0.7
+        const t = (clampedWidth - minWidth) / (768 - minWidth);
+        scale = 0.4 + t * 0.3; // 0.4 to 0.7
+        camera = 3.8 - t * 1.2; // 3.8 to 2.6
       } else {
-        // Desktop
-        setResponsiveScale(1.2);
-        setCameraDistance(2.6);
+        // Desktop range: 768px -> 1440px maps to 0.7 -> 0.85
+        const t = (clampedWidth - 768) / (maxWidth - 768);
+        scale = 0.7 + t * 0.15; // 0.7 to 0.85
+        camera = 2.6 - t * 0.2; // 2.6 to 2.4
       }
+
+      setResponsiveScale(scale);
+      setCameraDistance(camera);
     };
 
     updateScale();
@@ -2387,5 +2398,6 @@ const styles = StyleSheet.create({
     height: '100%',
     width: '100%',
     backgroundColor: 'transparent',
+    overflow: 'visible',
   },
 });

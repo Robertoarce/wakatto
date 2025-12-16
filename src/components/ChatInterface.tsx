@@ -1077,20 +1077,28 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   // ============================================
   const characterCount = selectedCharacters.length;
   
-  // Bubble sizing - scales with screen, generous width for readability
+  // Bubble sizing - scales proportionally with screen width
   const bubbleMaxWidth = useMemo(() => {
     // In mobile landscape, use more horizontal space (wider bubbles)
     if (isMobileLandscape) {
       const landscapeWidth = screenWidth * 0.35; // 35% of wider screen
       return Math.min(landscapeWidth, 350);
     }
-    // Base width: 55% on mobile, 40% on desktop (generous for text readability)
-    const baseWidth = isMobile ? screenWidth * 0.55 : screenWidth * 0.4;
-    // Only slightly reduce for more characters (min 220px for readability)
-    const minWidth = 220;
+    // Proportional width: 80% at 320px, 55% at 768px, 40% at 1200px+
+    // Linear interpolation based on screen width
+    const minScreenWidth = 280;
+    const maxScreenWidth = 1200;
+    const clampedWidth = Math.max(minScreenWidth, Math.min(maxScreenWidth, screenWidth));
+
+    // Calculate percentage (80% -> 40% as screen gets wider)
+    const widthPercent = 0.8 - ((clampedWidth - minScreenWidth) / (maxScreenWidth - minScreenWidth)) * 0.4;
+    const baseWidth = screenWidth * widthPercent;
+
+    // Minimum width scales with screen (no less than 85% of screen - 20px padding)
+    const minWidth = Math.min(220, screenWidth * 0.85 - 20);
     const scaledWidth = Math.max(minWidth, baseWidth - (characterCount - 1) * 15);
     return Math.min(scaledWidth, 420); // Cap at 420px
-  }, [isMobile, isMobileLandscape, screenWidth, characterCount]);
+  }, [isMobileLandscape, screenWidth, characterCount]);
   
   const bubbleMaxHeight = useMemo(() => {
     // In mobile landscape, severely limit height due to constrained vertical space
@@ -2179,37 +2187,73 @@ Each silence, a cathedral where you still reside.`;
         // In mobile landscape, always take full available space
         isMobileLandscape ? { flex: 1 } : (showChatHistory ? { height: characterHeight } : { flex: 1 })
       ]}>
-        {/* Replay Button */}
-        <TouchableOpacity
-          style={styles.replayButton}
-          onPress={handleReplay}
-          disabled={playbackState.isPlaying}
-        >
-          <Ionicons
-            name="refresh"
-            size={18}
-            color={playbackState.isPlaying ? "#71717a" : "#3b82f6"}
-          />
-          <Text style={[styles.replayButtonText, playbackState.isPlaying && styles.replayButtonTextDisabled, { fontSize: fonts.sm }]}>
-            Replay{replayOffset > 0 ? ` (-${replayOffset + 5})` : ''}
-          </Text>
-        </TouchableOpacity>
+        {/* Replay Button - Small proportional sizing */}
+        {(() => {
+          const btnPadH = Math.max(4, 4 + ((screenWidth - 280) / (768 - 280)) * 4); // 4-8px
+          const btnPadV = Math.max(2, 2 + ((screenWidth - 280) / (768 - 280)) * 2); // 2-4px
+          const btnGap = Math.max(2, 2 + ((screenWidth - 280) / (768 - 280)) * 2); // 2-4px
+          const iconSize = Math.max(10, 10 + ((screenWidth - 280) / (768 - 280)) * 4); // 10-14px
+          const fontSize = Math.max(9, 9 + ((screenWidth - 280) / (768 - 280)) * 2); // 9-11px
+          return (
+            <TouchableOpacity
+              style={[
+                styles.replayButton,
+                {
+                  left: Math.max(6, screenWidth * 0.015),
+                  paddingHorizontal: btnPadH,
+                  paddingVertical: btnPadV,
+                  gap: btnGap,
+                }
+              ]}
+              onPress={handleReplay}
+              disabled={playbackState.isPlaying}
+            >
+              <Ionicons
+                name="refresh"
+                size={iconSize}
+                color={playbackState.isPlaying ? "#71717a" : "#3b82f6"}
+              />
+              <Text style={[styles.replayButtonText, playbackState.isPlaying && styles.replayButtonTextDisabled, { fontSize }]}>
+                Replay{replayOffset > 0 ? ` (-${replayOffset + 5})` : ''}
+              </Text>
+            </TouchableOpacity>
+          );
+        })()}
 
-        {/* Tell me a Poem Button */}
-        <TouchableOpacity
-          style={styles.testSpeechButton}
-          onPress={handleTestSpeech}
-          disabled={playbackState.isPlaying}
-        >
-          <Ionicons
-            name={playbackState.isPlaying ? "stop-circle" : "play-circle"}
-            size={20}
-            color={playbackState.isPlaying ? "#ef4444" : "#22c55e"}
-          />
-          <Text style={[styles.testSpeechText, playbackState.isPlaying && styles.testSpeechTextActive, { fontSize: fonts.sm }]}>
-            {playbackState.isPlaying ? 'Playing...' : 'Tell me a Poem'}
-          </Text>
-        </TouchableOpacity>
+        {/* Tell me a Poem Button - Small proportional sizing */}
+        {(() => {
+          const btnPadH = Math.max(4, 4 + ((screenWidth - 280) / (768 - 280)) * 4); // 4-8px
+          const btnPadV = Math.max(2, 2 + ((screenWidth - 280) / (768 - 280)) * 2); // 2-4px
+          const btnGap = Math.max(2, 2 + ((screenWidth - 280) / (768 - 280)) * 2); // 2-4px
+          const iconSize = Math.max(10, 10 + ((screenWidth - 280) / (768 - 280)) * 4); // 10-14px
+          const fontSize = Math.max(9, 9 + ((screenWidth - 280) / (768 - 280)) * 2); // 9-11px
+          // Position after Replay button - smaller estimate
+          const replayWidth = Math.max(50, 50 + ((screenWidth - 280) / (768 - 280)) * 20); // ~50-70px
+          return (
+            <TouchableOpacity
+              style={[
+                styles.testSpeechButton,
+                {
+                  left: Math.max(6, screenWidth * 0.015) + replayWidth + 4,
+                  paddingHorizontal: btnPadH,
+                  paddingVertical: btnPadV,
+                  gap: btnGap,
+                }
+              ]}
+              onPress={handleTestSpeech}
+              disabled={playbackState.isPlaying}
+            >
+              <Ionicons
+                name={playbackState.isPlaying ? "stop-circle" : "play-circle"}
+                size={iconSize}
+                color={playbackState.isPlaying ? "#ef4444" : "#22c55e"}
+              />
+              <Text style={[styles.testSpeechText, playbackState.isPlaying && styles.testSpeechTextActive, { fontSize }]}>
+                {playbackState.isPlaying ? 'Playing...' : 'Tell me a Poem'}
+              </Text>
+            </TouchableOpacity>
+          );
+        })()}
 
         {/* User Speech Bubble - Shows user's message with typing animation */}
         {pendingUserMessage && (
@@ -2296,7 +2340,11 @@ Each silence, a cathedral where you still reside.`;
               const angleRad = (angle * Math.PI) / 180;
               
               // Calculate horizontal position (percentage from center)
-              const horizontalOffset = Math.sin(angleRad) * 50; // 30% max offset from center (closer together)
+              // Proportional spread - scales with screen width (35% at 320px, 50% at 768px+)
+              const minSpread = 30;
+              const maxSpread = 50;
+              const spreadFactor = Math.min(maxSpread, minSpread + ((screenWidth - 280) / (768 - 280)) * (maxSpread - minSpread));
+              const horizontalOffset = Math.sin(angleRad) * spreadFactor;
               
               // Distance from center (0 = center, 1 = edges)
               // Handle single character case where angleRange is 0 to avoid NaN
@@ -2350,10 +2398,12 @@ Each silence, a cathedral where you still reside.`;
                     styles.characterWrapper,
                     {
                       position: 'absolute',
-                      left: `${48 + horizontalOffset - (100 / total / 2)}%`, // Centered
+                      // Proportional positioning based on screen width
+                      left: `${47 + horizontalOffset - (100 / total / 2)}%`,
                       width: `${Math.max(100 / total, 22)}%`,
-                      top: `${25 + (20 - verticalPosition)}%`, // Center higher up, edges lower
-                      transform: [{ scale }],
+                      top: `${15 + (20 - verticalPosition)}%`, // Center higher up, edges lower (lowered from 25% to 15%)
+                      // Scale based on character count only - CharacterDisplay3D handles screen-width scaling
+                      transform: [{ scale: scale }],
                       zIndex: zIndex,
                     }
                   ]}
@@ -2613,10 +2663,10 @@ Each silence, a cathedral where you still reside.`;
         </ScrollView>
       )}
 
-      <View style={styles.inputContainer}>
+      <View style={[styles.inputContainer, { padding: screenWidth < 360 ? spacing.sm : spacing.md }]}>
         {/* Recording Status & Live Transcript */}
         {(isRecording || liveTranscript || isTranscribing) && (
-          <View style={styles.recordingStatusContainer}>
+          <View style={[styles.recordingStatusContainer, { paddingHorizontal: screenWidth < 360 ? spacing.sm : spacing.md }]}>
             {isRecording && (
               <View style={styles.recordingStatus}>
                 <View style={[styles.recordingDot, isPaused && styles.recordingDotPaused]} />
@@ -2659,11 +2709,14 @@ Each silence, a cathedral where you still reside.`;
         <View style={[
           styles.inputWrapper,
           {
-            width: isMobile ? '95%' : isTablet ? '70%' : '50%',
-            minWidth: isMobile ? 280 : 300,
-            maxWidth: isMobile ? 9999 : 500,
-            padding: spacing.md,
-            gap: spacing.md,
+            // Golden ratio: wider, less tall - 95% at 320px, 75% at 768px, 60% at 1200px+
+            width: `${Math.max(60, 95 - ((screenWidth - 280) / (1200 - 280)) * 35)}%`,
+            minWidth: Math.min(280, screenWidth - 24),
+            maxWidth: 650,
+            // Reduced vertical padding for golden ratio (horizontal emphasis)
+            paddingVertical: Math.max(6, 6 + ((screenWidth - 280) / (768 - 280)) * 4), // 6-10px
+            paddingHorizontal: Math.max(10, 10 + ((screenWidth - 280) / (768 - 280)) * 6), // 10-16px
+            gap: Math.max(6, 6 + ((screenWidth - 280) / (768 - 280)) * 4),
           }
         ]}>
           <TextInput
@@ -2675,42 +2728,53 @@ Each silence, a cathedral where you still reside.`;
               styles.textInput,
               {
                 fontSize: fonts.md,
-                minHeight: layout.inputMinHeight,
+                minHeight: Math.max(28, 28 + ((screenWidth - 280) / (768 - 280)) * 8), // 28-36px (less tall)
+                maxHeight: 80, // Reduced max height
+                paddingVertical: 4,
               }
             ]}
             multiline
             onFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
             onKeyPress={handleKeyPress}
           />
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              onPress={toggleRecording}
-              disabled={isTranscribing}
-              style={[
-                styles.iconButton,
-                isRecording ? styles.recordButtonActive : styles.recordButtonInactive,
-                isTranscribing && styles.buttonDisabled,
-                { minWidth: layout.minTouchTarget, minHeight: layout.minTouchTarget }
-              ]}
-            >
-              {isRecording ? <MaterialCommunityIcons name="microphone-off" size={isMobile ? 22 : 24} color="white" /> : <MaterialCommunityIcons name="microphone" size={isMobile ? 22 : 24} color="#a1a1aa" />}
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleSendMessagePress}
-              disabled={!input.trim() || isLoading}
-              style={[
-                styles.iconButton,
-                styles.sendButton,
-                (!input.trim() || isLoading) && styles.sendButtonDisabled,
-                { minWidth: layout.minTouchTarget, minHeight: layout.minTouchTarget }
-              ]}
-            >
-              {isLoading ? (
-                <ActivityIndicator size="small" color="white" />
-              ) : (
-              <Ionicons name="send" size={isMobile ? 22 : 24} color="white" />
-              )}
-            </TouchableOpacity>
+          <View style={[styles.actionButtons, { gap: Math.max(3, 3 + ((screenWidth - 280) / (768 - 280)) * 3) }]}>
+            {/* Proportional button size: 28px at 320px, 34px at 768px+ (smaller for golden ratio) */}
+            {(() => {
+              const buttonSize = Math.min(34, 28 + ((screenWidth - 280) / (768 - 280)) * 6);
+              const iconSize = Math.min(18, 14 + ((screenWidth - 280) / (768 - 280)) * 4);
+              return (
+                <>
+                  <TouchableOpacity
+                    onPress={toggleRecording}
+                    disabled={isTranscribing}
+                    style={[
+                      styles.iconButton,
+                      isRecording ? styles.recordButtonActive : styles.recordButtonInactive,
+                      isTranscribing && styles.buttonDisabled,
+                      { width: buttonSize, height: buttonSize, minWidth: buttonSize, minHeight: buttonSize }
+                    ]}
+                  >
+                    {isRecording ? <MaterialCommunityIcons name="microphone-off" size={iconSize} color="white" /> : <MaterialCommunityIcons name="microphone" size={iconSize} color="#a1a1aa" />}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleSendMessagePress}
+                    disabled={!input.trim() || isLoading}
+                    style={[
+                      styles.iconButton,
+                      styles.sendButton,
+                      (!input.trim() || isLoading) && styles.sendButtonDisabled,
+                      { width: buttonSize, height: buttonSize, minWidth: buttonSize, minHeight: buttonSize }
+                    ]}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color="white" />
+                    ) : (
+                      <Ionicons name="send" size={iconSize} color="white" />
+                    )}
+                  </TouchableOpacity>
+                </>
+              );
+            })()}
           </View>
         </View>
       </View>
@@ -2972,16 +3036,11 @@ const styles = StyleSheet.create({
   },
   inputWrapper: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 12,
+    alignItems: 'center',
     backgroundColor: '#171717',
-    borderRadius: 20,
-    padding: 12,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: '#27272a',
-    maxWidth: 500,
-    width: '50%',
-    minWidth: 300,
     alignSelf: 'center',
   },
   textInput: {
@@ -2990,10 +3049,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     color: 'white',
     fontSize: 15,
-    minHeight: 40,
-    maxHeight: 128,
     paddingHorizontal: 4,
-    paddingVertical: 8,
   },
   actionButtons: {
     flexDirection: 'row',
@@ -3063,7 +3119,7 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   characterWrapper: {
-    height: '85%',
+    height: '95%',
     alignItems: 'center',
     justifyContent: 'flex-end',
     overflow: 'visible',
@@ -3190,21 +3246,16 @@ const styles = StyleSheet.create({
   replayButton: {
     position: 'absolute',
     bottom: 8,
-    left: 160,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
     backgroundColor: 'rgba(15, 15, 15, 0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: '#27272a',
     zIndex: 10,
   },
   replayButtonText: {
     color: '#3b82f6',
-    fontSize: 14,
     fontWeight: '600',
   },
   replayButtonTextDisabled: {
@@ -3213,21 +3264,16 @@ const styles = StyleSheet.create({
   testSpeechButton: {
     position: 'absolute',
     bottom: 8,
-    left: 280,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
     backgroundColor: 'rgba(15, 15, 15, 0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: '#27272a',
     zIndex: 10,
   },
   testSpeechText: {
     color: '#22c55e',
-    fontSize: 14,
     fontWeight: '600',
   },
   testSpeechTextActive: {
@@ -3512,9 +3558,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 10,
     maxWidth: 420, // Base max, can be overridden by dynamic prop
-    minWidth: 200, // Minimum for text readability
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    minWidth: 140, // Reduced minimum - dynamic styles handle small screens
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     backgroundColor: 'rgba(23, 23, 23, 0.98)',
     borderRadius: 14,
     borderWidth: 2,
@@ -3565,8 +3611,8 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: '100%',
     maxWidth: '100%',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     backgroundColor: 'rgba(23, 23, 23, 0.95)',
     borderRadius: 12,
     borderWidth: 2,

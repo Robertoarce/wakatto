@@ -8,15 +8,23 @@ import { setSession } from '../store/actions/authActions';
 import { useCustomAlert } from '../components/CustomAlert';
 import { AnimatedBackground3D } from '../components/AnimatedBackground3D';
 import { Button, Input, Card } from '../components/ui';
+import { useResponsive } from '../constants/Layout';
 
 export default function LoginScreen() {
   const navigation = useNavigation();
   const dispatch = useDispatch();
   const { showAlert, AlertComponent } = useCustomAlert();
+  const { fonts, spacing, isMobile, width } = useResponsive();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'signIn' | 'signUp'>('signIn');
+
+  // Responsive calculations for small screens
+  const isSmallScreen = width < 360;
+  const cardPadding = isSmallScreen ? spacing.md : isMobile ? spacing.lg : spacing.xl;
+  const logoSize = isSmallScreen ? 60 : isMobile ? 70 : 80;
+  const iconSize = isSmallScreen ? 30 : isMobile ? 35 : 40;
 
   async function signInWithEmail() {
     // Validation
@@ -103,36 +111,36 @@ export default function LoginScreen() {
 
       {/* Login Card */}
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { padding: spacing.md }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.card}>
+        <View style={[styles.card, { padding: cardPadding }]}>
           {/* Logo Icon */}
-          <View style={styles.logoContainer}>
-            <View style={styles.logoBackground}>
-              <Ionicons name="chatbubbles" size={40} color="white" />
+          <View style={[styles.logoContainer, { marginBottom: spacing.lg }]}>
+            <View style={[styles.logoBackground, { width: logoSize, height: logoSize, borderRadius: logoSize * 0.25 }]}>
+              <Ionicons name="chatbubbles" size={iconSize} color="white" />
             </View>
           </View>
 
           {/* Welcome Text */}
-          <Text style={styles.title}>Welcome to Wakatto</Text>
-          <Text style={styles.subtitle}>Organize social events with friends effortlessly</Text>
+          <Text style={[styles.title, { fontSize: fonts.xl, marginBottom: spacing.xs }]}>Welcome to Wakatto</Text>
+          <Text style={[styles.subtitle, { fontSize: fonts.sm, marginBottom: spacing.lg }]}>Organize social events with friends effortlessly</Text>
 
           {/* Tabs */}
-          <View style={styles.tabContainer}>
+          <View style={[styles.tabContainer, { marginBottom: spacing.lg }]}>
             <TouchableOpacity
-              style={[styles.tab, activeTab === 'signIn' && styles.activeTab]}
+              style={[styles.tab, { paddingVertical: spacing.sm }, activeTab === 'signIn' && styles.activeTab]}
               onPress={() => handleTabSwitch('signIn')}
             >
-              <Text style={[styles.tabText, activeTab === 'signIn' && styles.activeTabText]}>
+              <Text style={[styles.tabText, { fontSize: fonts.md }, activeTab === 'signIn' && styles.activeTabText]}>
                 Sign In
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.tab, activeTab === 'signUp' && styles.activeTab]}
+              style={[styles.tab, { paddingVertical: spacing.sm }, activeTab === 'signUp' && styles.activeTab]}
               onPress={() => handleTabSwitch('signUp')}
             >
-              <Text style={[styles.tabText, activeTab === 'signUp' && styles.activeTabText]}>
+              <Text style={[styles.tabText, { fontSize: fonts.md }, activeTab === 'signUp' && styles.activeTabText]}>
                 Sign Up
               </Text>
             </TouchableOpacity>
@@ -185,15 +193,13 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
     minHeight: '100%',
   },
   card: {
     width: '100%',
     maxWidth: 440,
     backgroundColor: '#2a2a2a',
-    borderRadius: 24,
-    padding: 32,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: '#3a3a3a',
     ...Platform.select({
@@ -213,39 +219,29 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 24,
   },
   logoBackground: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
     backgroundColor: '#5b7ef6',
     justifyContent: 'center',
     alignItems: 'center',
   },
   title: {
-    fontSize: 24,
     fontWeight: '600',
     color: '#ffffff',
     textAlign: 'center',
-    marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
     color: '#9ca3af',
     textAlign: 'center',
-    marginBottom: 24,
   },
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: '#1f1f1f',
     borderRadius: 12,
     padding: 4,
-    marginBottom: 24,
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
@@ -253,7 +249,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#5b7ef6',
   },
   tabText: {
-    fontSize: 15,
     fontWeight: '500',
     color: '#9ca3af',
   },

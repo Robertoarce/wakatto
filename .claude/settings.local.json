@@ -111,7 +111,8 @@
       "Bash(jq:*)",
       "Bash(supabase projects:*)",
       "Bash(SUPABASE_ACCESS_TOKEN=sbp_dfbbc3449088fb6bf1219e9b033746a123ca8d73 supabase functions deploy:*)",
-      "Bash(unset:*)"
+      "Bash(unset:*)",
+      "Bash(start http://localhost:8080)"
     ],
     "deny": [],
     "ask": []
