@@ -57,9 +57,9 @@ export const VOICE_PACES: VoicePace[] = ['slow', 'normal', 'fast'];
  * Base speed is 65ms per character (DEFAULT_TALKING_SPEED)
  */
 export const PACE_MULTIPLIERS: Record<VoicePace, number> = {
-  slow: 0.6,   // ~108ms per char - measured, thoughtful
-  normal: 1.0, // 65ms per char - standard
-  fast: 1.5    // ~43ms per char - energetic, urgent
+  slow: 0.5,   // ~130ms per char - measured, thoughtful
+  normal: 0.75, // ~87ms per char - conversational
+  fast: 1.2    // ~54ms per char - energetic, urgent
 };
 
 // ============================================
