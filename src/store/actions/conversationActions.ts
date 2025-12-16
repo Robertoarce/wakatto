@@ -164,7 +164,7 @@ export const selectConversation = (conversation: any) => async (dispatch: any) =
 };
 
 // Async action to save a message to the database
-export const saveMessage = (conversationId: string, role: 'user' | 'assistant', content: string, characterId?: string) => async (dispatch: any, getState: any) => {
+export const saveMessage = (conversationId: string, role: 'user' | 'assistant', content: string, characterId?: string, metadata?: Record<string, any>) => async (dispatch: any, getState: any) => {
   try {
     const { data, error } = await supabase
       .from('messages')
@@ -175,6 +175,7 @@ export const saveMessage = (conversationId: string, role: 'user' | 'assistant', 
           content,
           character_id: characterId || null,
           created_at: new Date().toISOString(),
+          metadata: metadata || null,
         }
       ])
       .select()

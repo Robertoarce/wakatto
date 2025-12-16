@@ -31,7 +31,9 @@ export interface AnimationSegment {
   complementary?: {
     lookDirection?: LookDirection;
     eyeState?: EyeState;
+    eyebrowState?: EyebrowState;
     mouthState?: MouthState;
+    faceState?: FaceState;
     effect?: VisualEffect;
     speed?: number;
     // Blink timing (only used when eyeState is 'blink')
@@ -93,7 +95,9 @@ interface LLMCharacterResponse {
     duration: number;
     look?: string;
     eyes?: string;
+    eyebrow?: string;
     mouth?: string;
+    face?: string;
     effect?: string;
     talking?: boolean;
     textRange?: [number, number];
@@ -136,13 +140,19 @@ interface LLMSceneResponse {
 
 // Valid animation states (must match AnimationState type)
 const VALID_ANIMATIONS: AnimationState[] = [
+  // Core animations
   'idle', 'thinking', 'talking', 'confused', 'happy', 'excited',
   'winning', 'walking', 'jump', 'surprise_jump', 'surprise_happy',
   'lean_back', 'lean_forward', 'cross_arms', 'nod', 'shake_head',
   'shrug', 'wave', 'point', 'clap', 'bow',
-  // New animations
+  // Expressive animations
   'facepalm', 'dance', 'laugh', 'cry', 'angry', 'nervous',
-  'celebrate', 'peek', 'doze', 'stretch'
+  'celebrate', 'peek', 'doze', 'stretch',
+  // Idle animations
+  'kick_ground', 'meh', 'foot_tap', 'look_around', 'yawn',
+  'fidget', 'rub_eyes', 'weight_shift',
+  // Processing/thinking animations
+  'head_tilt', 'chin_stroke'
 ];
 
 const VALID_LOOK_DIRECTIONS: LookDirection[] = [
@@ -255,12 +265,40 @@ function validateMouthState(mouth?: string): MouthState | undefined {
  */
 function validateEffect(effect?: string): VisualEffect | undefined {
   if (!effect) return undefined;
-  
+
   const normalized = effect.toLowerCase().trim();
   if (VALID_EFFECTS.includes(normalized as VisualEffect)) {
     return normalized as VisualEffect;
   }
-  
+
+  return undefined;
+}
+
+/**
+ * Validate and normalize eyebrow state
+ */
+function validateEyebrowState(eyebrow?: string): EyebrowState | undefined {
+  if (!eyebrow) return undefined;
+
+  const normalized = eyebrow.toLowerCase().trim().replace(/\s+/g, '_');
+  if (VALID_EYEBROW_STATES.includes(normalized as EyebrowState)) {
+    return normalized as EyebrowState;
+  }
+
+  return undefined;
+}
+
+/**
+ * Validate and normalize face state
+ */
+function validateFaceState(face?: string): FaceState | undefined {
+  if (!face) return undefined;
+
+  const normalized = face.toLowerCase().trim().replace(/\s+/g, '_');
+  if (VALID_FACE_STATES.includes(normalized as FaceState)) {
+    return normalized as FaceState;
+  }
+
   return undefined;
 }
 
@@ -355,8 +393,19 @@ interface CompactSceneResponse {
         ms: number;
         lk?: string;
         talking?: boolean;
+        ey?: string;   // eyes (compact)
+        eb?: string;   // eyebrow (compact)
+        m?: string;    // mouth (compact)
+        fc?: string;   // face (compact)
+        fx?: string;   // effect (compact)
+        v?: any;       // voice (compact)
+        // Also support full keys for backwards compat
         eyes?: string;
+        eyebrow?: string;
         mouth?: string;
+        face?: string;
+        effect?: string;
+        voice?: any;
       }>;
     }>;
   };
@@ -375,7 +424,7 @@ function isCompactFormat(parsed: any): parsed is CompactSceneResponse {
  */
 function normalizeCompactJSON(compact: CompactSceneResponse): LLMSceneResponse {
   console.log('[AnimOrch] Converting compact JSON format to full format');
-  
+
   return {
     scene: {
       totalDuration: compact.s.dur,
@@ -388,8 +437,13 @@ function normalizeCompactJSON(compact: CompactSceneResponse): LLMSceneResponse {
           duration: seg.ms,
           look: seg.lk,
           talking: seg.talking,
-          eyes: seg.eyes,
-          mouth: seg.mouth,
+          // Support both compact and full keys
+          eyes: seg.ey || seg.eyes,
+          eyebrow: seg.eb || seg.eyebrow,
+          mouth: seg.m || seg.mouth,
+          face: seg.fc || seg.face,
+          effect: seg.fx || seg.effect,
+          voice: seg.v || seg.voice,
         }))
       }))
     }
@@ -635,16 +689,22 @@ function parseSegment(
   const duration = clampDuration(raw.duration);
   
   const complementary: AnimationSegment['complementary'] = {};
-  
+
   const lookDir = validateLookDirection(raw.look);
   if (lookDir) complementary.lookDirection = lookDir;
-  
+
   const eyeState = validateEyeState(raw.eyes);
   if (eyeState) complementary.eyeState = eyeState;
-  
+
+  const eyebrowState = validateEyebrowState(raw.eyebrow);
+  if (eyebrowState) complementary.eyebrowState = eyebrowState;
+
   const mouthState = validateMouthState(raw.mouth);
   if (mouthState) complementary.mouthState = mouthState;
-  
+
+  const faceState = validateFaceState(raw.face);
+  if (faceState) complementary.faceState = faceState;
+
   const effect = validateEffect(raw.effect);
   if (effect && effect !== 'none') complementary.effect = effect;
   

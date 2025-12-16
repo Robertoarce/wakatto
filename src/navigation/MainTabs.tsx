@@ -518,6 +518,35 @@ export default function MainTabs() {
     }
   }, [dispatch, store]);
 
+  // Handle saving idle conversation messages (characters talking to each other)
+  const handleSaveIdleMessage = useCallback(async (characterId: string, content: string, metadata?: Record<string, any>) => {
+    console.log('[MainTabs] handleSaveIdleMessage called for character:', characterId);
+
+    try {
+      // Get the LATEST state from the store
+      const state = store.getState() as RootState;
+      const conversation = state.conversations.currentConversation;
+
+      if (!conversation) {
+        console.log('[MainTabs] No current conversation, skipping idle message save');
+        return;
+      }
+
+      // Save the idle message as an assistant message with metadata
+      await dispatch(saveMessage(
+        conversation.id,
+        'assistant',
+        content,
+        characterId,
+        metadata
+      ) as any);
+
+      console.log('[MainTabs] Idle message saved successfully');
+    } catch (error: any) {
+      console.error('[MainTabs] Failed to save idle message:', error);
+    }
+  }, [dispatch, store]);
+
   return (
     <View style={styles.fullContainer}>
       <AlertComponent />
@@ -582,6 +611,7 @@ export default function MainTabs() {
                 conversationId={currentConversation?.id}
                 savedCharacters={currentConversation?.selected_characters}
                 onCharacterSelectionChange={handleCharacterSelectionChange}
+                onSaveIdleMessage={handleSaveIdleMessage}
               />
             )}
           </Tab.Screen>

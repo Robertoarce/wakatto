@@ -479,17 +479,19 @@ ${basePrompt}
 
 ${STATIC_ORCHESTRATION_IDENTITY_RULES}
 ## Animation System
-Body: idle,talking,thinking,nodding,waving,leaning_forward
-Look: at_user,at_left_character,at_right_character,up,down
-Eye: open,squint,wide | Mouth: closed,smile,open
+Body: idle,thinking,talking,confused,happy,excited,winning,walking,jump,surprise_jump,surprise_happy,lean_back,lean_forward,cross_arms,nod,shake_head,shrug,wave,point,clap,bow,facepalm,dance,laugh,cry,angry,nervous,celebrate,peek,doze,stretch,kick_ground,meh,foot_tap,look_around,yawn,fidget,rub_eyes,weight_shift,head_tilt,chin_stroke
+Look: center,left,right,up,down,at_left_character,at_right_character
+Eye: open,closed,wink_left,wink_right,blink,surprised_blink | Eyebrow: normal,raised,furrowed,sad,worried,one_raised,wiggle
+Mouth: closed,open,smile,wide_smile,surprised | Face: normal,blush,sweat_drop,sparkle_eyes,heart_eyes,spiral_eyes,tears,anger_vein,shadow_face
+Effect: none,confetti,spotlight,sparkles,hearts
 
 ## Voice (optional "v" object per segment)
 ${getVoiceOptionsForPrompt()}
 
 ## Output Format (COMPACT JSON)
-Use short keys: s=scene, dur=totalDuration, ch=characters, c=character, t=content, d=startDelay, tl=timeline, a=animation, ms=duration, lk=look, v=voice
+Use short keys: s=scene, dur=totalDuration, ch=characters, c=character, t=content, d=startDelay, tl=timeline, a=animation, ms=duration, lk=look, ey=eyes, eb=eyebrow, m=mouth, fc=face, fx=effect, v=voice
 
-{"s":{"dur":MS,"ch":[{"c":"ID","t":"TEXT","d":MS,"tl":[{"a":"thinking","ms":1500,"lk":"up"},{"a":"talking","ms":3000,"talking":true,"lk":"at_user","v":{"p":"low","t":"warm","pace":"slow","mood":"calm","int":"explaining"}}]}]}}
+{"s":{"dur":MS,"ch":[{"c":"ID","t":"TEXT","d":MS,"tl":[{"a":"thinking","ms":1500,"lk":"up","eb":"raised"},{"a":"talking","ms":3000,"talking":true,"lk":"at_user","m":"smile","v":{"p":"low","t":"warm","pace":"slow","mood":"calm","int":"explaining"}}]}]}}
 
 ## Rules
 - 1-2 sentences per response, casual and conversational

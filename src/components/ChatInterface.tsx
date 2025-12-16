@@ -20,6 +20,13 @@ import { generateProcessingScene } from '../services/processingAnimations';
 import { getRandomGreeting } from '../services/characterGreetings';
 import { useResponsive, BREAKPOINTS } from '../constants/Layout';
 import { Toast } from './ui/Toast';
+import {
+  IdleConversationManager,
+  IdleConversationState,
+  initIdleConversationManager,
+  destroyIdleConversationManager,
+  getIdleConversationManager
+} from '../services/idleConversationService';
 
 interface Message {
   id: string;
@@ -56,6 +63,8 @@ interface ChatInterfaceProps {
   savedCharacters?: string[] | null;
   // Callback when character selection changes (for persistence)
   onCharacterSelectionChange?: (characterIds: string[]) => void;
+  // Callback to save idle conversation messages
+  onSaveIdleMessage?: (characterId: string, content: string, metadata?: Record<string, any>) => void;
 }
 
 // Export function to start animation playback from external components
@@ -657,7 +666,7 @@ function FloatingCharacterWrapper({
   );
 }
 
-export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting, conversationId, savedCharacters, onCharacterSelectionChange }: ChatInterfaceProps) {
+export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting, conversationId, savedCharacters, onCharacterSelectionChange, onSaveIdleMessage }: ChatInterfaceProps) {
   const dispatch = useDispatch();
   const { isFullscreen } = useSelector((state: RootState) => state.ui);
   const { showAlert, AlertComponent } = useCustomAlert();
@@ -917,6 +926,127 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       }
     });
   }, [selectedCharacters, updateCharacterIdleAnimation, scheduleNextIdleAnimation]);
+
+  // ============================================
+  // IDLE CONVERSATION SYSTEM (Characters talk to each other when user is away)
+  // ============================================
+
+  const [idleConversationState, setIdleConversationState] = useState<IdleConversationState>('ACTIVE');
+  const idleManagerRef = useRef<IdleConversationManager | null>(null);
+  const [idleAnimationSceneOverride, setIdleAnimationSceneOverride] = useState<OrchestrationScene | null>(null);
+
+  // Handle idle conversation start - play the animation and save messages
+  const handleIdleConversationStart = useCallback(async (scene: OrchestrationScene) => {
+    console.log('[ChatInterface] Idle conversation starting with', scene.timelines.length, 'characters');
+
+    // Set the scene to play - use override to not conflict with normal animationScene prop
+    setIdleAnimationSceneOverride(scene);
+
+    // Start playback
+    const engine = getPlaybackEngine();
+    engine.play(scene);
+
+    // Save each character's lines to the conversation with idle marker
+    if (onSaveIdleMessage && conversationId) {
+      for (const timeline of scene.timelines) {
+        if (timeline.content) {
+          await onSaveIdleMessage(timeline.characterId, timeline.content, { is_idle_conversation: true });
+        }
+      }
+    }
+  }, [onSaveIdleMessage, conversationId]);
+
+  // Handle idle conversation complete
+  const handleIdleConversationComplete = useCallback(() => {
+    console.log('[ChatInterface] Idle conversation complete');
+    setIdleAnimationSceneOverride(null);
+
+    // Notify the manager that we're done
+    idleManagerRef.current?.onConversationComplete();
+  }, []);
+
+  // Handle user return interruption
+  const handleUserReturnInterruption = useCallback((scene: OrchestrationScene) => {
+    console.log('[ChatInterface] User returned, playing interruption');
+
+    // Play the interruption scene
+    setIdleAnimationSceneOverride(scene);
+    const engine = getPlaybackEngine();
+    engine.play(scene);
+
+    // Save the interruption message (the "shut up!" message)
+    if (onSaveIdleMessage && conversationId) {
+      for (const timeline of scene.timelines) {
+        if (timeline.content) {
+          onSaveIdleMessage(timeline.characterId, timeline.content, { is_idle_conversation: true });
+        }
+      }
+    }
+  }, [onSaveIdleMessage, conversationId]);
+
+  // Handle idle conversation state change
+  const handleIdleStateChange = useCallback((state: IdleConversationState) => {
+    setIdleConversationState(state);
+  }, []);
+
+  // Initialize idle conversation manager when characters change
+  useEffect(() => {
+    // Only enable if 2+ characters selected and we have a conversation
+    if (selectedCharacters.length >= 2 && conversationId) {
+      console.log('[ChatInterface] Initializing idle conversation manager with', selectedCharacters.length, 'characters');
+
+      idleManagerRef.current = initIdleConversationManager(
+        selectedCharacters,
+        {
+          onStateChange: handleIdleStateChange,
+          onConversationStart: handleIdleConversationStart,
+          onConversationComplete: handleIdleConversationComplete,
+          onUserReturnInterruption: handleUserReturnInterruption,
+        }
+      );
+
+      // Start monitoring after a short delay to avoid triggering immediately
+      setTimeout(() => {
+        idleManagerRef.current?.start();
+      }, 2000);
+
+    } else if (idleManagerRef.current) {
+      // Stop and destroy if we don't have enough characters
+      idleManagerRef.current.stop();
+      idleManagerRef.current = null;
+    }
+
+    return () => {
+      destroyIdleConversationManager();
+      idleManagerRef.current = null;
+    };
+  }, [selectedCharacters, conversationId, handleIdleStateChange, handleIdleConversationStart, handleIdleConversationComplete, handleUserReturnInterruption]);
+
+  // Update characters in the manager when selection changes
+  useEffect(() => {
+    if (idleManagerRef.current) {
+      idleManagerRef.current.updateCharacters(selectedCharacters);
+    }
+  }, [selectedCharacters]);
+
+  // Listen for playback completion to notify idle manager
+  useEffect(() => {
+    if (!playbackState.isPlaying && idleAnimationSceneOverride) {
+      // Playback ended - notify idle manager
+      handleIdleConversationComplete();
+    }
+  }, [playbackState.isPlaying, idleAnimationSceneOverride, handleIdleConversationComplete]);
+
+  // Handle user typing - detect user return
+  const handleInputChange = useCallback((text: string) => {
+    setInput(text);
+
+    // Check if we should interrupt an idle conversation
+    const manager = getIdleConversationManager();
+    if (manager) {
+      manager.handleUserTyping();
+    }
+  }, []);
 
   // ============================================
   // RESPONSIVE CALCULATIONS FOR BUBBLES & CHARACTERS
@@ -2649,12 +2779,12 @@ Each silence, a cathedral where you still reside.`;
         ]}>
           <TextInput
             value={input}
-            onChangeText={setInput}
+            onChangeText={handleInputChange}
             placeholder="Type in here.."
             placeholderTextColor="#71717a"
             style={[
-              styles.textInput, 
-              { 
+              styles.textInput,
+              {
                 fontSize: fonts.md,
                 minHeight: layout.inputMinHeight,
               }

@@ -381,28 +381,34 @@ const AnimationsScreen = (): JSX.Element => {
               </View>
             </View>
 
-            {/* 3D Style selector */}
+            {/* Test Idle Conversation Button */}
             <View style={styles.characterSelector}>
-              <Text style={styles.selectorLabel}>3D Style:</Text>
+              <Text style={styles.selectorLabel}>Idle Chat:</Text>
               <View style={styles.characterButtons}>
-                {MODEL_STYLES.map((style) => (
-                  <TouchableOpacity
-                    key={style.value}
-                    style={[
-                      styles.styleButton,
-                      selectedModelStyle === style.value && styles.styleButtonActive,
-                    ]}
-                    onPress={() => setSelectedModelStyle(style.value)}
-                  >
-                    <Text style={styles.styleIcon}>{style.icon}</Text>
-                    <Text style={[
-                      styles.characterButtonText,
-                      selectedModelStyle === style.value && styles.styleButtonTextActive
-                    ]}>
-                      {style.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                <TouchableOpacity
+                  style={[
+                    styles.styleButton,
+                    styles.idleConversationButton,
+                  ]}
+                  onPress={() => {
+                    // Trigger idle conversation test
+                    const { getIdleConversationManager } = require('../services/idleConversationService');
+                    const manager = getIdleConversationManager();
+                    if (manager) {
+                      // Force trigger by simulating inactivity timeout
+                      console.log('[AnimationsScreen] Manually triggering idle conversation');
+                      manager.recordUserActivity(); // Reset first
+                      // Then immediately trigger via the internal method
+                      (manager as any).triggerIdleConversation?.();
+                    } else {
+                      console.log('[AnimationsScreen] No idle conversation manager - go to Home tab with 2+ characters');
+                      alert('Go to Home tab with 2+ characters selected to test idle conversations');
+                    }
+                  }}
+                >
+                  <Text style={styles.styleIcon}>🗣️</Text>
+                  <Text style={styles.characterButtonText}>Test Idle Chat</Text>
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -1050,6 +1056,10 @@ const styles = StyleSheet.create({
   },
   styleIcon: {
     fontSize: 14,
+  },
+  idleConversationButton: {
+    backgroundColor: '#1a2e1a',
+    borderColor: '#22c55e',
   },
   quickControls: {
     flexDirection: 'row',
