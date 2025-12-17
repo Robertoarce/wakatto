@@ -1568,16 +1568,94 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
 
     return (
       <>
-        {/* Blush - Pink cheeks */}
-        {faceState === 'blush' && (
+        {/* NEW: Cheek States - render cheeks based on cheekState */}
+        {complementary?.cheekState === 'flushed' && (
           <>
             <mesh position={[-0.18 + faceOffset.x, -0.02 + faceOffset.y, 0.24 + faceOffset.z]}>
               <circleGeometry args={[0.06, 16]} />
-              <meshBasicMaterial color="#ff9999" transparent opacity={0.6} />
+              <meshBasicMaterial color="#ffb3d9" transparent opacity={0.6} />
             </mesh>
             <mesh position={[0.18 + faceOffset.x, -0.02 + faceOffset.y, 0.24 + faceOffset.z]}>
               <circleGeometry args={[0.06, 16]} />
-              <meshBasicMaterial color="#ff9999" transparent opacity={0.6} />
+              <meshBasicMaterial color="#ffb3d9" transparent opacity={0.6} />
+            </mesh>
+          </>
+        )}
+
+        {complementary?.cheekState === 'sunken' && (
+          <>
+            <mesh position={[-0.18 + faceOffset.x, -0.05 + faceOffset.y, 0.23 + faceOffset.z]}>
+              <boxGeometry args={[0.08, 0.06, 0.01]} />
+              <meshBasicMaterial color="#1a1a1a" transparent opacity={0.4} />
+            </mesh>
+            <mesh position={[0.18 + faceOffset.x, -0.05 + faceOffset.y, 0.23 + faceOffset.z]}>
+              <boxGeometry args={[0.08, 0.06, 0.01]} />
+              <meshBasicMaterial color="#1a1a1a" transparent opacity={0.4} />
+            </mesh>
+          </>
+        )}
+
+        {complementary?.cheekState === 'puffed' && (
+          <>
+            <mesh position={[-0.20 + faceOffset.x, -0.02 + faceOffset.y, 0.26 + faceOffset.z]}>
+              <sphereGeometry args={[0.08, 16, 16]} />
+              <meshStandardMaterial color="#d4a5a5" roughness={0.6} />
+            </mesh>
+            <mesh position={[0.20 + faceOffset.x, -0.02 + faceOffset.y, 0.26 + faceOffset.z]}>
+              <sphereGeometry args={[0.08, 16, 16]} />
+              <meshStandardMaterial color="#d4a5a5" roughness={0.6} />
+            </mesh>
+          </>
+        )}
+
+        {complementary?.cheekState === 'dimpled' && (
+          <>
+            <mesh position={[-0.18 + faceOffset.x, -0.08 + faceOffset.y, 0.26 + faceOffset.z]}>
+              <sphereGeometry args={[0.02, 8, 8]} />
+              <meshBasicMaterial color="#3a3a3a" />
+            </mesh>
+            <mesh position={[0.18 + faceOffset.x, -0.08 + faceOffset.y, 0.26 + faceOffset.z]}>
+              <sphereGeometry args={[0.02, 8, 8]} />
+              <meshBasicMaterial color="#3a3a3a" />
+            </mesh>
+          </>
+        )}
+
+        {/* NEW: Forehead States - render lines/effects on forehead */}
+        {complementary?.foreheadState === 'wrinkled' && (
+          <>
+            <mesh position={[0 + faceOffset.x, 0.18 + faceOffset.y, 0.24 + faceOffset.z]}>
+              <boxGeometry args={[0.3, 0.01, 0.01]} />
+              <meshBasicMaterial color="#2a2a2a" transparent opacity={0.5} />
+            </mesh>
+            <mesh position={[0 + faceOffset.x, 0.20 + faceOffset.y, 0.24 + faceOffset.z]}>
+              <boxGeometry args={[0.25, 0.01, 0.01]} />
+              <meshBasicMaterial color="#2a2a2a" transparent opacity={0.5} />
+            </mesh>
+            <mesh position={[0 + faceOffset.x, 0.22 + faceOffset.y, 0.24 + faceOffset.z]}>
+              <boxGeometry args={[0.28, 0.01, 0.01]} />
+              <meshBasicMaterial color="#2a2a2a" transparent opacity={0.5} />
+            </mesh>
+          </>
+        )}
+
+        {complementary?.foreheadState === 'tense' && (
+          <mesh position={[0 + faceOffset.x, 0.20 + faceOffset.y, 0.24 + faceOffset.z]}>
+            <boxGeometry args={[0.3, 0.02, 0.01]} />
+            <meshBasicMaterial color="#2a2a2a" transparent opacity={0.6} />
+          </mesh>
+        )}
+
+        {/* NEW: Tearful State - add tear drops */}
+        {complementary?.eyeState === 'tearful' && (
+          <>
+            <mesh position={[-0.12 + faceOffset.x, -0.02 + faceOffset.y, 0.27 + faceOffset.z]}>
+              <sphereGeometry args={[0.02, 8, 8]} />
+              <meshBasicMaterial color="#4dd0e1" transparent opacity={0.7} />
+            </mesh>
+            <mesh position={[0.12 + faceOffset.x, -0.02 + faceOffset.y, 0.27 + faceOffset.z]}>
+              <sphereGeometry args={[0.02, 8, 8]} />
+              <meshBasicMaterial color="#4dd0e1" transparent opacity={0.7} />
             </mesh>
           </>
         )}
@@ -2423,6 +2501,84 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         {complementary?.mouthState === 'wide_smile' && (
           <mesh ref={smileMeshRef} position={[0, -0.14 + faceYOffset, 0.27 * headScale]} rotation={[0, 0, Math.PI]}>
             <circleGeometry args={[0.1 * headScale, 16, 0, Math.PI]} />
+            <meshBasicMaterial color="#2a2a2a" />
+          </mesh>
+        )}
+
+        {/* NEW: Smirk - asymmetrical smile */}
+        {complementary?.mouthState === 'smirk' && (
+          <mesh position={[0, -0.14 + faceYOffset, 0.27 * headScale]} rotation={[0, 0, Math.PI + 0.2]}>
+            <torusGeometry args={[0.08 * headScale, 0.015 * headScale, 8, 16, Math.PI]} />
+            <meshBasicMaterial color="#2a2a2a" />
+          </mesh>
+        )}
+
+        {/* NEW: Slight smile - subtle */}
+        {complementary?.mouthState === 'slight_smile' && (
+          <mesh position={[0, -0.14 + faceYOffset, 0.27 * headScale]} rotation={[0, 0, Math.PI]}>
+            <torusGeometry args={[0.06 * headScale, 0.012 * headScale, 8, 16, Math.PI]} />
+            <meshBasicMaterial color="#2a2a2a" />
+          </mesh>
+        )}
+
+        {/* NEW: Pout - protruding lips */}
+        {complementary?.mouthState === 'pout' && (
+          <mesh position={[0, -0.16 + faceYOffset, 0.29 * headScale]}>
+            <circleGeometry args={[0.07 * headScale, 20]} />
+            <meshBasicMaterial color="#2a2a2a" />
+          </mesh>
+        )}
+
+        {/* NEW: Grimace - wide tense mouth */}
+        {complementary?.mouthState === 'grimace' && (
+          <mesh position={[0, -0.18 + faceYOffset, 0.26 * headScale]}>
+            <boxGeometry args={[0.16 * headScale, 0.03 * headScale, 0.01]} />
+            <meshBasicMaterial color="#2a2a2a" />
+          </mesh>
+        )}
+
+        {/* NEW: Tense - very thin line */}
+        {complementary?.mouthState === 'tense' && (
+          <mesh position={[0, -0.18 + faceYOffset, 0.26 * headScale]}>
+            <boxGeometry args={[0.14 * headScale, 0.01 * headScale, 0.01]} />
+            <meshBasicMaterial color="#2a2a2a" />
+          </mesh>
+        )}
+
+        {/* NEW: Pursed - small tight circle */}
+        {complementary?.mouthState === 'pursed' && (
+          <mesh position={[0, -0.18 + faceYOffset, 0.26 * headScale]}>
+            <circleGeometry args={[0.04 * headScale, 20]} />
+            <meshBasicMaterial color="#2a2a2a" />
+          </mesh>
+        )}
+
+        {/* NEW: Teeth showing - smile with teeth */}
+        {complementary?.mouthState === 'teeth_showing' && (
+          <>
+            <mesh position={[0, -0.14 + faceYOffset, 0.27 * headScale]} rotation={[0, 0, Math.PI]}>
+              <torusGeometry args={[0.08 * headScale, 0.015 * headScale, 8, 16, Math.PI]} />
+              <meshBasicMaterial color="#2a2a2a" />
+            </mesh>
+            <mesh position={[0, -0.16 + faceYOffset, 0.27 * headScale]}>
+              <boxGeometry args={[0.12 * headScale, 0.04 * headScale, 0.01]} />
+              <meshBasicMaterial color="#f5f5f5" />
+            </mesh>
+          </>
+        )}
+
+        {/* NEW: Big grin - extra wide smile */}
+        {complementary?.mouthState === 'big_grin' && (
+          <mesh position={[0, -0.14 + faceYOffset, 0.27 * headScale]} rotation={[0, 0, Math.PI]}>
+            <torusGeometry args={[0.12 * headScale, 0.015 * headScale, 8, 16, Math.PI]} />
+            <meshBasicMaterial color="#2a2a2a" />
+          </mesh>
+        )}
+
+        {/* NEW: O-shape - perfect circle */}
+        {complementary?.mouthState === 'o_shape' && (
+          <mesh position={[0, -0.18 + faceYOffset, 0.26 * headScale]}>
+            <circleGeometry args={[0.06 * headScale, 20]} />
             <meshBasicMaterial color="#2a2a2a" />
           </mesh>
         )}
