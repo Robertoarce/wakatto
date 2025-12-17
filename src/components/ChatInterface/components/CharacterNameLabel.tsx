@@ -18,38 +18,17 @@ export function CharacterNameLabel({ name, color, visible }: CharacterNameLabelP
   const { fonts } = useResponsive();
 
   useEffect(() => {
-    let fadeOutTimer: NodeJS.Timeout | null = null;
-
-    if (visible) {
-      // Fade in quickly
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: Platform.OS !== 'web',
-      }).start();
-
-      // Then fade out slowly after 2 seconds (3 second fade duration)
-      fadeOutTimer = setTimeout(() => {
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 3000,
-          useNativeDriver: Platform.OS !== 'web',
-        }).start();
-      }, 2000);
-    }
-
-    return () => {
-      if (fadeOutTimer) {
-        clearTimeout(fadeOutTimer);
-      }
-    };
-  }, [visible]);
-
-  if (!visible) return null;
+    // Fade in/out based on hover state
+    Animated.timing(fadeAnim, {
+      toValue: visible ? 1 : 0,
+      duration: 150, // Quick fade for responsive hover feel
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  }, [visible, fadeAnim]);
 
   return (
     <Animated.View style={[styles.characterNameLabel, { opacity: fadeAnim }]}>
-      <Text style={[styles.characterNameText, { color, fontSize: fonts.lg }]}>
+      <Text style={[styles.characterNameText, { color, fontSize: fonts.xxxl || 24 }]}>
         {name}
       </Text>
     </Animated.View>
@@ -59,7 +38,7 @@ export function CharacterNameLabel({ name, color, visible }: CharacterNameLabelP
 const styles = StyleSheet.create({
   characterNameLabel: {
     position: 'absolute',
-    bottom: 5, // Position near the bottom of the character wrapper (above the edge)
+    top: '15%', // Position right above the character's head
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -69,10 +48,10 @@ const styles = StyleSheet.create({
   characterNameText: {
     fontFamily: 'Inter-Bold',
     textAlign: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
     overflow: 'hidden',
     ...Platform.select({
       web: {

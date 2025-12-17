@@ -3,6 +3,7 @@
  */
 
 import { useMemo, useCallback } from 'react';
+import { getDynamicBubbleDimensions } from '../utils/bubbleQueueHelpers';
 
 interface UseResponsiveCharactersOptions {
   characterCount: number;
@@ -10,15 +11,24 @@ interface UseResponsiveCharactersOptions {
   screenHeight: number;
   isMobile: boolean;
   isMobileLandscape: boolean;
+  bubbleCount?: number; // NEW: Number of bubbles showing (1 or 2)
 }
 
 interface UseResponsiveCharactersResult {
   bubbleMaxWidth: number;
   bubbleMaxHeight: number;
+  bubbleMaxLines: number;
+  bubbleMaxChars: number;
   characterScaleFactor: number;
   inputAreaHeight: number;
   safeTopBoundary: number;
   getBubbleTopOffset: (index: number) => number;
+  getBubbleDimensionsForCount: (count: number) => {
+    maxWidth: number;
+    maxHeight: number;
+    maxLines: number;
+    maxChars: number;
+  };
 }
 
 export function useResponsiveCharacters({
@@ -27,37 +37,36 @@ export function useResponsiveCharacters({
   screenHeight,
   isMobile,
   isMobileLandscape,
+  bubbleCount = 1,
 }: UseResponsiveCharactersOptions): UseResponsiveCharactersResult {
-  // Bubble sizing - scales proportionally with screen width
-  const bubbleMaxWidth = useMemo(() => {
-    // In mobile landscape, use more horizontal space (wider bubbles)
-    if (isMobileLandscape) {
-      const landscapeWidth = screenWidth * 0.35; // 35% of wider screen
-      return Math.min(landscapeWidth, 350);
-    }
-    // Proportional width: 80% at 320px, 55% at 768px, 40% at 1200px+
-    // Linear interpolation based on screen width
-    const minScreenWidth = 280;
-    const maxScreenWidth = 1200;
-    const clampedWidth = Math.max(minScreenWidth, Math.min(maxScreenWidth, screenWidth));
+  // Get bubble dimensions using the new dynamic system
+  const bubbleDimensions = useMemo(() => {
+    return getDynamicBubbleDimensions(
+      characterCount,
+      bubbleCount,
+      screenWidth,
+      screenHeight,
+      isMobile,
+      isMobileLandscape
+    );
+  }, [characterCount, bubbleCount, screenWidth, screenHeight, isMobile, isMobileLandscape]);
 
-    // Calculate percentage (80% -> 40% as screen gets wider)
-    const widthPercent = 0.8 - ((clampedWidth - minScreenWidth) / (maxScreenWidth - minScreenWidth)) * 0.4;
-    const baseWidth = screenWidth * widthPercent;
+  const bubbleMaxWidth = bubbleDimensions.maxWidth;
+  const bubbleMaxHeight = bubbleDimensions.maxHeight;
+  const bubbleMaxLines = bubbleDimensions.maxLines;
+  const bubbleMaxChars = bubbleDimensions.maxChars;
 
-    // Minimum width scales with screen (no less than 85% of screen - 20px padding)
-    const minWidth = Math.min(220, screenWidth * 0.85 - 20);
-    const scaledWidth = Math.max(minWidth, baseWidth - (characterCount - 1) * 15);
-    return Math.min(scaledWidth, 420); // Cap at 420px
-  }, [isMobileLandscape, screenWidth, characterCount]);
-
-  const bubbleMaxHeight = useMemo(() => {
-    // In mobile landscape, severely limit height due to constrained vertical space
-    if (isMobileLandscape) {
-      return Math.floor(screenHeight * 0.4); // Max 40% of limited height
-    }
-    return Math.floor(screenHeight * 0.5); // Max 50% of screen height for better text visibility
-  }, [isMobileLandscape, screenHeight]);
+  // Helper to get dimensions for a specific bubble count
+  const getBubbleDimensionsForCount = useCallback((count: number) => {
+    return getDynamicBubbleDimensions(
+      characterCount,
+      count,
+      screenWidth,
+      screenHeight,
+      isMobile,
+      isMobileLandscape
+    );
+  }, [characterCount, screenWidth, screenHeight, isMobile, isMobileLandscape]);
 
   // Character scale - smaller when more characters to leave room for bubbles
   const characterScaleFactor = useMemo(() => {
@@ -89,10 +98,13 @@ export function useResponsiveCharacters({
   return {
     bubbleMaxWidth,
     bubbleMaxHeight,
+    bubbleMaxLines,
+    bubbleMaxChars,
     characterScaleFactor,
     inputAreaHeight,
     safeTopBoundary,
     getBubbleTopOffset,
+    getBubbleDimensionsForCount,
   };
 }
 

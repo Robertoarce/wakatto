@@ -1,16 +1,21 @@
 /**
- * CharacterSpeechBubble - Speech bubble with multiple layout modes
- * Displays character speech with fading text effect (older lines fade out)
+ * CharacterSpeechBubble - Speech bubble container with queue support
+ * Displays 1-2 bubbles per character with animated transitions
  */
 
-import React, { useState, useRef, useEffect, memo } from 'react';
+import React, { useState, useRef, useEffect, memo, useCallback } from 'react';
 import { Animated, Platform, View, Text, StyleSheet } from 'react-native';
 import { useResponsive } from '../../../constants/Layout';
 import { wrapText, getLineOpacity } from '../utils/speechBubbleHelpers';
+import { getDynamicBubbleDimensions, BUBBLE_ANIMATION_TIMING } from '../utils/bubbleQueueHelpers';
 import { FadingLine } from './FadingLine';
+import { AnimatedBubble, BubbleState, BubbleAnimationState } from './AnimatedBubble';
 
 interface CharacterSpeechBubbleProps {
-  text: string;
+  // NEW: Array of bubbles (1-2 bubbles per character)
+  bubbles?: BubbleState[];
+  // Legacy: Single text string (for backward compatibility)
+  text?: string;
   characterName: string;
   characterColor: string;
   position: 'left' | 'right';
@@ -19,6 +24,11 @@ interface CharacterSpeechBubbleProps {
   isSingleCharacter?: boolean;
   isMobileStacked?: boolean;
   stackIndex?: number;
+  // NEW: For dynamic sizing
+  characterCount?: number;
+  // Animation callbacks
+  getAnimationState?: (bubbleId: string) => BubbleAnimationState;
+  onAnimationComplete?: (bubbleId: string, animation: BubbleAnimationState) => void;
   // Responsive props
   maxWidth?: number;
   maxHeight?: number;
@@ -28,6 +38,7 @@ interface CharacterSpeechBubbleProps {
 }
 
 export function CharacterSpeechBubble({
+  bubbles,
   text,
   characterName,
   characterColor,
@@ -37,6 +48,9 @@ export function CharacterSpeechBubble({
   isSingleCharacter = false,
   isMobileStacked = false,
   stackIndex = 0,
+  characterCount = 1,
+  getAnimationState,
+  onAnimationComplete,
   // Responsive props
   maxWidth = 280,
   maxHeight,
@@ -49,8 +63,13 @@ export function CharacterSpeechBubble({
   const fadeOutTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasStartedFadeOut = useRef(false);
   const lastTextRef = useRef('');
-  const { fonts, isMobile, isMobileLandscape, spacing, width: viewportWidth, height: viewportHeight } = useResponsive();
+  const { fonts, isMobile, isMobileLandscape, width: viewportWidth, height: viewportHeight } = useResponsive();
 
+  // Check if we have bubbles to display
+  const hasBubbles = bubbles && bubbles.length > 0;
+  const hasText = text && text.length > 0;
+
+  // Handle fade in/out for the entire container
   useEffect(() => {
     // Clear any existing fade out timer when speaking starts again
     if (isSpeaking || isTyping) {
@@ -61,10 +80,10 @@ export function CharacterSpeechBubble({
       hasStartedFadeOut.current = false;
     }
 
-    // Show bubble when there's text and character is speaking/typing
-    if (text && text.length > 0 && (isSpeaking || isTyping)) {
+    // Show container when there's content and character is speaking/typing
+    if ((hasBubbles || hasText) && (isSpeaking || isTyping)) {
       setShouldRender(true);
-      lastTextRef.current = text;
+      if (text) lastTextRef.current = text;
       // Fade in quickly
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -72,21 +91,20 @@ export function CharacterSpeechBubble({
         useNativeDriver: Platform.OS !== 'web',
       }).start();
     }
-    // Start fade out when speaking stops (but only if we haven't already started)
-    else if (!isSpeaking && !isTyping && lastTextRef.current && !hasStartedFadeOut.current) {
+    // Start fade out when speaking stops
+    else if (!isSpeaking && !isTyping && (lastTextRef.current || hasBubbles) && !hasStartedFadeOut.current) {
       hasStartedFadeOut.current = true;
-      // Keep visible for 2 seconds, then fade out over 3 seconds
       fadeOutTimerRef.current = setTimeout(() => {
         Animated.timing(fadeAnim, {
           toValue: 0,
-          duration: 3000,
+          duration: BUBBLE_ANIMATION_TIMING.FADE_OUT_DURATION,
           useNativeDriver: Platform.OS !== 'web',
         }).start(() => {
           setShouldRender(false);
           lastTextRef.current = '';
           hasStartedFadeOut.current = false;
         });
-      }, 2000);
+      }, BUBBLE_ANIMATION_TIMING.FADE_OUT_DELAY);
     }
 
     return () => {
@@ -94,7 +112,7 @@ export function CharacterSpeechBubble({
         clearTimeout(fadeOutTimerRef.current);
       }
     };
-  }, [text, isSpeaking, isTyping, fadeAnim]);
+  }, [text, bubbles, isSpeaking, isTyping, fadeAnim, hasBubbles, hasText]);
 
   // Cleanup fadeAnim on unmount
   useEffect(() => {
@@ -103,21 +121,38 @@ export function CharacterSpeechBubble({
     };
   }, [fadeAnim]);
 
-  if (!shouldRender && !text) return null;
+  // Handle animation complete callback
+  const handleAnimationComplete = useCallback((bubbleId: string, animation: BubbleAnimationState) => {
+    onAnimationComplete?.(bubbleId, animation);
+  }, [onAnimationComplete]);
 
-  const fullText = text || lastTextRef.current;
+  if (!shouldRender && !hasBubbles && !hasText) return null;
 
-  const allLines = wrapText(fullText);
+  // Get bubble dimensions based on bubble count
+  const bubbleCount = bubbles?.length || 1;
+  const dimensions = getDynamicBubbleDimensions(
+    characterCount,
+    bubbleCount,
+    viewportWidth || 400,
+    viewportHeight || 600,
+    isMobile,
+    isMobileLandscape
+  );
 
-  // Show only the last 7 lines with fading effect
-  const maxVisibleLines = 7;
-  const visibleLines = allLines.slice(-maxVisibleLines);
+  // Container width for animations (used for slide calculations)
+  const containerWidth = viewportWidth || 400;
 
-  // On mobile with stacked layout, use a simpler compact design
+  // ====================
+  // MOBILE STACKED LAYOUT
+  // ====================
   if (isMobileStacked) {
-    // Calculate safe width for stacked bubbles
-    const stackedMaxWidth = Math.min(maxWidth, (viewportWidth || 400) - 24);
+    const stackedMaxWidth = Math.min(dimensions.maxWidth, (viewportWidth || 400) - 24);
     const stackedMaxHeight = Math.min(120, (viewportHeight || 600) * 0.2);
+
+    // For stacked layout, use legacy single bubble with text
+    const displayText = bubbles?.[bubbles.length - 1]?.text || text || lastTextRef.current;
+    const allLines = wrapText(displayText);
+    const visibleLines = allLines.slice(-3);
 
     return (
       <Animated.View
@@ -126,7 +161,6 @@ export function CharacterSpeechBubble({
           {
             opacity: fadeAnim,
             borderColor: characterColor,
-            // Stack bubbles with offset based on index
             top: stackIndex * 4,
             zIndex: 200 - stackIndex,
             pointerEvents: 'none',
@@ -136,14 +170,16 @@ export function CharacterSpeechBubble({
           }
         ]}
       >
-        <Text style={[styles.speechBubbleName, { color: characterColor, fontSize: fonts.md }]}>{characterName}</Text>
+        <Text style={[styles.speechBubbleName, { color: characterColor, fontSize: fonts.md }]}>
+          {characterName}
+        </Text>
         <View style={styles.speechBubbleLinesContainer}>
-          {visibleLines.slice(-3).map((line, index) => (
+          {visibleLines.map((line, index) => (
             <FadingLine
               key={`line-${index}`}
               text={line}
-              opacity={getLineOpacity(index, visibleLines.slice(-3).length)}
-              isLast={index === visibleLines.slice(-3).length - 1 && isTyping}
+              opacity={getLineOpacity(index, visibleLines.length)}
+              isLast={index === visibleLines.length - 1 && isTyping}
               characterColor={characterColor}
             />
           ))}
@@ -152,19 +188,101 @@ export function CharacterSpeechBubble({
     );
   }
 
-  // Calculate responsive position offsets with screen boundary clamping
+  // ====================
+  // NEW BUBBLE QUEUE LAYOUT
+  // ====================
+  if (hasBubbles && bubbles.length > 0) {
+    // Calculate container positioning
+    const effectiveScreenWidth = bubbleScreenWidth || viewportWidth || 400;
+    const padding = 16;
+
+    // Container styles for horizontal bubble layout
+    const getContainerStyles = () => {
+      if (isSingleCharacter) {
+        // Center the bubble container above character
+        const totalWidth = bubbleCount === 1
+          ? dimensions.maxWidth
+          : (dimensions.maxWidth * 2 + 8); // 2 bubbles + gap
+        const leftPosition = Math.max(padding, (effectiveScreenWidth - totalWidth) / 2);
+
+        return {
+          position: 'absolute' as const,
+          top: topOffset || -60,
+          left: leftPosition,
+          flexDirection: 'row' as const,
+          gap: 8,
+          zIndex: 500,
+          pointerEvents: 'none' as const,
+        };
+      }
+
+      // Multi-character positioning
+      const responsiveOffset = Math.max(padding, Math.min(80, effectiveScreenWidth * 0.15));
+
+      if (position === 'left') {
+        return {
+          position: 'absolute' as const,
+          top: topOffset,
+          right: responsiveOffset,
+          flexDirection: 'row' as const,
+          gap: 8,
+          zIndex: 500,
+          pointerEvents: 'none' as const,
+        };
+      } else {
+        return {
+          position: 'absolute' as const,
+          top: topOffset,
+          left: responsiveOffset,
+          flexDirection: 'row' as const,
+          gap: 8,
+          zIndex: 500,
+          pointerEvents: 'none' as const,
+        };
+      }
+    };
+
+    return (
+      <Animated.View style={[getContainerStyles(), { opacity: fadeAnim }]}>
+        {bubbles.map((bubble, index) => (
+          <AnimatedBubble
+            key={bubble.id}
+            bubble={bubble}
+            characterName={characterName}
+            characterColor={characterColor}
+            maxWidth={dimensions.maxWidth}
+            maxHeight={dimensions.maxHeight}
+            maxLines={dimensions.maxLines}
+            maxChars={dimensions.maxChars}
+            isTyping={isTyping && bubble.status === 'active' && index === bubbles.length - 1}
+            animationState={getAnimationState?.(bubble.id) || 'idle'}
+            onAnimationComplete={handleAnimationComplete}
+            containerWidth={containerWidth}
+          />
+        ))}
+      </Animated.View>
+    );
+  }
+
+  // ====================
+  // LEGACY SINGLE BUBBLE LAYOUT (backward compatibility)
+  // ====================
+  const fullText = text || lastTextRef.current;
+  const allLines = wrapText(fullText);
+  const maxVisibleLines = 7;
+  const visibleLines = allLines.slice(-maxVisibleLines);
+
+  // Calculate responsive position offsets
   const getPositionStyles = () => {
-    const padding = 16; // Minimum padding from screen edge
+    const padding = 16;
     const effectiveScreenWidth = bubbleScreenWidth || viewportWidth || 400;
     const effectiveScreenHeight = viewportHeight || 600;
 
-    // Calculate safe max dimensions that fit within viewport
     const safeMaxWidth = Math.min(maxWidth, effectiveScreenWidth - padding * 2);
     const safeMaxHeight = isMobileLandscape
       ? Math.min(maxHeight || 200, effectiveScreenHeight * 0.5)
       : (maxHeight || effectiveScreenHeight * 0.4);
 
-    // In landscape or constrained space, position bubbles more centrally
     if (isMobileLandscape) {
       return {
         left: padding,
@@ -175,8 +293,6 @@ export function CharacterSpeechBubble({
       };
     }
 
-    // Responsive offsets - scale with screen width (smaller on mobile)
-    // At 320px: ~48px offset, at 768px+: ~80px max
     const responsiveOffset = Math.max(padding, Math.min(80, effectiveScreenWidth * 0.15));
     const responsiveTranslate = Math.max(10, Math.min(30, effectiveScreenWidth * 0.05));
 
@@ -185,15 +301,11 @@ export function CharacterSpeechBubble({
       : { left: responsiveOffset };
     const translateX = position === 'left' ? responsiveTranslate : -responsiveTranslate;
 
-    // For left position (bubble on right side of character), ensure it doesn't overflow right
-    // For right position (bubble on left side of character), ensure it doesn't overflow left
     let clampedOffset = baseOffset;
     if (position === 'right') {
-      // Ensure left + maxWidth doesn't exceed screen width
       const maxLeft = Math.max(padding, Math.min(responsiveOffset, effectiveScreenWidth - safeMaxWidth - padding));
       clampedOffset = { left: maxLeft };
     } else if (position === 'left') {
-      // Ensure right + maxWidth doesn't exceed screen width
       const maxRight = Math.max(padding, Math.min(responsiveOffset, effectiveScreenWidth - safeMaxWidth - padding));
       clampedOffset = { right: maxRight };
     }
@@ -207,23 +319,15 @@ export function CharacterSpeechBubble({
     };
   };
 
-  // Calculate safe dimensions that always fit viewport
   const safeBubbleWidth = Math.min(maxWidth, (viewportWidth || 400) - 16);
   const safeBubbleHeight = isMobileLandscape
     ? Math.min(maxHeight || 150, (viewportHeight || 300) * 0.45)
     : (maxHeight || (viewportHeight || 600) * 0.4);
 
-  // Calculate single character centering - bubble should be centered above character
   const getSingleCharacterStyles = () => {
     const effectiveScreenWidth = bubbleScreenWidth || viewportWidth || 400;
     const padding = 16;
-
-    // Center the bubble horizontally within the character wrapper
-    // The wrapper has width: 100% (for single character), so center within that
     const bubbleWidth = Math.min(safeBubbleWidth, effectiveScreenWidth - padding * 2);
-
-    // Calculate left position to center the bubble within the wrapper
-    // For single character, wrapper width ≈ screen width
     const leftPosition = Math.max(padding, (effectiveScreenWidth - bubbleWidth) / 2);
 
     return {
@@ -238,21 +342,18 @@ export function CharacterSpeechBubble({
     <Animated.View
       style={[
         styles.speechBubble,
-        isSingleCharacter
-          ? getSingleCharacterStyles()
-          : getPositionStyles(),
+        isSingleCharacter ? getSingleCharacterStyles() : getPositionStyles(),
         {
           opacity: fadeAnim,
           borderColor: characterColor,
-          overflow: 'hidden', // Always clip overflow
-          zIndex: 500, // Ensure bubbles are always on top of characters
+          overflow: 'hidden',
+          zIndex: 500,
           pointerEvents: 'none',
         },
-        // Compact styles for landscape
         isMobileLandscape && styles.speechBubbleCompact,
       ]}
     >
-      {/* Speech bubble tail - hide for single character (bubble is above) */}
+      {/* Speech bubble tail */}
       {!isSingleCharacter && (
         <View
           style={[
@@ -260,7 +361,13 @@ export function CharacterSpeechBubble({
             position === 'left' ? styles.speechBubbleTailLeft : styles.speechBubbleTailRight,
           ]}
         >
-          <View style={[styles.speechBubbleTailInner, { borderLeftColor: position === 'right' ? characterColor : 'transparent', borderRightColor: position === 'left' ? characterColor : 'transparent' }]} />
+          <View style={[
+            styles.speechBubbleTailInner,
+            {
+              borderLeftColor: position === 'right' ? characterColor : 'transparent',
+              borderRightColor: position === 'left' ? characterColor : 'transparent'
+            }
+          ]} />
         </View>
       )}
       {/* Bottom tail for single character */}
@@ -269,9 +376,11 @@ export function CharacterSpeechBubble({
           <View style={[styles.speechBubbleTailBottomInner, { borderTopColor: characterColor }]} />
         </View>
       )}
-      <Text style={[styles.speechBubbleName, { color: characterColor, fontSize: fonts.lg }]}>{characterName}</Text>
 
-      {/* Fading lines - older text fades out */}
+      <Text style={[styles.speechBubbleName, { color: characterColor, fontSize: fonts.lg }]}>
+        {characterName}
+      </Text>
+
       <View style={styles.speechBubbleLinesContainer}>
         {visibleLines.map((line, index) => (
           <FadingLine

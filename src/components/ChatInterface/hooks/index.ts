@@ -11,3 +11,4 @@ export { useResponsiveCharacters } from './useResponsiveCharacters';
 export { useMessageEditing } from './useMessageEditing';
 export { useCharacterLoading } from './useCharacterLoading';
 export { useBobSales } from './useBobSales';
+export { useBubbleQueue } from './useBubbleQueue';

@@ -54,6 +54,7 @@ import {
   useMessageEditing,
   useVoiceRecording,
   useBobSales,
+  useBubbleQueue,
 } from './ChatInterface/hooks';
 
 interface Message {
@@ -198,7 +199,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   });
   const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]); // Fixed characters from conversation creation
   const [isMobileView, setIsMobileView] = useState(isMobile);
-  const [showCharacterNames, setShowCharacterNames] = useState(true); // Show names at start
+  const [hoveredCharacterId, setHoveredCharacterId] = useState<string | null>(null); // Track which character is hovered
   const [nameKey, setNameKey] = useState(0); // Key to trigger re-animation
   // Character loading (hook handles loading from both built-in and database)
   const { availableCharacters, isLoadingCharacters } = useCharacterLoading();
@@ -354,6 +355,43 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     isMobile,
     isMobileLandscape,
   });
+
+  // Bubble queue for per-character speech bubble management
+  const {
+    getBubblesForCharacter,
+    getAnimationState,
+    updateCharacterText,
+    onBubbleAnimationComplete,
+    clearAllBubbles,
+  } = useBubbleQueue({
+    characterCount: selectedCharacters.length,
+    screenWidth,
+    screenHeight,
+    isMobile,
+    isMobileLandscape,
+  });
+
+  // Feed revealed text into bubble queue during playback
+  useEffect(() => {
+    if (playbackState.isPlaying) {
+      selectedCharacters.forEach(characterId => {
+        const charPlaybackState = playbackState.characterStates.get(characterId);
+        const isTyping = charPlaybackState?.isTalking || false;
+        const revealedText = playbackEngineRef.current.getRevealedText(characterId);
+        if (revealedText) {
+          updateCharacterText(characterId, revealedText, isTyping);
+        }
+      });
+    }
+  }, [playbackState.isPlaying, playbackState.characterStates, selectedCharacters, updateCharacterText]);
+
+  // Clear bubbles when playback stops
+  useEffect(() => {
+    if (!playbackState.isPlaying) {
+      // Don't clear immediately - let the bubbles fade out naturally
+      // The CharacterSpeechBubble component handles the fade out
+    }
+  }, [playbackState.isPlaying]);
 
   // Animation playback subscription is handled by useAnimationPlayback hook
 
@@ -712,17 +750,9 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     return () => clearTimeout(timer);
   }, [messages.length, selectedCharacters.length, availableCharacters, onGreeting, isLoadingCharacters, savedCharacters, conversationId]);
 
-  // Show character names when characters change or at conversation start
+  // Update name key when characters change (for animation reset)
   useEffect(() => {
-    setShowCharacterNames(true);
-    setNameKey(prev => prev + 1); // Trigger re-animation
-
-    // Keep visible for 5 seconds total (2s display + 3s fade)
-    const timer = setTimeout(() => {
-      setShowCharacterNames(false);
-    }, 5000);
-
-    return () => clearTimeout(timer);
+    setNameKey(prev => prev + 1);
   }, [selectedCharacters]);
 
   // Characters are now fixed at conversation creation - no need to persist changes
@@ -1160,9 +1190,13 @@ Each silence, a cathedral where you still reside.`;
               // Only render bubble if character is speaking
               if (!isSpeakingNow && !isTypingNow) return null;
               
+              // Get bubbles from queue
+              const characterBubbles = getBubblesForCharacter(characterId);
+
               return (
                 <MemoizedCharacterSpeechBubble
                   key={`mobile-bubble-${characterId}`}
+                  bubbles={characterBubbles.length > 0 ? characterBubbles : undefined}
                   text={revealedText || ''}
                   characterName={character.name}
                   characterColor={character.color}
@@ -1172,6 +1206,9 @@ Each silence, a cathedral where you still reside.`;
                   isSingleCharacter={false}
                   isMobileStacked={true}
                   stackIndex={index}
+                  characterCount={selectedCharacters.length}
+                  getAnimationState={(bubbleId) => getAnimationState(characterId, bubbleId)}
+                  onAnimationComplete={(bubbleId, animation) => onBubbleAnimationComplete(characterId, bubbleId, animation)}
                   // Responsive props for mobile stacked bubbles
                   maxWidth={screenWidth - 32} // Full width minus padding
                   maxHeight={Math.floor(characterHeight * 0.4)} // Max 40% of character area
@@ -1273,6 +1310,7 @@ Each silence, a cathedral where you still reside.`;
                   isLeftSide={horizontalOffset < 0}
                   lastMessage={lastCharacterMessage}
                   entranceConfig={charEntranceConfig}
+                  onHoverChange={(isHovered) => setHoveredCharacterId(isHovered ? characterId : null)}
                   style={[
                     styles.characterWrapper,
                     {
@@ -1306,6 +1344,7 @@ Each silence, a cathedral where you still reside.`;
                       ? charPlaybackState.complementary 
                       : idleState?.complementary;
                     
+                    const isHovered = hoveredCharacterId === characterId;
                     return (
                       <MemoizedCharacterDisplay3D
                         character={character}
@@ -1313,38 +1352,47 @@ Each silence, a cathedral where you still reside.`;
                         animation={finalAnimation}
                         isTalking={usePlayback && charPlaybackState.isTalking}
                         complementary={finalComplementary}
-                        showName={showCharacterNames}
+                        showName={isHovered}
                         nameKey={nameKey}
                       />
                     );
                   })()}
-                  {/* Character Name Label with Fade Animation */}
+                  {/* Character Name Label - Shows on hover */}
                   <CharacterNameLabel
                     key={`name-${nameKey}`}
                     name={character.name}
                     color={character.color}
-                    visible={showCharacterNames}
+                    visible={hoveredCharacterId === characterId}
                   />
                   {/* Speech Bubble - Comic book style, to the side of character (or above if single/center) */}
                   {/* On mobile portrait with multiple characters, use the stacked bubbles above instead */}
                   {/* In mobile landscape, always show bubbles beside characters */}
-                  {(isMobileLandscape || !(isMobile && total > 1)) && (
-                    <MemoizedCharacterSpeechBubble
-                      text={revealedText || ''}
-                      characterName={character.name}
-                      characterColor={character.color}
-                      position={bubblePosition}
-                      isTyping={!!isTyping}
-                      isSpeaking={!!isSpeaking}
-                      isSingleCharacter={total === 1 || isCenterCharacter}
-                      // Responsive props
-                      maxWidth={bubbleMaxWidth}
-                      maxHeight={bubbleMaxHeight}
-                      topOffset={getBubbleTopOffset(index)}
-                      screenWidth={screenWidth}
-                      characterIndex={index}
-                    />
-                  )}
+                  {(isMobileLandscape || !(isMobile && total > 1)) && (() => {
+                    // Get bubbles from queue for this character
+                    const characterBubbles = getBubblesForCharacter(characterId);
+
+                    return (
+                      <MemoizedCharacterSpeechBubble
+                        bubbles={characterBubbles.length > 0 ? characterBubbles : undefined}
+                        text={revealedText || ''}
+                        characterName={character.name}
+                        characterColor={character.color}
+                        position={bubblePosition}
+                        isTyping={!!isTyping}
+                        isSpeaking={!!isSpeaking}
+                        isSingleCharacter={total === 1 || isCenterCharacter}
+                        characterCount={total}
+                        getAnimationState={(bubbleId) => getAnimationState(characterId, bubbleId)}
+                        onAnimationComplete={(bubbleId, animation) => onBubbleAnimationComplete(characterId, bubbleId, animation)}
+                        // Responsive props
+                        maxWidth={bubbleMaxWidth}
+                        maxHeight={bubbleMaxHeight}
+                        topOffset={getBubbleTopOffset(index)}
+                        screenWidth={screenWidth}
+                        characterIndex={index}
+                      />
+                    );
+                  })()}
                 </FloatingCharacterWrapper>
               );
             });

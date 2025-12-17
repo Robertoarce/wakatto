@@ -19,6 +19,7 @@ interface FloatingCharacterWrapperProps {
   isLeftSide?: boolean;
   lastMessage?: string;
   entranceConfig?: EntranceConfig;
+  onHoverChange?: (isHovered: boolean) => void;
 }
 
 export function FloatingCharacterWrapper({
@@ -32,10 +33,12 @@ export function FloatingCharacterWrapper({
   isLeftSide = false,
   lastMessage,
   entranceConfig,
+  onHoverChange,
 }: FloatingCharacterWrapperProps) {
   const floatAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const hoverAnim = useRef(new Animated.Value(0)).current;
+  const clickAnim = useRef(new Animated.Value(0)).current; // For click-to-show message
   const slideAnim = useRef(new Animated.Value(0)).current;
   // Additional animation values for varied entrance types
   const verticalAnim = useRef(new Animated.Value(0)).current;  // For drop_from_sky
@@ -43,6 +46,7 @@ export function FloatingCharacterWrapper({
   const entranceRotateAnim = useRef(new Animated.Value(0)).current;  // For spin_in
   const opacityAnim = useRef(new Animated.Value(1)).current;   // For teleport_in
   const [isHovered, setIsHovered] = useState(false);
+  const [isClicked, setIsClicked] = useState(false); // Track click state for message bubble
   const { fonts } = useResponsive();
 
   useEffect(() => {
@@ -96,14 +100,38 @@ export function FloatingCharacterWrapper({
     };
   }, [index]);
 
-  // Handle hover animation
+  // Handle hover animation and notify parent (for name label)
   useEffect(() => {
     Animated.timing(hoverAnim, {
       toValue: isHovered ? 1 : 0,
       duration: 200,
       useNativeDriver: Platform.OS !== 'web',
     }).start();
-  }, [isHovered]);
+
+    // Notify parent of hover change (for showing character name)
+    onHoverChange?.(isHovered);
+  }, [isHovered, onHoverChange]);
+
+  // Handle click animation (for showing last message bubble)
+  useEffect(() => {
+    Animated.timing(clickAnim, {
+      toValue: isClicked ? 1 : 0,
+      duration: 200,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  }, [isClicked, clickAnim]);
+
+  // Handle click toggle
+  const handleClick = () => {
+    setIsClicked(prev => !prev);
+  };
+
+  // Close message bubble when clicking outside (mouse leave while clicked)
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    // Optionally close the bubble when mouse leaves
+    // setIsClicked(false);
+  };
 
   // Handle entrance animation - varied types based on entranceConfig
   useEffect(() => {
@@ -255,14 +283,20 @@ export function FloatingCharacterWrapper({
     outputRange: ['0deg', '360deg'],
   });
 
-  const nameOpacity = hoverAnim.interpolate({
+  // Click animation interpolations (for message bubble)
+  const messageOpacity = clickAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 1],
   });
 
-  const nameTranslateY = hoverAnim.interpolate({
+  const messageTranslateY = clickAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [-10, 0], // Slide down from above
+  });
+
+  const messageScale = clickAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.9, 1], // Slight scale up on appear
   });
 
   // Combine vertical animations using Animated.add
@@ -282,31 +316,37 @@ export function FloatingCharacterWrapper({
             { rotate: spinRotation }, // For spin_in
             { rotateZ }, // Idle pivot animation
           ],
+          // Web cursor style
+          ...(Platform.OS === 'web' && { cursor: 'pointer' }),
         },
       ]}
       // @ts-ignore - web-specific props
-      onMouseDown={() => setIsHovered(true)}
-      onMouseUp={() => setIsHovered(false)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={handleMouseLeave}
+      onClick={handleClick}
     >
       {children}
-      {/* Click-and-hold tooltip - shows last message if available */}
+      {/* Click tooltip - shows last message bubble when character is clicked */}
       {lastMessage && (
         <Animated.View
           style={[
-            styles.hoverMessageContainer,
+            styles.clickMessageContainer,
             {
-              opacity: nameOpacity,
-              transform: [{ translateY: nameTranslateY }],
-              pointerEvents: 'none',
+              opacity: messageOpacity,
+              transform: [
+                { translateY: messageTranslateY },
+                { scale: messageScale },
+              ],
+              pointerEvents: isClicked ? 'auto' : 'none',
             }
           ]}
         >
-          <View style={[styles.hoverMessageBubble, { borderColor: characterColor }]}>
-            <Text style={[styles.hoverMessageName, { color: characterColor, fontSize: fonts.sm }]}>{characterName}</Text>
-            <Text style={[styles.hoverMessageText, { fontSize: fonts.sm }]} numberOfLines={4}>
+          <View style={[styles.speechBubble, { borderColor: characterColor }]}>
+            <Text style={[styles.speechBubbleText, { fontSize: fonts.md }]} numberOfLines={6}>
               {lastMessage}
             </Text>
+            {/* Speech bubble tail */}
+            <View style={[styles.speechBubbleTail, { borderTopColor: characterColor }]} />
           </View>
         </Animated.View>
       )}
@@ -315,41 +355,53 @@ export function FloatingCharacterWrapper({
 }
 
 const styles = StyleSheet.create({
-  hoverMessageContainer: {
+  clickMessageContainer: {
     position: 'absolute',
     bottom: '100%',
-    left: -50,
-    right: -50,
+    left: -80,
+    right: -80,
     alignItems: 'center',
     zIndex: 1000,
+    marginBottom: 10,
   },
-  hoverMessageBubble: {
-    backgroundColor: 'rgba(30, 30, 40, 0.95)',
-    borderRadius: 12,
-    padding: 12,
+  speechBubble: {
+    backgroundColor: 'rgba(20, 20, 30, 0.95)',
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 2,
-    maxWidth: 280,
-    // Web shadow
+    maxWidth: 320,
+    minWidth: 150,
+    // Web shadow - matching original speech bubbles
     ...(Platform.OS === 'web' && {
-      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
     }),
     // Native shadow
     ...(Platform.OS !== 'web' && {
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.4,
-      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.5,
+      shadowRadius: 10,
       elevation: 8,
     }),
   },
-  hoverMessageName: {
-    fontFamily: 'Inter-Bold',
-    marginBottom: 4,
-  },
-  hoverMessageText: {
+  speechBubbleText: {
     fontFamily: 'Inter-Regular',
-    color: 'rgba(255, 255, 255, 0.85)',
-    lineHeight: 18,
+    color: 'rgba(255, 255, 255, 0.95)',
+    lineHeight: 22,
+  },
+  speechBubbleTail: {
+    position: 'absolute',
+    bottom: -10,
+    left: '50%',
+    marginLeft: -10,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 10,
+    borderRightWidth: 10,
+    borderTopWidth: 10,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    // borderTopColor set dynamically via style prop
   },
 });
 
