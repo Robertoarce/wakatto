@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { 
-  CharacterDisplay3D, 
-  AnimationState, 
+import {
+  CharacterDisplay3D,
+  AnimationState,
   ComplementaryAnimation,
   LookDirection,
   EyeState,
@@ -12,6 +12,10 @@ import {
   HeadStyle,
   MouthState,
   FaceState,
+  NoseState,
+  CheekState,
+  ForeheadState,
+  JawState,
   VisualEffect,
   ModelStyle
 } from '../components/CharacterDisplay3D';
@@ -107,6 +111,11 @@ const EYE_STATES: { value: EyeState; label: string; icon: string }[] = [
   { value: 'wink_right', label: 'Wink Right', icon: '🙃' },
   { value: 'blink', label: 'Blinking', icon: '😊' },
   { value: 'surprised_blink', label: 'Surprised', icon: '😳' },
+  { value: 'wide', label: 'Wide', icon: '😳' },
+  { value: 'narrow', label: 'Narrow/Squinting', icon: '😑' },
+  { value: 'soft', label: 'Soft/Warm', icon: '😌' },
+  { value: 'half_closed', label: 'Half Closed', icon: '😏' },
+  { value: 'tearful', label: 'Tearful/Wet', icon: '🥺' },
 ];
 
 // Mouth states
@@ -116,6 +125,15 @@ const MOUTH_STATES: { value: MouthState; label: string; icon: string }[] = [
   { value: 'smile', label: 'Smile', icon: '🙂' },
   { value: 'wide_smile', label: 'Wide Smile', icon: '😄' },
   { value: 'surprised', label: 'Surprised', icon: '😲' },
+  { value: 'smirk', label: 'Smirk', icon: '😏' },
+  { value: 'slight_smile', label: 'Slight Smile', icon: '🙂' },
+  { value: 'pout', label: 'Pout', icon: '😙' },
+  { value: 'grimace', label: 'Grimace', icon: '😬' },
+  { value: 'tense', label: 'Tense/Pressed', icon: '😑' },
+  { value: 'pursed', label: 'Pursed Lips', icon: '😗' },
+  { value: 'teeth_showing', label: 'Teeth Showing', icon: '😬' },
+  { value: 'big_grin', label: 'Big Grin', icon: '😃' },
+  { value: 'o_shape', label: 'O-Shape', icon: '😯' },
 ];
 
 // Visual effects
@@ -154,20 +172,22 @@ const EYEBROW_STATES: { value: EyebrowState; label: string; icon: string }[] = [
   { value: 'worried', label: 'Worried', icon: '😟' },
   { value: 'one_raised', label: 'One Raised', icon: '🤨' },
   { value: 'wiggle', label: 'Wiggle', icon: '😏' },
+  { value: 'asymmetrical', label: 'Asymmetrical', icon: '🤨' },
+  { value: 'slightly_raised', label: 'Slightly Raised', icon: '🙂' },
+  { value: 'deeply_furrowed', label: 'Deeply Furrowed', icon: '😡' },
+  { value: 'arched_high', label: 'Arched High', icon: '😲' },
+  { value: 'relaxed_upward', label: 'Relaxed Upward', icon: '☺️' },
 ];
 
 // Head styles (shape/size)
 const HEAD_STYLES: { value: HeadStyle; label: string; icon: string; description: string }[] = [
   { value: 'default', label: 'Default', icon: '🟦', description: 'Standard cube' },
   { value: 'bigger', label: 'Bigger', icon: '🔷', description: 'Scaled up cube' },
-  { value: 'tall', label: 'Tall', icon: '📏', description: 'Taller rectangle' },
-  { value: 'golden', label: 'Golden', icon: '✨', description: 'Golden ratio' },
 ];
 
 // Face states (anime-style decorations)
 const FACE_STATES: { value: FaceState; label: string; icon: string }[] = [
   { value: 'normal', label: 'Normal', icon: '😐' },
-  { value: 'blush', label: 'Blush', icon: '😊' },
   { value: 'sweat_drop', label: 'Sweat Drop', icon: '😅' },
   { value: 'sparkle_eyes', label: 'Sparkle Eyes', icon: '🤩' },
   { value: 'heart_eyes', label: 'Heart Eyes', icon: '😍' },
@@ -175,6 +195,39 @@ const FACE_STATES: { value: FaceState; label: string; icon: string }[] = [
   { value: 'tears', label: 'Tears', icon: '😭' },
   { value: 'anger_vein', label: 'Anger Vein', icon: '💢' },
   { value: 'shadow_face', label: 'Shadow Face', icon: '😔' },
+];
+
+// Nose states
+const NOSE_STATES: { value: NoseState; label: string; icon: string }[] = [
+  { value: 'neutral', label: 'Neutral', icon: '👃' },
+  { value: 'wrinkled', label: 'Wrinkled', icon: '😖' },
+  { value: 'flared', label: 'Flared', icon: '😤' },
+  { value: 'twitching', label: 'Twitching', icon: '😬' },
+];
+
+// Cheek states
+const CHEEK_STATES: { value: CheekState; label: string; icon: string }[] = [
+  { value: 'neutral', label: 'Neutral', icon: '😐' },
+  { value: 'flushed', label: 'Flushed/Blush', icon: '😊' },
+  { value: 'sunken', label: 'Sunken', icon: '😔' },
+  { value: 'puffed', label: 'Puffed', icon: '😋' },
+  { value: 'dimpled', label: 'Dimpled', icon: '😁' },
+];
+
+// Forehead states
+const FOREHEAD_STATES: { value: ForeheadState; label: string; icon: string }[] = [
+  { value: 'smooth', label: 'Smooth', icon: '😌' },
+  { value: 'wrinkled', label: 'Wrinkled', icon: '😟' },
+  { value: 'tense', label: 'Tense', icon: '😠' },
+  { value: 'raised', label: 'Raised', icon: '😮' },
+];
+
+// Jaw states
+const JAW_STATES: { value: JawState; label: string; icon: string }[] = [
+  { value: 'relaxed', label: 'Relaxed', icon: '😐' },
+  { value: 'clenched', label: 'Clenched', icon: '😬' },
+  { value: 'protruding', label: 'Protruding', icon: '😤' },
+  { value: 'slack', label: 'Slack', icon: '😲' },
 ];
 
 const AnimationsScreen = (): JSX.Element => {
@@ -194,6 +247,10 @@ const AnimationsScreen = (): JSX.Element => {
   const [headStyle, setHeadStyle] = useState<HeadStyle>('default');
   const [mouthState, setMouthState] = useState<MouthState>('closed');
   const [faceState, setFaceState] = useState<FaceState>('normal');
+  const [noseState, setNoseState] = useState<NoseState>('neutral');
+  const [cheekState, setCheekState] = useState<CheekState>('neutral');
+  const [foreheadState, setForeheadState] = useState<ForeheadState>('smooth');
+  const [jawState, setJawState] = useState<JawState>('relaxed');
   const [effect, setEffect] = useState<VisualEffect>('none');
   const [speed, setSpeed] = useState(1.0);
   const [effectColor, setEffectColor] = useState('#8b5cf6');
@@ -263,6 +320,10 @@ const AnimationsScreen = (): JSX.Element => {
     headStyle: headStyle,
     mouthState: mouthState !== 'closed' ? mouthState : undefined,
     faceState: faceState !== 'normal' ? faceState : undefined,
+    noseState: noseState !== 'neutral' ? noseState : undefined,
+    cheekState: cheekState !== 'neutral' ? cheekState : undefined,
+    foreheadState: foreheadState !== 'smooth' ? foreheadState : undefined,
+    jawState: jawState !== 'relaxed' ? jawState : undefined,
     effect: effect !== 'none' ? effect : undefined,
     effectColor,
     speed,
@@ -276,6 +337,10 @@ const AnimationsScreen = (): JSX.Element => {
     setHeadStyle('default');
     setMouthState('closed');
     setFaceState('normal');
+    setNoseState('neutral');
+    setCheekState('neutral');
+    setForeheadState('smooth');
+    setJawState('relaxed');
     setEffect('none');
     setSpeed(1.0);
     setCurrentAnimation('idle');
@@ -757,6 +822,106 @@ const AnimationsScreen = (): JSX.Element => {
                           faceState === face.value && styles.optionButtonTextActive
                         ]}>
                           {face.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Nose State */}
+                <View style={styles.controlGroup}>
+                  <Text style={styles.controlGroupTitle}>👃 Nose State</Text>
+                  <View style={styles.optionGrid}>
+                    {NOSE_STATES.map((nose) => (
+                      <TouchableOpacity
+                        key={nose.value}
+                        style={[
+                          styles.optionButton,
+                          noseState === nose.value && styles.optionButtonActive
+                        ]}
+                        onPress={() => setNoseState(nose.value)}
+                      >
+                        <Text style={styles.optionIcon}>{nose.icon}</Text>
+                        <Text style={[
+                          styles.optionButtonText,
+                          noseState === nose.value && styles.optionButtonTextActive
+                        ]}>
+                          {nose.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Cheek State */}
+                <View style={styles.controlGroup}>
+                  <Text style={styles.controlGroupTitle}>😊 Cheek State (blush migrated)</Text>
+                  <View style={styles.optionGrid}>
+                    {CHEEK_STATES.map((cheek) => (
+                      <TouchableOpacity
+                        key={cheek.value}
+                        style={[
+                          styles.optionButton,
+                          cheekState === cheek.value && styles.optionButtonActive
+                        ]}
+                        onPress={() => setCheekState(cheek.value)}
+                      >
+                        <Text style={styles.optionIcon}>{cheek.icon}</Text>
+                        <Text style={[
+                          styles.optionButtonText,
+                          cheekState === cheek.value && styles.optionButtonTextActive
+                        ]}>
+                          {cheek.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Forehead State */}
+                <View style={styles.controlGroup}>
+                  <Text style={styles.controlGroupTitle}>😟 Forehead State</Text>
+                  <View style={styles.optionGrid}>
+                    {FOREHEAD_STATES.map((forehead) => (
+                      <TouchableOpacity
+                        key={forehead.value}
+                        style={[
+                          styles.optionButton,
+                          foreheadState === forehead.value && styles.optionButtonActive
+                        ]}
+                        onPress={() => setForeheadState(forehead.value)}
+                      >
+                        <Text style={styles.optionIcon}>{forehead.icon}</Text>
+                        <Text style={[
+                          styles.optionButtonText,
+                          foreheadState === forehead.value && styles.optionButtonTextActive
+                        ]}>
+                          {forehead.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Jaw State */}
+                <View style={styles.controlGroup}>
+                  <Text style={styles.controlGroupTitle}>😬 Jaw State</Text>
+                  <View style={styles.optionGrid}>
+                    {JAW_STATES.map((jaw) => (
+                      <TouchableOpacity
+                        key={jaw.value}
+                        style={[
+                          styles.optionButton,
+                          jawState === jaw.value && styles.optionButtonActive
+                        ]}
+                        onPress={() => setJawState(jaw.value)}
+                      >
+                        <Text style={styles.optionIcon}>{jaw.icon}</Text>
+                        <Text style={[
+                          styles.optionButtonText,
+                          jawState === jaw.value && styles.optionButtonTextActive
+                        ]}>
+                          {jaw.label}
                         </Text>
                       </TouchableOpacity>
                     ))}

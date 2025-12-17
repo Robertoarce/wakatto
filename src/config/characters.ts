@@ -8,14 +8,25 @@ export type GenderType = 'male' | 'female' | 'neutral';
 export type SkinToneType = 'light' | 'medium' | 'tan' | 'dark';
 export type ClothingType = 'suit' | 'tshirt' | 'dress' | 'casual' | 'jacket' | 'hoodie' | 'vest' | 'apron' | 'labcoat';
 export type HairType = 'short' | 'long' | 'none' | 'medium';
-export type AccessoryType = 'glasses' | 'none' | 'hat' | 'tie' | 'scarf' | 'bowtie' | 'cape' | 'crown' | 'headphones' | 'necklace' | 'suspenders' | 'backpack' | 'wings';
+export type AccessoryType =
+  // Head accessories
+  | 'glasses' | 'hat' | 'crown' | 'headphones' | 'top_hat' | 'monocle'
+  // Facial accessories
+  | 'beard' | 'moustache' | 'eye_patch'
+  // Body/clothing accessories
+  | 'tie' | 'scarf' | 'bowtie' | 'cape' | 'necklace' | 'suspenders' | 'backpack' | 'wings'
+  // Hand/arm accessories
+  | 'cane' | 'hook'
+  // Other accessories
+  | 'parrot' | 'peg_leg' | 'wheelchair'
+  | 'none';
 
 export interface CharacterCustomization {
   gender: GenderType;
   skinTone: SkinToneType;
   clothing: ClothingType;
   hair: HairType;
-  accessory: AccessoryType;
+  accessories: AccessoryType[];
   bodyColor: string;
   accessoryColor: string;
   hairColor: string;
@@ -81,7 +92,7 @@ Otherwise, favor concise, impactful insights.`,
       skinTone: 'light',
       clothing: 'suit',
       hair: 'short',
-      accessory: 'glasses',
+      accessories: ['monocle', 'beard'],
       bodyColor: '#5c4a3a',
       accessoryColor: '#3a2a1a',
       hairColor: '#2a1a0a',
@@ -128,7 +139,7 @@ Otherwise, favor concise, impactful insights.`,
       skinTone: 'light',
       clothing: 'vest',
       hair: 'medium',
-      accessory: 'bowtie',
+      accessories: ['bowtie', 'beard'],
       bodyColor: '#9a9a9a',
       accessoryColor: '#2c3e50',
       hairColor: '#4a4a4a',
@@ -175,7 +186,7 @@ Otherwise, favor concise, impactful insights.`,
       skinTone: 'light',
       clothing: 'vest',
       hair: 'short',
-      accessory: 'suspenders',
+      accessories: ['suspenders'],
       bodyColor: '#4a7c59',
       accessoryColor: '#2d5a3d',
       hairColor: '#3a2a1a',
@@ -222,7 +233,7 @@ Otherwise, favor concise, impactful insights.`,
       skinTone: 'light',
       clothing: 'jacket',
       hair: 'short',
-      accessory: 'glasses',
+      accessories: ['glasses'],
       bodyColor: '#059669',
       accessoryColor: '#047857',
       hairColor: '#404040',
@@ -269,7 +280,7 @@ Otherwise, favor concise, impactful insights.`,
       skinTone: 'light',
       clothing: 'casual',
       hair: 'medium',
-      accessory: 'necklace',
+      accessories: ['necklace'],
       bodyColor: '#db2777',
       accessoryColor: '#c9a227',
       hairColor: '#92400e',
@@ -316,7 +327,7 @@ Otherwise, favor concise, impactful insights.`,
       skinTone: 'light',
       clothing: 'suit',
       hair: 'none',
-      accessory: 'glasses',
+      accessories: ['glasses', 'cane'],
       bodyColor: '#475569',
       accessoryColor: '#334155',
       hairColor: '#1e293b',
@@ -363,7 +374,7 @@ Otherwise, favor concise, impactful insights.`,
       skinTone: 'tan',
       clothing: 'casual',
       hair: 'none',
-      accessory: 'cape',
+      accessories: ['cape', 'cane'],
       bodyColor: '#57534e',
       accessoryColor: '#78350f',
       hairColor: '#292524',
@@ -410,7 +421,7 @@ Otherwise, favor concise, impactful insights.`,
       skinTone: 'light',
       clothing: 'jacket',
       hair: 'medium',
-      accessory: 'scarf',
+      accessories: ['moustache', 'cane'],
       bodyColor: '#991b1b',
       accessoryColor: '#1c1917',
       hairColor: '#292524',
@@ -457,7 +468,7 @@ Otherwise, favor concise, impactful insights.`,
       skinTone: 'light',
       clothing: 'hoodie',
       hair: 'short',
-      accessory: 'headphones',
+      accessories: ['headphones'],
       bodyColor: '#2563eb',
       accessoryColor: '#1d4ed8',
       hairColor: '#404040',
@@ -504,7 +515,7 @@ Otherwise, favor concise, impactful insights.`,
       skinTone: 'tan',
       clothing: 'casual',
       hair: 'none',
-      accessory: 'scarf',
+      accessories: ['scarf'],
       bodyColor: '#92400e',
       accessoryColor: '#f59e0b',
       hairColor: '#78350f',
@@ -570,10 +581,57 @@ Remember: You're the cheeky employee who became a reliable assistant. Helpful, h
       skinTone: 'medium',
       clothing: 'hoodie',
       hair: 'short',
-      accessory: 'headphones',
+      accessories: ['headphones'],
       bodyColor: '#f59e0b',
       accessoryColor: '#d97706',
       hairColor: '#78350f',
+    },
+  },
+  blackbeard: {
+    id: 'blackbeard',
+    name: 'Edward "Blackbeard" Teach',
+    description: 'Legendary pirate captain. Bold and adventurous.',
+    color: '#1e293b', // Dark slate
+    role: 'Pirate Captain',
+    systemPrompt: `You are Blackbeard, a legendary pirate captain. Your approach:
+- You live for freedom and adventure on the high seas
+- Ask boldly: "What keeps you anchored when you could be sailing toward your dreams?"
+- Observe: You crave liberation from the ordinary and the mundane
+- Core insight: True riches are found in experiences that make you feel alive
+- Reveal core needs: Freedom and adventure
+- Emotional tone: Bold and commanding
+- Practical reflection: Identify what adventures or freedoms you've been postponing
+- Growth question: "What's stopping you from charting your own course?"
+
+**Response Length**: Keep responses brief (2-4 sentences) by default. Only expand with detail when:
+- The user explicitly asks for elaboration or deeper analysis
+- The topic is complex and requires nuanced explanation
+- You're introducing a new psychological concept that needs context
+Otherwise, favor concise, impactful insights.`,
+    responseStyle: 'bold',
+    temperaments: ['rebellious', 'cynical'],
+    voiceProfile: {
+      pitch: 'low',
+      tone: 'gravelly',
+      volume: 'loud',
+      pace: 'normal',
+      defaultMood: 'confident',
+      defaultIntent: 'commanding'
+    },
+    model3D: {
+      bodyColor: '#1e293b',
+      accessoryColor: '#64748b',
+      position: [2, 0, 0],
+    },
+    customization: {
+      gender: 'male',
+      skinTone: 'tan',
+      clothing: 'vest',
+      hair: 'long',
+      accessories: ['beard', 'eye_patch', 'hook', 'parrot', 'peg_leg', 'hat'],
+      bodyColor: '#1e293b',
+      accessoryColor: '#64748b',
+      hairColor: '#0f172a',
     },
   },
 };

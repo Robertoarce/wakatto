@@ -198,7 +198,7 @@ export function buildCharacterBehavior(
       skinTone: 'medium',
       clothing: 'casual',
       hair: 'short',
-      accessory: 'none',
+      accessories: [],
       bodyColor: '#8b5cf6',
       accessoryColor: '#6d28d9',
       hairColor: '#3a2a1a',
