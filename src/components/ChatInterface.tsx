@@ -200,6 +200,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]); // Fixed characters from conversation creation
   const [isMobileView, setIsMobileView] = useState(isMobile);
   const [hoveredCharacterId, setHoveredCharacterId] = useState<string | null>(null); // Track which character is hovered
+  const clickBubbleVisibleRef = useRef<Set<string>>(new Set()); // Track click bubble visibility (ref to avoid re-renders)
   const [nameKey, setNameKey] = useState(0); // Key to trigger re-animation
   // Character loading (hook handles loading from both built-in and database)
   const { availableCharacters, isLoadingCharacters } = useCharacterLoading();
@@ -1311,6 +1312,13 @@ Each silence, a cathedral where you still reside.`;
                   lastMessage={lastCharacterMessage}
                   entranceConfig={charEntranceConfig}
                   onHoverChange={(isHovered) => setHoveredCharacterId(isHovered ? characterId : null)}
+                  onClickBubbleChange={(isVisible) => {
+                    if (isVisible) {
+                      clickBubbleVisibleRef.current.add(characterId);
+                    } else {
+                      clickBubbleVisibleRef.current.delete(characterId);
+                    }
+                  }}
                   style={[
                     styles.characterWrapper,
                     {

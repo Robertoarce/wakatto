@@ -233,9 +233,9 @@ export type SpeedQualifier = 'slow' | 'normal' | 'fast';
  * Multipliers applied to base durations based on speed qualifier
  */
 const SPEED_MULTIPLIERS: Record<SpeedQualifier, number> = {
-  slow: 1.5,    // 1.5x longer - thoughtful, emotional moments
+  slow: 1.2,    // 1.2x longer - thoughtful, emotional moments
   normal: 1.0,  // Base duration - conversational pace
-  fast: 0.6     // 0.6x = faster - energetic, quick reactions
+  fast: 1.0     // 0.8x = faster - energetic, quick reactions
 };
 
 /**
@@ -1174,13 +1174,30 @@ function parseCharacterTimeline(
 
 /**
  * Parse a single animation segment
+ * For talking segments, recalculates duration based on text length to ensure consistent speed
  */
 function parseSegment(
   raw: LLMCharacterResponse['timeline'][0],
   contentLength: number
 ): AnimationSegment {
   const animation = validateAnimation(raw.animation || 'idle');
-  const duration = clampDuration(raw.duration);
+  const isTalking = raw.talking === true;
+
+  // For talking segments, calculate duration based on text length for consistent speed
+  // LLM-provided durations are often too short, causing text to appear too fast
+  let duration: number;
+  if (isTalking && Array.isArray(raw.textRange) && raw.textRange.length === 2) {
+    const [start, end] = raw.textRange;
+    const textLength = Math.max(0, end - start);
+    // Use DEFAULT_TALKING_SPEED to ensure consistent text reveal speed
+    duration = Math.max(MIN_SEGMENT_DURATION, textLength * DEFAULT_TALKING_SPEED);
+  } else if (isTalking) {
+    // Talking segment without text range - estimate from content length
+    duration = Math.max(MIN_SEGMENT_DURATION, contentLength * DEFAULT_TALKING_SPEED);
+  } else {
+    // Non-talking segment - use LLM duration (clamped)
+    duration = clampDuration(raw.duration);
+  }
   
   const complementary: AnimationSegment['complementary'] = {};
 
@@ -1218,7 +1235,7 @@ function parseSegment(
   const segment: AnimationSegment = {
     animation,
     duration,
-    isTalking: raw.talking === true
+    isTalking
   };
 
   if (Object.keys(complementary).length > 0) {

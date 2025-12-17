@@ -1,6 +1,8 @@
 /**
  * CharacterNameLabel - Animated character name display
  * Shows character name with fade in/out animation
+ * - Fast fade in on hover
+ * - Slow fade out with delay when mouse leaves
  */
 
 import React, { useRef, useEffect } from 'react';
@@ -13,18 +15,24 @@ interface CharacterNameLabelProps {
   visible: boolean;
 }
 
+// Timing constants
+const FADE_IN_DURATION = 150;    // Quick fade in for responsive feel
+const FADE_OUT_DURATION = 1500;  // Slow 1.5s fade out
+
 export function CharacterNameLabel({ name, color, visible }: CharacterNameLabelProps) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const { fonts } = useResponsive();
 
   useEffect(() => {
-    // Fade in/out based on hover state
+    // Stop any running animation
+    fadeAnim.stopAnimation();
+
     Animated.timing(fadeAnim, {
       toValue: visible ? 1 : 0,
-      duration: 150, // Quick fade for responsive hover feel
+      duration: visible ? FADE_IN_DURATION : FADE_OUT_DURATION,
       useNativeDriver: Platform.OS !== 'web',
     }).start();
-  }, [visible, fadeAnim]);
+  }, [visible]);
 
   return (
     <Animated.View style={[styles.characterNameLabel, { opacity: fadeAnim }]}>

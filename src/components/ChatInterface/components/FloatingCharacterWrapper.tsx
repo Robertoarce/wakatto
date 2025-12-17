@@ -20,6 +20,7 @@ interface FloatingCharacterWrapperProps {
   lastMessage?: string;
   entranceConfig?: EntranceConfig;
   onHoverChange?: (isHovered: boolean) => void;
+  onClickBubbleChange?: (isVisible: boolean) => void; // Notify when click bubble visibility changes
 }
 
 export function FloatingCharacterWrapper({
@@ -34,6 +35,7 @@ export function FloatingCharacterWrapper({
   lastMessage,
   entranceConfig,
   onHoverChange,
+  onClickBubbleChange,
 }: FloatingCharacterWrapperProps) {
   const floatAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -119,7 +121,10 @@ export function FloatingCharacterWrapper({
       duration: 200,
       useNativeDriver: Platform.OS !== 'web',
     }).start();
-  }, [isClicked, clickAnim]);
+
+    // Notify parent of click bubble visibility change
+    onClickBubbleChange?.(isClicked);
+  }, [isClicked, clickAnim, onClickBubbleChange]);
 
   // Handle click toggle
   const handleClick = () => {
@@ -342,6 +347,9 @@ export function FloatingCharacterWrapper({
           ]}
         >
           <View style={[styles.speechBubble, { borderColor: characterColor }]}>
+            <Text style={[styles.speechBubbleName, { color: characterColor, fontSize: fonts.lg }]}>
+              {characterName}
+            </Text>
             <Text style={[styles.speechBubbleText, { fontSize: fonts.md }]} numberOfLines={6}>
               {lastMessage}
             </Text>
@@ -357,37 +365,30 @@ export function FloatingCharacterWrapper({
 const styles = StyleSheet.create({
   clickMessageContainer: {
     position: 'absolute',
-    bottom: '100%',
-    left: -80,
-    right: -80,
+    top: -180, // Position higher to avoid overlapping with speech bubbles
+    left: -60,
+    right: -60,
     alignItems: 'center',
-    zIndex: 1000,
-    marginBottom: 10,
+    zIndex: 600, // Higher z-index to appear above speech bubbles
   },
   speechBubble: {
-    backgroundColor: 'rgba(20, 20, 30, 0.95)',
+    backgroundColor: 'rgba(30, 30, 40, 0.95)', // Match regular bubble
     borderRadius: 16,
-    padding: 16,
-    borderWidth: 2,
-    maxWidth: 320,
-    minWidth: 150,
-    // Web shadow - matching original speech bubbles
-    ...(Platform.OS === 'web' && {
-      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
-    }),
-    // Native shadow
-    ...(Platform.OS !== 'web' && {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.5,
-      shadowRadius: 10,
-      elevation: 8,
-    }),
+    padding: 14, // Match regular bubble padding
+    borderWidth: 3, // Match regular bubble border
+    maxWidth: 380,
+    minWidth: 120,
+  },
+  speechBubbleName: {
+    fontFamily: 'Inter-Bold',
+    marginBottom: 6,
+    letterSpacing: 0.5,
   },
   speechBubbleText: {
     fontFamily: 'Inter-Regular',
-    color: 'rgba(255, 255, 255, 0.95)',
+    color: 'white',
     lineHeight: 22,
+    letterSpacing: 0.2,
   },
   speechBubbleTail: {
     position: 'absolute',
