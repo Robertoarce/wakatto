@@ -59,32 +59,94 @@ export type AnimationState =
 export type LookDirection = 'center' | 'left' | 'right' | 'up' | 'down' | 'at_left_character' | 'at_right_character';
 
 // Eye state types
-export type EyeState = 'open' | 'closed' | 'wink_left' | 'wink_right' | 'blink' | 'surprised_blink';
+export type EyeState =
+  | 'open'              // Default, auto-blink
+  | 'closed'            // Eyes shut
+  | 'wink_left'         // Left eye winks
+  | 'wink_right'        // Right eye winks
+  | 'blink'             // Controlled blinking
+  | 'surprised_blink'   // Fast triple blink
+  // NEW:
+  | 'wide'              // Eyes enlarged (scale X&Y 1.3)
+  | 'narrow'            // Squinting (scaleY 0.3, keep scaleX 1.0)
+  | 'soft'              // Relaxed/warm (scaleY 0.85)
+  | 'half_closed'       // Drowsy (scaleY 0.5)
+  | 'tearful';          // Wet eyes with tear drops
 
 // Eyebrow state types (anime-style)
-export type EyebrowState = 
-  | 'normal'
-  | 'raised'           // Surprised, interested
-  | 'furrowed'         // Angry, frustrated
-  | 'sad'              // Drooping down at outer edges
-  | 'worried'          // Inner edges raised
-  | 'one_raised'       // Skeptical, questioning
-  | 'wiggle';          // Playful animation
+export type EyebrowState =
+  | 'normal'            // Default
+  | 'raised'            // Surprised, interested
+  | 'furrowed'          // Angry, frustrated
+  | 'sad'               // Drooping down at outer edges
+  | 'worried'           // Inner edges raised
+  | 'one_raised'        // Skeptical, questioning
+  | 'wiggle'            // Playful animation
+  // NEW:
+  | 'asymmetrical'      // Different angles per brow
+  | 'slightly_raised'   // Subtle raise
+  | 'deeply_furrowed'   // Extreme anger
+  | 'arched_high'       // High arch with rotation
+  | 'relaxed_upward';   // Raised with no rotation
 
 // Mouth state types
-export type MouthState = 'closed' | 'open' | 'smile' | 'wide_smile' | 'surprised';
+export type MouthState =
+  | 'closed'            // Default
+  | 'open'              // Small circle
+  | 'smile'             // Happy curve (torus)
+  | 'wide_smile'        // Big smile
+  | 'surprised'         // O-shape
+  // NEW:
+  | 'smirk'             // Asymmetrical torus
+  | 'slight_smile'      // Subtle smile
+  | 'pout'              // Protruding lips
+  | 'grimace'           // Tense wide mouth
+  | 'tense'             // Pressed thin line
+  | 'pursed'            // Small tight circle
+  | 'teeth_showing'     // Smile with visible teeth
+  | 'big_grin'          // Extra wide smile
+  | 'o_shape';          // Perfect O
 
 // Face state types (anime-style decorations)
-export type FaceState = 
-  | 'normal'
-  | 'blush'            // Pink cheeks
-  | 'sweat_drop'       // Nervous sweat drop
-  | 'sparkle_eyes'     // Excited star eyes
-  | 'heart_eyes'       // Love/admiration
-  | 'spiral_eyes'      // Dizzy/confused
-  | 'tears'            // Crying streams
-  | 'anger_vein'       // Anime anger mark
-  | 'shadow_face';     // Dark aura/disappointment
+export type FaceState =
+  | 'normal'            // Default
+  | 'sweat_drop'        // Nervous sweat drop
+  | 'sparkle_eyes'      // Excited star eyes
+  | 'heart_eyes'        // Love/admiration
+  | 'spiral_eyes'       // Dizzy/confused
+  | 'tears'             // Crying streams
+  | 'anger_vein'        // Anime anger mark
+  | 'shadow_face';      // Dark aura/disappointment
+  // NOTE: 'blush' migrated to CheekState as 'flushed'
+
+// Nose state types (NEW)
+export type NoseState =
+  | 'neutral'           // Default (no animation)
+  | 'wrinkled'          // Disgust (squashed)
+  | 'flared'            // Anger (widened)
+  | 'twitching';        // Nervous (oscillating)
+
+// Cheek state types (NEW - migrated from FaceState 'blush')
+export type CheekState =
+  | 'neutral'           // No markers
+  | 'flushed'           // Pink ovals (migrated from FaceState 'blush')
+  | 'sunken'            // Dark shadows
+  | 'puffed'            // Enlarged
+  | 'dimpled';          // Small dots
+
+// Forehead state types (NEW)
+export type ForeheadState =
+  | 'smooth'            // Default (no lines)
+  | 'wrinkled'          // Worry lines
+  | 'tense'             // Deep crease
+  | 'raised';           // Stretched appearance
+
+// Jaw state types (NEW)
+export type JawState =
+  | 'relaxed'           // Default
+  | 'clenched'          // Tense (compressed)
+  | 'protruding'        // Forward thrust
+  | 'slack';            // Hanging open
 
 // Visual effect types
 export type VisualEffect = 'none' | 'confetti' | 'spotlight' | 'sparkles' | 'hearts';
@@ -103,6 +165,12 @@ export interface ComplementaryAnimation {
   headStyle?: HeadStyle; // Head shape/size (default: 'default')
   mouthState?: MouthState;
   faceState?: FaceState;
+  // NEW facial features:
+  noseState?: NoseState;
+  cheekState?: CheekState;
+  foreheadState?: ForeheadState;
+  jawState?: JawState;
+  // Effects and timing:
   effect?: VisualEffect;
   effectColor?: string;
   speed?: number; // 0.1 to 3.0, default 1.0
@@ -447,7 +515,11 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
   const smileMeshRef = useRef<THREE.Mesh>(null);
   const leftEyebrowRef = useRef<THREE.Mesh>(null);
   const rightEyebrowRef = useRef<THREE.Mesh>(null);
-  
+  // NEW refs for facial features:
+  const noseRef = useRef<THREE.Mesh>(null);
+  const leftCheekRef = useRef<THREE.Mesh>(null);
+  const rightCheekRef = useRef<THREE.Mesh>(null);
+
   // Animation completion tracking
   const animationStartTime = useRef<number>(0);
   const animationCompleted = useRef<boolean>(false);
@@ -496,11 +568,21 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       let targetRightLegRotX = 0;
       let targetLeftEyeScaleY = 1;
       let targetRightEyeScaleY = 1;
+      // NEW: Eye X-scale targets for wide/narrow states
+      let targetLeftEyeScaleX = 1;
+      let targetRightEyeScaleX = 1;
       // Eyebrow animation targets
       let targetLeftEyebrowRotZ = 0;
       let targetRightEyebrowRotZ = 0;
       let targetLeftEyebrowPosY = 0;  // Offset from default position
       let targetRightEyebrowPosY = 0;
+      // NEW: Nose targets for facial feature states
+      let targetNoseScaleX = 1;
+      let targetNoseScaleY = 1;
+      let targetNoseRotZ = 0;
+      // NEW: Head scale/position targets for jaw states
+      let targetHeadScaleY = 1;
+      let targetJawPosZ = 0;
 
       // Head style calculations for eyebrow positioning
       const headStyleVal = complementary?.headStyle || 'default';
@@ -629,6 +711,32 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
             targetRightEyeScaleY = eyeOpenness;
           }
           break;
+        // NEW: Additional eye states
+        case 'wide':
+          targetLeftEyeScaleY = 1.3;
+          targetRightEyeScaleY = 1.3;
+          targetLeftEyeScaleX = 1.3;
+          targetRightEyeScaleX = 1.3;
+          break;
+        case 'narrow':
+          targetLeftEyeScaleY = 0.3;
+          targetRightEyeScaleY = 0.3;
+          targetLeftEyeScaleX = 1.0; // Keep width
+          targetRightEyeScaleX = 1.0;
+          break;
+        case 'soft':
+          targetLeftEyeScaleY = 0.85;
+          targetRightEyeScaleY = 0.85;
+          break;
+        case 'half_closed':
+          targetLeftEyeScaleY = 0.5;
+          targetRightEyeScaleY = 0.5;
+          break;
+        case 'tearful':
+          targetLeftEyeScaleY = 1.0;
+          targetRightEyeScaleY = 1.0;
+          // Tears handled by conditional rendering in renderFaceDecorations
+          break;
         case 'open':
         default:
           // Automatic random blinking when eyes are "open" or no state specified
@@ -709,6 +817,34 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           targetLeftEyebrowPosY = Math.abs(Math.sin(time * wiggleSpeed * 0.5)) * 0.02;
           targetRightEyebrowPosY = Math.abs(Math.sin(time * wiggleSpeed * 0.5 + Math.PI)) * 0.02;
           break;
+        // NEW: Additional eyebrow states
+        case 'asymmetrical':
+          targetLeftEyebrowRotZ = -0.3;
+          targetRightEyebrowRotZ = 0.2;
+          targetRightEyebrowPosY = 0.03;
+          break;
+        case 'slightly_raised':
+          targetLeftEyebrowPosY = 0.015;
+          targetRightEyebrowPosY = 0.015;
+          break;
+        case 'deeply_furrowed':
+          targetLeftEyebrowRotZ = -0.5;
+          targetRightEyebrowRotZ = 0.5;
+          targetLeftEyebrowPosY = -0.02;
+          targetRightEyebrowPosY = -0.02;
+          break;
+        case 'arched_high':
+          targetLeftEyebrowPosY = 0.05;
+          targetRightEyebrowPosY = 0.05;
+          targetLeftEyebrowRotZ = 0.15;
+          targetRightEyebrowRotZ = -0.15;
+          break;
+        case 'relaxed_upward':
+          targetLeftEyebrowPosY = 0.02;
+          targetRightEyebrowPosY = 0.02;
+          targetLeftEyebrowRotZ = 0;
+          targetRightEyebrowRotZ = 0;
+          break;
         case 'normal':
         default:
           // Default position - no offset
@@ -716,6 +852,47 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           targetRightEyebrowPosY = 0;
           targetLeftEyebrowRotZ = 0;
           targetRightEyebrowRotZ = 0;
+          break;
+      }
+
+      // =========================================
+      // COMPLEMENTARY: Nose State (NEW)
+      // =========================================
+      switch (complementary?.noseState) {
+        case 'wrinkled':
+          targetNoseScaleY = 0.7;
+          break;
+        case 'flared':
+          targetNoseScaleX = 1.3;
+          break;
+        case 'twitching':
+          targetNoseRotZ = Math.sin(time * 8) * 0.1; // Rapid oscillation
+          break;
+        case 'neutral':
+        default:
+          targetNoseScaleX = 1.0;
+          targetNoseScaleY = 1.0;
+          targetNoseRotZ = 0;
+          break;
+      }
+
+      // =========================================
+      // COMPLEMENTARY: Jaw State (NEW)
+      // =========================================
+      switch (complementary?.jawState) {
+        case 'clenched':
+          targetHeadScaleY = 0.97;
+          break;
+        case 'protruding':
+          targetJawPosZ = 0.05;
+          break;
+        case 'slack':
+          targetHeadScaleY = 1.05;
+          break;
+        case 'relaxed':
+        default:
+          targetHeadScaleY = 1.0;
+          targetJawPosZ = 0;
           break;
       }
 
@@ -1312,6 +1489,27 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         rightEyebrowRef.current.position.y = lerp(rightEyebrowRef.current.position.y, eyebrowBaseY + targetRightEyebrowPosY, transitionSpeed);
       }
 
+      // NEW: Eye X-scale lerping (for wide/narrow states)
+      if (leftEyeRef.current) {
+        leftEyeRef.current.scale.x = lerp(leftEyeRef.current.scale.x, targetLeftEyeScaleX, LERP_SPEED.fast);
+      }
+      if (rightEyeRef.current) {
+        rightEyeRef.current.scale.x = lerp(rightEyeRef.current.scale.x, targetRightEyeScaleX, LERP_SPEED.fast);
+      }
+
+      // NEW: Nose lerping
+      if (noseRef.current) {
+        noseRef.current.scale.x = lerp(noseRef.current.scale.x, targetNoseScaleX, transitionSpeed);
+        noseRef.current.scale.y = lerp(noseRef.current.scale.y, targetNoseScaleY, transitionSpeed);
+        noseRef.current.rotation.z = lerp(noseRef.current.rotation.z, targetNoseRotZ, transitionSpeed);
+      }
+
+      // NEW: Jaw/Head lerping (via headRef)
+      if (headRef.current) {
+        headRef.current.scale.y = lerp(headRef.current.scale.y, targetHeadScaleY, transitionSpeed);
+        headRef.current.position.z = lerp(headRef.current.position.z, targetJawPosZ, transitionSpeed);
+      }
+
       // Check for one-shot animation completion
       const duration = ONE_SHOT_ANIMATIONS[animation];
       if (duration && !animationCompleted.current && onAnimationComplete) {
@@ -1329,7 +1527,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
     return () => {
       if (animationId) cancelAnimationFrame(animationId);
     };
-  }, [isActive, animation, isTalking, animSpeed, complementary?.lookDirection, complementary?.eyeState, complementary?.eyebrowState, complementary?.headStyle, complementary?.mouthState, onAnimationComplete, positionY]);
+  }, [isActive, animation, isTalking, animSpeed, complementary?.lookDirection, complementary?.eyeState, complementary?.eyebrowState, complementary?.headStyle, complementary?.mouthState, complementary?.noseState, complementary?.cheekState, complementary?.foreheadState, complementary?.jawState, onAnimationComplete, positionY]);
 
   // Get customization from character config
   const customization = character.customization;
@@ -2199,7 +2397,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         )}
 
         {/* Nose */}
-        <mesh position={[0, -0.05 + faceYOffset, 0.26 * headScale]}>
+        <mesh ref={noseRef} position={[0, -0.05 + faceYOffset, 0.26 * headScale]}>
           <boxGeometry args={[0.08 * headScale, 0.12 * headScale, 0.08 * headScale]} />
           <meshStandardMaterial color={skinColor} roughness={0.6} />
         </mesh>

@@ -5,15 +5,19 @@
  * multi-character animation timelines.
  */
 
-import { 
-  AnimationState, 
-  LookDirection, 
-  EyeState, 
+import {
+  AnimationState,
+  LookDirection,
+  EyeState,
   EyebrowState,
-  MouthState, 
+  MouthState,
   FaceState,
+  NoseState,
+  CheekState,
+  ForeheadState,
+  JawState,
   VisualEffect,
-  ComplementaryAnimation 
+  ComplementaryAnimation
 } from '../components/CharacterDisplay3D';
 import { getCharacter } from '../config/characters';
 import { SegmentVoice, parseSegmentVoice } from '../config/voiceConfig';
@@ -162,20 +166,47 @@ const VALID_LOOK_DIRECTIONS: LookDirection[] = [
 ];
 
 const VALID_EYE_STATES: EyeState[] = [
-  'open', 'closed', 'wink_left', 'wink_right', 'blink'
+  'open', 'closed', 'wink_left', 'wink_right', 'blink', 'surprised_blink',
+  // NEW:
+  'wide', 'narrow', 'soft', 'half_closed', 'tearful'
 ];
 
 const VALID_EYEBROW_STATES: EyebrowState[] = [
-  'normal', 'raised', 'furrowed', 'sad', 'worried', 'one_raised', 'wiggle'
+  'normal', 'raised', 'furrowed', 'sad', 'worried', 'one_raised', 'wiggle',
+  // NEW:
+  'asymmetrical', 'slightly_raised', 'deeply_furrowed', 'arched_high', 'relaxed_upward'
 ];
 
 const VALID_MOUTH_STATES: MouthState[] = [
-  'closed', 'open', 'smile', 'wide_smile', 'surprised'
+  'closed', 'open', 'smile', 'wide_smile', 'surprised',
+  // NEW:
+  'smirk', 'slight_smile', 'pout', 'grimace', 'tense', 'pursed', 'teeth_showing', 'big_grin', 'o_shape'
 ];
 
 const VALID_FACE_STATES: FaceState[] = [
-  'normal', 'blush', 'sweat_drop', 'sparkle_eyes', 'heart_eyes', 
+  'normal', 'sweat_drop', 'sparkle_eyes', 'heart_eyes',
   'spiral_eyes', 'tears', 'anger_vein', 'shadow_face'
+  // NOTE: 'blush' migrated to CheekState as 'flushed'
+];
+
+// NEW: Nose states
+const VALID_NOSE_STATES: NoseState[] = [
+  'neutral', 'wrinkled', 'flared', 'twitching'
+];
+
+// NEW: Cheek states (migrated 'blush' from FaceState)
+const VALID_CHEEK_STATES: CheekState[] = [
+  'neutral', 'flushed', 'sunken', 'puffed', 'dimpled'
+];
+
+// NEW: Forehead states
+const VALID_FOREHEAD_STATES: ForeheadState[] = [
+  'smooth', 'wrinkled', 'tense', 'raised'
+];
+
+// NEW: Jaw states
+const VALID_JAW_STATES: JawState[] = [
+  'relaxed', 'clenched', 'protruding', 'slack'
 ];
 
 const VALID_EFFECTS: VisualEffect[] = [
@@ -423,6 +454,62 @@ function validateFaceState(face?: string): FaceState | undefined {
 }
 
 /**
+ * Validate and normalize nose state (NEW)
+ */
+function validateNoseState(nose?: string): NoseState | undefined {
+  if (!nose) return undefined;
+
+  const normalized = nose.toLowerCase().trim().replace(/\s+/g, '_');
+  if (VALID_NOSE_STATES.includes(normalized as NoseState)) {
+    return normalized as NoseState;
+  }
+
+  return undefined;
+}
+
+/**
+ * Validate and normalize cheek state (NEW)
+ */
+function validateCheekState(cheek?: string): CheekState | undefined {
+  if (!cheek) return undefined;
+
+  const normalized = cheek.toLowerCase().trim().replace(/\s+/g, '_');
+  if (VALID_CHEEK_STATES.includes(normalized as CheekState)) {
+    return normalized as CheekState;
+  }
+
+  return undefined;
+}
+
+/**
+ * Validate and normalize forehead state (NEW)
+ */
+function validateForeheadState(forehead?: string): ForeheadState | undefined {
+  if (!forehead) return undefined;
+
+  const normalized = forehead.toLowerCase().trim().replace(/\s+/g, '_');
+  if (VALID_FOREHEAD_STATES.includes(normalized as ForeheadState)) {
+    return normalized as ForeheadState;
+  }
+
+  return undefined;
+}
+
+/**
+ * Validate and normalize jaw state (NEW)
+ */
+function validateJawState(jaw?: string): JawState | undefined {
+  if (!jaw) return undefined;
+
+  const normalized = jaw.toLowerCase().trim().replace(/\s+/g, '_');
+  if (VALID_JAW_STATES.includes(normalized as JawState)) {
+    return normalized as JawState;
+  }
+
+  return undefined;
+}
+
+/**
  * Clamp duration to valid range
  */
 function clampDuration(duration: number): number {
@@ -651,6 +738,19 @@ function convertSimplifiedSegment(
 
   const faceState = validateFaceState(seg.fc);
   if (faceState) complementary.faceState = faceState;
+
+  // NEW: Parse new facial feature states
+  const noseState = validateNoseState(seg.n);
+  if (noseState) complementary.noseState = noseState;
+
+  const cheekState = validateCheekState(seg.ch);
+  if (cheekState) complementary.cheekState = cheekState;
+
+  const foreheadState = validateForeheadState(seg.fh);
+  if (foreheadState) complementary.foreheadState = foreheadState;
+
+  const jawState = validateJawState(seg.j);
+  if (jawState) complementary.jawState = jawState;
 
   const effect = validateEffect(seg.fx);
   if (effect && effect !== 'none') complementary.effect = effect;
@@ -1082,15 +1182,28 @@ function parseSegment(
   const faceState = validateFaceState(raw.face);
   if (faceState) complementary.faceState = faceState;
 
+  // NEW: Parse new facial feature states
+  const noseState = validateNoseState(raw.nose);
+  if (noseState) complementary.noseState = noseState;
+
+  const cheekState = validateCheekState(raw.cheek);
+  if (cheekState) complementary.cheekState = cheekState;
+
+  const foreheadState = validateForeheadState(raw.forehead);
+  if (foreheadState) complementary.foreheadState = foreheadState;
+
+  const jawState = validateJawState(raw.jaw);
+  if (jawState) complementary.jawState = jawState;
+
   const effect = validateEffect(raw.effect);
   if (effect && effect !== 'none') complementary.effect = effect;
-  
+
   const segment: AnimationSegment = {
     animation,
     duration,
     isTalking: raw.talking === true
   };
-  
+
   if (Object.keys(complementary).length > 0) {
     segment.complementary = complementary;
   }
@@ -1529,6 +1642,34 @@ export function getMouthStatesList(): string {
  */
 export function getFaceStatesList(): string {
   return VALID_FACE_STATES.join(', ');
+}
+
+/**
+ * Get list of valid nose states for LLM prompt (NEW)
+ */
+export function getNoseStatesList(): string {
+  return VALID_NOSE_STATES.join(', ');
+}
+
+/**
+ * Get list of valid cheek states for LLM prompt (NEW)
+ */
+export function getCheekStatesList(): string {
+  return VALID_CHEEK_STATES.join(', ');
+}
+
+/**
+ * Get list of valid forehead states for LLM prompt (NEW)
+ */
+export function getForeheadStatesList(): string {
+  return VALID_FOREHEAD_STATES.join(', ');
+}
+
+/**
+ * Get list of valid jaw states for LLM prompt (NEW)
+ */
+export function getJawStatesList(): string {
+  return VALID_JAW_STATES.join(', ');
 }
 
 /**
