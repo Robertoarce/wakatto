@@ -1489,8 +1489,10 @@ function generateListeningTimeline(
     }
     
     // During speaker's timeline
+    // If speaker is to my LEFT (lower index), look toward them using 'at_left_character'
+    // If speaker is to my RIGHT (higher index), look toward them using 'at_right_character'
     const speakerPosition = getSpeakerPosition(event.characterId, characterId, allCharacters);
-    const lookDirection = speakerPosition === 'left' ? 'at_left_character' : 
+    const lookDirection = speakerPosition === 'left' ? 'at_left_character' :
                           speakerPosition === 'right' ? 'at_right_character' : 'center';
     
     // Check if this character is mentioned in the content
