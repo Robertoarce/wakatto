@@ -1,49 +1,49 @@
 /**
  * Character Selection Screen - Select Wakattors for a New Conversation
- * Users must select 1-5 characters before starting a conversation
+ * Features: Profession filters, search, mosaic grid layout
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
+  Platform,
+  ScrollView,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { CharacterBehavior, getAllCharacters, registerCustomCharacters } from '../config/characters';
 import { getCustomWakattors } from '../services/customWakattorsService';
-import { Badge } from '../components/ui';
 import { useCustomAlert } from '../components/CustomAlert';
-import { useResponsive } from '../constants/Layout';
 
-interface CharacterSelectionScreenProps {
+interface Props {
   onStartConversation: (selectedCharacterIds: string[]) => void;
   onCancel: () => void;
 }
 
 const MAX_CHARACTERS = 5;
 
-export default function CharacterSelectionScreen({
-  onStartConversation,
-  onCancel,
-}: CharacterSelectionScreenProps) {
-  const { showAlert, AlertComponent } = useCustomAlert();
-  const { fonts, spacing, layout, isMobile, isTablet } = useResponsive();
+// Profession filter options
+const PROFESSIONS = [
+  { id: 'all', label: 'All', icon: 'apps' },
+  { id: 'psychologist', label: 'Psychology', icon: 'brain' },
+  { id: 'philosopher', label: 'Philosophy', icon: 'school' },
+  { id: 'coach', label: 'Coaching', icon: 'fitness' },
+  { id: 'spiritual', label: 'Spiritual', icon: 'leaf' },
+  { id: 'creative', label: 'Creative', icon: 'color-palette' },
+];
 
+export default function CharacterSelectionScreen({ onStartConversation, onCancel }: Props) {
+  const { showAlert, AlertComponent } = useCustomAlert();
   const [characters, setCharacters] = useState<CharacterBehavior[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRole, setSelectedRole] = useState<string>('All');
-  const [selectedCharacterIds, setSelectedCharacterIds] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedProfession, setSelectedProfession] = useState('all');
 
-  // Responsive card width
-  const cardWidth = isMobile ? '100%' : '48%';
-
-  // Load ALL characters - combine built-in + database characters
   useEffect(() => {
     loadCharacters();
   }, []);
@@ -51,185 +51,127 @@ export default function CharacterSelectionScreen({
   const loadCharacters = async () => {
     try {
       setLoading(true);
-
-      // Get built-in characters
-      const builtInCharacters = getAllCharacters();
-
-      // Get database characters (from Supabase)
-      const dbCharacters = await getCustomWakattors();
-
-      // Combine both, with database characters taking priority for duplicates
-      const characterMap = new Map<string, CharacterBehavior>();
-
-      // Add built-in first
-      builtInCharacters.forEach(char => characterMap.set(char.id, char));
-
-      // Then add database characters (overwrites duplicates)
-      dbCharacters.forEach(char => characterMap.set(char.id, char));
-
-      const allCharacters = Array.from(characterMap.values());
-
-      // Register database characters to the global registry
-      registerCustomCharacters(dbCharacters);
-
-      setCharacters(allCharacters);
-      console.log('[CharacterSelectionScreen] Loaded', allCharacters.length, 'characters');
-    } catch (error) {
-      console.error('Failed to load characters:', error);
-      // Fallback to built-in only
+      const builtIn = getAllCharacters();
+      const custom = await getCustomWakattors();
+      const map = new Map<string, CharacterBehavior>();
+      builtIn.forEach(c => map.set(c.id, c));
+      custom.forEach(c => map.set(c.id, { ...c, isCustom: true }));
+      registerCustomCharacters(custom);
+      setCharacters(Array.from(map.values()));
+    } catch (e) {
       setCharacters(getAllCharacters());
     } finally {
       setLoading(false);
     }
   };
 
-  // Get unique roles from characters
-  const uniqueRoles = useMemo(() => {
-    const roles = characters.map((c) => c.role).filter(Boolean);
-    return ['All', ...Array.from(new Set(roles))];
-  }, [characters]);
+  const filtered = useMemo(() => {
+    let result = characters;
 
-  // Filter and search characters
-  const filteredCharacters = useMemo(() => {
-    let filtered = characters;
+    // Filter by profession
+    if (selectedProfession !== 'all') {
+      result = result.filter(c => {
+          const role = (c.role || '').toLowerCase();
+          const desc = (c.description || '').toLowerCase();
+          const name = (c.name || '').toLowerCase();
 
-    // Search filter
+          switch (selectedProfession) {
+            case 'psychologist':
+              return role.includes('psycho') || role.includes('therap') ||
+                     desc.includes('psycho') || desc.includes('therap') ||
+                     name.includes('freud') || name.includes('jung') || name.includes('adler');
+            case 'philosopher':
+              return role.includes('philoso') || desc.includes('philoso') ||
+                     role.includes('socrat') || desc.includes('existential');
+            case 'coach':
+              return role.includes('coach') || desc.includes('coach') ||
+                     role.includes('mentor') || desc.includes('motivation');
+            case 'spiritual':
+              return role.includes('spirit') || desc.includes('spirit') ||
+                     role.includes('mindful') || desc.includes('mindful') ||
+                     role.includes('meditat') || desc.includes('zen');
+            case 'creative':
+              return role.includes('creativ') || desc.includes('creativ') ||
+                     role.includes('artist') || desc.includes('art') ||
+                     role.includes('writer') || desc.includes('storytell');
+            default:
+              return true;
+          }
+        });
+    }
+
+    // Filter by search query
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (char) =>
-          char.name?.toLowerCase().includes(query) ||
-          char.description?.toLowerCase().includes(query) ||
-          char.role?.toLowerCase().includes(query)
+      const q = searchQuery.toLowerCase();
+      result = result.filter(c =>
+        c.name?.toLowerCase().includes(q) ||
+        c.role?.toLowerCase().includes(q) ||
+        c.description?.toLowerCase().includes(q)
       );
     }
 
-    // Role filter
-    if (selectedRole !== 'All') {
-      filtered = filtered.filter(char =>
-        char.role?.toLowerCase() === selectedRole.toLowerCase()
-      );
-    }
+    return result;
+  }, [characters, searchQuery, selectedProfession]);
 
-    // Randomize order (shuffle)
-    filtered = [...filtered].sort(() => Math.random() - 0.5);
-
-    return filtered;
-  }, [characters, searchQuery, selectedRole]);
-
-  const toggleCharacter = (characterId: string) => {
-    setSelectedCharacterIds(prev => {
-      if (prev.includes(characterId)) {
-        // Remove character
-        return prev.filter(id => id !== characterId);
-      } else {
-        // Add character (with max limit check)
-        if (prev.length >= MAX_CHARACTERS) {
-          showAlert('Maximum Reached', `You can select up to ${MAX_CHARACTERS} Wakattors maximum.`, [{ text: 'OK' }]);
-          return prev;
-        }
-        return [...prev, characterId];
+  const toggle = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      if (prev.includes(id)) return prev.filter(x => x !== id);
+      if (prev.length >= MAX_CHARACTERS) {
+        showAlert('Limit Reached', `Maximum ${MAX_CHARACTERS} characters allowed.`);
+        return prev;
       }
+      return [...prev, id];
     });
-  };
+  }, [showAlert]);
 
-  const handleStartConversation = () => {
-    if (selectedCharacterIds.length === 0) {
-      showAlert('No Characters Selected', 'Please select at least one Wakattor to start a conversation.', [{ text: 'OK' }]);
+  const start = () => {
+    if (selectedIds.length === 0) {
+      showAlert('Select Characters', 'Please select at least one character.');
       return;
     }
-    onStartConversation(selectedCharacterIds);
+    onStartConversation(selectedIds);
   };
 
-  const renderSelectedCharacter = (characterId: string) => {
-    const character = characters.find(c => c.id === characterId);
-    if (!character) return null;
-
-    return (
-      <View
-        key={characterId}
-        style={[styles.selectedCharacterChip, { borderColor: character.color }]}
-      >
-        <View style={[styles.characterIndicator, { backgroundColor: character.color }]} />
-        <Text style={[styles.selectedCharacterName, { fontSize: fonts.sm }]}>
-          {character.name}
-        </Text>
-        <TouchableOpacity
-          onPress={() => toggleCharacter(characterId)}
-          style={styles.removeCharacterButton}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Ionicons name="close" size={14} color="#ef4444" />
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  const renderCharacterCard = (character: CharacterBehavior) => {
-    const isSelected = selectedCharacterIds.includes(character.id);
-
+  // Render a single character card (mosaic tile)
+  const renderCard = (char: CharacterBehavior) => {
+    const selected = selectedIds.includes(char.id);
     return (
       <TouchableOpacity
-        key={character.id}
+        key={char.id}
         style={[
-          styles.characterCard,
-          {
-            width: cardWidth as any,
-            minWidth: isMobile ? undefined : 160,
-            maxWidth: isMobile ? undefined : 220,
-            padding: spacing.lg,
-          },
-          isSelected && styles.characterCardSelected,
-          isSelected && { borderColor: character.color },
+          styles.mosaicCard,
+          selected && { borderColor: char.color, borderWidth: 2 },
         ]}
-        onPress={() => toggleCharacter(character.id)}
+        onPress={() => toggle(char.id)}
+        activeOpacity={0.7}
       >
-        {/* Selection indicator */}
-        {isSelected && (
-          <View style={[styles.selectedBadge, { backgroundColor: character.color }]}>
-            <Ionicons name="checkmark" size={14} color="white" />
+        {selected && (
+          <View style={[styles.checkBadge, { backgroundColor: char.color }]}>
+            <Ionicons name="checkmark" size={12} color="#fff" />
           </View>
         )}
 
-        <View style={[styles.characterIndicator, { backgroundColor: character.color, alignSelf: 'center', marginBottom: 8 }]} />
-
-        <Text style={[styles.characterName, { color: character.color, fontSize: fonts.md }]} numberOfLines={1}>
-          {character.name}
-        </Text>
-
-        <Badge label={character.role || 'Character'} variant="primary" size="sm" style={styles.roleBadge} />
-
-        <Text style={[styles.characterDescription, { fontSize: fonts.sm }]} numberOfLines={3}>
-          {character.description}
-        </Text>
-
-        <View style={[styles.cardFooter, { marginTop: spacing.sm, paddingTop: spacing.md }]}>
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              isSelected ? styles.removeButton : styles.addButton,
-            ]}
-            onPress={() => toggleCharacter(character.id)}
-          >
-            <Ionicons
-              name={isSelected ? "remove-circle" : "add-circle"}
-              size={18}
-              color="white"
-            />
-            <Text style={styles.actionButtonText}>
-              {isSelected ? 'Remove' : 'Add'}
-            </Text>
-          </TouchableOpacity>
+        <View style={[styles.mosaicAvatar, { backgroundColor: char.color + '30' }]}>
+          <Text style={[styles.mosaicAvatarText, { color: char.color }]}>
+            {char.name?.charAt(0).toUpperCase()}
+          </Text>
         </View>
+
+        <Text style={[styles.mosaicName, { color: char.color }]} numberOfLines={1}>
+          {char.name}
+        </Text>
+        <Text style={styles.mosaicRole} numberOfLines={1}>
+          {char.role || 'Character'}
+        </Text>
       </TouchableOpacity>
     );
   };
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.loading}>
         <ActivityIndicator size="large" color="#8b5cf6" />
-        <Text style={[styles.loadingText, { fontSize: fonts.md }]}>Loading characters...</Text>
+        <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
   }
@@ -238,105 +180,139 @@ export default function CharacterSelectionScreen({
     <View style={styles.container}>
       <AlertComponent />
 
-      {/* Header */}
-      <View style={[styles.header, { paddingHorizontal: spacing.lg, paddingVertical: spacing.lg }]}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity
-            style={[styles.headerStartButton, selectedCharacterIds.length === 0 && styles.headerStartButtonDisabled]}
-            onPress={handleStartConversation}
-            disabled={selectedCharacterIds.length === 0}
-          >
-            <Ionicons name="chatbubbles" size={18} color="white" />
-            <Text style={[styles.headerStartButtonText, { fontSize: fonts.sm }]}>
-              Start Conversation
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onCancel} style={styles.headerCancelButton}>
-            <Text style={[styles.headerCancelText, { fontSize: fonts.sm }]}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
+      {/* Top Bar */}
+      <View style={styles.topBar}>
+        <TouchableOpacity onPress={onCancel} style={styles.cancelBtn}>
+          <Ionicons name="arrow-back" size={20} color="#fff" />
+          <Text style={styles.cancelText}>Back</Text>
+        </TouchableOpacity>
 
-        <View style={styles.headerCenter}>
-          <MaterialCommunityIcons name="emoticon-happy-outline" size={isMobile ? 24 : 28} color="#8b5cf6" />
-          <Text style={[styles.title, { fontSize: isMobile ? fonts.lg : fonts.xxl }]}>Select Wakattors</Text>
-        </View>
+        <Text style={styles.title}>New Conversation</Text>
+
+        <TouchableOpacity
+          onPress={start}
+          style={[styles.startBtn, selectedIds.length === 0 && styles.startBtnDisabled]}
+          disabled={selectedIds.length === 0}
+        >
+          <Text style={styles.startText}>Start ({selectedIds.length})</Text>
+          <Ionicons name="arrow-forward" size={18} color="#fff" />
+        </TouchableOpacity>
       </View>
 
-      {/* Selected Characters Section */}
-      {selectedCharacterIds.length > 0 && (
-        <View style={styles.selectedSection}>
-          <View style={styles.selectedHeader}>
-            <View style={styles.selectedChipsContainer}>
-              <Text style={[styles.sectionLabel, { fontSize: fonts.sm }]}>
-                Selected ({selectedCharacterIds.length}/{MAX_CHARACTERS})
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectedScroll}>
-                {selectedCharacterIds.map(renderSelectedCharacter)}
-              </ScrollView>
-            </View>
-          </View>
+      {/* Selected Preview */}
+      {selectedIds.length > 0 && (
+        <View style={styles.selectedBar}>
+          {selectedIds.map(id => {
+            const c = characters.find(x => x.id === id);
+            if (!c) return null;
+            return (
+              <TouchableOpacity key={id} onPress={() => toggle(id)} style={styles.selectedChip}>
+                <View style={[styles.dot, { backgroundColor: c.color }]} />
+                <Text style={styles.selectedName}>{c.name}</Text>
+                <Ionicons name="close" size={14} color="#f87171" />
+              </TouchableOpacity>
+            );
+          })}
         </View>
       )}
 
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#71717a" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by name, role, or description..."
-          placeholderTextColor="#71717a"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
-            <Ionicons name="close-circle" size={20} color="#71717a" />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Role/Profession Filter */}
+      {/* Profession Filter - Horizontal scroll */}
       <View style={styles.filterContainer}>
-        <Text style={styles.filterLabel}>
-          <Ionicons name="briefcase-outline" size={16} color="#a1a1aa" /> Profession:
-        </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {uniqueRoles.map((role) => (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={true}
+          contentContainerStyle={styles.filterScroll}
+        >
+          {PROFESSIONS.map(prof => (
             <TouchableOpacity
-              key={role}
-              style={[styles.roleChip, selectedRole === role && styles.roleChipActive]}
-              onPress={() => setSelectedRole(role)}
+              key={prof.id}
+              style={[
+                styles.filterChip,
+                selectedProfession === prof.id && styles.filterChipActive,
+              ]}
+              onPress={() => setSelectedProfession(prof.id)}
             >
-              <Text style={[styles.roleChipText, selectedRole === role && styles.roleChipTextActive]}>
-                {role}
+              <Ionicons
+                name={prof.icon as any}
+                size={16}
+                color={selectedProfession === prof.id ? '#fff' : '#a1a1aa'}
+              />
+              <Text
+                style={[
+                  styles.filterChipText,
+                  selectedProfession === prof.id && styles.filterChipTextActive,
+                ]}
+              >
+                {prof.label}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
       </View>
 
-      {/* Character Grid - Scrollable */}
-      <ScrollView
-        style={styles.characterList}
-        contentContainerStyle={styles.characterListContent}
-        showsVerticalScrollIndicator={true}
-      >
-        {filteredCharacters.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="search-outline" size={64} color="#52525b" />
-            <Text style={styles.emptyTitle}>No characters found</Text>
-            <Text style={styles.emptySubtext}>
-              {searchQuery
-                ? `No results for "${searchQuery}"`
-                : 'Try adjusting your filters'}
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.characterMosaic}>
-            {filteredCharacters.map((character) => renderCharacterCard(character))}
-          </View>
+      {/* Search */}
+      <View style={styles.searchBox}>
+        <Ionicons name="search" size={18} color="#71717a" />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search characters..."
+          placeholderTextColor="#71717a"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Ionicons name="close-circle" size={18} color="#71717a" />
+          </TouchableOpacity>
         )}
-      </ScrollView>
+      </View>
+
+      {/* Character Grid - Mosaic Layout */}
+      <View style={styles.listWrapper}>
+        {Platform.OS === 'web' ? (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              padding: 12,
+            }}
+          >
+            {filtered.length === 0 ? (
+              <View style={styles.empty}>
+                <Ionicons name="people-outline" size={48} color="#3f3f46" />
+                <Text style={styles.emptyText}>No characters found</Text>
+              </View>
+            ) : (
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 12,
+                  justifyContent: 'flex-start',
+                }}
+              >
+                {filtered.map(char => renderCard(char))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <ScrollView style={styles.listContainer} contentContainerStyle={styles.mosaicGrid}>
+            {filtered.length === 0 ? (
+              <View style={styles.empty}>
+                <Ionicons name="people-outline" size={48} color="#3f3f46" />
+                <Text style={styles.emptyText}>No characters found</Text>
+              </View>
+            ) : (
+              filtered.map(char => renderCard(char))
+            )}
+          </ScrollView>
+        )}
+      </View>
     </View>
   );
 }
@@ -344,279 +320,212 @@ export default function CharacterSelectionScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f0f',
+    backgroundColor: '#09090b',
+    // @ts-ignore - web-specific
+    ...Platform.select({
+      web: {
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        height: '100%',
+      },
+    }),
   },
-  loadingContainer: {
+  loading: {
     flex: 1,
-    backgroundColor: '#0f0f0f',
+    backgroundColor: '#09090b',
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
-    color: '#a1a1aa',
-    marginTop: 16,
-    fontSize: 16,
+    color: '#71717a',
+    marginTop: 12,
+    fontSize: 14,
   },
-  header: {
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 14,
+    backgroundColor: '#18181b',
     borderBottomWidth: 1,
     borderBottomColor: '#27272a',
   },
-  headerLeft: {
+  cancelBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 4,
   },
-  headerStartButton: {
+  cancelText: {
+    color: '#a1a1aa',
+    fontSize: 14,
+  },
+  title: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  startBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     backgroundColor: '#22c55e',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
   },
-  headerStartButtonDisabled: {
-    backgroundColor: '#4c4c4c',
-    opacity: 0.6,
+  startBtnDisabled: {
+    backgroundColor: '#3f3f46',
   },
-  headerStartButtonText: {
-    color: 'white',
-    fontWeight: '600',
+  startText: {
+    color: '#fff',
     fontSize: 14,
-  },
-  headerCancelButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#dc2626',
-    borderRadius: 8,
-  },
-  headerCancelText: {
-    color: 'white',
     fontWeight: '600',
-    fontSize: 14,
   },
-  headerCenter: {
+  selectedBar: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 8,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: 'white',
-  },
-  selectedSection: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    padding: 12,
+    backgroundColor: '#18181b',
     borderBottomWidth: 1,
     borderBottomColor: '#27272a',
-    backgroundColor: '#18181b',
   },
-  selectedHeader: {
+  selectedChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  selectedChipsContainer: {
-    flex: 1,
-    minWidth: 0,
-  },
-  sectionLabel: {
-    color: '#a1a1aa',
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  selectedScroll: {
-    flexDirection: 'row',
-  },
-  selectedCharacterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    gap: 6,
     backgroundColor: '#27272a',
-    borderRadius: 20,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
-    marginRight: 8,
-    borderWidth: 2,
+    borderRadius: 16,
   },
-  characterIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 6,
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  selectedCharacterName: {
-    color: 'white',
+  selectedName: {
+    color: '#e4e4e7',
+    fontSize: 12,
     fontWeight: '500',
-    marginRight: 4,
   },
-  removeCharacterButton: {
-    marginLeft: 4,
+  filterContainer: {
+    backgroundColor: '#18181b',
+    borderBottomWidth: 1,
+    borderBottomColor: '#27272a',
+    paddingVertical: 8,
   },
-  searchContainer: {
+  filterScroll: {
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 16,
-    marginVertical: 12,
-    backgroundColor: '#18181b',
-    borderRadius: 12,
+    gap: 6,
     paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#27272a',
+    marginRight: 8,
+  },
+  filterChipActive: {
+    backgroundColor: '#8b5cf6',
+  },
+  filterChipText: {
+    color: '#a1a1aa',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  filterChipTextActive: {
+    color: '#fff',
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    margin: 12,
+    paddingHorizontal: 14,
     paddingVertical: 10,
+    backgroundColor: '#18181b',
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#27272a',
   },
-  searchIcon: {
-    marginRight: 8,
-  },
   searchInput: {
     flex: 1,
-    color: 'white',
-    fontSize: 15,
-  },
-  clearButton: {
-    padding: 4,
-  },
-  filterContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#27272a',
-  },
-  filterLabel: {
-    fontSize: 13,
-    color: '#a1a1aa',
-    fontWeight: '600',
-    marginBottom: 10,
-  },
-  roleChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 10,
-    backgroundColor: '#18181b',
-    borderWidth: 2,
-    borderColor: '#27272a',
-  },
-  roleChipActive: {
-    backgroundColor: '#8b5cf6',
-    borderColor: '#8b5cf6',
-  },
-  roleChipText: {
-    color: '#a1a1aa',
+    color: '#fff',
     fontSize: 14,
-    fontWeight: '600',
   },
-  roleChipTextActive: {
-    color: 'white',
-  },
-  characterList: {
+  listWrapper: {
     flex: 1,
-  },
-  characterListContent: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  characterMosaic: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    justifyContent: 'space-between',
-  },
-  characterCard: {
-    backgroundColor: '#18181b',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 2,
-    borderColor: '#27272a',
-    width: '48%',
-    minWidth: 160,
-    maxWidth: 200,
     position: 'relative',
   },
-  characterCardSelected: {
-    backgroundColor: '#1f1f23',
-    borderWidth: 2,
+  listContainer: {
+    flex: 1,
   },
-  selectedBadge: {
+  mosaicGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 12,
+    gap: 12,
+  },
+  empty: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 60,
+  },
+  emptyText: {
+    color: '#52525b',
+    marginTop: 12,
+    fontSize: 14,
+  },
+  // Mosaic card styles
+  mosaicCard: {
+    width: 140,
+    padding: 16,
+    backgroundColor: '#18181b',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#27272a',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  checkBadge: {
     position: 'absolute',
     top: 8,
     right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  characterName: {
-    fontSize: 17,
+  mosaicAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  mosaicAvatarText: {
+    fontSize: 26,
     fontWeight: '700',
-    marginBottom: 8,
-    textAlign: 'center',
   },
-  roleBadge: {
-    alignSelf: 'center',
-    marginBottom: 12,
-  },
-  characterDescription: {
+  mosaicName: {
     fontSize: 14,
-    color: '#d4d4d8',
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#27272a',
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    gap: 6,
-    flex: 1,
-  },
-  addButton: {
-    backgroundColor: '#22c55e',
-  },
-  removeButton: {
-    backgroundColor: '#ef4444',
-  },
-  actionButtonText: {
-    color: 'white',
     fontWeight: '600',
-    fontSize: 14,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 64,
-    paddingHorizontal: 32,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: 'white',
-    marginTop: 16,
+    marginBottom: 4,
     textAlign: 'center',
   },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#71717a',
-    marginTop: 8,
+  mosaicRole: {
+    fontSize: 11,
+    color: '#8b5cf6',
     textAlign: 'center',
   },
 });

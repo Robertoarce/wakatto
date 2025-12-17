@@ -2,8 +2,16 @@
  * Type definitions for ChatInterface
  */
 
-import { OrchestrationScene } from '../../../services/animationOrchestration';
+import { OrchestrationScene, AnimationSegment } from '../../../services/animationOrchestration';
 import { AnimationState, ComplementaryAnimation } from '../../CharacterDisplay3D';
+
+/**
+ * Stored animation data for replay functionality
+ */
+export interface MessageAnimationData {
+  segments: AnimationSegment[];
+  totalDuration: number;
+}
 
 export interface Message {
   id: string;
@@ -11,6 +19,8 @@ export interface Message {
   content: string;
   created_at?: string;
   characterId?: string; // Which character is speaking (for assistant messages)
+  // Animation data for replay (stored when message is first played)
+  animationData?: MessageAnimationData;
 }
 
 // Early animation setup from streaming

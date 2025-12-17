@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ChatInterface } from '../components/ChatInterface';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { useSelector, useDispatch, useStore } from 'react-redux';
 import { RootState } from '../store';
 import { Header } from '../components/Header';
@@ -716,6 +716,16 @@ const styles = StyleSheet.create({
   fullContainer: {
     flex: 1,
     backgroundColor: '#0f0f0f',
+    // @ts-ignore - web-specific: minHeight 0 required for nested flex scrolling
+    ...Platform.select({
+      web: {
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        overflow: 'hidden',
+      },
+    }),
   },
   contentContainer: {
     flex: 1,

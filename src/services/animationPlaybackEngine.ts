@@ -174,6 +174,9 @@ export class AnimationPlaybackEngine {
     this.cachedStates.clear();
     this.lastCachedElapsed = -1;
     this.lastCachedStatus = 'idle';
+
+    // Notify subscribers that playback has stopped
+    this.notifyCallbacks();
   }
 
   /**

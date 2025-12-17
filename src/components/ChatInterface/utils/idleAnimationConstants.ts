@@ -46,13 +46,11 @@ function getPositionAwareLookDirection(
   const positionFromCenter = characterIndex - centerIndex;
 
   if (positionFromCenter < -0.1) {
-    // Character is on the LEFT side of screen - look toward center/right
-    // 'at_left_character' turns body+head toward screen-RIGHT (positive Y)
-    return 'at_left_character';
-  } else if (positionFromCenter > 0.1) {
-    // Character is on the RIGHT side of screen - look toward center/left
-    // 'at_right_character' turns body+head toward screen-LEFT (negative Y)
+    // Character is on the LEFT side of screen - look at characters to their RIGHT (toward center)
     return 'at_right_character';
+  } else if (positionFromCenter > 0.1) {
+    // Character is on the RIGHT side of screen - look at characters to their LEFT (toward center)
+    return 'at_left_character';
   } else {
     // Character is in the CENTER - look at user
     return 'center';

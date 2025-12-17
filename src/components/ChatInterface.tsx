@@ -53,6 +53,7 @@ import {
   useResponsiveCharacters,
   useMessageEditing,
   useVoiceRecording,
+  useBobSales,
 } from './ChatInterface/hooks';
 
 interface Message {
@@ -142,8 +143,10 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const { showAlert, AlertComponent } = useCustomAlert();
   const { fonts, spacing, layout, isMobile, isTablet, isDesktop, isMobileLandscape, width: screenWidth, height: screenHeight } = useResponsive();
   const [input, setInput] = useState('');
-  const [replayOffset, setReplayOffset] = useState(0); // Tracks how far back we are in replay (0 = last 5, 5 = 6-10, etc.)
+  const [replayOffset, setReplayOffset] = useState(0); // Tracks how far back we are in replay (cumulative: 5, 10, 15, etc.)
   const scrollViewRef = useRef<ScrollView>(null);
+  // Store animation data for replay (keyed by message content hash to match messages)
+  const animationDataCacheRef = useRef<Map<string, { segments: AnimationSegment[]; totalDuration: number }>>(new Map());
 
   // Voice recording (hook handles state, refs, and all voice functions)
   const {
@@ -311,11 +314,30 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     isPlaying: playbackState.isPlaying,
   });
 
-  // Handle user input change with idle conversation detection
+  // Check if user has sent any messages (to stop Bob's sales pitch)
+  const hasUserMessages = useMemo(() => {
+    return messages.some(m => m.role === 'user');
+  }, [messages]);
+
+  // Bob sales pitch (for new conversations with Bob)
+  const {
+    isBobPitching,
+    bobSceneOverride,
+    notifyUserResponse,
+  } = useBobSales({
+    selectedCharacters,
+    conversationId,
+    onSaveMessage: onGreeting, // Use greeting callback to save Bob's messages
+    isPlaying: playbackState.isPlaying,
+    hasUserMessages,
+  });
+
+  // Handle user input change with idle conversation and Bob sales detection
   const handleInputChange = useCallback((text: string) => {
     setInput(text);
     handleUserTyping();
-  }, [handleUserTyping]);
+    notifyUserResponse(); // Let Bob know user is typing
+  }, [handleUserTyping, notifyUserResponse]);
 
   // Responsive calculations for bubbles & characters (hook handles all calculations)
   const {
@@ -393,6 +415,18 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       // Set character voice profiles before playing
       const voiceProfiles = buildVoiceProfilesMap();
       playbackEngineRef.current.setCharacterVoiceProfiles(voiceProfiles);
+
+      // Store animation data for each timeline for replay functionality
+      for (const timeline of animationScene.timelines) {
+        // Create a unique key based on characterId + content
+        const cacheKey = `${timeline.characterId}:${timeline.content}`;
+        if (!animationDataCacheRef.current.has(cacheKey)) {
+          animationDataCacheRef.current.set(cacheKey, {
+            segments: timeline.segments,
+            totalDuration: timeline.totalDuration,
+          });
+        }
+      }
 
       playbackEngineRef.current.play(animationScene);
     }
@@ -599,10 +633,10 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         savedCharacters.length === 0;
 
       if (isNewConversation && !conversationStarterInProgressRef.current) {
-        // Select a RANDOM character instead of the first one
-        const randomIndex = Math.floor(Math.random() * availableCharacters.length);
-        const randomChar = availableCharacters[randomIndex];
-        const selectedIds = [randomChar.id];
+        // Always start with Bob (the tutorial/sales character)
+        const bobChar = availableCharacters.find(c => c.id === 'bob-tutorial');
+        const selectedChar = bobChar || availableCharacters[0];
+        const selectedIds = [selectedChar.id];
         setSelectedCharacters(selectedIds);
 
         // Generate entrance sequence with random animation types
@@ -615,7 +649,9 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         setShowEntranceAnimation(true);
 
         // Fire AI conversation starter request IN PARALLEL with entrance animation
-        if (onGreeting && !hasTriggeredGreeting.current) {
+        // Skip for Bob - useBobSales hook handles his opening pitch
+        const isBobSelected = selectedIds.includes('bob-tutorial');
+        if (onGreeting && !hasTriggeredGreeting.current && !isBobSelected) {
           hasTriggeredGreeting.current = true;
           conversationStarterInProgressRef.current = true;
           const entranceStartTime = Date.now();
@@ -656,10 +692,19 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
               setTimeout(() => {
                 setShowEntranceAnimation(false);
                 setEntranceSequence(new Map());
-                const greeting = getRandomGreeting(randomChar.id, randomChar.name);
-                onGreeting(randomChar.id, greeting);
+                const greeting = getRandomGreeting(selectedChar.id, selectedChar.name);
+                onGreeting(selectedChar.id, greeting);
               }, remainingTime);
             });
+        }
+
+        // For Bob: just clear entrance animation after it completes
+        // useBobSales hook will handle his opening pitch
+        if (isBobSelected) {
+          setTimeout(() => {
+            setShowEntranceAnimation(false);
+            setEntranceSequence(new Map());
+          }, totalEntranceDuration);
         }
       }
     }, 500); // Wait 500ms to allow messages to load from database
@@ -889,7 +934,9 @@ Each silence, a cathedral where you still reside.`;
     playbackEngineRef.current.play(testScene);
   };
 
-  // Replay function - replays messages in batches of 5, going further back each press
+  // Replay function - CUMULATIVE: each press adds 5 more messages to replay
+  // Pressing during playback extends the replay (5 → 10 → 15...)
+  // Uses stored animation data when available for authentic playback
   const handleReplay = () => {
     // Get only character messages (not user messages)
     const characterMessages = messages.filter(m => m.characterId && m.content);
@@ -899,65 +946,73 @@ Each silence, a cathedral where you still reside.`;
       return;
     }
 
-    // Calculate which messages to replay based on offset
+    // Calculate new cumulative count (adds 5 more each press)
     const batchSize = 5;
-    const startIndex = Math.max(0, characterMessages.length - batchSize - replayOffset);
-    const endIndex = Math.max(0, characterMessages.length - replayOffset);
+    const newTotalCount = replayOffset + batchSize;
 
-    // If we've gone past all messages, reset to beginning
-    if (startIndex >= endIndex || endIndex <= 0) {
-      setReplayOffset(0);
-      showAlert('Start Over', 'Reached the beginning. Starting from the latest messages.');
-      return;
-    }
-
-    const messagesToReplay = characterMessages.slice(startIndex, endIndex);
+    // Get messages to replay (most recent `newTotalCount` messages)
+    const startIndex = Math.max(0, characterMessages.length - newTotalCount);
+    const messagesToReplay = characterMessages.slice(startIndex);
 
     if (messagesToReplay.length === 0) {
-      setReplayOffset(0);
       return;
     }
 
-    // Build timelines from messages
+    // Build timelines - USE STORED ANIMATION DATA if available
     const msPerChar = DEFAULT_TALKING_SPEED;
     let currentDelay = 0;
 
     const timelines: CharacterTimeline[] = messagesToReplay.map((message) => {
-      const textDuration = message.content.length * msPerChar;
       const startDelay = currentDelay;
 
-      const segments: AnimationSegment[] = [
-        {
-          animation: 'talking' as AnimationState,
-          duration: textDuration,
-          complementary: {
-            lookDirection: 'center' as LookDirection,
-            eyeState: 'open' as EyeState,
-            mouthState: 'open' as MouthState,
-          },
-          isTalking: true,
-          textReveal: {
-            startIndex: 0,
-            endIndex: message.content.length,
-          },
-        },
-        {
-          animation: 'idle' as AnimationState,
-          duration: 500,
-          complementary: {
-            lookDirection: 'center' as LookDirection,
-          },
-          isTalking: false,
-        },
-      ];
+      // Try to get cached animation data
+      const cacheKey = `${message.characterId}:${message.content}`;
+      const cachedData = animationDataCacheRef.current.get(cacheKey);
 
-      // Add 1 second gap between messages
-      currentDelay += textDuration + 1500;
+      let segments: AnimationSegment[];
+      let totalDuration: number;
+
+      if (cachedData) {
+        // Use original animations from cache
+        segments = cachedData.segments;
+        totalDuration = cachedData.totalDuration;
+      } else {
+        // Fallback to generic talking animation
+        const textDuration = message.content.length * msPerChar;
+        segments = [
+          {
+            animation: 'talking' as AnimationState,
+            duration: textDuration,
+            complementary: {
+              lookDirection: 'center' as LookDirection,
+              eyeState: 'open' as EyeState,
+              mouthState: 'open' as MouthState,
+            },
+            isTalking: true,
+            textReveal: {
+              startIndex: 0,
+              endIndex: message.content.length,
+            },
+          },
+          {
+            animation: 'idle' as AnimationState,
+            duration: 500,
+            complementary: {
+              lookDirection: 'center' as LookDirection,
+            },
+            isTalking: false,
+          },
+        ];
+        totalDuration = textDuration + 500;
+      }
+
+      // Add gap between messages (1 second)
+      currentDelay += totalDuration + 1000;
 
       return {
         characterId: message.characterId!,
         content: message.content,
-        totalDuration: textDuration + 500,
+        totalDuration,
         segments,
         startDelay,
       };
@@ -975,11 +1030,11 @@ Each silence, a cathedral where you still reside.`;
     const voiceProfiles = buildVoiceProfilesMap();
     playbackEngineRef.current.setCharacterVoiceProfiles(voiceProfiles);
 
-    // Start playback
+    // Start playback (this will restart with the new extended scene)
     playbackEngineRef.current.play(replayScene);
 
-    // Increment offset for next press
-    setReplayOffset(prev => prev + batchSize);
+    // Update cumulative count
+    setReplayOffset(newTotalCount);
   };
 
   // Reset replay offset when playback stops
@@ -1011,73 +1066,69 @@ Each silence, a cathedral where you still reside.`;
         // In mobile landscape, always take full available space
         isMobileLandscape ? { flex: 1 } : (showChatHistory ? { height: characterHeight } : { flex: 1 })
       ]}>
-        {/* Replay Button - Small proportional sizing */}
-        {(() => {
-          const btnPadH = Math.max(4, 4 + ((screenWidth - 280) / (768 - 280)) * 4); // 4-8px
-          const btnPadV = Math.max(2, 2 + ((screenWidth - 280) / (768 - 280)) * 2); // 2-4px
-          const btnGap = Math.max(2, 2 + ((screenWidth - 280) / (768 - 280)) * 2); // 2-4px
-          const iconSize = Math.max(10, 10 + ((screenWidth - 280) / (768 - 280)) * 4); // 10-14px
-          const fontSize = Math.max(9, 9 + ((screenWidth - 280) / (768 - 280)) * 2); // 9-11px
-          return (
-            <TouchableOpacity
-              style={[
-                styles.replayButton,
-                {
-                  left: Math.max(6, screenWidth * 0.015),
-                  paddingHorizontal: btnPadH,
-                  paddingVertical: btnPadV,
-                  gap: btnGap,
-                }
-              ]}
-              onPress={handleReplay}
-              disabled={playbackState.isPlaying}
-            >
-              <Ionicons
-                name="refresh"
-                size={iconSize}
-                color={playbackState.isPlaying ? "#71717a" : "#3b82f6"}
-              />
-              <Text style={[styles.replayButtonText, playbackState.isPlaying && styles.replayButtonTextDisabled, { fontSize }]}>
-                Replay{replayOffset > 0 ? ` (-${replayOffset + 5})` : ''}
-              </Text>
-            </TouchableOpacity>
-          );
-        })()}
+        {/* Playback Control Buttons - Flex container for Replay and Stop/Play */}
+        <View style={styles.playbackButtonsContainer}>
+          {/* Replay Button - CUMULATIVE: adds 5 more messages each press */}
+          {(() => {
+            const hasCount = replayOffset > 0;
+            const btnPadH = hasCount
+              ? Math.max(8, 8 + ((screenWidth - 280) / (768 - 280)) * 6)
+              : Math.max(6, 6 + ((screenWidth - 280) / (768 - 280)) * 4);
+            const btnPadV = Math.max(4, 4 + ((screenWidth - 280) / (768 - 280)) * 2);
+            const btnGap = Math.max(4, 4 + ((screenWidth - 280) / (768 - 280)) * 2);
+            const iconSize = Math.max(14, 14 + ((screenWidth - 280) / (768 - 280)) * 4);
+            const fontSize = Math.max(11, 11 + ((screenWidth - 280) / (768 - 280)) * 2);
 
-        {/* Tell me a Poem Button - Small proportional sizing */}
-        {(() => {
-          const btnPadH = Math.max(4, 4 + ((screenWidth - 280) / (768 - 280)) * 4); // 4-8px
-          const btnPadV = Math.max(2, 2 + ((screenWidth - 280) / (768 - 280)) * 2); // 2-4px
-          const btnGap = Math.max(2, 2 + ((screenWidth - 280) / (768 - 280)) * 2); // 2-4px
-          const iconSize = Math.max(10, 10 + ((screenWidth - 280) / (768 - 280)) * 4); // 10-14px
-          const fontSize = Math.max(9, 9 + ((screenWidth - 280) / (768 - 280)) * 2); // 9-11px
-          // Position after Replay button - smaller estimate
-          const replayWidth = Math.max(50, 50 + ((screenWidth - 280) / (768 - 280)) * 20); // ~50-70px
-          return (
-            <TouchableOpacity
-              style={[
-                styles.testSpeechButton,
-                {
-                  left: Math.max(6, screenWidth * 0.015) + replayWidth + 4,
-                  paddingHorizontal: btnPadH,
-                  paddingVertical: btnPadV,
-                  gap: btnGap,
-                }
-              ]}
-              onPress={handleTestSpeech}
-              disabled={playbackState.isPlaying}
-            >
-              <Ionicons
-                name={playbackState.isPlaying ? "stop-circle" : "play-circle"}
-                size={iconSize}
-                color={playbackState.isPlaying ? "#ef4444" : "#22c55e"}
-              />
-              <Text style={[styles.testSpeechText, playbackState.isPlaying && styles.testSpeechTextActive, { fontSize }]}>
-                {playbackState.isPlaying ? 'Playing...' : 'Tell me a Poem'}
-              </Text>
-            </TouchableOpacity>
-          );
-        })()}
+            const buttonText = replayOffset > 0
+              ? `Replay (${replayOffset}${playbackState.isPlaying ? '' : ' +5'})`
+              : 'Replay';
+
+            return (
+              <TouchableOpacity
+                style={[
+                  styles.playbackButton,
+                  { paddingHorizontal: btnPadH, paddingVertical: btnPadV, gap: btnGap }
+                ]}
+                onPress={handleReplay}
+              >
+                <Ionicons name="refresh" size={iconSize} color="#3b82f6" />
+                <Text style={[styles.playbackButtonText, { fontSize, color: '#3b82f6' }]}>
+                  {buttonText}
+                </Text>
+              </TouchableOpacity>
+            );
+          })()}
+
+          {/* Stop / Play Button */}
+          {(() => {
+            const btnPadH = Math.max(6, 6 + ((screenWidth - 280) / (768 - 280)) * 4);
+            const btnPadV = Math.max(4, 4 + ((screenWidth - 280) / (768 - 280)) * 2);
+            const btnGap = Math.max(4, 4 + ((screenWidth - 280) / (768 - 280)) * 2);
+            const iconSize = Math.max(14, 14 + ((screenWidth - 280) / (768 - 280)) * 4);
+            const fontSize = Math.max(11, 11 + ((screenWidth - 280) / (768 - 280)) * 2);
+
+            const isPlaying = playbackState.isPlaying;
+
+            return (
+              <TouchableOpacity
+                style={[
+                  styles.playbackButton,
+                  { paddingHorizontal: btnPadH, paddingVertical: btnPadV, gap: btnGap }
+                ]}
+                onPress={isPlaying ? stopPlayback : handleTestSpeech}
+              >
+                <Ionicons
+                  name={isPlaying ? "stop-circle" : "play-circle"}
+                  size={iconSize}
+                  color={isPlaying ? "#ef4444" : "#22c55e"}
+                />
+                <Text style={[styles.playbackButtonText, { fontSize, color: isPlaying ? "#ef4444" : "#22c55e" }]}>
+                  {isPlaying ? 'Stop' : 'Poem'}
+                </Text>
+              </TouchableOpacity>
+            );
+          })()}
+        </View>
 
         {/* User Speech Bubble - Shows user's message with typing animation */}
         {pendingUserMessage && (
@@ -1470,7 +1521,7 @@ Each silence, a cathedral where you still reside.`;
                             return (
                               <Text style={[styles.messageText, { fontSize: fonts.md }]}>
                                 {revealedText}
-                                {showCursor && <Text style={styles.typingCursor}>|</Text>}
+                                {showCursor && <Text style={styles.messageTypingCursor}>|</Text>}
                               </Text>
                             );
                           }
@@ -1763,11 +1814,20 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     minHeight: 40,
     maxWidth: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 5,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 -3px 6px rgba(0, 0, 0, 0.25)',
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   userSpeechText: {
     fontFamily: 'Inter-Medium',
@@ -1837,7 +1897,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 4,
   },
-  typingCursor: {
+  messageTypingCursor: {
     color: '#8b5cf6',
     fontWeight: 'bold',
     opacity: 0.8,
@@ -2073,41 +2133,25 @@ const styles = StyleSheet.create({
     color: '#ff6b35',
     fontSize: 14,
   },
-  replayButton: {
+  // Playback buttons container (holds Replay and Stop/Play side by side)
+  playbackButtonsContainer: {
     position: 'absolute',
     bottom: 8,
+    left: 8,
+    flexDirection: 'row',
+    gap: 6,
+    zIndex: 10,
+  },
+  playbackButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(15, 15, 15, 0.9)',
     borderRadius: 6,
     borderWidth: 1,
     borderColor: '#27272a',
-    zIndex: 10,
   },
-  replayButtonText: {
-    color: '#3b82f6',
+  playbackButtonText: {
     fontWeight: '600',
-  },
-  replayButtonTextDisabled: {
-    color: '#71717a',
-  },
-  testSpeechButton: {
-    position: 'absolute',
-    bottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(15, 15, 15, 0.9)',
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#27272a',
-    zIndex: 10,
-  },
-  testSpeechText: {
-    color: '#22c55e',
-    fontWeight: '600',
-  },
-  testSpeechTextActive: {
-    color: '#ef4444',
   },
   characterSelectorBackdrop: {
     position: 'absolute',
