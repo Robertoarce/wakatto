@@ -606,6 +606,10 @@ interface CompactSceneResponse {
         m?: string;    // mouth (compact)
         fc?: string;   // face (compact)
         fx?: string;   // effect (compact)
+        n?: string;    // nose (compact)
+        ch?: string;   // cheek (compact)
+        fh?: string;   // forehead (compact)
+        j?: string;    // jaw (compact)
         v?: any;       // voice (compact)
         // Also support full keys for backwards compat
         eyes?: string;
@@ -613,6 +617,10 @@ interface CompactSceneResponse {
         mouth?: string;
         face?: string;
         effect?: string;
+        nose?: string;
+        cheek?: string;
+        forehead?: string;
+        jaw?: string;
         voice?: any;
       }>;
     }>;
@@ -652,6 +660,11 @@ function normalizeCompactJSON(compact: CompactSceneResponse): LLMSceneResponse {
           mouth: seg.m || seg.mouth,
           face: seg.fc || seg.face,
           effect: seg.fx || seg.effect,
+          // NEW: Support new facial feature compact keys
+          nose: seg.n || seg.nose,
+          cheek: seg.ch || seg.cheek,
+          forehead: seg.fh || seg.forehead,
+          jaw: seg.j || seg.jaw,
           voice: seg.v || seg.voice,
         }))
       }))
@@ -684,6 +697,10 @@ interface SimplifiedSceneResponse {
         m?: string;         // mouth
         fc?: string;        // face
         fx?: string;        // effect
+        n?: string;         // nose (NEW)
+        ch?: string;        // cheek (NEW)
+        fh?: string;        // forehead (NEW)
+        j?: string;         // jaw (NEW)
         v?: any;            // voice
       }>;
     }>;

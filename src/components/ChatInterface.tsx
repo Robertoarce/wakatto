@@ -17,6 +17,8 @@ import { getPlaybackEngine, PlaybackState, PlaybackStatus } from '../services/an
 import { CharacterAnimationState, OrchestrationScene, CharacterTimeline, AnimationSegment, DEFAULT_TALKING_SPEED } from '../services/animationOrchestration';
 import { generateProcessingScene } from '../services/processingAnimations';
 import { getRandomGreeting } from '../services/characterGreetings';
+import { EntranceConfig, generateEntranceSequence, getTotalEntranceDuration } from '../services/entranceAnimations';
+import { generateConversationStarter } from '../services/conversationStarterPrompts';
 import { useResponsive, BREAKPOINTS } from '../constants/Layout';
 import { Toast } from './ui/Toast';
 import {
@@ -26,6 +28,32 @@ import {
   destroyIdleConversationManager,
   getIdleConversationManager
 } from '../services/idleConversationService';
+
+// Import from extracted ChatInterface modules
+// Types and utilities from sub-modules (avoid circular import)
+import { IdleAnimationState as ExtractedIdleAnimationState } from './ChatInterface/types';
+import {
+  getRandomIdleAnimation as getRandomIdleAnimationUtil,
+  getRandomIdleInterval as getRandomIdleIntervalUtil,
+  formatTimestamp as formatTimestampUtil,
+} from './ChatInterface/utils';
+import {
+  MemoizedCharacterSpeechBubble as ExtractedSpeechBubble,
+  FloatingCharacterWrapper as ExtractedFloatingWrapper,
+  CharacterNameLabel as ExtractedCharacterNameLabel,
+  FadingLine as ExtractedFadingLine,
+} from './ChatInterface/components';
+// Import extracted hooks
+import {
+  useCharacterLoading,
+  useAnimationPlayback,
+  useIdleAnimation,
+  useIdleConversation,
+  useEntranceAnimation,
+  useResponsiveCharacters,
+  useMessageEditing,
+  useVoiceRecording,
+} from './ChatInterface/hooks';
 
 interface Message {
   id: string;
@@ -76,438 +104,19 @@ export function stopAnimationPlayback(): void {
   engine.stop();
 }
 
-// ============================================
-// IDLE ANIMATION SYSTEM
-// ============================================
+// Use extracted idle animation utilities (type alias for local usage)
+type IdleAnimationState = ExtractedIdleAnimationState;
+const getRandomIdleAnimation = getRandomIdleAnimationUtil;
+const getRandomIdleInterval = getRandomIdleIntervalUtil;
 
-// Available idle animations pool
-const IDLE_ANIMATIONS: AnimationState[] = [
-  'idle', 'kick_ground', 'meh', 'foot_tap', 
-  'look_around', 'yawn', 'fidget', 'rub_eyes', 'weight_shift'
-];
+// Use extracted CharacterNameLabel component
+const CharacterNameLabel = ExtractedCharacterNameLabel;
 
-// Complementary states for idle animations
-const IDLE_COMPLEMENTARY_OPTIONS: ComplementaryAnimation[] = [
-  { mouthState: 'closed' },
-  { mouthState: 'closed', eyeState: 'blink' },
-  { mouthState: 'smile' },
-  { eyeState: 'open' },
-  { lookDirection: 'left' },
-  { lookDirection: 'right' },
-  { lookDirection: 'up' },
-  {},
-];
+// Use extracted FadingLine component
+const FadingLine = ExtractedFadingLine;
 
-// Interface for idle animation state
-interface IdleAnimationState {
-  animation: AnimationState;
-  complementary: ComplementaryAnimation;
-}
-
-/**
- * Get a random idle animation with complementary state
- */
-function getRandomIdleAnimation(): IdleAnimationState {
-  const animation = IDLE_ANIMATIONS[Math.floor(Math.random() * IDLE_ANIMATIONS.length)];
-  const complementary = IDLE_COMPLEMENTARY_OPTIONS[Math.floor(Math.random() * IDLE_COMPLEMENTARY_OPTIONS.length)];
-  return { animation, complementary };
-}
-
-/**
- * Get random interval between idle animation changes (8-15 seconds)
- */
-function getRandomIdleInterval(): number {
-  return 8000 + Math.random() * 7000; // 8000-15000ms
-}
-
-// Character name label component with fade animation
-function CharacterNameLabel({ name, color, visible }: { name: string; color: string; visible: boolean }) {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const { fonts } = useResponsive();
-
-  useEffect(() => {
-    let fadeOutTimer: NodeJS.Timeout | null = null;
-
-    if (visible) {
-      // Fade in quickly
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: Platform.OS !== 'web',
-      }).start();
-
-      // Then fade out slowly after 2 seconds (3 second fade duration)
-      fadeOutTimer = setTimeout(() => {
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 3000,
-          useNativeDriver: Platform.OS !== 'web',
-        }).start();
-      }, 2000);
-    }
-
-    return () => {
-      if (fadeOutTimer) {
-        clearTimeout(fadeOutTimer);
-      }
-    };
-  }, [visible]);
-
-  if (!visible) return null;
-
-  return (
-    <Animated.View style={[styles.characterNameLabel, { opacity: fadeAnim }]}>
-      <Text style={[styles.characterNameText, { color, fontSize: fonts.lg }]}>
-        {name}
-      </Text>
-    </Animated.View>
-  );
-}
-
-// Fading line component - older lines fade out progressively
-const FadingLine = React.memo(function FadingLine({ 
-  text, 
-  opacity, 
-  isLast,
-  characterColor 
-}: { 
-  text: string; 
-  opacity: number; 
-  isLast: boolean;
-  characterColor: string;
-}) {
-  const animatedOpacity = useRef(new Animated.Value(opacity)).current;
-  const prevOpacity = useRef(opacity);
-  const { fonts } = useResponsive();
-  
-  useEffect(() => {
-    // Only animate if opacity actually changed
-    if (prevOpacity.current !== opacity) {
-      Animated.timing(animatedOpacity, {
-        toValue: opacity,
-        duration: 300,
-        useNativeDriver: Platform.OS !== 'web',
-      }).start();
-      prevOpacity.current = opacity;
-    }
-  }, [opacity, animatedOpacity]);
-
-  // Cleanup animation on unmount
-  useEffect(() => {
-    return () => {
-      animatedOpacity.stopAnimation();
-    };
-  }, [animatedOpacity]);
-  
-  return (
-    <Animated.Text 
-      style={[
-        styles.speechBubbleText, 
-        { 
-          opacity: animatedOpacity,
-          fontSize: fonts.md, // Use medium font for better readability
-        }
-      ]}
-    >
-      {text}
-      {isLast && <Text style={[styles.speechBubbleCursor, { color: characterColor }]}>|</Text>}
-    </Animated.Text>
-  );
-});
-
-// Character speech bubble component with fading lines (older text fades out)
-function CharacterSpeechBubble({ 
-  text, 
-  characterName,
-  characterColor, 
-  position, 
-  isTyping,
-  isSpeaking,
-  isSingleCharacter = false,
-  isMobileStacked = false,
-  stackIndex = 0,
-  // Responsive props
-  maxWidth = 280,
-  maxHeight,
-  topOffset = -60,
-  screenWidth: bubbleScreenWidth,
-  characterIndex = 0,
-}: { 
-  text: string; 
-  characterName: string;
-  characterColor: string; 
-  position: 'left' | 'right'; 
-  isTyping: boolean;
-  isSpeaking: boolean;
-  isSingleCharacter?: boolean;
-  isMobileStacked?: boolean;
-  stackIndex?: number;
-  // Responsive props
-  maxWidth?: number;
-  maxHeight?: number;
-  topOffset?: number;
-  screenWidth?: number;
-  characterIndex?: number;
-}) {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const [shouldRender, setShouldRender] = useState(false);
-  const fadeOutTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const hasStartedFadeOut = useRef(false);
-  const lastTextRef = useRef('');
-  const { fonts, isMobile, isMobileLandscape, spacing, width: viewportWidth, height: viewportHeight } = useResponsive();
-
-  useEffect(() => {
-    // Clear any existing fade out timer when speaking starts again
-    if (isSpeaking || isTyping) {
-      if (fadeOutTimerRef.current) {
-        clearTimeout(fadeOutTimerRef.current);
-        fadeOutTimerRef.current = null;
-      }
-      hasStartedFadeOut.current = false;
-    }
-
-    // Show bubble when there's text and character is speaking/typing
-    if (text && text.length > 0 && (isSpeaking || isTyping)) {
-      setShouldRender(true);
-      lastTextRef.current = text;
-      // Fade in quickly
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: Platform.OS !== 'web',
-      }).start();
-    }
-    // Start fade out when speaking stops (but only if we haven't already started)
-    else if (!isSpeaking && !isTyping && lastTextRef.current && !hasStartedFadeOut.current) {
-      hasStartedFadeOut.current = true;
-      // Keep visible for 2 seconds, then fade out over 3 seconds
-      fadeOutTimerRef.current = setTimeout(() => {
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 3000,
-          useNativeDriver: Platform.OS !== 'web',
-        }).start(() => {
-          setShouldRender(false);
-          lastTextRef.current = '';
-          hasStartedFadeOut.current = false;
-        });
-      }, 2000);
-    }
-
-    return () => {
-      if (fadeOutTimerRef.current) {
-        clearTimeout(fadeOutTimerRef.current);
-      }
-    };
-  }, [text, isSpeaking, isTyping, fadeAnim]);
-
-  // Cleanup fadeAnim on unmount
-  useEffect(() => {
-    return () => {
-      fadeAnim.stopAnimation();
-    };
-  }, [fadeAnim]);
-
-  if (!shouldRender && !text) return null;
-
-  const fullText = text || lastTextRef.current;
-  
-  // Split text into lines (by newlines or wrap at ~40 chars)
-  const wrapText = (str: string, maxWidth: number = 45): string[] => {
-    const lines: string[] = [];
-    // First split by actual newlines
-    const paragraphs = str.split('\n');
-    
-    for (const paragraph of paragraphs) {
-      if (paragraph.length === 0) {
-        lines.push('');
-        continue;
-      }
-      
-      const words = paragraph.split(' ');
-      let currentLine = '';
-      
-      for (const word of words) {
-        if (currentLine.length + word.length + 1 <= maxWidth) {
-          currentLine += (currentLine ? ' ' : '') + word;
-        } else {
-          if (currentLine) lines.push(currentLine);
-          currentLine = word;
-        }
-      }
-      if (currentLine) lines.push(currentLine);
-    }
-    
-    return lines;
-  };
-  
-  const allLines = wrapText(fullText);
-  
-  // Show only the last 5 lines with fading effect
-  const maxVisibleLines = 7;
-  const visibleLines = allLines.slice(-maxVisibleLines);
-  const totalLines = allLines.length;
-  const startIndex = Math.max(0, totalLines - maxVisibleLines);
-  
-  // Calculate opacity for each line - older lines fade out
-  // Bottom line (newest) = full opacity, top lines (older) fade progressively
-  const getLineOpacity = (lineIndex: number): number => {
-    const totalVisible = visibleLines.length;
-    if (totalVisible <= 1) return 1;
-    
-    // lineIndex 0 = top (oldest), totalVisible-1 = bottom (newest)
-    // Top line gets lowest opacity, bottom gets full
-    const normalizedPosition = lineIndex / (totalVisible - 1); // 0 to 1
-    // Opacity ranges from 0.15 (top) to 1.0 (bottom)
-    return 0.15 + (normalizedPosition * 0.85);
-  };
-
-  // On mobile with stacked layout, use a simpler compact design
-  if (isMobileStacked) {
-    // Calculate safe width for stacked bubbles
-    const stackedMaxWidth = Math.min(maxWidth, (viewportWidth || 400) - 24);
-    const stackedMaxHeight = Math.min(120, (viewportHeight || 600) * 0.2);
-    
-    return (
-      <Animated.View 
-        style={[
-          styles.speechBubbleMobileStacked,
-          { 
-            opacity: fadeAnim, 
-            borderColor: characterColor,
-            // Stack bubbles with offset based on index
-            top: stackIndex * 4,
-            zIndex: 200 - stackIndex,
-            pointerEvents: 'none',
-            maxWidth: stackedMaxWidth,
-            maxHeight: stackedMaxHeight,
-            overflow: 'hidden',
-          }
-        ]}
-      >
-        <Text style={[styles.speechBubbleName, { color: characterColor, fontSize: fonts.md }]}>{characterName}</Text>
-        <View style={styles.speechBubbleLinesContainer}>
-          {visibleLines.slice(-3).map((line, index) => (
-            <FadingLine
-              key={`line-${index}`}
-              text={line}
-              opacity={getLineOpacity(index)}
-              isLast={index === visibleLines.slice(-3).length - 1 && isTyping}
-              characterColor={characterColor}
-            />
-          ))}
-        </View>
-      </Animated.View>
-    );
-  }
-
-  // Calculate responsive position offsets with screen boundary clamping
-  const getPositionStyles = () => {
-    const padding = 16; // Minimum padding from screen edge
-    const effectiveScreenWidth = bubbleScreenWidth || viewportWidth || 400;
-    const effectiveScreenHeight = viewportHeight || 600;
-    
-    // Calculate safe max dimensions that fit within viewport
-    const safeMaxWidth = Math.min(maxWidth, effectiveScreenWidth - padding * 2);
-    const safeMaxHeight = isMobileLandscape 
-      ? Math.min(maxHeight || 200, effectiveScreenHeight * 0.5)
-      : (maxHeight || effectiveScreenHeight * 0.4);
-    
-    // In landscape or constrained space, position bubbles more centrally
-    if (isMobileLandscape) {
-      return {
-        left: padding,
-        right: padding,
-        top: topOffset,
-        maxWidth: safeMaxWidth,
-        maxHeight: safeMaxHeight,
-      };
-    }
-    
-    const baseOffset = position === 'left' ? { right: 70 } : { left: 80 };
-    const translateX = position === 'left' ? 30 : -30;
-    
-    // For left position (bubble on right side of character), ensure it doesn't overflow right
-    // For right position (bubble on left side of character), ensure it doesn't overflow left
-    let clampedOffset = baseOffset;
-    if (position === 'right' && bubbleScreenWidth) {
-      // Ensure left + maxWidth doesn't exceed screen width
-      const maxLeft = Math.max(padding, Math.min(80, effectiveScreenWidth - safeMaxWidth - padding));
-      clampedOffset = { left: maxLeft };
-    }
-    
-    return {
-      ...clampedOffset,
-      top: topOffset,
-      transform: [{ translateX }],
-      maxWidth: safeMaxWidth,
-      maxHeight: safeMaxHeight,
-    };
-  };
-
-  // Calculate safe dimensions that always fit viewport
-  const safeBubbleWidth = Math.min(maxWidth, (viewportWidth || 400) - 16);
-  const safeBubbleHeight = isMobileLandscape 
-    ? Math.min(maxHeight || 150, (viewportHeight || 300) * 0.45)
-    : (maxHeight || (viewportHeight || 600) * 0.4);
-
-  return (
-    <Animated.View 
-      style={[
-        styles.speechBubble,
-        isSingleCharacter 
-          ? styles.speechBubbleSingle 
-          : getPositionStyles(),
-        { 
-          opacity: fadeAnim, 
-          borderColor: characterColor,
-          maxWidth: safeBubbleWidth,
-          maxHeight: safeBubbleHeight,
-          overflow: 'hidden', // Always clip overflow
-          zIndex: 500, // Ensure bubbles are always on top of characters
-          pointerEvents: 'none',
-        },
-        // Compact styles for landscape
-        isMobileLandscape && styles.speechBubbleCompact,
-      ]}
-    >
-      {/* Speech bubble tail - hide for single character (bubble is above) */}
-      {!isSingleCharacter && (
-        <View 
-          style={[
-            styles.speechBubbleTail,
-            position === 'left' ? styles.speechBubbleTailLeft : styles.speechBubbleTailRight,
-          ]} 
-        >
-          <View style={[styles.speechBubbleTailInner, { borderLeftColor: position === 'right' ? characterColor : 'transparent', borderRightColor: position === 'left' ? characterColor : 'transparent' }]} />
-        </View>
-      )}
-      {/* Bottom tail for single character */}
-      {isSingleCharacter && (
-        <View style={styles.speechBubbleTailBottom}>
-          <View style={[styles.speechBubbleTailBottomInner, { borderTopColor: characterColor }]} />
-        </View>
-      )}
-      <Text style={[styles.speechBubbleName, { color: characterColor, fontSize: fonts.lg }]}>{characterName}</Text>
-      
-      {/* Fading lines - older text fades out */}
-      <View style={styles.speechBubbleLinesContainer}>
-        {visibleLines.map((line, index) => (
-          <FadingLine
-            key={`line-${index}`}
-            text={line}
-            opacity={getLineOpacity(index)}
-            isLast={index === visibleLines.length - 1 && isTyping}
-            characterColor={characterColor}
-          />
-        ))}
-      </View>
-    </Animated.View>
-  );
-}
-
-// Memoize CharacterSpeechBubble for performance
-const MemoizedCharacterSpeechBubble = React.memo(CharacterSpeechBubble);
+// Use extracted CharacterSpeechBubble component
+const MemoizedCharacterSpeechBubble = ExtractedSpeechBubble;
 
 // Memoize CharacterDisplay3D to prevent re-renders when messages change
 const MemoizedCharacterDisplay3D = memo(CharacterDisplay3D, (prevProps, nextProps) => {
@@ -524,175 +133,8 @@ const MemoizedCharacterDisplay3D = memo(CharacterDisplay3D, (prevProps, nextProp
   );
 });
 
-// Floating animation wrapper for characters with hover name display
-function FloatingCharacterWrapper({
-  children,
-  index,
-  style,
-  characterName,
-  characterColor,
-  entranceAnimation = false,
-  entranceKey = 0,
-  isLeftSide = false,
-  lastMessage,
-}: {
-  children: React.ReactNode;
-  index: number;
-  style?: any;
-  characterName: string;
-  characterColor: string;
-  entranceAnimation?: boolean;
-  entranceKey?: number;
-  isLeftSide?: boolean;
-  lastMessage?: string;
-}) {
-  const floatAnim = useRef(new Animated.Value(0)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-  const hoverAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const [isHovered, setIsHovered] = useState(false);
-  const { fonts } = useResponsive();
-  
-  useEffect(() => {
-    // Different durations for different rhythms (2.5s to 4s based on index)
-    const floatDuration = 2500 + (index * 400) + (Math.random() * 500);
-    const rotateDuration = 3000 + (index * 500) + (Math.random() * 700);
-    
-    // Floating animation (up and down)
-    const floatAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, {
-          toValue: 1,
-          duration: floatDuration,
-          useNativeDriver: Platform.OS !== 'web',
-        }),
-        Animated.timing(floatAnim, {
-          toValue: 0,
-          duration: floatDuration,
-          useNativeDriver: Platform.OS !== 'web',
-        }),
-      ])
-    );
-    
-    // Rotation animation (slight pivot)
-    const rotateAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(rotateAnim, {
-          toValue: 1,
-          duration: rotateDuration,
-          useNativeDriver: Platform.OS !== 'web',
-        }),
-        Animated.timing(rotateAnim, {
-          toValue: -1,
-          duration: rotateDuration * 2,
-          useNativeDriver: Platform.OS !== 'web',
-        }),
-        Animated.timing(rotateAnim, {
-          toValue: 0,
-          duration: rotateDuration,
-          useNativeDriver: Platform.OS !== 'web',
-        }),
-      ])
-    );
-    
-    floatAnimation.start();
-    rotateAnimation.start();
-    
-    return () => {
-      floatAnimation.stop();
-      rotateAnimation.stop();
-    };
-  }, [index]);
-  
-  // Handle hover animation
-  useEffect(() => {
-    Animated.timing(hoverAnim, {
-      toValue: isHovered ? 1 : 0,
-      duration: 200,
-      useNativeDriver: Platform.OS !== 'web',
-    }).start();
-  }, [isHovered]);
-  
-  // Handle entrance animation - slide in from left/right based on position
-  useEffect(() => {
-    if (entranceAnimation && entranceKey > 0) {
-      // Start from off-screen position
-      const startPosition = isLeftSide ? -300 : 300;
-      slideAnim.setValue(startPosition);
-      
-      // Animate to final position with easing
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 800,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: Platform.OS !== 'web',
-      }).start();
-    }
-  }, [entranceKey, entranceAnimation, isLeftSide]);
-  
-  // Interpolate values
-  const translateY = floatAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -8], // Float up 8 pixels
-  });
-  
-  const rotateZ = rotateAnim.interpolate({
-    inputRange: [-1, 0, 1],
-    outputRange: ['-3deg', '0deg', '3deg'], // Pivot up to 3 degrees
-  });
-  
-  const nameOpacity = hoverAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1],
-  });
-  
-  const nameTranslateY = hoverAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-10, 0], // Slide down from above
-  });
-  
-  return (
-    <Animated.View
-      style={[
-        style,
-        {
-          transform: [
-            ...(style?.transform || []),
-            { translateX: slideAnim }, // Entrance slide animation
-            { translateY },
-            { rotateZ },
-          ],
-        },
-      ]}
-      // @ts-ignore - web-specific props
-      onMouseDown={() => setIsHovered(true)}
-      onMouseUp={() => setIsHovered(false)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      {children}
-      {/* Click-and-hold tooltip - shows last message if available */}
-      {lastMessage && (
-        <Animated.View
-          style={[
-            styles.hoverMessageContainer,
-            {
-              opacity: nameOpacity,
-              transform: [{ translateY: nameTranslateY }],
-              pointerEvents: 'none',
-            }
-          ]}
-        >
-          <View style={[styles.hoverMessageBubble, { borderColor: characterColor }]}>
-            <Text style={[styles.hoverMessageName, { color: characterColor, fontSize: fonts.sm }]}>{characterName}</Text>
-            <Text style={[styles.hoverMessageText, { fontSize: fonts.sm }]} numberOfLines={4}>
-              {lastMessage}
-            </Text>
-          </View>
-        </Animated.View>
-      )}
-    </Animated.View>
-  );
-}
+// Use extracted FloatingCharacterWrapper component
+const FloatingCharacterWrapper = ExtractedFloatingWrapper;
 
 export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting, conversationId, savedCharacters, onSaveIdleMessage }: ChatInterfaceProps) {
   const dispatch = useDispatch();
@@ -700,17 +142,45 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const { showAlert, AlertComponent } = useCustomAlert();
   const { fonts, spacing, layout, isMobile, isTablet, isDesktop, isMobileLandscape, width: screenWidth, height: screenHeight } = useResponsive();
   const [input, setInput] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [recordingDuration, setRecordingDuration] = useState(0);
-  const [isTranscribing, setIsTranscribing] = useState(false);
   const [replayOffset, setReplayOffset] = useState(0); // Tracks how far back we are in replay (0 = last 5, 5 = 6-10, etc.)
-  const [liveTranscript, setLiveTranscript] = useState('');
   const scrollViewRef = useRef<ScrollView>(null);
-  const voiceRecorderRef = useRef(getVoiceRecorder());
-  const liveSpeechRef = useRef<LiveSpeechRecognition | null>(null);
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  const [editingContent, setEditingContent] = useState('');
+
+  // Voice recording (hook handles state, refs, and all voice functions)
+  const {
+    isRecording,
+    isPaused,
+    recordingDuration,
+    liveTranscript,
+    isTranscribing,
+    toggleRecording,
+    cancelRecording,
+    restartRecording,
+    togglePause,
+  } = useVoiceRecording({
+    onTranscriptionComplete: (text) => {
+      setInput((prev) => {
+        const separator = prev.trim() ? ' ' : '';
+        return prev + separator + text;
+      });
+    },
+    showAlert,
+  });
+  // Message editing (hook handles edit/delete/long press logic)
+  const {
+    editingMessageId,
+    editingContent,
+    setEditingContent,
+    startEditingMessage,
+    saveEditedMessage,
+    cancelEditing,
+    confirmDeleteMessage,
+    handleLongPressMessage,
+  } = useMessageEditing({
+    isLoading,
+    onEditMessage,
+    onDeleteMessage,
+    showAlert,
+  });
   // Set initial height based on screen size - now using responsive values
   const [characterHeight, setCharacterHeight] = useState(() => {
     const { height, width } = Dimensions.get('window');
@@ -727,8 +197,8 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [isMobileView, setIsMobileView] = useState(isMobile);
   const [showCharacterNames, setShowCharacterNames] = useState(true); // Show names at start
   const [nameKey, setNameKey] = useState(0); // Key to trigger re-animation
-  const [availableCharacters, setAvailableCharacters] = useState(getAllCharacters()); // Load from Wakattors database
-  const [isLoadingCharacters, setIsLoadingCharacters] = useState(true);
+  // Character loading (hook handles loading from both built-in and database)
+  const { availableCharacters, isLoadingCharacters } = useCharacterLoading();
   const [showChatHistory, setShowChatHistory] = useState(false); // Hidden by default
   
   // Toast state for character selection feedback
@@ -806,411 +276,64 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   // Entrance animation state - triggered when conversation changes or new conversation is created
   const [showEntranceAnimation, setShowEntranceAnimation] = useState(false);
   const entranceAnimationKey = useRef(0);
-  
-  // Animation playback state
-  const [playbackState, setPlaybackState] = useState<{
-    isPlaying: boolean;
-    characterStates: Map<string, CharacterAnimationState>;
-  }>({ isPlaying: false, characterStates: new Map() });
-  const playbackEngineRef = useRef(getPlaybackEngine());
-  // Synchronous ref to track playback state without triggering re-renders
-  const isPlayingRef = useRef(false);
-  
-  // Track which messages are being animated (by characterId -> messageId)
-  const [animatingMessages, setAnimatingMessages] = useState<Map<string, string>>(new Map());
+  // Entrance sequence - maps character ID to entrance config (type, duration, startDelay)
+  const [entranceSequence, setEntranceSequence] = useState<Map<string, EntranceConfig>>(new Map());
+  // Ref to track if conversation starter is being generated
+  const conversationStarterInProgressRef = useRef(false);
 
-  // ============================================
-  // IDLE ANIMATION STATE (Per-character independent timers)
-  // ============================================
-  
-  // Idle animations for each character when not in playback
-  const [idleAnimations, setIdleAnimations] = useState<Map<string, IdleAnimationState>>(new Map());
-  // Per-character timers (characterId -> timeout)
-  const idleTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
-  const idleStartDelayRef = useRef<NodeJS.Timeout | null>(null);
-  const isIdleCycleActiveRef = useRef(false);
-  
-  // Update idle animation for a single character
-  const updateCharacterIdleAnimation = useCallback((characterId: string) => {
-    setIdleAnimations(prev => {
-      const newMap = new Map(prev);
-      newMap.set(characterId, getRandomIdleAnimation());
-      return newMap;
-    });
-  }, []);
-  
-  // Schedule next idle animation for a character with random delay
-  const scheduleNextIdleAnimation = useCallback((characterId: string) => {
-    // Clear any existing timer for this character
-    const existingTimer = idleTimersRef.current.get(characterId);
-    if (existingTimer) {
-      clearTimeout(existingTimer);
-    }
-    
-    // Schedule next animation change with random interval (8-15 seconds)
-    const timer = setTimeout(() => {
-      if (isIdleCycleActiveRef.current) {
-        updateCharacterIdleAnimation(characterId);
-        // Schedule the next one
-        scheduleNextIdleAnimation(characterId);
-      }
-    }, getRandomIdleInterval());
-    
-    idleTimersRef.current.set(characterId, timer);
-  }, [updateCharacterIdleAnimation]);
-  
-  // Start idle animation cycle for all characters (with staggered start)
-  const startIdleCycle = useCallback(() => {
-    isIdleCycleActiveRef.current = true;
-    
-    // Each character starts with a random initial delay (0-5 seconds stagger)
-    selectedCharacters.forEach((charId, index) => {
-      // Set initial animation immediately
-      updateCharacterIdleAnimation(charId);
-      
-      // Schedule first change with staggered delay
-      const staggerDelay = (index * 2000) + (Math.random() * 3000); // 0-3s base + 2s per character
-      const initialTimer = setTimeout(() => {
-        if (isIdleCycleActiveRef.current) {
-          updateCharacterIdleAnimation(charId);
-          scheduleNextIdleAnimation(charId);
-        }
-      }, staggerDelay);
-      
-      idleTimersRef.current.set(charId, initialTimer);
-    });
-  }, [selectedCharacters, updateCharacterIdleAnimation, scheduleNextIdleAnimation]);
-  
-  // Stop all idle animation cycles and clear state
-  const stopIdleCycle = useCallback(() => {
-    isIdleCycleActiveRef.current = false;
+  // Animation playback (hook handles subscription and state management)
+  const {
+    playbackState,
+    playbackEngineRef,
+    isPlayingRef,
+    animatingMessages,
+    setAnimatingMessages,
+    stopPlayback,
+  } = useAnimationPlayback();
 
-    // Clear all character timers
-    idleTimersRef.current.forEach((timer) => {
-      clearTimeout(timer);
-    });
-    idleTimersRef.current.clear();
+  // Idle animations (hook handles per-character timers and state)
+  const { idleAnimations, startIdleCycle, stopIdleCycle } = useIdleAnimation({
+    selectedCharacters,
+    isPlaying: playbackState.isPlaying,
+    isLoading,
+    showEntranceAnimation,
+  });
 
-    // Clear the idle animations state Map to prevent memory accumulation
-    setIdleAnimations(new Map());
+  // Idle conversation (hook handles manager lifecycle and state)
+  const {
+    idleConversationState,
+    idleAnimationSceneOverride,
+    handleUserTyping,
+  } = useIdleConversation({
+    selectedCharacters,
+    conversationId,
+    onSaveIdleMessage,
+    isPlaying: playbackState.isPlaying,
+  });
 
-    if (idleStartDelayRef.current) {
-      clearTimeout(idleStartDelayRef.current);
-      idleStartDelayRef.current = null;
-    }
-  }, []);
-  
-  // Effect: Start/stop idle cycle based on playback and loading state
-  // IMPORTANT: Always clear and restart the idle timer when someone talks
-  // This prevents idle animations from interrupting responses
-  useEffect(() => {
-    const shouldBeIdle = !playbackState.isPlaying && !isLoading && !showEntranceAnimation;
-
-    // Always clear any pending idle start timer first
-    // This restarts the idle countdown whenever playback state changes
-    if (idleStartDelayRef.current) {
-      clearTimeout(idleStartDelayRef.current);
-      idleStartDelayRef.current = null;
-    }
-
-    if (shouldBeIdle) {
-      // Start idle cycle after a 5 second delay (to let post-speaking expression show)
-      idleStartDelayRef.current = setTimeout(() => {
-        startIdleCycle();
-      }, 5000);
-    } else {
-      // Stop idle cycle when playback starts or loading begins
-      stopIdleCycle();
-    }
-
-    return () => {
-      if (idleStartDelayRef.current) {
-        clearTimeout(idleStartDelayRef.current);
-        idleStartDelayRef.current = null;
-      }
-      stopIdleCycle();
-    };
-  }, [playbackState.isPlaying, isLoading, showEntranceAnimation, startIdleCycle, stopIdleCycle]);
-  
-  // Effect: Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      stopIdleCycle();
-    };
-  }, [stopIdleCycle]);
-  
-  // Effect: Handle character selection changes - add/remove timers for new/removed characters
-  useEffect(() => {
-    if (!isIdleCycleActiveRef.current) return;
-    
-    // Remove timers for characters no longer selected
-    idleTimersRef.current.forEach((timer, charId) => {
-      if (!selectedCharacters.includes(charId)) {
-        clearTimeout(timer);
-        idleTimersRef.current.delete(charId);
-      }
-    });
-    
-    // Add timers for newly selected characters
-    selectedCharacters.forEach((charId) => {
-      if (!idleTimersRef.current.has(charId)) {
-        // Set initial animation and schedule next
-        updateCharacterIdleAnimation(charId);
-        const staggerDelay = Math.random() * 3000; // Random 0-3s delay
-        const timer = setTimeout(() => {
-          if (isIdleCycleActiveRef.current) {
-            updateCharacterIdleAnimation(charId);
-            scheduleNextIdleAnimation(charId);
-          }
-        }, staggerDelay);
-        idleTimersRef.current.set(charId, timer);
-      }
-    });
-  }, [selectedCharacters, updateCharacterIdleAnimation, scheduleNextIdleAnimation]);
-
-  // ============================================
-  // IDLE CONVERSATION SYSTEM (Characters talk to each other when user is away)
-  // ============================================
-
-  const [idleConversationState, setIdleConversationState] = useState<IdleConversationState>('ACTIVE');
-  const idleManagerRef = useRef<IdleConversationManager | null>(null);
-  const [idleAnimationSceneOverride, setIdleAnimationSceneOverride] = useState<OrchestrationScene | null>(null);
-  // PERFORMANCE: Batch pending messages to save after playback completes (prevents re-renders during playback)
-  const pendingIdleMessagesRef = useRef<Array<{ characterId: string; content: string; metadata?: Record<string, any> }>>([]);
-
-  // Handle idle conversation start - play the animation, defer message saves
-  const handleIdleConversationStart = useCallback(async (scene: OrchestrationScene) => {
-    // Set the scene to play - use override to not conflict with normal animationScene prop
-    setIdleAnimationSceneOverride(scene);
-
-    // Start playback
-    const engine = getPlaybackEngine();
-    engine.play(scene);
-
-    // PERFORMANCE: Queue messages to save AFTER playback completes (not during)
-    // This prevents Redux updates from triggering re-renders during animation
-    if (onSaveIdleMessage && conversationId) {
-      pendingIdleMessagesRef.current = scene.timelines
-        .filter(timeline => timeline.content)
-        .map(timeline => ({
-          characterId: timeline.characterId,
-          content: timeline.content,
-          metadata: { is_idle_conversation: true }
-        }));
-    }
-  }, [onSaveIdleMessage, conversationId]);
-
-  // Handle idle conversation complete - now save all queued messages
-  const handleIdleConversationComplete = useCallback(async () => {
-    setIdleAnimationSceneOverride(null);
-
-    // Save all pending messages in batch AFTER playback completes
-    if (onSaveIdleMessage && pendingIdleMessagesRef.current.length > 0) {
-      for (const msg of pendingIdleMessagesRef.current) {
-        await onSaveIdleMessage(msg.characterId, msg.content, msg.metadata);
-      }
-      pendingIdleMessagesRef.current = []; // Clear the queue
-    }
-
-    // Notify the manager that we're done
-    idleManagerRef.current?.onConversationComplete();
-  }, [onSaveIdleMessage]);
-
-  // Handle user return interruption
-  const handleUserReturnInterruption = useCallback((scene: OrchestrationScene) => {
-    // Play the interruption scene
-    setIdleAnimationSceneOverride(scene);
-    const engine = getPlaybackEngine();
-    engine.play(scene);
-
-    // PERFORMANCE: Queue interruption messages to save after playback (same as idle conversation)
-    if (onSaveIdleMessage && conversationId) {
-      const newMessages = scene.timelines
-        .filter(timeline => timeline.content)
-        .map(timeline => ({
-          characterId: timeline.characterId,
-          content: timeline.content,
-          metadata: { is_idle_conversation: true }
-        }));
-      pendingIdleMessagesRef.current = [...pendingIdleMessagesRef.current, ...newMessages];
-    }
-  }, [onSaveIdleMessage, conversationId]);
-
-  // Handle idle conversation state change
-  const handleIdleStateChange = useCallback((state: IdleConversationState) => {
-    setIdleConversationState(state);
-  }, []);
-
-  // Initialize idle conversation manager when characters change
-  useEffect(() => {
-    // Only enable if 2+ characters selected and we have a conversation
-    if (selectedCharacters.length >= 2 && conversationId) {
-      idleManagerRef.current = initIdleConversationManager(
-        selectedCharacters,
-        {
-          onStateChange: handleIdleStateChange,
-          onConversationStart: handleIdleConversationStart,
-          onConversationComplete: handleIdleConversationComplete,
-          onUserReturnInterruption: handleUserReturnInterruption,
-        }
-      );
-
-      // Start monitoring after a short delay to avoid triggering immediately
-      setTimeout(() => {
-        idleManagerRef.current?.start();
-      }, 2000);
-
-    } else if (idleManagerRef.current) {
-      // Stop and destroy if we don't have enough characters
-      idleManagerRef.current.stop();
-      idleManagerRef.current = null;
-    }
-
-    return () => {
-      destroyIdleConversationManager();
-      idleManagerRef.current = null;
-    };
-  }, [selectedCharacters, conversationId, handleIdleStateChange, handleIdleConversationStart, handleIdleConversationComplete, handleUserReturnInterruption]);
-
-  // Update characters in the manager when selection changes
-  useEffect(() => {
-    if (idleManagerRef.current) {
-      idleManagerRef.current.updateCharacters(selectedCharacters);
-    }
-  }, [selectedCharacters]);
-
-  // Listen for playback completion to notify idle manager
-  useEffect(() => {
-    if (!playbackState.isPlaying && idleAnimationSceneOverride) {
-      // Playback ended - notify idle manager
-      handleIdleConversationComplete();
-    }
-  }, [playbackState.isPlaying, idleAnimationSceneOverride, handleIdleConversationComplete]);
-
-  // Handle user typing - detect user return
+  // Handle user input change with idle conversation detection
   const handleInputChange = useCallback((text: string) => {
     setInput(text);
+    handleUserTyping();
+  }, [handleUserTyping]);
 
-    // Check if we should interrupt an idle conversation
-    const manager = getIdleConversationManager();
-    if (manager) {
-      manager.handleUserTyping();
-    }
-  }, []);
+  // Responsive calculations for bubbles & characters (hook handles all calculations)
+  const {
+    bubbleMaxWidth,
+    bubbleMaxHeight,
+    characterScaleFactor,
+    inputAreaHeight,
+    safeTopBoundary,
+    getBubbleTopOffset,
+  } = useResponsiveCharacters({
+    characterCount: selectedCharacters.length,
+    screenWidth,
+    screenHeight,
+    isMobile,
+    isMobileLandscape,
+  });
 
-  // ============================================
-  // RESPONSIVE CALCULATIONS FOR BUBBLES & CHARACTERS
-  // ============================================
-  const characterCount = selectedCharacters.length;
-  
-  // Bubble sizing - scales proportionally with screen width
-  const bubbleMaxWidth = useMemo(() => {
-    // In mobile landscape, use more horizontal space (wider bubbles)
-    if (isMobileLandscape) {
-      const landscapeWidth = screenWidth * 0.35; // 35% of wider screen
-      return Math.min(landscapeWidth, 350);
-    }
-    // Proportional width: 80% at 320px, 55% at 768px, 40% at 1200px+
-    // Linear interpolation based on screen width
-    const minScreenWidth = 280;
-    const maxScreenWidth = 1200;
-    const clampedWidth = Math.max(minScreenWidth, Math.min(maxScreenWidth, screenWidth));
-
-    // Calculate percentage (80% -> 40% as screen gets wider)
-    const widthPercent = 0.8 - ((clampedWidth - minScreenWidth) / (maxScreenWidth - minScreenWidth)) * 0.4;
-    const baseWidth = screenWidth * widthPercent;
-
-    // Minimum width scales with screen (no less than 85% of screen - 20px padding)
-    const minWidth = Math.min(220, screenWidth * 0.85 - 20);
-    const scaledWidth = Math.max(minWidth, baseWidth - (characterCount - 1) * 15);
-    return Math.min(scaledWidth, 420); // Cap at 420px
-  }, [isMobileLandscape, screenWidth, characterCount]);
-  
-  const bubbleMaxHeight = useMemo(() => {
-    // In mobile landscape, severely limit height due to constrained vertical space
-    if (isMobileLandscape) {
-      return Math.floor(screenHeight * 0.4); // Max 40% of limited height
-    }
-    return Math.floor(screenHeight * 0.5); // Max 50% of screen height for better text visibility
-  }, [isMobileLandscape, screenHeight]);
-  
-  // Character scale - smaller when more characters to leave room for bubbles
-  const characterScaleFactor = useMemo(() => {
-    // 1.0 for 1 char, 0.9 for 2, 0.8 for 3, etc. (min 0.6)
-    return Math.max(0.6, 1 - (characterCount - 1) * 0.1);
-  }, [characterCount]);
-  
-  // Input area protection - calculate safe zone for bubbles
-  const inputAreaHeight = 120; // Approximate input container height
-  const safeTopBoundary = 8; // Minimum distance from top
-  
-  // Calculate bubble vertical stagger to prevent overlap
-  const getBubbleTopOffset = useCallback((index: number) => {
-    // In mobile landscape, position bubbles lower (beside character, not above)
-    if (isMobileLandscape) {
-      // Much smaller offset in landscape - bubbles sit beside characters
-      const baseOffset = -20;
-      const staggerAmount = 15;
-      return baseOffset - (index * staggerAmount / Math.max(1, characterCount * 0.5));
-    }
-    // Each bubble staggers higher based on index, scaled by character count
-    // Position much higher above character (-140 base offset)
-    const baseOffset = isMobile ? -120 : -140;
-    const staggerAmount = isMobile ? 25 : 30;
-    return baseOffset - (index * staggerAmount / Math.max(1, characterCount * 0.5));
-  }, [isMobile, isMobileLandscape, characterCount]);
-
-  // Subscribe to animation playback engine - SMART UPDATES to prevent excessive re-renders
-  // Only update React state on SIGNIFICANT changes (status, talking, animation changes)
-  useEffect(() => {
-    const engine = playbackEngineRef.current;
-    // Track previous state to detect significant changes
-    let prevStatus: string | null = null;
-    let prevTalkingMap = new Map<string, boolean>();
-    let prevAnimationMap = new Map<string, string>();
-
-    const unsubscribe = engine.subscribe((state: PlaybackState) => {
-      // Always update ref synchronously (used by effects to skip processing during playback)
-      isPlayingRef.current = state.status === 'playing';
-
-      // Check for significant changes
-      let hasSignificantChange = false;
-
-      // 1. Status changed (idle -> playing -> complete)
-      if (state.status !== prevStatus) {
-        hasSignificantChange = true;
-        prevStatus = state.status;
-      }
-
-      // 2. Any character's talking status changed
-      for (const [charId, charState] of state.characterStates) {
-        const wasTalking = prevTalkingMap.get(charId) || false;
-        if (charState.isTalking !== wasTalking) {
-          hasSignificantChange = true;
-          prevTalkingMap.set(charId, charState.isTalking);
-        }
-
-        // 3. Any character's animation changed
-        const prevAnimation = prevAnimationMap.get(charId) || '';
-        if (charState.animation !== prevAnimation) {
-          hasSignificantChange = true;
-          prevAnimationMap.set(charId, charState.animation);
-        }
-      }
-
-      // Only update React state if something significant changed
-      if (hasSignificantChange) {
-        setPlaybackState({
-          isPlaying: state.status === 'playing',
-          characterStates: state.characterStates
-        });
-      }
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, []);
+  // Animation playback subscription is handled by useAnimationPlayback hook
 
   // Start early "thinking" animation while streaming (before full scene is ready)
   // Uses varied processing animations for ALL selected characters
@@ -1296,57 +419,9 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     }
   }, [animationScene, messages]);
 
-  // Clear animating messages when playback completes
-  useEffect(() => {
-    if (!playbackState.isPlaying && animatingMessages.size > 0) {
-      // Give a small delay to ensure final state is rendered
-      const timeout = setTimeout(() => {
-        setAnimatingMessages(new Map());
-      }, 500);
-      return () => clearTimeout(timeout);
-    }
-  }, [playbackState.isPlaying, animatingMessages.size]);
+  // Clear animating messages is handled by useAnimationPlayback hook
 
-  // Load ALL characters - combine built-in + database characters
-  useEffect(() => {
-    const loadAllCharacters = async () => {
-      try {
-        // Get built-in characters
-        const builtInCharacters = getAllCharacters();
-
-        // Get database characters (from Supabase)
-        const dbCharacters = await getCustomWakattors();
-
-        // Combine both, with database characters first (they include Marcus Aurelius, etc.)
-        // Use a Map to deduplicate by ID (database versions take priority)
-        const characterMap = new Map<string, CharacterBehavior>();
-
-        // Add built-in first
-        builtInCharacters.forEach(char => characterMap.set(char.id, char));
-
-        // Then add database characters (overwrites duplicates)
-        dbCharacters.forEach(char => characterMap.set(char.id, char));
-
-        const allCharacters = Array.from(characterMap.values());
-
-        // IMPORTANT: Register database characters to the global registry
-        // This makes them available to getCharacter() for AI responses
-        registerCustomCharacters(dbCharacters);
-        console.log('[ChatInterface] Registered', dbCharacters.length, 'database characters to global registry');
-
-        setAvailableCharacters(allCharacters);
-        console.log('[ChatInterface] Loaded', allCharacters.length, 'characters (', builtInCharacters.length, 'built-in +', dbCharacters.length, 'from database)');
-      } catch (error) {
-        console.error('[ChatInterface] Failed to load characters:', error);
-        // Fallback to built-in only
-        setAvailableCharacters(getAllCharacters());
-      } finally {
-        setIsLoadingCharacters(false);
-      }
-    };
-
-    loadAllCharacters();
-  }, []);
+  // Character loading is handled by useCharacterLoading hook
 
   // Don't auto-select any wakattor - let user choose
   // useEffect(() => {
@@ -1414,9 +489,8 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
     // CLEANUP: Stop any running animations when conversation changes
     if (conversationChanged) {
-      playbackEngineRef.current.stop();
+      stopPlayback();
       setAnimatingMessages(new Map());
-      setPlaybackState({ isPlaying: false, characterStates: new Map() });
       // Trigger entrance animation for characters
       entranceAnimationKey.current += 1;
       setShowEntranceAnimation(true);
@@ -1524,23 +598,68 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         savedCharacters !== null &&
         savedCharacters.length === 0;
 
-      if (isNewConversation) {
+      if (isNewConversation && !conversationStarterInProgressRef.current) {
         // Select a RANDOM character instead of the first one
         const randomIndex = Math.floor(Math.random() * availableCharacters.length);
         const randomChar = availableCharacters[randomIndex];
-        setSelectedCharacters([randomChar.id]);
+        const selectedIds = [randomChar.id];
+        setSelectedCharacters(selectedIds);
+
+        // Generate entrance sequence with random animation types
+        const sequence = generateEntranceSequence(selectedIds);
+        setEntranceSequence(sequence);
+        const totalEntranceDuration = getTotalEntranceDuration(sequence);
 
         // Trigger entrance animation for new conversation
         entranceAnimationKey.current += 1;
         setShowEntranceAnimation(true);
 
-        // Trigger greeting from the random character (after a short delay for entrance animation)
+        // Fire AI conversation starter request IN PARALLEL with entrance animation
         if (onGreeting && !hasTriggeredGreeting.current) {
           hasTriggeredGreeting.current = true;
-          setTimeout(() => {
-            const greeting = getRandomGreeting(randomChar.id, randomChar.name);
-            onGreeting(randomChar.id, greeting);
-          }, 1000); // Wait for entrance animation
+          conversationStarterInProgressRef.current = true;
+          const entranceStartTime = Date.now();
+
+          // Fire API request immediately (parallel with animation)
+          generateConversationStarter(selectedIds)
+            .then(({ scene, responses }) => {
+              const elapsed = Date.now() - entranceStartTime;
+              const remainingEntranceTime = Math.max(0, totalEntranceDuration - elapsed);
+
+              // Wait for entrance to complete if API was faster
+              setTimeout(() => {
+                // Clear entrance animation
+                setShowEntranceAnimation(false);
+                setEntranceSequence(new Map());
+                conversationStarterInProgressRef.current = false;
+
+                // Play conversation starter scene
+                if (scene && responses.length > 0) {
+                  // Set animation scene for playback
+                  playbackEngineRef.current.play(scene);
+
+                  // Save all messages to database
+                  responses.forEach(r => {
+                    onGreeting(r.characterId, r.content);
+                  });
+                }
+              }, remainingEntranceTime);
+            })
+            .catch((error) => {
+              console.error('[NewConversation] Starter generation failed:', error);
+              conversationStarterInProgressRef.current = false;
+
+              // Fallback to static greeting after entrance completes
+              const elapsed = Date.now() - entranceStartTime;
+              const remainingTime = Math.max(0, totalEntranceDuration - elapsed);
+
+              setTimeout(() => {
+                setShowEntranceAnimation(false);
+                setEntranceSequence(new Map());
+                const greeting = getRandomGreeting(randomChar.id, randomChar.name);
+                onGreeting(randomChar.id, greeting);
+              }, remainingTime);
+            });
         }
       }
     }, 500); // Wait 500ms to allow messages to load from database
@@ -1564,15 +683,20 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   // Characters are now fixed at conversation creation - no need to persist changes
   // The savedCharacters prop is read-only and set when conversation is created
 
-  // Clear entrance animation after duration (800ms)
+  // Clear entrance animation after duration - fallback if not cleared by conversation starter
+  // Uses entrance sequence duration if available, otherwise default 1200ms
   useEffect(() => {
-    if (showEntranceAnimation) {
+    if (showEntranceAnimation && !conversationStarterInProgressRef.current) {
+      const duration = entranceSequence.size > 0
+        ? getTotalEntranceDuration(entranceSequence) + 200 // Add small buffer
+        : 1200;
       const timeout = setTimeout(() => {
         setShowEntranceAnimation(false);
-      }, 800); // Match animation duration
+        setEntranceSequence(new Map());
+      }, duration);
       return () => clearTimeout(timeout);
     }
-  }, [showEntranceAnimation]);
+  }, [showEntranceAnimation, entranceSequence]);
 
   // Pan responder for resizable divider
   const panResponder = useRef(
@@ -1632,47 +756,9 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     }
   }, [messages]);
 
-  // Cancel editing when AI starts responding to prevent race conditions
-  useEffect(() => {
-    if (isLoading && editingMessageId) {
-      setEditingMessageId(null);
-      setEditingContent('');
-    }
-  }, [isLoading, editingMessageId]);
+  // Cancel editing when loading is handled by useMessageEditing hook
 
-  // Setup voice recorder and live speech recognition
-  useEffect(() => {
-    const voiceRecorder = voiceRecorderRef.current;
-
-    voiceRecorder.setOnStateChange((state: RecordingState) => {
-      setIsRecording(state.isRecording);
-      setIsPaused(state.isPaused);
-      setRecordingDuration(state.duration);
-    });
-
-    // Initialize live speech recognition if supported
-    if (isWebSpeechSupported()) {
-      const liveSpeech = new LiveSpeechRecognition();
-
-      liveSpeech.setOnResult((result: LiveTranscriptionResult) => {
-        setLiveTranscript(result.transcript);
-      });
-
-      liveSpeech.setOnError((error: Error) => {
-        console.error('[ChatInterface] Live speech error:', error);
-        // Don't show alert for interim errors, wait for final result
-      });
-
-      liveSpeechRef.current = liveSpeech;
-    }
-
-    return () => {
-      voiceRecorder.dispose();
-      if (liveSpeechRef.current) {
-        liveSpeechRef.current.abort();
-      }
-    };
-  }, []);
+  // Voice recorder setup is handled by useVoiceRecording hook
 
   const handleSendMessagePress = () => {
     if (input.trim()) {
@@ -1690,268 +776,11 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     }
   };
 
-  const handleTranscription = async (audioBlob: Blob) => {
-    setIsTranscribing(true);
+  // Voice recording functions (toggleRecording, cancelRecording, restartRecording, togglePause) provided by useVoiceRecording hook
 
-    try {
-      console.log('[ChatInterface] Transcribing audio with native Web Speech API...');
-
-      // Use native Web Speech API (built into browsers)
-      const result = await transcribeAudio(audioBlob, 'web-speech', false);
-
-      console.log('[ChatInterface] Transcription result:', result);
-
-      if (result.text.trim()) {
-        // Add transcribed text to input
-        setInput((prev) => {
-          const separator = prev.trim() ? ' ' : '';
-          return prev + separator + result.text.trim();
-        });
-        // Transcription successful - no alert needed
-      } else {
-        showAlert(
-          'No Speech Detected',
-          'Could not detect any speech in the recording. Please try again and speak clearly.'
-        );
-      }
-    } catch (error: any) {
-      console.error('[ChatInterface] Transcription error:', error);
-      showAlert('Transcription Failed', error.message || 'Failed to transcribe audio. Please check your OpenAI API key in Settings.');
-    } finally {
-      setIsTranscribing(false);
-    }
-  };
-
-  const toggleRecording = async () => {
-    const voiceRecorder = voiceRecorderRef.current;
-    const liveSpeech = liveSpeechRef.current;
-
-    console.log('[ChatInterface] toggleRecording called, isRecording:', isRecording);
-
-    // Check browser compatibility
-    const voiceSupport = isVoiceSupported();
-    console.log('[ChatInterface] Voice support check:', voiceSupport);
-    if (!voiceSupport.supported) {
-      showAlert('Not Supported', voiceSupport.message);
-      return;
-    }
-
-    if (!voiceRecorder.isSupported()) {
-      const browser = detectBrowser();
-      console.log('[ChatInterface] VoiceRecorder not supported in:', browser);
-      showAlert(
-        'Not Supported',
-        `Voice recording is not supported in ${browser.name}. Please use Chrome, Edge, Brave, Firefox, or Safari.`
-      );
-      return;
-    }
-
-    if (isRecording) {
-      console.log('[ChatInterface] Stopping recording...');
-      
-      // Stop live speech recognition if active
-      let finalTranscript = '';
-      if (liveSpeech && liveSpeech.isSupported()) {
-        finalTranscript = liveSpeech.stop();
-        console.log('[ChatInterface] Live speech transcript:', finalTranscript || '(empty)');
-      }
-
-      // Also check the liveTranscript state (shown in "Live:" card)
-      // This ensures we capture text even if liveSpeech.stop() returns empty
-      if (!finalTranscript.trim() && liveTranscript.trim()) {
-        finalTranscript = liveTranscript;
-        console.log('[ChatInterface] Using liveTranscript state:', finalTranscript);
-      }
-
-      // Stop recording and wait for audio blob to be ready
-      const audioBlob = await voiceRecorder.stopRecording();
-      console.log('[ChatInterface] Recording stopped, audioBlob:', !!audioBlob, audioBlob?.size);
-
-      // Use live transcript if available, otherwise transcribe recorded audio
-      if (finalTranscript.trim()) {
-        // We got live transcription - add it to the input field
-        setInput((prev) => {
-          const separator = prev.trim() ? ' ' : '';
-          return prev + separator + finalTranscript.trim();
-        });
-        setLiveTranscript('');
-        console.log('[ChatInterface] Using live transcript');
-      } else {
-        // Fall back to transcription with recorded audio
-        setLiveTranscript('');
-        if (audioBlob) {
-          console.log('[ChatInterface] Falling back to audio transcription');
-          await handleTranscription(audioBlob);
-        } else {
-          console.warn('[ChatInterface] No audio blob available for transcription');
-          showAlert('Recording Error', 'No audio was captured. Please try again.');
-        }
-      }
-    } else {
-      // Start recording
-      try {
-        console.log('[ChatInterface] Starting recording...');
-        setLiveTranscript('');
-        await voiceRecorder.startRecording();
-        console.log('[ChatInterface] VoiceRecorder started successfully');
-
-        // Start live speech recognition if available
-        console.log('[ChatInterface] Checking live speech support:', {
-          liveSpeech: !!liveSpeech,
-          isSupported: liveSpeech?.isSupported()
-        });
-        if (liveSpeech && liveSpeech.isSupported()) {
-          try {
-            liveSpeech.start();
-            const browser = detectBrowser();
-            console.log(`[ChatInterface] Started live speech recognition (${browser.name})`);
-          } catch (error: any) {
-            console.error('[ChatInterface] Failed to start live speech:', error);
-            // Continue with audio recording even if live speech fails
-            const browser = detectBrowser();
-            console.log(`[ChatInterface] Will use fallback transcription (${browser.name})`);
-          }
-        } else {
-          const browser = detectBrowser();
-          console.log(`[ChatInterface] Live speech not available in ${browser.name}, will use fallback`);
-        }
-      } catch (error: any) {
-        console.error('[ChatInterface] Recording error:', error);
-        const guidance = getBrowserGuidance('microphone');
-        showAlert('Recording Error', `${error.message}\n\n${guidance}`);
-      }
-    }
-  };
-
-  const cancelRecording = () => {
-    const voiceRecorder = voiceRecorderRef.current;
-    const liveSpeech = liveSpeechRef.current;
-
-    voiceRecorder.cancelRecording();
-
-    if (liveSpeech) {
-      liveSpeech.abort();
-    }
-
-    setLiveTranscript('');
-  };
-
-  const restartRecording = async () => {
-    const voiceRecorder = voiceRecorderRef.current;
-    const liveSpeech = liveSpeechRef.current;
-
-    // Cancel current recording
-    voiceRecorder.cancelRecording();
-    if (liveSpeech) {
-      liveSpeech.abort();
-    }
-    setLiveTranscript('');
-
-    // Small delay to ensure cleanup
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    // Start new recording
-    try {
-      await voiceRecorder.startRecording();
-      if (liveSpeech && liveSpeech.isSupported()) {
-        try {
-          liveSpeech.start();
-        } catch (error) {
-          console.error('[ChatInterface] Failed to restart live speech:', error);
-        }
-      }
-    } catch (error: any) {
-      console.error('[ChatInterface] Failed to restart recording:', error);
-    }
-  };
-
-  const togglePause = () => {
-    const voiceRecorder = voiceRecorderRef.current;
-    if (isPaused) {
-      voiceRecorder.resumeRecording();
-    } else {
-      voiceRecorder.pauseRecording();
-    }
-  };
-
-  const startEditingMessage = (message: Message) => {
-    setEditingMessageId(message.id);
-    setEditingContent(message.content);
-  };
-
-  const saveEditedMessage = () => {
-    // Prevent saving edits when AI is responding to avoid race conditions
-    if (isLoading) {
-      showAlert(
-        'Cannot Save Edit',
-        'Please wait for the AI to finish responding before saving your edit.'
-      );
-      return;
-    }
-
-    if (editingMessageId && editingContent.trim() && onEditMessage) {
-      onEditMessage(editingMessageId, editingContent.trim());
-      setEditingMessageId(null);
-      setEditingContent('');
-    }
-  };
-
-  const cancelEditing = () => {
-    setEditingMessageId(null);
-    setEditingContent('');
-  };
-
-  // Characters are fixed at conversation creation - no toggleCharacter function needed
-
-  const confirmDeleteMessage = (messageId: string) => {
-    showAlert(
-      'Delete Message',
-      'Are you sure you want to delete this message?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            if (onDeleteMessage) {
-              onDeleteMessage(messageId);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleLongPress = (message: Message) => {
-    // Prevent editing/deleting when AI is responding to avoid race conditions
-    if (isLoading) {
-      showAlert(
-        'Action Not Available',
-        'Please wait for the AI to finish responding before editing or deleting messages.'
-      );
-      return;
-    }
-
-    // Only allow editing user messages
-    if (message.role === 'user') {
-      showAlert(
-        'Message Options',
-        'What would you like to do?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Edit',
-            onPress: () => startEditingMessage(message),
-          },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: () => confirmDeleteMessage(message.id),
-          },
-        ]
-      );
-    }
-  };
+  // Message editing functions (startEditingMessage, saveEditedMessage, cancelEditing, confirmDeleteMessage, handleLongPressMessage) provided by useMessageEditing hook
+  // Alias for backwards compatibility in JSX
+  const handleLongPress = handleLongPressMessage;
 
   // Test function to trigger all characters speaking at random times
   const handleTestSpeech = () => {
@@ -2379,6 +1208,9 @@ Each silence, a cathedral where you still reside.`;
                 .filter(m => m.characterId === characterId && m.content)
                 .slice(-1)[0]?.content;
 
+              // Get entrance config for this character (if in entrance animation)
+              const charEntranceConfig = entranceSequence.get(characterId);
+
               return (
                 <FloatingCharacterWrapper
                   key={characterId}
@@ -2389,6 +1221,7 @@ Each silence, a cathedral where you still reside.`;
                   entranceKey={entranceAnimationKey.current}
                   isLeftSide={horizontalOffset < 0}
                   lastMessage={lastCharacterMessage}
+                  entranceConfig={charEntranceConfig}
                   style={[
                     styles.characterWrapper,
                     {
@@ -2404,14 +1237,16 @@ Each silence, a cathedral where you still reside.`;
                   ]}
                 >
                   {(() => {
-                    // Use walking animation during entrance, otherwise use playback animation
-                    const entranceWalkingAnimation = showEntranceAnimation ? 'walking' : undefined;
+                    // Use entrance-specific animation based on entrance type, fallback to walking
+                    const entranceBodyAnimation = showEntranceAnimation && charEntranceConfig
+                      ? charEntranceConfig.bodyAnimation
+                      : (showEntranceAnimation ? 'walking' : undefined);
                     
                     // Get idle state for this character (fallback when not playing)
                     const idleState = idleAnimations.get(characterId);
-                    
+
                     // Priority: entrance animation > playback animation > idle animation
-                    const finalAnimation = entranceWalkingAnimation 
+                    const finalAnimation = entranceBodyAnimation
                       || (usePlayback ? charPlaybackState.animation : undefined)
                       || idleState?.animation;
                     
