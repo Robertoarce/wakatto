@@ -227,15 +227,16 @@ const DEFAULT_THINKING_DURATION = 1500; // ms
  * Speed qualifiers that the LLM outputs instead of ms values
  * Client calculates actual durations based on these
  */
-export type SpeedQualifier = 'slow' | 'normal' | 'fast';
+export type SpeedQualifier = 'slow' | 'normal' | 'fast' | 'explosive';
 
 /**
  * Multipliers applied to base durations based on speed qualifier
  */
 const SPEED_MULTIPLIERS: Record<SpeedQualifier, number> = {
-  slow: 1.2,    // 1.2x longer - thoughtful, emotional moments
-  normal: 1.0,  // Base duration - conversational pace
-  fast: 1.0     // 0.8x = faster - energetic, quick reactions
+  slow: 1.3,       // 1.3x longer - thoughtful, emotional moments
+  normal: 1.0,     // Base duration - conversational pace
+  fast: 0.7,       // 0.7x = faster - energetic, quick reactions
+  explosive: 0.5   // 0.5x = very fast - rapid-fire, intense moments
 };
 
 /**
@@ -331,7 +332,7 @@ function calculateTextRange(
  * Validate and parse speed qualifier from LLM output
  */
 function parseSpeedQualifier(sp?: string): SpeedQualifier {
-  if (sp === 'slow' || sp === 'normal' || sp === 'fast') {
+  if (sp === 'slow' || sp === 'normal' || sp === 'fast' || sp === 'explosive') {
     return sp;
   }
   return 'normal'; // Default fallback
@@ -579,106 +580,16 @@ function splitCombinedContent(
 }
 
 // ============================================
-// COMPACT JSON SUPPORT
-// ============================================
-
-/**
- * Compact JSON key mappings:
- * s -> scene, dur -> totalDuration, ch -> characters
- * c -> character, t -> content, d -> startDelay
- * tl -> timeline, a -> animation, ms -> duration, lk -> look
- */
-interface CompactSceneResponse {
-  s: {
-    dur: number;
-    ch: Array<{
-      c: string;
-      t: string;
-      d: number;
-      int?: boolean; // interrupts (compact)
-      tl: Array<{
-        a: string;
-        ms: number;
-        lk?: string;
-        talking?: boolean;
-        ey?: string;   // eyes (compact)
-        eb?: string;   // eyebrow (compact)
-        m?: string;    // mouth (compact)
-        fc?: string;   // face (compact)
-        fx?: string;   // effect (compact)
-        n?: string;    // nose (compact)
-        ch?: string;   // cheek (compact)
-        fh?: string;   // forehead (compact)
-        j?: string;    // jaw (compact)
-        v?: any;       // voice (compact)
-        // Also support full keys for backwards compat
-        eyes?: string;
-        eyebrow?: string;
-        mouth?: string;
-        face?: string;
-        effect?: string;
-        nose?: string;
-        cheek?: string;
-        forehead?: string;
-        jaw?: string;
-        voice?: any;
-      }>;
-    }>;
-  };
-}
-
-/**
- * Detect if response is in compact JSON format
- */
-function isCompactFormat(parsed: any): parsed is CompactSceneResponse {
-  return parsed && typeof parsed.s === 'object' && Array.isArray(parsed.s?.ch);
-}
-
-/**
- * Normalize compact JSON response to full format
- * Converts short keys to full key names for processing
- */
-function normalizeCompactJSON(compact: CompactSceneResponse): LLMSceneResponse {
-  console.log('[AnimOrch] Converting compact JSON format to full format');
-
-  return {
-    scene: {
-      totalDuration: compact.s.dur,
-      characters: compact.s.ch.map(ch => ({
-        character: ch.c,
-        content: ch.t,
-        startDelay: ch.d,
-        interrupts: ch.int || false,
-        timeline: ch.tl.map(seg => ({
-          animation: seg.a,
-          duration: seg.ms,
-          look: seg.lk,
-          talking: seg.talking,
-          // Support both compact and full keys
-          eyes: seg.ey || seg.eyes,
-          eyebrow: seg.eb || seg.eyebrow,
-          mouth: seg.m || seg.mouth,
-          face: seg.fc || seg.face,
-          effect: seg.fx || seg.effect,
-          // NEW: Support new facial feature compact keys
-          nose: seg.n || seg.nose,
-          cheek: seg.ch || seg.cheek,
-          forehead: seg.fh || seg.forehead,
-          jaw: seg.j || seg.jaw,
-          voice: seg.v || seg.voice,
-        }))
-      }))
-    }
-  };
-}
-
-// ============================================
-// SIMPLIFIED FORMAT SUPPORT (NO MS VALUES)
+// SIMPLIFIED FORMAT (Client-side timing calculation)
 // ============================================
 
 /**
  * Simplified JSON format where LLM outputs speed qualifiers instead of ms values
- * Client calculates actual durations
+ * Client calculates actual durations based on text length and speed multipliers
+ *
+ * Keys: s=scene, ch=characters, c=character, t=content, ord=speakerOrder
+ *       tl=timeline, a=animation, sp=speed, lk=look, ey=eyes, eb=eyebrow
+ *       m=mouth, fc=face, fx=effect, n=nose, ch=cheek, fh=forehead, j=jaw, v=voice
  */
 interface SimplifiedSceneResponse {
   s: {
@@ -689,7 +600,7 @@ interface SimplifiedSceneResponse {
       int?: boolean;   // interruption flag
       tl: Array<{
         a: string;          // animation
-        sp?: string;        // speed: 'slow' | 'normal' | 'fast'
+        sp?: string;        // speed: 'slow' | 'normal' | 'fast' | 'explosive'
         lk?: string;        // look direction
         talking?: boolean;  // is talking segment
         ey?: string;        // eyes
@@ -697,10 +608,10 @@ interface SimplifiedSceneResponse {
         m?: string;         // mouth
         fc?: string;        // face
         fx?: string;        // effect
-        n?: string;         // nose (NEW)
-        ch?: string;        // cheek (NEW)
-        fh?: string;        // forehead (NEW)
-        j?: string;         // jaw (NEW)
+        n?: string;         // nose
+        ch?: string;        // cheek
+        fh?: string;        // forehead
+        j?: string;         // jaw
         v?: any;            // voice
       }>;
     }>;
@@ -888,6 +799,9 @@ function convertSimplifiedScene(
 
 /**
  * Parse raw LLM response into OrchestrationScene
+ *
+ * Uses SIMPLIFIED format only - all timing is calculated client-side
+ * based on text length and speed qualifiers (slow/normal/fast/explosive)
  */
 export function parseOrchestrationScene(
   rawResponse: string,
@@ -904,111 +818,21 @@ export function parseOrchestrationScene(
       cleaned = jsonMatch[0];
     }
 
-    let parsed: any = JSON.parse(cleaned);
+    const parsed: any = JSON.parse(cleaned);
 
-    // Check for SIMPLIFIED format first (no ms values, client calculates timing)
+    // Use simplified format - all timing calculated client-side
     if (isSimplifiedFormat(parsed)) {
-      console.log('[AnimOrch] Detected simplified format - calculating timing client-side');
+      console.log('[AnimOrch] Parsing simplified format - calculating timing client-side');
       const scene = convertSimplifiedScene(parsed, selectedCharacters);
       return fillGapsForNonSpeakers(scene, selectedCharacters);
     }
 
-    // Check if this is compact format (legacy with ms values) and normalize it
-    if (isCompactFormat(parsed)) {
-      parsed = normalizeCompactJSON(parsed);
-    }
-    
-    // Cast to expected type after potential normalization
-    const normalizedParsed: LLMSceneResponse = parsed;
-    
-    // Extract and log ARQ reasoning if present
-    if (normalizedParsed.reasoning) {
-      console.log('[ARQ] ===== Reasoning Analysis =====');
-      console.log('[ARQ] Context:', normalizedParsed.reasoning.context || 'Not provided');
-      console.log('[ARQ] Character Selection:', normalizedParsed.reasoning.characterSelection || 'Not provided');
-      if (normalizedParsed.reasoning.voiceCheck) {
-        console.log('[ARQ] Voice Check:', JSON.stringify(normalizedParsed.reasoning.voiceCheck, null, 2));
-      }
-      if (normalizedParsed.reasoning.formatValidation) {
-        const fv = normalizedParsed.reasoning.formatValidation;
-        console.log('[ARQ] Format Validation:', {
-          usingCharacterIds: fv.usingCharacterIds ?? 'Not checked',
-          separateObjects: fv.separateObjects ?? 'Not checked',
-          noNamePrefixes: fv.noNamePrefixes ?? 'Not checked',
-          cleanContent: fv.cleanContent ?? 'Not checked'
-        });
-      }
-      console.log('[ARQ] Decision:', normalizedParsed.reasoning.decision || 'Not provided');
-      console.log('[ARQ] ================================');
-    } else {
-      console.warn('[ARQ] No reasoning provided by LLM - enforcement may be weaker');
-    }
-    
-    if (!normalizedParsed.scene || !Array.isArray(normalizedParsed.scene.characters)) {
-      console.error('[AnimOrch] Invalid scene structure');
-      return null;
-    }
-    
-    // Parse each character timeline, checking for combined responses
-    const timelines: CharacterTimeline[] = [];
-    
-    for (const charResponse of normalizedParsed.scene.characters) {
-      // Check if this response contains multiple character responses combined
-      const splitResponses = splitCombinedContent(charResponse.content, selectedCharacters);
-      
-      if (splitResponses && splitResponses.length > 1) {
-        // LLM combined multiple responses - split them
-        console.log('[AnimOrch] Splitting combined response into', splitResponses.length, 'separate timelines');
-        
-        let currentDelay = charResponse.startDelay || 0;
-        for (const resp of splitResponses) {
-          const segments = createDefaultTimeline(resp.content);
-          const totalDuration = segments.reduce((sum, s) => sum + s.duration, 0);
-          
-          timelines.push({
-            characterId: resp.characterId,
-            content: resp.content,
-            totalDuration,
-            segments,
-            startDelay: currentDelay
-          });
-          
-          currentDelay += totalDuration + 500; // 500ms gap between
-        }
-      } else {
-        // Normal single-character response
-        const timeline = parseCharacterTimeline(charResponse, selectedCharacters);
-        if (timeline) {
-          // Also check if content has character prefix and clean it
-          timeline.content = cleanCharacterPrefix(timeline.content);
-          timelines.push(timeline);
-        }
-      }
-    }
-    
-    if (timelines.length === 0) {
-      console.error('[AnimOrch] No valid timelines parsed');
-      return null;
-    }
-    
-    // Validate parsed timelines for guideline violations
-    validateTimelines(timelines, selectedCharacters);
+    // If not simplified format, log warning and return null
+    // The caller (singleCallOrchestration.ts) will create a fallback scene
+    console.warn('[AnimOrch] Response is not in simplified format (missing ord field or has d field)');
+    console.warn('[AnimOrch] Expected format: {"s":{"ch":[{"c":"ID","t":"TEXT","ord":1,"tl":[...]}]}}');
+    return null;
 
-    // Enforce minimum 1-second gap between character turns (unless interrupting)
-    const adjustedTimelines = enforceMinimumGaps(timelines, 1000);
-
-    // Calculate scene duration
-    const sceneDuration = Math.max(
-      parsed.scene.totalDuration || 0,
-      ...adjustedTimelines.map(t => t.startDelay + t.totalDuration)
-    );
-
-    return {
-      timelines: adjustedTimelines,
-      sceneDuration,
-      nonSpeakerBehavior: {} // Will be filled by fillGapsForNonSpeakers
-    };
-    
   } catch (error) {
     console.error('[AnimOrch] Failed to parse scene:', error);
     return null;

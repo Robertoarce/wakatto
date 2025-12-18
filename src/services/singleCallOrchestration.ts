@@ -38,10 +38,12 @@ import {
   getAnimationsList,
   getLookDirectionsList,
   getEyeStatesList,
+  getEyebrowStatesList,
   getMouthStatesList,
-  getTimingGuidelines
+  getFaceStatesList,
+  getEffectsList
 } from './animationOrchestration';
-import { getVoiceOptionsForPrompt, getVoiceOptionsForPromptFull } from '../config/voiceConfig';
+import { getVoiceOptionsForPrompt } from '../config/voiceConfig';
 import { getProfiler, PROFILE_OPS } from './profilingService';
 import { STATIC_ORCHESTRATION_IDENTITY_RULES } from '../config/characterIdentity';
 
@@ -51,7 +53,6 @@ export interface OrchestrationConfig {
   includeInterruptions: boolean; // Allow interruptions
   verbosity: 'brief' | 'balanced' | 'detailed'; // Response length
   enableAnimatedScene: boolean; // Use new animated scene format
-  useCompactFormat: boolean; // Use compact JSON response format (28% faster)
 }
 
 const DEFAULT_CONFIG: OrchestrationConfig = {
@@ -59,8 +60,7 @@ const DEFAULT_CONFIG: OrchestrationConfig = {
   includeGestures: true,
   includeInterruptions: true,
   verbosity: 'balanced',
-  enableAnimatedScene: true, // Default to new animated format
-  useCompactFormat: true // Default to compact format for 28% faster responses
+  enableAnimatedScene: true // Default to animated format
 };
 
 /**
@@ -441,7 +441,9 @@ export async function generateAnimatedSceneOrchestrationStreaming(
 
 /**
  * Build the animated scene prompt for LLM
- * Uses compact JSON format by default for 28% faster responses
+ *
+ * Uses SIMPLIFIED format only - all timing is calculated client-side
+ * based on text length and speed qualifiers (slow/normal/fast/explosive)
  */
 function buildAnimatedScenePrompt(
   selectedCharacters: string[],
@@ -449,58 +451,39 @@ function buildAnimatedScenePrompt(
   config: OrchestrationConfig
 ): string {
   // Get character profiles - enhanced with full systemPrompt + temperament modifiers
-  const characterProfiles = config.useCompactFormat
-    ? selectedCharacters.map((charId, index) => {
-        const character = getCharacter(charId);
-        const pos = index === 0 ? 'L' : index === 1 ? 'C' : 'R';
+  const characterProfiles = selectedCharacters.map((charId, index) => {
+    const character = getCharacter(charId);
+    const pos = index === 0 ? 'L' : index === 1 ? 'C' : 'R';
 
-        // Build enhanced profile with systemPrompt and temperament
-        let profile = `### ${character.name} (${charId}, Position: ${pos})\n`;
-        profile += `${character.description}\n\n`;
-        profile += `**Approach:**\n${character.systemPrompt}\n`;
+    // Build enhanced profile with systemPrompt and temperament
+    let profile = `### ${character.name} (${charId}, Position: ${pos})\n`;
+    profile += `${character.description}\n\n`;
+    profile += `**Approach:**\n${character.systemPrompt}\n`;
 
-        // Add temperament modifiers if available
-        if (character.temperaments && character.temperaments.length > 0) {
-          const styleModifier = getCombinedResponseStyle(character.temperaments);
-          profile += `\n${styleModifier}`;
-        }
+    // Add temperament modifiers if available
+    if (character.temperaments && character.temperaments.length > 0) {
+      const styleModifier = getCombinedResponseStyle(character.temperaments);
+      profile += `\n${styleModifier}`;
+    }
 
-        return profile;
-      }).join('\n\n---\n\n')
-    : selectedCharacters.map((charId, index) => {
-        const character = getCharacter(charId);
-        const basePrompt = getCharacterPrompt(character);
-        return `
-### ${character.name} (ID: ${charId}, Position: ${getPositionLabel(index, selectedCharacters.length)})
-${character.description}
-
-Friendly Approach:
-${basePrompt}
-`;
-      }).join('\n');
-
-  const verbosityGuide = {
-    brief: '1 sentence per response (97.9% of the time), occasionally 3 sentences (2%), very rarely up to 5 sentences (0.1%)',
-    balanced: '1 sentence per response (97.9% of the time), occasionally 3 sentences (2%), very rarely up to 5 sentences (0.1%)',
-    detailed: '1 sentence per response (97.9% of the time), occasionally 3 sentences (2%), very rarely up to 5 sentences (0.1%)'
-  }[config.verbosity];
+    return profile;
+  }).join('\n\n---\n\n');
 
   // Build character change notification
   const characterChangeNote = buildCharacterChangeNotification(messageHistory, selectedCharacters);
 
-  // Use simplified format (no ms values - client calculates timing)
+  // SIMPLIFIED format (no ms values - client calculates timing)
   // IMPORTANT: Static content (identity rules, animation system) goes FIRST for prompt caching
   // Dynamic content (character profiles) goes LAST
-  if (config.useCompactFormat) {
-    return `# Animated Scene Orchestrator
+  return `# Animated Scene Orchestrator
 
 ${STATIC_ORCHESTRATION_IDENTITY_RULES}
 ## Animation System
-Body: idle,thinking,talking,confused,happy,excited,winning,walking,jump,surprise_jump,surprise_happy,lean_back,lean_forward,cross_arms,nod,shake_head,shrug,wave,point,clap,bow,facepalm,dance,laugh,cry,angry,nervous,celebrate,peek,doze,stretch,kick_ground,meh,foot_tap,look_around,yawn,fidget,rub_eyes,weight_shift,head_tilt,chin_stroke
-Look: center,left,right,up,down,at_left_character,at_right_character
-Eye: open,closed,wink_left,wink_right,blink,surprised_blink | Eyebrow: normal,raised,furrowed,sad,worried,one_raised,wiggle
-Mouth: closed,open,smile,wide_smile,surprised | Face: normal,blush,sweat_drop,sparkle_eyes,heart_eyes,spiral_eyes,tears,anger_vein,shadow_face
-Effect: none,confetti,spotlight,sparkles,hearts
+Body: ${getAnimationsList()}
+Look: ${getLookDirectionsList()}
+Eye: ${getEyeStatesList()} | Eyebrow: ${getEyebrowStatesList()}
+Mouth: ${getMouthStatesList()} | Face: ${getFaceStatesList()}
+Effect: ${getEffectsList()}
 
 ## Voice (optional "v" object per segment)
 ${getVoiceOptionsForPrompt()}
@@ -508,17 +491,18 @@ ${getVoiceOptionsForPrompt()}
 ## Output Format (SIMPLIFIED - NO ms/duration values!)
 Keys: s=scene, ch=characters, c=character, t=content, ord=speakerOrder, tl=timeline, a=animation, sp=speed, lk=look, ey=eyes, eb=eyebrow, m=mouth, fc=face, fx=effect, v=voice
 
-Speed (sp): "slow" | "normal" | "fast"
-- slow: Thoughtful, measured - important/emotional moments
-- normal: Conversational pace (default)
-- fast: Energetic, quick reactions
+Speed (sp): "slow" | "normal" | "fast" | "explosive"
+- slow: Thoughtful, measured - important/emotional moments (1.3x duration)
+- normal: Conversational pace (default, 1.0x duration)
+- fast: Energetic, quick reactions (0.7x duration)
+- explosive: Rapid-fire, intense energy (0.5x duration)
 
 {"s":{"ch":[{"c":"ID","t":"TEXT","ord":1,"tl":[{"a":"thinking","sp":"normal","lk":"up","eb":"raised"},{"a":"talking","sp":"normal","talking":true,"lk":"center","m":"smile","v":{"p":"low","t":"warm","pace":"slow","mood":"calm","int":"explaining"}}]}]}}
 
 ## CRITICAL FORMAT RULES
 - DO NOT include: ms, duration, dur, d, startDelay, textRange
 - Use "ord" for speaker order (1, 2, 3...) - first speaker is ord:1
-- Use "sp" for speed qualifier (slow/normal/fast)
+- Use "sp" for speed qualifier (slow/normal/fast/explosive)
 - Use "int": true for interruptions (optional)
 
 ## Rules
@@ -534,191 +518,6 @@ Speed (sp): "slow" | "normal" | "fast"
 - Add "v" object to talking segments to control voice characteristics
 - If asked personal questions (birthday, history), characters answer AS THEMSELVES based on their real history
 ${config.includeInterruptions ? '- Characters can interrupt by setting "int": true' : ''}
-
-## Characters in This Scene (DYNAMIC - answer personal questions based on their history)
-${characterProfiles}
-${characterChangeNote}
-
-Generate the animated scene now.`;
-  }
-
-  // Full format (legacy - for comparison/debugging)
-  // IMPORTANT: Static content (identity rules) goes FIRST for prompt caching
-  return `# Animated Multi-Character Scene Orchestrator
-
-${STATIC_ORCHESTRATION_IDENTITY_RULES}
-You are directing an ANIMATED conversation scene between multiple characters and a user.
-Your output will control 3D character animations in real-time!
-
-## Animation System
-
-### Available Body Animations
-${getAnimationsList()}
-
-### Look Directions (where eyes/head point)
-${getLookDirectionsList()}
-
-### Eye States
-${getEyeStatesList()}
-
-### Mouth States (when not talking)
-${getMouthStatesList()}
-
-### Timing Guidelines
-${getTimingGuidelines()}
-
-${getVoiceOptionsForPromptFull()}
-
-## Your Task
-
-Create a CINEMATIC conversation scene with precise animation choreography:
-
-1. **Character Voice**: Maintain unique perspectives, CASUAL and conversational
-2. **Casual Tone**: Like friends texting - very short, warm and natural
-3. **Response Length**: 1-2 sentences per response, casual and conversational
-4. **Questions**: Max 1 question per response (99%), 2 questions extremely rare (1%)
-5. **Look Direction**: Based on the TARGET character's position relative to YOU:
-   - If target is to YOUR LEFT (lower index): look "at_left_character"
-   - If target is to YOUR RIGHT (higher index): look "at_right_character"
-   - Example: Position 0 talking to position 4 → look "at_right_character"
-6. **Animation Flow**:
-   - Start with a reaction/thinking animation before speaking
-   - Use "talking" animation when revealing text
-   - End with a subtle expression (nod, smile, idle)
-7. **Timing**: Calculate durations based on text length (~80ms per character when talking)
-
-## REASONING (Required - Think through these BEFORE generating the scene)
-
-You MUST include a "reasoning" object that answers these questions:
-
-1. **Context Assessment**: What is the user asking? What's the emotional tone?
-2. **Character Selection**: Which characters have relevant expertise for this topic? Should all respond or just some?
-3. **Voice Check**: For each responding character, what makes their perspective unique? How will they differ?
-4. **Format Validation Checklist**:
-   - Am I using character IDs (like "albert_einstein") NOT display names (like "Albert Einstein")?
-   - Is each character's response in a SEPARATE object in the characters array?
-   - Did I avoid putting [Character Name]: prefixes inside content fields?
-   - Is each content field ONLY that character's response text?
-5. **Final Decision**: Which characters will respond and why?
-
-## CRITICAL: Output Format
-
-Respond with VALID JSON only (no markdown code blocks, no extra text):
-
-{
-  "reasoning": {
-    "context": "User is asking about X. Tone is Y.",
-    "characterSelection": "Characters A and B have relevant expertise because...",
-    "voiceCheck": {
-      "character_id_1": "Will respond with perspective on...",
-      "character_id_2": "Will contrast by focusing on..."
-    },
-    "formatValidation": {
-      "usingCharacterIds": true,
-      "separateObjects": true,
-      "noNamePrefixes": true,
-      "cleanContent": true
-    },
-    "decision": "Characters X and Y will respond because..."
-  },
-  "scene": {
-    "totalDuration": 12000,
-    "characters": [
-      {
-        "character": "character_id_here",
-        "content": "The full text response without character name prefix",
-        "startDelay": 0,
-        "timeline": [
-          {
-            "animation": "thinking",
-            "duration": 1500,
-            "look": "up",
-            "eyes": "open",
-            "mouth": "closed"
-          },
-          {
-            "animation": "talking",
-            "duration": 4000,
-            "talking": true,
-            "textRange": [0, 50],
-            "look": "center",
-            "voice": {
-              "pitch": "low",
-              "tone": "warm",
-              "volume": "soft",
-              "pace": "slow",
-              "mood": "calm",
-              "intent": "reassuring"
-            }
-          },
-          {
-            "animation": "idle",
-            "duration": 1000,
-            "mouth": "smile",
-            "look": "at_right_character"
-          }
-        ]
-      },
-      {
-        "character": "second_character_id",
-        "content": "Second character's response text",
-        "startDelay": 6500,
-        "timeline": [
-          {
-            "animation": "lean_forward",
-            "duration": 800,
-            "look": "at_left_character"
-          },
-          {
-            "animation": "talking",
-            "duration": 3000,
-            "talking": true,
-            "textRange": [0, 35],
-            "voice": {
-              "pitch": "medium",
-              "tone": "crisp",
-              "pace": "fast",
-              "mood": "excited",
-              "intent": "encouraging"
-            }
-          },
-          {
-            "animation": "nod",
-            "duration": 700,
-            "mouth": "smile"
-          }
-        ]
-      }
-    ]
-  }
-}
-
-## Animation Rules
-
-1. **"character" field**: Must be the CHARACTER ID (like "freud" or "jung"), NOT the display name
-2. **"content" field**: Full response text - NO character name prefix like "[Freud]:"
-3. **"startDelay"**: Milliseconds before this character starts (0 for first speaker)
-4. **"timeline"**: Array of animation segments that play sequentially
-5. **"textRange"**: [startIndex, endIndex] of text revealed during "talking" segments
-6. **"talking": true**: Only on segments where mouth should animate for speech
-7. **"look"**: Where character looks - based on TARGET's position relative to YOU:
-   - Target to YOUR LEFT (lower index) → "at_left_character"
-   - Target to YOUR RIGHT (higher index) → "at_right_character"
-8. **Duration calculation**: 
-   - Thinking: 1000-2000ms
-   - Talking: ~80ms × text length
-   - Reactions: 500-1500ms
-
-## Scene Guidelines
-
-- Include ${Math.min(config.maxResponders, selectedCharacters.length)} characters maximum
-- First character starts at "startDelay": 0
-- Add 500-1000ms gap between character responses
-- Total scene duration = last character's startDelay + their timeline duration
-- If user addresses specific character, ONLY that character responds
-- Characters should look at whoever is speaking
-- If asked personal questions (birthday, history), characters answer AS THEMSELVES based on their real history
-${config.includeInterruptions ? '- Characters can interrupt by overlapping startDelay (use carefully!)' : ''}
 
 ## Characters in This Scene (DYNAMIC - answer personal questions based on their history)
 ${characterProfiles}
