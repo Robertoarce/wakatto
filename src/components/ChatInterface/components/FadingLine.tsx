@@ -63,8 +63,9 @@ const styles = StyleSheet.create({
   speechBubbleText: {
     fontFamily: 'Inter-Regular',
     color: 'white',
-    lineHeight: 22,
+    lineHeight: 26,
     letterSpacing: 0.2,
+    marginBottom: 4,
   },
   speechBubbleCursor: {
     fontWeight: 'bold',

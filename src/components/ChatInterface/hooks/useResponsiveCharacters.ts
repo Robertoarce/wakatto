@@ -83,14 +83,14 @@ export function useResponsiveCharacters({
     // In mobile landscape, position bubbles lower (beside character, not above)
     if (isMobileLandscape) {
       // Very close to character in landscape mode
-      const baseOffset = -10;
-      const staggerAmount = 8;
+      const baseOffset = 5;
+      const staggerAmount = 4;
       return baseOffset - (index * staggerAmount / Math.max(1, characterCount * 0.5));
     }
     // Each bubble staggers based on index, scaled by character count
-    // Position bubbles very close to character (10-15px above) for vertical stacking
-    const baseOffset = isMobile ? -12 : -15;
-    const staggerAmount = isMobile ? 8 : 10;
+    // Position bubbles very close to character (just above head)
+    const baseOffset = isMobile ? 10 : -15;
+    const staggerAmount = isMobile ? 4 : 6;
     return baseOffset - (index * staggerAmount / Math.max(1, characterCount * 0.5));
   }, [isMobile, isMobileLandscape, characterCount]);
 

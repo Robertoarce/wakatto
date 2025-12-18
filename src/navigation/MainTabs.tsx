@@ -217,6 +217,71 @@ export default function MainTabs() {
   // Profiling dashboard (dev tool)
   const profilingDashboard = useProfilingDashboard();
 
+  // Test poem for testing speech bubble and message list rendering
+  const TEST_POEM = `In the quiet hours of the digital night,
+Where pixels dance in pale moonlight,
+The Wakattors gather, wise and true,
+To share their thoughts with only you.
+
+Each word appears like morning dew,
+Line by line, the message grew.
+No jumping words, no sudden shifts,
+Just flowing text, a gentle gift.
+
+This poem tests the bubbles well,
+To see if words stay where they dwell.
+Pre-calculated, line by line,
+The typography should look just fine.
+
+So watch the letters as they flow,
+From start to finish, soft and slow.
+If all goes well, you'll clearly see,
+The text behaves as it should be.`;
+
+  // Handle test poem button - triggers test poem without user input
+  const handleTestPoem = useCallback(async () => {
+    const conversation = currentConversation;
+    if (!conversation) {
+      showAlert('No Conversation', 'Please start a conversation first.');
+      return;
+    }
+
+    // Get selected characters from current conversation
+    const selectedChars = conversation.selected_characters || [];
+    if (selectedChars.length === 0) {
+      showAlert('No Wakattors', 'Please select at least one Wakattor.');
+      return;
+    }
+
+    console.log('[MainTabs] TEST POEM: Triggering with characters:', selectedChars);
+    setIsLoadingAI(true);
+
+    try {
+      // Create test scene with the poem
+      const testCharacter = selectedChars[0];
+      const testScene = fillGapsForNonSpeakers(
+        createFallbackScene([{ characterId: testCharacter, content: TEST_POEM }], selectedChars),
+        selectedChars
+      );
+      setAnimationScene(testScene);
+
+      // Save test poem as assistant message
+      await dispatch(saveMessage(
+        conversation.id,
+        'assistant',
+        TEST_POEM,
+        testCharacter
+      ) as any);
+
+      console.log('[MainTabs] TEST POEM: Scene created');
+    } catch (error: any) {
+      console.error('[MainTabs] TEST POEM: Error:', error);
+      showAlert('Error', 'Failed to play test poem: ' + error.message);
+    } finally {
+      setIsLoadingAI(false);
+    }
+  }, [currentConversation, dispatch, showAlert]);
+
   const handleSendMessage = async (content: string, selectedCharacters: string[]) => {
     console.log('[MainTabs] handleSendMessage called with selectedCharacters:', selectedCharacters);
 
@@ -645,13 +710,29 @@ export default function MainTabs() {
             unmountOnBlur: true, // Unmount inactive screens to stop 3D rendering
           }}
         >
-          <Tab.Screen 
+          <Tab.Screen
             name="Chat"
             options={{
               tabBarIcon: ({ color, size }) => (
                 <Ionicons name="chatbox-outline" color={color} size={size} />
               ),
             }}
+            listeners={({ navigation }) => ({
+              focus: () => {
+                // Check if we should trigger test poem from navigation params
+                const state = navigation.getState();
+                const chatRoute = state?.routes?.find((r: any) => r.name === 'Chat');
+                const params = chatRoute?.params as { triggerTestPoem?: boolean } | undefined;
+                if (params?.triggerTestPoem) {
+                  // Clear the param immediately to prevent re-triggering
+                  navigation.setParams({ triggerTestPoem: undefined });
+                  // Trigger the test poem after a small delay to ensure ChatInterface is ready
+                  setTimeout(() => {
+                    handleTestPoem();
+                  }, 100);
+                }
+              },
+            })}
           >
             {() => (
               <ChatInterface

@@ -35,6 +35,56 @@ export function wrapText(str: string, maxWidth: number = 45): string[] {
 }
 
 /**
+ * Pre-calculate line structure from full text, then reveal characters progressively.
+ * This ensures words don't jump between lines as they're being typed.
+ *
+ * @param fullText - The complete text that will eventually be shown
+ * @param revealedLength - How many characters have been revealed so far
+ * @param maxWidth - Maximum characters per line
+ * @returns Array of lines with only revealed characters shown
+ */
+export function wrapTextWithReveal(
+  fullText: string,
+  revealedLength: number,
+  maxWidth: number = 45
+): string[] {
+  if (!fullText || revealedLength <= 0) return [];
+
+  // First, wrap the FULL text to get the final line structure
+  const fullLines = wrapText(fullText, maxWidth);
+
+  // Now, reveal characters within this pre-calculated structure
+  const revealedLines: string[] = [];
+  let charsRemaining = revealedLength;
+
+  for (const line of fullLines) {
+    if (charsRemaining <= 0) break;
+
+    if (charsRemaining >= line.length) {
+      // Full line revealed
+      revealedLines.push(line);
+      charsRemaining -= line.length + 1; // +1 for space/newline between lines
+    } else {
+      // Partial line - reveal up to charsRemaining
+      revealedLines.push(line.substring(0, charsRemaining));
+      break;
+    }
+  }
+
+  return revealedLines;
+}
+
+/**
+ * Get the total character count including spaces between lines
+ * Used to sync revealed length with line structure
+ */
+export function getFullTextLengthWithSpaces(lines: string[]): number {
+  if (lines.length === 0) return 0;
+  // Sum of all line lengths + spaces between lines
+  return lines.reduce((sum, line, i) => sum + line.length + (i < lines.length - 1 ? 1 : 0), 0);
+}
+
+/**
  * Calculate opacity for a line based on its position
  * Older lines (at top) fade out, newer lines (at bottom) stay visible
  * @param lineIndex - Index of the line (0 = top/oldest)

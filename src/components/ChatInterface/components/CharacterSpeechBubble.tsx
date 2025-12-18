@@ -6,7 +6,7 @@
 import React, { useState, useRef, useEffect, memo, useCallback } from 'react';
 import { Animated, Platform, View, Text, StyleSheet } from 'react-native';
 import { useResponsive } from '../../../constants/Layout';
-import { wrapText, getLineOpacity } from '../utils/speechBubbleHelpers';
+import { wrapTextWithReveal, getLineOpacity } from '../utils/speechBubbleHelpers';
 import { getDynamicBubbleDimensions, BUBBLE_ANIMATION_TIMING } from '../utils/bubbleQueueHelpers';
 import { FadingLine } from './FadingLine';
 import { AnimatedBubble, BubbleState, BubbleAnimationState } from './AnimatedBubble';
@@ -14,8 +14,10 @@ import { AnimatedBubble, BubbleState, BubbleAnimationState } from './AnimatedBub
 interface CharacterSpeechBubbleProps {
   // NEW: Array of bubbles (1-2 bubbles per character)
   bubbles?: BubbleState[];
-  // Legacy: Single text string (for backward compatibility)
+  // Revealed text (progressively typed characters)
   text?: string;
+  // Full text for pre-calculated line wrapping (required - prevents words jumping between lines)
+  fullText: string;
   characterName: string;
   characterColor: string;
   position: 'left' | 'right';
@@ -40,6 +42,7 @@ interface CharacterSpeechBubbleProps {
 export function CharacterSpeechBubble({
   bubbles,
   text,
+  fullText,
   characterName,
   characterColor,
   position,
@@ -149,10 +152,9 @@ export function CharacterSpeechBubble({
     const stackedMaxWidth = Math.min(dimensions.maxWidth, (viewportWidth || 400) - 24);
     const stackedMaxHeight = Math.min(120, (viewportHeight || 600) * 0.2);
 
-    // For stacked layout, use legacy single bubble with text
-    const displayText = bubbles?.[bubbles.length - 1]?.text || text || lastTextRef.current;
-    const allLines = wrapText(displayText);
-    const visibleLines = allLines.slice(-3);
+    // For stacked layout - use pre-calculated wrapping
+    const displayText = text || lastTextRef.current;
+    const visibleLines = wrapTextWithReveal(fullText, displayText.length, 45).slice(-3);
 
     return (
       <Animated.View
@@ -268,12 +270,13 @@ export function CharacterSpeechBubble({
   }
 
   // ====================
-  // LEGACY SINGLE BUBBLE LAYOUT (backward compatibility)
+  // SINGLE BUBBLE LAYOUT
   // ====================
-  const fullText = text || lastTextRef.current;
-  const allLines = wrapText(fullText);
-  const maxVisibleLines = 7;
-  const visibleLines = allLines.slice(-maxVisibleLines);
+  const revealedText = text || lastTextRef.current;
+  const maxVisibleLines = 5;
+
+  // Pre-calculated wrapping - lines calculated from fullText, revealed progressively
+  const visibleLines = wrapTextWithReveal(fullText, revealedText.length, 45).slice(-maxVisibleLines);
 
   // Calculate responsive position offsets
   const getPositionStyles = () => {

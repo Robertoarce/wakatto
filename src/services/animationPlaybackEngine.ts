@@ -367,6 +367,23 @@ export class AnimationPlaybackEngine {
   }
 
   /**
+   * Get the full text content for a character's active timeline
+   * Used for pre-calculating line breaks to prevent words jumping between lines
+   */
+  getFullText(characterId: string): string {
+    if (!this.scene) return '';
+
+    const elapsed = this.getElapsedTime();
+    const characterTimelines = this.scene.timelines.filter(t => t.characterId === characterId);
+    if (characterTimelines.length === 0) return '';
+
+    const timeline = this.findActiveTimeline(characterTimelines, elapsed);
+    if (!timeline) return '';
+
+    return timeline.content;
+  }
+
+  /**
    * Get the current voice state for a character (merged base + segment voice)
    * Handles multiple timelines per character (finds the currently active one)
    * Useful for TTS integration or voice visualization

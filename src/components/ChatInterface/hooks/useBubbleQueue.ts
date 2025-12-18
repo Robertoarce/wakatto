@@ -31,7 +31,7 @@ interface UseBubbleQueueOptions {
 interface UseBubbleQueueResult {
   getBubblesForCharacter: (characterId: string) => BubbleState[];
   getAnimationState: (characterId: string, bubbleId: string) => BubbleAnimationState;
-  updateCharacterText: (characterId: string, text: string, isTyping: boolean) => void;
+  updateCharacterText: (characterId: string, text: string, isTyping: boolean, fullText?: string) => void;
   isTransitioning: (characterId: string) => boolean;
   onBubbleAnimationComplete: (characterId: string, bubbleId: string, animation: BubbleAnimationState) => void;
   clearCharacterBubbles: (characterId: string) => void;
@@ -177,7 +177,8 @@ export function useBubbleQueue({
   }, [processPendingSegments]);
 
   // Update text for a character - this is called frequently during text reveal
-  const updateCharacterText = useCallback((characterId: string, text: string, isTyping: boolean) => {
+  // fullText: The complete message for pre-calculated segmentation (prevents word jumping)
+  const updateCharacterText = useCallback((characterId: string, text: string, isTyping: boolean, fullText?: string) => {
     if (!text) return;
 
     setQueues(prev => {
@@ -192,9 +193,11 @@ export function useBubbleQueue({
       // Get current bubble dimensions (assume 1 bubble for initial segmentation)
       const dimensions = getBubbleDimensions(Math.max(1, queue.bubbles.length));
 
-      // Segment the full text into bubble chunks
+      // Use fullText for segmentation if available (prevents words jumping between lines)
+      // This pre-calculates segment boundaries based on final text
+      const textToSegment = fullText || text;
       const segments = segmentTextIntoBubbles(
-        text,
+        textToSegment,
         dimensions.maxChars,
         dimensions.maxLines
       );

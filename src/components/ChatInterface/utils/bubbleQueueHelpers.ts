@@ -48,14 +48,14 @@ export function calculateMaxCharsForBubble(
 /**
  * Calculate maximum lines that fit in a bubble based on height
  * @param maxHeight - Maximum bubble height in pixels
- * @param lineHeight - Height per line (default 22px)
+ * @param lineHeight - Height per line (default 32px = lineHeight 28 + margin 4)
  * @param headerHeight - Height for name label (default 30px)
  * @param padding - Vertical padding (default 28px)
  * @returns Maximum number of lines
  */
 export function calculateMaxLinesForBubble(
   maxHeight: number,
-  lineHeight: number = 22,
+  lineHeight: number = 32,
   headerHeight: number = 30,
   padding: number = 28
 ): number {
@@ -224,18 +224,18 @@ export function getDynamicBubbleDimensions(
   maxLines: number;
   maxChars: number;
 } {
-  // Base sizing lookup table
+  // Base sizing lookup table - increased lines for better text visibility
   const sizingTable: Record<string, { width: number; lines: number }> = {
-    '1-1': { width: 420, lines: 8 },
-    '1-2': { width: 320, lines: 6 },
-    '2-1': { width: 350, lines: 7 },
-    '2-2': { width: 280, lines: 5 },
-    '3-1': { width: 300, lines: 6 },
-    '3-2': { width: 240, lines: 4 },
+    '1-1': { width: 420, lines: 7}, //12 },
+    '1-2': { width: 320, lines: 7}, //10 },
+    '2-1': { width: 350, lines: 7}, //10 },
+    '2-2': { width: 280, lines: 7}, //8 },
+    '3-1': { width: 300, lines: 7}, //9 },
+    '3-2': { width: 240, lines: 7}, //7 },
   };
 
   const key = `${Math.min(characterCount, 3)}-${Math.min(bubbleCount, 2)}`;
-  const baseSizing = sizingTable[key] || { width: 280, lines: 5 };
+  const baseSizing = sizingTable[key] || { width: 280, lines: 8 };
 
   // Adjust for screen size
   let maxWidth = baseSizing.width;
@@ -244,18 +244,18 @@ export function getDynamicBubbleDimensions(
   if (isMobileLandscape) {
     // Landscape: wider but shorter bubbles
     maxWidth = Math.min(maxWidth, screenWidth * 0.35);
-    maxLines = Math.min(maxLines, 4);
+    maxLines = Math.min(maxLines, 7);
   } else if (isMobile) {
     // Portrait mobile: scale width to screen
     maxWidth = Math.min(maxWidth, screenWidth * 0.75);
-    maxLines = Math.min(maxLines, 6);
+    maxLines = Math.min(maxLines, 10);
   }
 
   // Ensure minimum width
   maxWidth = Math.max(220, Math.min(maxWidth, screenWidth - 32));
 
-  // Calculate height based on lines
-  const lineHeight = 22;
+  // Calculate height based on lines (lineHeight 28 + marginBottom 4 = 32)
+  const lineHeight = 32;
   const headerHeight = 30;
   const padding = 28;
   const maxHeight = (maxLines * lineHeight) + headerHeight + padding;

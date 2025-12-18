@@ -57,6 +57,7 @@ import {
   useBubbleQueue,
 } from './ChatInterface/hooks';
 import { calculateCharacterPosition } from './ChatInterface/utils/characterPositioning';
+import { wrapTextWithReveal } from './ChatInterface/utils/speechBubbleHelpers';
 
 interface Message {
   id: string;
@@ -380,8 +381,9 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         const charPlaybackState = playbackState.characterStates.get(characterId);
         const isTyping = charPlaybackState?.isTalking || false;
         const revealedText = playbackEngineRef.current.getRevealedText(characterId);
+        const fullText = playbackEngineRef.current.getFullText(characterId);
         if (revealedText) {
-          updateCharacterText(characterId, revealedText, isTyping);
+          updateCharacterText(characterId, revealedText, isTyping, fullText);
         }
       });
     }
@@ -1205,12 +1207,13 @@ Each silence, a cathedral where you still reside.`;
               const charPlaybackState = playbackState.characterStates.get(characterId);
               const usePlayback = playbackState.isPlaying && charPlaybackState;
               const revealedText = usePlayback ? playbackEngineRef.current.getRevealedText(characterId) : '';
+              const fullTextContent = usePlayback ? playbackEngineRef.current.getFullText(characterId) : '';
               const isSpeakingNow = usePlayback && charPlaybackState?.isTalking;
               const isTypingNow = usePlayback && revealedText && revealedText.length > 0;
-              
+
               // Only render bubble if character is speaking
               if (!isSpeakingNow && !isTypingNow) return null;
-              
+
               // Get bubbles from queue
               const characterBubbles = getBubblesForCharacter(characterId);
 
@@ -1219,6 +1222,7 @@ Each silence, a cathedral where you still reside.`;
                   key={`mobile-bubble-${characterId}`}
                   bubbles={characterBubbles.length > 0 ? characterBubbles : undefined}
                   text={revealedText || ''}
+                  fullText={fullTextContent}
                   characterName={character.name}
                   characterColor={character.color}
                   position="left"
@@ -1309,6 +1313,7 @@ Each silence, a cathedral where you still reside.`;
               const charPlaybackState = playbackState.characterStates.get(characterId);
               const usePlayback = playbackState.isPlaying && charPlaybackState;
               const revealedText = usePlayback ? playbackEngineRef.current.getRevealedText(characterId) : '';
+              const fullTextContent = usePlayback ? playbackEngineRef.current.getFullText(characterId) : '';
               const isSpeaking = usePlayback && charPlaybackState?.isTalking;
               const isTyping = usePlayback && revealedText && revealedText.length > 0;
 
@@ -1403,6 +1408,7 @@ Each silence, a cathedral where you still reside.`;
                       <MemoizedCharacterSpeechBubble
                         bubbles={characterBubbles.length > 0 ? characterBubbles : undefined}
                         text={revealedText || ''}
+                        fullText={fullTextContent}
                         characterName={character.name}
                         characterColor={character.color}
                         position={bubblePosition}
@@ -1592,16 +1598,23 @@ Each silence, a cathedral where you still reside.`;
                         )}
                         {(() => {
                           if (isAnimating && revealedText !== null) {
-                            // Show cursor if text is still being revealed
+                            // Pre-calculated line wrapping - prevents words jumping between lines
+                            const lines = wrapTextWithReveal(message.content, revealedText.length, 60);
                             const showCursor = revealedText.length < message.content.length;
                             return (
-                              <Text style={[styles.messageText, { fontSize: fonts.md }]}>
-                                {revealedText}
-                                {showCursor && <Text style={styles.messageTypingCursor}>|</Text>}
-                              </Text>
+                              <View>
+                                {lines.map((line, lineIndex) => (
+                                  <Text key={lineIndex} style={[styles.messageText, { fontSize: fonts.md }]}>
+                                    {line}
+                                    {showCursor && lineIndex === lines.length - 1 && (
+                                      <Text style={styles.messageTypingCursor}>|</Text>
+                                    )}
+                                  </Text>
+                                ))}
+                              </View>
                             );
                           }
-                          
+
                           // Show full text when not animating
                           return <Text style={[styles.messageText, { fontSize: fonts.md }]}>{message.content}</Text>;
                         })()}
