@@ -106,8 +106,12 @@ export function useIdleConversation({
 
   // Initialize idle conversation manager when characters change
   useEffect(() => {
-    // Only enable if 2+ characters selected and we have a conversation
-    if (selectedCharacters.length >= 2 && conversationId) {
+    // DISABLED FOR NOW - idle conversations will be enabled later
+    // To enable in the future, set ENABLE_IDLE_CONVERSATIONS to true below
+    const ENABLE_IDLE_CONVERSATIONS = false; // <<<<<< BOOLEAN BOOL FLAG HERE 
+
+    // Only enable if idle conversations are enabled, 2+ characters selected and we have a conversation
+    if (ENABLE_IDLE_CONVERSATIONS && selectedCharacters.length >= 2 && conversationId) {
       idleManagerRef.current = initIdleConversationManager(
         selectedCharacters,
         {
@@ -124,7 +128,7 @@ export function useIdleConversation({
       }, 2000);
 
     } else if (idleManagerRef.current) {
-      // Stop and destroy if we don't have enough characters
+      // Stop and destroy if we don't have enough characters or idle is disabled
       idleManagerRef.current.stop();
       idleManagerRef.current = null;
     }

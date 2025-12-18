@@ -56,6 +56,7 @@ import {
   useBobSales,
   useBubbleQueue,
 } from './ChatInterface/hooks';
+import { calculateCharacterPosition } from './ChatInterface/utils/characterPositioning';
 
 interface Message {
   id: string;
@@ -872,7 +873,7 @@ The faint perfume of your forgotten laughter,
 The ashes of words that once burned like suns.
 
 I see you still, beyond the edge of memory,
-A light half-veiled by time’s weary hand.
+A light half-veiled by time's weary hand.
 Your voice was a temple—vast, echoing,
 Where my heart knelt and did not pray, but trembled.
 
@@ -900,6 +901,10 @@ Each silence, a cathedral where you still reside.`;
     const msPerChar = DEFAULT_TALKING_SPEED;
     const textDuration = testText.length * msPerChar;
 
+    // Get screen width for position calculation
+    const screenWidth = Dimensions.get('window').width;
+    const totalCharacters = selectedCharacters.length;
+
     // Create timelines for each selected character
     const timelines: CharacterTimeline[] = selectedCharacters.map((characterId, index) => {
       // Random start delay between 0 and 3 seconds, staggered
@@ -907,13 +912,28 @@ Each silence, a cathedral where you still reside.`;
       const randomDelay = Math.random() * 500; // Plus 0-0.5s random
       const startDelay = baseDelay + randomDelay;
 
+      // Determine character position and look direction for poem mode
+      const position = calculateCharacterPosition(index, totalCharacters, screenWidth);
+
+      let poemLookDirection: LookDirection;
+      if (position.isCenterCharacter || position.horizontalOffset === 0) {
+        // Center character looks left
+        poemLookDirection = 'left' as LookDirection;
+      } else if (position.horizontalOffset < 0) {
+        // Left character looks at right (toward center)
+        poemLookDirection = 'at_right_character' as LookDirection;
+      } else {
+        // Right character looks at left (toward center)
+        poemLookDirection = 'at_left_character' as LookDirection;
+      }
+
       // Create segments for speaking animation
       const segments: AnimationSegment[] = [
         {
           animation: 'talking' as AnimationState,
           duration: textDuration,
           complementary: {
-            lookDirection: 'center' as LookDirection,
+            lookDirection: poemLookDirection,
             eyeState: 'normal' as EyeState,
             mouthState: 'talking' as MouthState,
           },
@@ -928,7 +948,7 @@ Each silence, a cathedral where you still reside.`;
           animation: 'idle' as AnimationState,
           duration: 2000,
           complementary: {
-            lookDirection: 'center' as LookDirection,
+            lookDirection: poemLookDirection,
             eyeState: 'normal' as EyeState,
             mouthState: 'neutral' as MouthState,
           },

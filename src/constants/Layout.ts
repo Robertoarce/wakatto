@@ -11,19 +11,21 @@ export const BREAKPOINTS = {
   mobile: 480,    // < 480px
   tablet: 768,    // 480px - 768px
   desktop: 1024,  // 768px - 1024px
-  large: 1200,    // > 1024px
+  large: 1200,    // 1024px - 1920px
+  ultrawide: 1920, // > 1920px (2560px, 4K, etc.)
 } as const;
 
 // ============================================
 // DEVICE TYPE DETECTION
 // ============================================
-export type DeviceType = 'mobile' | 'tablet' | 'desktop' | 'large';
+export type DeviceType = 'mobile' | 'tablet' | 'desktop' | 'large' | 'ultrawide';
 
 export function getDeviceType(width: number): DeviceType {
   if (width < BREAKPOINTS.mobile) return 'mobile';
   if (width < BREAKPOINTS.tablet) return 'tablet';
   if (width < BREAKPOINTS.desktop) return 'desktop';
-  return 'large';
+  if (width < BREAKPOINTS.large) return 'large';
+  return 'ultrawide';
 }
 
 // ============================================
@@ -41,11 +43,12 @@ export interface ResponsiveFonts {
 
 export function calculateFonts(width: number): ResponsiveFonts {
   // Scale factor based on screen width
-  // Mobile (<480): 0.85, Tablet (480-768): 0.92, Desktop (768-1024): 1.0, Large (>1024): 1.1
-  const scale = width < BREAKPOINTS.mobile ? 0.85 
-    : width < BREAKPOINTS.tablet ? 0.92 
-    : width < BREAKPOINTS.desktop ? 1.0 
-    : 1.1;
+  // Mobile (<480): 0.85, Tablet (480-768): 0.92, Desktop (768-1024): 1.0, Large (1024-1920): 1.1, Ultrawide (>1920): 1.45
+  const scale = width < BREAKPOINTS.mobile ? 0.85
+    : width < BREAKPOINTS.tablet ? 0.92
+    : width < BREAKPOINTS.desktop ? 1.0
+    : width < BREAKPOINTS.large ? 1.1
+    : 1.45; // Ultrawide: 2560px and up
   
   return {
     xs: Math.round(11 * scale),     // 9-11px
@@ -72,11 +75,12 @@ export interface ResponsiveSpacing {
 }
 
 export function calculateSpacing(width: number): ResponsiveSpacing {
-  // Spacing scale: smaller on mobile, larger on desktop
-  const scale = width < BREAKPOINTS.mobile ? 0.85 
-    : width < BREAKPOINTS.tablet ? 0.92 
-    : width < BREAKPOINTS.desktop ? 1.0 
-    : 1.1;
+  // Spacing scale: smaller on mobile, larger on desktop, even larger on ultrawide
+  const scale = width < BREAKPOINTS.mobile ? 0.85
+    : width < BREAKPOINTS.tablet ? 0.92
+    : width < BREAKPOINTS.desktop ? 1.0
+    : width < BREAKPOINTS.large ? 1.1
+    : 1.45; // Ultrawide: 2560px and up
   
   return {
     xs: Math.round(4 * scale),
@@ -126,37 +130,38 @@ export interface ResponsiveLayout {
 export function calculateLayout(width: number): ResponsiveLayout {
   const isMobile = width < BREAKPOINTS.mobile;
   const isTablet = width >= BREAKPOINTS.mobile && width < BREAKPOINTS.tablet;
-  const isDesktop = width >= BREAKPOINTS.tablet;
+  const isDesktop = width >= BREAKPOINTS.tablet && width < BREAKPOINTS.large;
+  const isUltrawide = width >= BREAKPOINTS.large;
   
   return {
     // Touch targets - always at least 44px on touch devices
     minTouchTarget: isMobile ? 44 : 40,
-    
+
     // Card widths - full width on mobile, fixed on larger screens
-    cardWidth: isMobile ? '100%' : isTablet ? '48%' : 200,
-    cardMaxWidth: isMobile ? 9999 : isTablet ? 300 : 220,
-    
-    // Modal sizing - full screen on mobile
-    modalWidth: isMobile ? '100%' : isTablet ? '90%' : '66.67%',
-    modalHeight: isMobile ? '100%' : isTablet ? '90%' : '66.67%',
-    modalMaxWidth: isMobile ? 9999 : isTablet ? 600 : 800,
+    cardWidth: isMobile ? '100%' : isTablet ? '48%' : isDesktop ? 200 : 280,
+    cardMaxWidth: isMobile ? 9999 : isTablet ? 300 : isDesktop ? 220 : 350,
+
+    // Modal sizing - full screen on mobile, larger max-width for ultrawide
+    modalWidth: isMobile ? '100%' : isTablet ? '90%' : isDesktop ? '66.67%' : '50%',
+    modalHeight: isMobile ? '100%' : isTablet ? '90%' : '80%',
+    modalMaxWidth: isMobile ? 9999 : isTablet ? 600 : isDesktop ? 800 : 1200,
     modalBorderRadius: isMobile ? 0 : 20,
-    
+
     // Input sizing
     inputMinHeight: isMobile ? 48 : 44,
     inputPadding: isMobile ? 14 : 12,
-    
+
     // Header sizing
-    headerPadding: isMobile ? 12 : 16,
-    headerHeight: isMobile ? 56 : 64,
-    
-    // Sidebar
-    sidebarWidth: isMobile ? width : 224,
+    headerPadding: isMobile ? 12 : isUltrawide ? 20 : 16,
+    headerHeight: isMobile ? 56 : isUltrawide ? 72 : 64,
+
+    // Sidebar - wider on ultrawide
+    sidebarWidth: isMobile ? width : isUltrawide ? 280 : 224,
     sidebarCollapsedWidth: 56,
-    
-    // Grid
-    gridColumns: isMobile ? 1 : isTablet ? 2 : 3,
-    gridGap: isMobile ? 12 : 16,
+
+    // Grid - more columns on ultrawide
+    gridColumns: isMobile ? 1 : isTablet ? 2 : isDesktop ? 3 : 4,
+    gridGap: isMobile ? 12 : isUltrawide ? 20 : 16,
   };
 }
 
@@ -255,7 +260,8 @@ export function responsive<T>(
   mobile: T,
   tablet: T,
   desktop: T,
-  deviceType: DeviceType
+  deviceType: DeviceType,
+  ultrawide?: T
 ): T {
   switch (deviceType) {
     case 'mobile':
@@ -263,8 +269,11 @@ export function responsive<T>(
     case 'tablet':
       return tablet;
     case 'desktop':
+      return desktop;
     case 'large':
       return desktop;
+    case 'ultrawide':
+      return ultrawide ?? desktop;
     default:
       return desktop;
   }

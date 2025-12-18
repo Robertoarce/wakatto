@@ -602,28 +602,28 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
 
       switch (complementary?.lookDirection) {
         case 'left':
-          lookYOffset = 0.5;
+          lookYOffset = -0.5; //<<< DONT TOUCH THIS! es NEgativo 
           break;
         case 'right':
-          lookYOffset = -0.5;
+          lookYOffset = 0.5; //<<< DONT TOUCH THIS! es Positron
           break;
         case 'up':
-          lookXOffset = -0.3;
+          lookXOffset = -0.3;  
           break;
         case 'down':
           lookXOffset = 0.3;
           break;
         case 'at_left_character':
           // Look at character to my LEFT = turn toward screen-RIGHT (positive Y)
-          lookYOffset = 0.7;
+          lookYOffset = -0.7; //<<< DONT TOUCH THIS! es Positron
           lookXOffset = 0.1;
-          targetMeshRotY = 0.65;
+          targetMeshRotY = -0.65;
           break;
         case 'at_right_character':
           // Look at character to my RIGHT = turn toward screen-LEFT (negative Y)
-          lookYOffset = -0.7;
+          lookYOffset = 0.7; //<<< DONT TOUCH THIS! es Positron
           lookXOffset = 0.1;
-          targetMeshRotY = -0.65;
+          targetMeshRotY = 0.65;
           break;
       }
 
@@ -879,7 +879,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       // =========================================
       switch (complementary?.jawState) {
         case 'clenched':
-          targetHeadScaleY = 0.97;
+          targetHeadScaleY = 1.97;
           break;
         case 'protruding':
           targetJawPosZ = 0.05;

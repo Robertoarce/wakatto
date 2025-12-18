@@ -82,16 +82,15 @@ export function useResponsiveCharacters({
   const getBubbleTopOffset = useCallback((index: number) => {
     // In mobile landscape, position bubbles lower (beside character, not above)
     if (isMobileLandscape) {
-      // Much smaller offset in landscape - bubbles sit beside characters
-      const baseOffset = -20;
-      const staggerAmount = 15;
+      // Very close to character in landscape mode
+      const baseOffset = -10;
+      const staggerAmount = 8;
       return baseOffset - (index * staggerAmount / Math.max(1, characterCount * 0.5));
     }
     // Each bubble staggers based on index, scaled by character count
-    // Position bubbles partially above character but still visible (-40 to -60 base)
-    // Less aggressive offset so bubbles stay within viewport
-    const baseOffset = isMobile ? -40 : -60;
-    const staggerAmount = isMobile ? 20 : 25;
+    // Position bubbles very close to character (10-15px above) for vertical stacking
+    const baseOffset = isMobile ? -12 : -15;
+    const staggerAmount = isMobile ? 8 : 10;
     return baseOffset - (index * staggerAmount / Math.max(1, characterCount * 0.5));
   }, [isMobile, isMobileLandscape, characterCount]);
 

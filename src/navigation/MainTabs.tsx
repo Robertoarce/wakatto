@@ -87,14 +87,14 @@ export default function MainTabs() {
 
   // If no conversation is selected and we have conversations, select the first one
   useEffect(() => {
-    console.log('[MainTabs:AutoSelect] Effect triggered:', {
-      hasCurrentConversation: !!currentConversation,
-      currentConversationId: currentConversation?.id,
-      currentConversationSelectedChars: currentConversation?.selected_characters,
-      conversationsCount: conversations.length,
-    });
+    // console.log('[MainTabs:AutoSelect] Effect triggered:', {
+    //   hasCurrentConversation: !!currentConversation,
+    //   currentConversationId: currentConversation?.id,
+    //   currentConversationSelectedChars: currentConversation?.selected_characters,
+    //   conversationsCount: conversations.length,
+    // });
     if (!currentConversation && conversations.length > 0) {
-      console.log('[MainTabs:AutoSelect] Selecting first conversation:', conversations[0].id, 'selected_characters:', conversations[0].selected_characters);
+      // console.log('[MainTabs:AutoSelect] Selecting first conversation:', conversations[0].id, 'selected_characters:', conversations[0].selected_characters);
       dispatch(selectConversation(conversations[0]) as any);
     }
   }, [conversations, currentConversation, dispatch]);

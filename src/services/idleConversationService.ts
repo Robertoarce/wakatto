@@ -22,6 +22,7 @@ export type IdleConversationState =
   | 'IDLE_DONE';          // No more conversations, just idle animations
 
 export interface IdleConversationConfig {
+  enabled?: boolean;              // Enable/disable idle conversations (default: false)
   inactivityTimeout: number;      // Ms before first conversation (default: 10000)
   cooldownDuration: number;       // Ms between conversations (default: 120000)
   maxConversations: number;       // Max conversations per session (default: 2)
@@ -39,6 +40,7 @@ export interface IdleConversationCallbacks {
 // ============================================
 
 const DEFAULT_CONFIG: IdleConversationConfig = {
+  enabled: false,             // DISABLED by default (will be enabled later)
   inactivityTimeout: 10000,   // 10 seconds
   cooldownDuration: 120000,   // 2 minutes
   maxConversations: 2,
