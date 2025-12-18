@@ -213,11 +213,138 @@ const VALID_EFFECTS: VisualEffect[] = [
   'none', 'confetti', 'spotlight', 'sparkles', 'hearts'
 ];
 
+// ============================================
+// EXPRESSION PRESETS (Compiled face combinations)
+// ============================================
+
+/**
+ * Expression presets - pre-compiled combinations of eye, eyebrow, mouth, etc.
+ * LLM uses "ex":"joyful" instead of manually specifying each state
+ * Individual states can still override: "ex":"joyful","m":"smirk"
+ */
+export interface ExpressionPreset {
+  ey?: EyeState;
+  eb?: EyebrowState;
+  m?: MouthState;
+  fc?: FaceState;
+  n?: NoseState;
+  ck?: CheekState;
+  fh?: ForeheadState;
+  j?: JawState;
+}
+
+export const EXPRESSION_PRESETS: Record<string, ExpressionPreset> = {
+  // Positive emotions
+  joyful: { ey: 'wide', eb: 'relaxed_upward', m: 'big_grin', ck: 'flushed' },
+  happy: { ey: 'soft', eb: 'relaxed_upward', m: 'smile', ck: 'dimpled' },
+  excited: { ey: 'wide', eb: 'raised', m: 'big_grin', ck: 'flushed' },
+  loving: { ey: 'soft', m: 'smile', fc: 'heart_eyes', ck: 'flushed' },
+  proud: { ey: 'soft', eb: 'slightly_raised', m: 'slight_smile', fh: 'raised' },
+  playful: { ey: 'wink_left', eb: 'one_raised', m: 'smirk' },
+  amused: { ey: 'soft', eb: 'one_raised', m: 'smirk' },
+
+  // Negative emotions
+  sad: { ey: 'tearful', eb: 'sad', m: 'pout' },
+  angry: { ey: 'narrow', eb: 'furrowed', m: 'tense', n: 'flared', j: 'clenched', fc: 'anger_vein' },
+  frustrated: { ey: 'narrow', eb: 'deeply_furrowed', m: 'grimace', n: 'flared' },
+  annoyed: { ey: 'half_closed', eb: 'furrowed', m: 'tense' },
+  disappointed: { ey: 'soft', eb: 'sad', m: 'slight_smile', fh: 'wrinkled' },
+
+  // Thinking/Processing
+  thoughtful: { ey: 'half_closed', eb: 'slightly_raised', m: 'pursed', fh: 'wrinkled' },
+  curious: { ey: 'wide', eb: 'one_raised', m: 'open' },
+  confused: { ey: 'wide', eb: 'one_raised', m: 'open', fh: 'wrinkled' },
+  skeptical: { ey: 'narrow', eb: 'one_raised', m: 'pursed' },
+
+  // Surprise/Shock
+  surprised: { ey: 'wide', eb: 'raised', m: 'o_shape' },
+  shocked: { ey: 'wide', eb: 'arched_high', m: 'o_shape', j: 'slack' },
+  amazed: { ey: 'wide', eb: 'raised', m: 'open', fc: 'sparkle_eyes' },
+
+  // Anxiety/Discomfort
+  nervous: { ey: 'blink', eb: 'worried', fc: 'sweat_drop', n: 'twitching' },
+  worried: { ey: 'soft', eb: 'worried', m: 'slight_smile', fh: 'wrinkled' },
+  embarrassed: { ey: 'half_closed', eb: 'worried', m: 'slight_smile', ck: 'flushed' },
+  shy: { ey: 'half_closed', eb: 'slightly_raised', m: 'slight_smile', ck: 'flushed' },
+
+  // Neutral/Calm
+  neutral: { ey: 'open', eb: 'normal', m: 'closed' },
+  calm: { ey: 'soft', eb: 'normal', m: 'slight_smile' },
+  serious: { ey: 'narrow', eb: 'normal', m: 'closed', j: 'clenched' },
+  focused: { ey: 'narrow', eb: 'slightly_raised', m: 'closed', fh: 'tense' },
+
+  // Other
+  sleepy: { ey: 'half_closed', eb: 'normal', m: 'open', j: 'slack' },
+  bored: { ey: 'half_closed', eb: 'normal', m: 'pursed' },
+  smug: { ey: 'half_closed', eb: 'one_raised', m: 'smirk' },
+  mischievous: { ey: 'narrow', eb: 'one_raised', m: 'smirk' },
+};
+
+export type ExpressionName = keyof typeof EXPRESSION_PRESETS;
+
+/**
+ * Get list of valid expression names for LLM prompt
+ */
+export function getExpressionsList(): string {
+  return Object.keys(EXPRESSION_PRESETS).join(', ');
+}
+
+/**
+ * Expand an expression preset into complementary animation states
+ * Allows individual overrides: "ex":"joyful","m":"smirk" → joyful but with smirk mouth
+ */
+export function expandExpression(
+  expressionName: string,
+  overrides?: Partial<ExpressionPreset>
+): ExpressionPreset {
+  const preset = EXPRESSION_PRESETS[expressionName.toLowerCase()];
+  if (!preset) {
+    console.warn(`[AnimOrch] Unknown expression "${expressionName}", returning empty`);
+    return overrides || {};
+  }
+
+  // Merge preset with overrides (overrides take precedence)
+  return {
+    ...preset,
+    ...overrides
+  };
+}
+
 // Timing constraints
 const MIN_SEGMENT_DURATION = 300; // ms
 const MAX_SEGMENT_DURATION = 10000; // ms
 export const DEFAULT_TALKING_SPEED = 60; // ms per character of text
 const DEFAULT_THINKING_DURATION = 1500; // ms
+
+// ============================================
+// TEXT CLEANING (Strip asterisk actions)
+// ============================================
+
+/**
+ * Remove asterisk actions from text content
+ * LLM sometimes writes *raises eyebrow* instead of using animations
+ * This strips those out so only dialogue remains
+ *
+ * Examples:
+ * - "*smiles* Hello there" → "Hello there"
+ * - "I think *pauses* that's right" → "I think that's right"
+ * - "*nods thoughtfully* Yes, exactly." → "Yes, exactly."
+ */
+export function stripAsteriskActions(text: string): string {
+  if (!text) return text;
+
+  // Remove *action* patterns (including multi-word actions)
+  // Handles: *smiles*, *raises eyebrow*, *pauses thoughtfully*, etc.
+  let cleaned = text.replace(/\*[^*]+\*/g, '');
+
+  // Clean up resulting whitespace issues
+  cleaned = cleaned.replace(/\s{2,}/g, ' '); // Multiple spaces → single space
+  cleaned = cleaned.replace(/^\s+/, ''); // Leading whitespace
+  cleaned = cleaned.replace(/\s+$/, ''); // Trailing whitespace
+  cleaned = cleaned.replace(/\s+([.,!?])/g, '$1'); // Space before punctuation
+
+  return cleaned;
+}
 
 // ============================================
 // SPEED QUALIFIER SYSTEM (Client-side timing)
@@ -599,19 +726,20 @@ interface SimplifiedSceneResponse {
       ord: number;     // speaker order (1, 2, 3...)
       int?: boolean;   // interruption flag
       tl: Array<{
-        a: string;          // animation
+        a: string;          // animation (body)
         sp?: string;        // speed: 'slow' | 'normal' | 'fast' | 'explosive'
         lk?: string;        // look direction
         talking?: boolean;  // is talking segment
-        ey?: string;        // eyes
-        eb?: string;        // eyebrow
-        m?: string;         // mouth
-        fc?: string;        // face
+        ex?: string;        // expression preset (expands to face components)
+        ey?: string;        // eyes (override)
+        eb?: string;        // eyebrow (override)
+        m?: string;         // mouth (override)
+        fc?: string;        // face (override)
         fx?: string;        // effect
-        n?: string;         // nose
-        ch?: string;        // cheek
-        fh?: string;        // forehead
-        j?: string;         // jaw
+        n?: string;         // nose (override)
+        ck?: string;        // cheek (override)
+        fh?: string;        // forehead (override)
+        j?: string;         // jaw (override)
         v?: any;            // voice
       }>;
     }>;
@@ -629,6 +757,8 @@ function isSimplifiedFormat(parsed: any): parsed is SimplifiedSceneResponse {
 
 /**
  * Convert a single simplified segment to AnimationSegment with calculated timing
+ * Supports expression presets: "ex":"joyful" expands to eye, eyebrow, mouth, etc.
+ * Individual states override expression preset: "ex":"joyful","m":"smirk"
  */
 function convertSimplifiedSegment(
   seg: SimplifiedSceneResponse['s']['ch'][0]['tl'][0],
@@ -652,6 +782,22 @@ function convertSimplifiedSegment(
 
   const complementary: AnimationSegment['complementary'] = {};
 
+  // First, expand expression preset if provided
+  // Expression gives base states which can be overridden by individual keys
+  if (seg.ex) {
+    const expanded = expandExpression(seg.ex);
+    // Apply expanded expression states
+    if (expanded.ey) complementary.eyeState = expanded.ey;
+    if (expanded.eb) complementary.eyebrowState = expanded.eb;
+    if (expanded.m) complementary.mouthState = expanded.m;
+    if (expanded.fc) complementary.faceState = expanded.fc;
+    if (expanded.n) complementary.noseState = expanded.n;
+    if (expanded.ck) complementary.cheekState = expanded.ck;
+    if (expanded.fh) complementary.foreheadState = expanded.fh;
+    if (expanded.j) complementary.jawState = expanded.j;
+  }
+
+  // Now apply individual overrides (these take precedence over expression)
   const lookDir = validateLookDirection(seg.lk);
   if (lookDir) complementary.lookDirection = lookDir;
 
@@ -667,11 +813,10 @@ function convertSimplifiedSegment(
   const faceState = validateFaceState(seg.fc);
   if (faceState) complementary.faceState = faceState;
 
-  // NEW: Parse new facial feature states
   const noseState = validateNoseState(seg.n);
   if (noseState) complementary.noseState = noseState;
 
-  const cheekState = validateCheekState(seg.ch);
+  const cheekState = validateCheekState(seg.ck);
   if (cheekState) complementary.cheekState = cheekState;
 
   const foreheadState = validateForeheadState(seg.fh);
@@ -721,7 +866,12 @@ function convertSimplifiedScene(
   let previousEndTime = 0;
 
   for (const char of sorted) {
-    const contentLength = char.t.length;
+    // Clean content: strip asterisk actions like *smiles* or *raises eyebrow*
+    const cleanedContent = stripAsteriskActions(char.t);
+    if (cleanedContent !== char.t) {
+      console.log(`[AnimOrch] Stripped asterisk actions from ${char.c}: "${char.t}" → "${cleanedContent}"`);
+    }
+    const contentLength = cleanedContent.length;
 
     // Count talking segments to distribute text
     const talkingSegments = char.tl.filter(seg => seg.talking);
@@ -775,7 +925,7 @@ function convertSimplifiedScene(
 
     timelines.push({
       characterId,
-      content: char.t,
+      content: cleanedContent,
       totalDuration,
       segments,
       startDelay,

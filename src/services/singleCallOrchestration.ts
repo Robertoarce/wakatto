@@ -37,10 +37,7 @@ import {
   fillGapsForNonSpeakers,
   getAnimationsList,
   getLookDirectionsList,
-  getEyeStatesList,
-  getEyebrowStatesList,
-  getMouthStatesList,
-  getFaceStatesList,
+  getExpressionsList,
   getEffectsList
 } from './animationOrchestration';
 import { getVoiceOptionsForPrompt } from '../config/voiceConfig';
@@ -479,17 +476,20 @@ function buildAnimatedScenePrompt(
 
 ${STATIC_ORCHESTRATION_IDENTITY_RULES}
 ## Animation System
-Body: ${getAnimationsList()}
-Look: ${getLookDirectionsList()}
-Eye: ${getEyeStatesList()} | Eyebrow: ${getEyebrowStatesList()}
-Mouth: ${getMouthStatesList()} | Face: ${getFaceStatesList()}
-Effect: ${getEffectsList()}
+Body (a): ${getAnimationsList()}
+Look (lk): ${getLookDirectionsList()}
+Expression (ex): ${getExpressionsList()}
+Effect (fx): ${getEffectsList()}
+
+Use "ex" for compiled face expressions (eyes, eyebrows, mouth, etc. combined).
+Override specific parts if needed: "ex":"joyful","m":"smirk" (joyful expression but with smirk mouth)
 
 ## Voice (optional "v" object per segment)
 ${getVoiceOptionsForPrompt()}
 
 ## Output Format (SIMPLIFIED - NO ms/duration values!)
-Keys: s=scene, ch=characters, c=character, t=content, ord=speakerOrder, tl=timeline, a=animation, sp=speed, lk=look, ey=eyes, eb=eyebrow, m=mouth, fc=face, fx=effect, v=voice
+Keys: s=scene, ch=characters, c=character, t=content, ord=speakerOrder, tl=timeline, a=animation, sp=speed, lk=look, ex=expression, fx=effect, v=voice
+Override keys (optional, override ex): ey=eyes, eb=eyebrow, m=mouth, fc=face, n=nose, ck=cheek, fh=forehead, j=jaw
 
 Speed (sp): "slow" | "normal" | "fast" | "explosive"
 - slow: Thoughtful, measured - important/emotional moments (1.3x duration)
@@ -497,7 +497,16 @@ Speed (sp): "slow" | "normal" | "fast" | "explosive"
 - fast: Energetic, quick reactions (0.7x duration)
 - explosive: Rapid-fire, intense energy (0.5x duration)
 
-{"s":{"ch":[{"c":"ID","t":"TEXT","ord":1,"tl":[{"a":"thinking","sp":"normal","lk":"up","eb":"raised"},{"a":"talking","sp":"normal","talking":true,"lk":"center","m":"smile","v":{"p":"low","t":"warm","pace":"slow","mood":"calm","int":"explaining"}}]}]}}
+EXAMPLES (use "a" for body + "ex" for expression):
+Excited greeting: {"a":"wave","sp":"fast","lk":"center","ex":"excited","fx":"sparkles"}
+Deep thinking: {"a":"chin_stroke","sp":"slow","lk":"up","ex":"thoughtful"}
+Frustrated: {"a":"cross_arms","sp":"normal","ex":"frustrated"}
+Sympathetic: {"a":"nod","sp":"slow","lk":"at_left_character","ex":"sad","m":"slight_smile"}
+Playful tease: {"a":"lean_forward","sp":"fast","lk":"center","ex":"playful"}
+Nervous: {"a":"fidget","sp":"fast","lk":"down","ex":"nervous"}
+With override: {"a":"happy","ex":"joyful","m":"smirk"} (joyful but with smirk instead of big_grin)
+
+Full scene: {"s":{"ch":[{"c":"ID","t":"TEXT","ord":1,"tl":[{"a":"thinking","sp":"slow","lk":"up","ex":"thoughtful"},{"a":"talking","sp":"normal","talking":true,"lk":"center","ex":"happy"}]}]}}
 
 ## CRITICAL FORMAT RULES
 - DO NOT include: ms, duration, dur, d, startDelay, textRange
@@ -506,6 +515,12 @@ Speed (sp): "slow" | "normal" | "fast" | "explosive"
 - Use "int": true for interruptions (optional)
 
 ## Rules
+- NO ASTERISK ACTIONS: NEVER write *action* or *emotion* in text! Use "a" and "ex" keys instead.
+  BAD: "*raises eyebrow*" or "*smiles warmly*" in "t" field
+  GOOD: {"a":"idle","ex":"skeptical"} or {"a":"happy","ex":"loving"}
+- USE EXPRESSIONS: Every segment should have an "ex" (expression). Pick the one that matches the emotional tone.
+- VARY EXPRESSIONS: Each segment should feel emotionally distinct. Don't repeat the same expression.
+- OVERRIDE WHEN NEEDED: Use override keys (ey, eb, m, etc.) to tweak expressions for nuance.
 - 1-2 sentences per response, casual and conversational
 - Max 1 question per response (99%), 2 questions extremely rare (1%)
 - Look direction when addressing another character (based on their position relative to YOU):
