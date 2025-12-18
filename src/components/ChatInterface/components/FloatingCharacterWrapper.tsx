@@ -321,16 +321,21 @@ export function FloatingCharacterWrapper({
             { rotate: spinRotation }, // For spin_in
             { rotateZ }, // Idle pivot animation
           ],
-          // Web cursor style
-          ...(Platform.OS === 'web' && { cursor: 'pointer' }),
+          // Disable pointer events on outer wrapper - use inner hitbox instead
+          pointerEvents: 'box-none',
         },
       ]}
-      // @ts-ignore - web-specific props
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={handleMouseLeave}
-      onClick={handleClick}
     >
-      {children}
+      {/* Inner hitbox for hover/click - narrower than wrapper to prevent overlap issues */}
+      <View
+        style={styles.characterHitbox}
+        // @ts-ignore - web-specific props
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={handleMouseLeave}
+        onClick={handleClick}
+      >
+        {children}
+      </View>
       {/* Click tooltip - shows last message bubble when character is clicked */}
       {lastMessage && (
         <Animated.View
@@ -363,6 +368,21 @@ export function FloatingCharacterWrapper({
 }
 
 const styles = StyleSheet.create({
+  characterHitbox: {
+    // Centered hitbox that's narrower than wrapper to prevent overlap with adjacent characters
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    // Limit width to prevent overlap - characters should have their own hover zones
+    width: '70%',
+    alignSelf: 'center',
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+      },
+      default: {},
+    }),
+  },
   clickMessageContainer: {
     position: 'absolute',
     top: -180, // Position higher to avoid overlapping with speech bubbles

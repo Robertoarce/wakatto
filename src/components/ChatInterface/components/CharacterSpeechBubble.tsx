@@ -273,7 +273,7 @@ export function CharacterSpeechBubble({
   // SINGLE BUBBLE LAYOUT
   // ====================
   const revealedText = text || lastTextRef.current;
-  const maxVisibleLines = 5;
+  const maxVisibleLines = 4; // Reduced for faster line scrolling
 
   // Pre-calculated wrapping - lines calculated from fullText, revealed progressively
   const visibleLines = wrapTextWithReveal(fullText, revealedText.length, 45).slice(-maxVisibleLines);

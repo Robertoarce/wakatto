@@ -132,8 +132,7 @@ export const AnimatedBubble = memo(function AnimatedBubble({
   }, [slideAnim, fadeAnim, scaleAnim]);
 
   // Wrap text and get visible lines
-  const allLines = wrapTextToLines(bubble.text, maxChars);
-  const visibleLines = allLines.slice(-maxLines);
+  const visibleLines = wrapTextToLines(bubble.text, maxChars).slice(-maxLines);
 
   return (
     <Animated.View

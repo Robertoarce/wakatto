@@ -47,11 +47,19 @@ const styles = StyleSheet.create({
   characterNameLabel: {
     position: 'absolute',
     top: '15%', // Position right above the character's head
-    left: 0,
-    right: 0,
-    alignItems: 'center',
+    // Center using left:50% + translateX(-50%) for reliable cross-platform centering
+    left: '50%',
     pointerEvents: 'none',
     zIndex: 100,
+    ...Platform.select({
+      web: {
+        transform: 'translateX(-50%)',
+      },
+      default: {
+        // For native, use a fixed offset (adjust based on typical name length)
+        transform: [{ translateX: -60 }],
+      },
+    }),
   },
   characterNameText: {
     fontFamily: 'Inter-Bold',
@@ -64,7 +72,8 @@ const styles = StyleSheet.create({
     ...Platform.select({
       web: {
         textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)',
-      },
+        whiteSpace: 'nowrap', // Ensure text doesn't wrap (web only)
+      } as any,
       default: {
         textShadowColor: 'rgba(0, 0, 0, 0.8)',
         textShadowOffset: { width: 1, height: 1 },
