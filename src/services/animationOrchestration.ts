@@ -278,6 +278,16 @@ export const EXPRESSION_PRESETS: Record<string, ExpressionPreset> = {
   bored: { ey: 'half_closed', eb: 'normal', m: 'pursed' },
   smug: { ey: 'half_closed', eb: 'one_raised', m: 'smirk' },
   mischievous: { ey: 'narrow', eb: 'one_raised', m: 'smirk' },
+
+  // Sassy/Attitude
+  sassy: { ey: 'half_closed', eb: 'one_raised', m: 'smirk', ck: 'dimpled' },
+  unimpressed: { ey: 'half_closed', eb: 'furrowed', m: 'pursed' },
+  judging: { ey: 'narrow', eb: 'one_raised', m: 'tense' },
+  teasing: { ey: 'soft', eb: 'one_raised', m: 'smirk', ck: 'dimpled' },
+  eye_roll: { ey: 'half_closed', eb: 'raised', m: 'pursed', fh: 'raised' },
+  whatever: { ey: 'half_closed', eb: 'normal', m: 'slight_smile' },
+  side_eye: { ey: 'narrow', eb: 'one_raised', m: 'closed' },
+  deadpan: { ey: 'half_closed', eb: 'normal', m: 'closed' },
 };
 
 export type ExpressionName = keyof typeof EXPRESSION_PRESETS;
