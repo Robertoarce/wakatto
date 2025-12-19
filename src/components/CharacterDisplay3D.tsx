@@ -1,447 +1,62 @@
 import React, { useRef, useMemo, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, Dimensions } from 'react-native';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { getCharacter, CharacterBehavior } from '../config/characters';
 
-// ============================================
-// TYPE DEFINITIONS
-// ============================================
+// Import from character3d modules
+import {
+  AnimationState,
+  LookDirection,
+  EyeState,
+  EyebrowState,
+  MouthState,
+  FaceState,
+  NoseState,
+  CheekState,
+  ForeheadState,
+  JawState,
+  VisualEffect,
+  ModelStyle,
+  HeadStyle,
+  ComplementaryAnimation,
+  CharacterDisplay3DProps,
+} from './character3d/types';
+import { useBodyConfig } from './character3d/bodyConfig';
+import {
+  ONE_SHOT_ANIMATIONS,
+  LERP_SPEED,
+  AUTO_BLINK,
+  SURPRISED_BLINK,
+  lerp,
+  SKIN_TONE_COLORS,
+  HEAD_HEIGHTS,
+  HEAD_DIMENSIONS,
+} from './character3d/constants';
+import {
+  ConfettiEffect,
+  SpotlightEffect,
+  SparklesEffect,
+  HeartsEffect,
+} from './character3d/VisualEffects';
 
-export type AnimationState = 
-  | 'idle' 
-  | 'thinking' 
-  | 'talking' 
-  | 'confused' 
-  | 'happy' 
-  | 'excited' 
-  | 'winning' 
-  | 'walking' 
-  | 'jump' 
-  | 'surprise_jump' 
-  | 'surprise_happy'
-  | 'lean_back'
-  | 'lean_forward'
-  | 'cross_arms'
-  | 'nod'
-  | 'shake_head'
-  | 'shrug'
-  | 'wave'
-  | 'point'
-  | 'clap'
-  | 'bow'
-  // New animations
-  | 'facepalm'
-  | 'dance'
-  | 'laugh'
-  | 'cry'
-  | 'angry'
-  | 'nervous'
-  | 'celebrate'
-  | 'peek'
-  | 'doze'
-  | 'stretch'
-  // Idle animations
-  | 'kick_ground'
-  | 'meh'
-  | 'foot_tap'
-  | 'look_around'
-  | 'yawn'
-  | 'fidget'
-  | 'rub_eyes'
-  | 'weight_shift'
-  // Processing/thinking animations
-  | 'head_tilt'
-  | 'chin_stroke';
-
-// Look direction types
-export type LookDirection = 'center' | 'left' | 'right' | 'up' | 'down' | 'at_left_character' | 'at_right_character';
-
-// Eye state types
-export type EyeState =
-  | 'open'              // Default, auto-blink
-  | 'closed'            // Eyes shut
-  | 'wink_left'         // Left eye winks
-  | 'wink_right'        // Right eye winks
-  | 'blink'             // Controlled blinking
-  | 'surprised_blink'   // Fast triple blink
-  // NEW:
-  | 'wide'              // Eyes enlarged (scale X&Y 1.3)
-  | 'narrow'            // Squinting (scaleY 0.3, keep scaleX 1.0)
-  | 'soft'              // Relaxed/warm (scaleY 0.85)
-  | 'half_closed'       // Drowsy (scaleY 0.5)
-  | 'tearful';          // Wet eyes with tear drops
-
-// Eyebrow state types (anime-style)
-export type EyebrowState =
-  | 'normal'            // Default
-  | 'raised'            // Surprised, interested
-  | 'furrowed'          // Angry, frustrated
-  | 'sad'               // Drooping down at outer edges
-  | 'worried'           // Inner edges raised
-  | 'one_raised'        // Skeptical, questioning
-  | 'wiggle'            // Playful animation
-  // NEW:
-  | 'asymmetrical'      // Different angles per brow
-  | 'slightly_raised'   // Subtle raise
-  | 'deeply_furrowed'   // Extreme anger
-  | 'arched_high'       // High arch with rotation
-  | 'relaxed_upward';   // Raised with no rotation
-
-// Mouth state types
-export type MouthState =
-  | 'closed'            // Default
-  | 'open'              // Small circle
-  | 'smile'             // Happy curve (torus)
-  | 'wide_smile'        // Big smile
-  | 'surprised'         // O-shape
-  // NEW:
-  | 'smirk'             // Asymmetrical torus
-  | 'slight_smile'      // Subtle smile
-  | 'pout'              // Protruding lips
-  | 'grimace'           // Tense wide mouth
-  | 'tense'             // Pressed thin line
-  | 'pursed'            // Small tight circle
-  | 'teeth_showing'     // Smile with visible teeth
-  | 'big_grin'          // Extra wide smile
-  | 'o_shape';          // Perfect O
-
-// Face state types (anime-style decorations)
-export type FaceState =
-  | 'normal'            // Default
-  | 'sweat_drop'        // Nervous sweat drop
-  | 'sparkle_eyes'      // Excited star eyes
-  | 'heart_eyes'        // Love/admiration
-  | 'spiral_eyes'       // Dizzy/confused
-  | 'tears'             // Crying streams
-  | 'anger_vein'        // Anime anger mark
-  | 'shadow_face';      // Dark aura/disappointment
-  // NOTE: 'blush' migrated to CheekState as 'flushed'
-
-// Nose state types (NEW)
-export type NoseState =
-  | 'neutral'           // Default (no animation)
-  | 'wrinkled'          // Disgust (squashed)
-  | 'flared'            // Anger (widened)
-  | 'twitching';        // Nervous (oscillating)
-
-// Cheek state types (NEW - migrated from FaceState 'blush')
-export type CheekState =
-  | 'neutral'           // No markers
-  | 'flushed'           // Pink ovals (migrated from FaceState 'blush')
-  | 'sunken'            // Dark shadows
-  | 'puffed'            // Enlarged
-  | 'dimpled';          // Small dots
-
-// Forehead state types (NEW)
-export type ForeheadState =
-  | 'smooth'            // Default (no lines)
-  | 'wrinkled'          // Worry lines
-  | 'tense'             // Deep crease
-  | 'raised';           // Stretched appearance
-
-// Jaw state types (NEW)
-export type JawState =
-  | 'relaxed'           // Default
-  | 'clenched'          // Tense (compressed)
-  | 'protruding'        // Forward thrust
-  | 'slack';            // Hanging open
-
-// Visual effect types
-export type VisualEffect = 'none' | 'confetti' | 'spotlight' | 'sparkles' | 'hearts';
-
-// 3D Model style types
-export type ModelStyle = 'blocky';
-
-// Head style types
-export type HeadStyle = 'default' | 'bigger';
-
-// Complementary animation configuration
-export interface ComplementaryAnimation {
-  lookDirection?: LookDirection;
-  eyeState?: EyeState;
-  eyebrowState?: EyebrowState;
-  headStyle?: HeadStyle; // Head shape/size (default: 'default')
-  mouthState?: MouthState;
-  faceState?: FaceState;
-  // NEW facial features:
-  noseState?: NoseState;
-  cheekState?: CheekState;
-  foreheadState?: ForeheadState;
-  jawState?: JawState;
-  // Effects and timing:
-  effect?: VisualEffect;
-  effectColor?: string;
-  speed?: number; // 0.1 to 3.0, default 1.0
-  transitionDuration?: number; // milliseconds to transition
-  // Blink timing (only used when eyeState is 'blink')
-  blinkDuration?: number; // seconds for one blink (default 0.2)
-  blinkPeriod?: number; // seconds between blinks (default 2.5)
-}
-
-// Full props interface
-interface CharacterDisplay3DProps {
-  characterId?: string;
-  character?: CharacterBehavior;
-  isActive?: boolean;
-  animation?: AnimationState;
-  isTalking?: boolean;
-  showName?: boolean;
-  nameKey?: number;
-  // New complementary animation props
-  complementary?: ComplementaryAnimation;
-  onAnimationComplete?: () => void;
-  // 3D model style
-  modelStyle?: ModelStyle;
-  // Camera field of view (lower = closer/bigger)
-  fov?: number;
-  // Camera position (x = left/right, y = up/down)
-  cameraX?: number;
-  cameraY?: number;
-  // Character position offsets
-  characterX?: number;  // left/right (negative = left)
-  characterY?: number;  // up/down (negative = down)
-  characterZ?: number;  // forward/back (negative = away from camera)
-}
-
-// ============================================
-// VISUAL EFFECTS COMPONENTS
-// ============================================
-
-// Confetti particle effect
-function ConfettiEffect({ color = '#8b5cf6', speed = 1 }: { color?: string; speed?: number }) {
-  const particlesRef = useRef<THREE.Points>(null);
-  const timeRef = useRef(0); // Accumulate time instead of calling Date.now() each frame
-  const particleCount = 100;
-
-  const positions = useMemo(() => {
-    const pos = new Float32Array(particleCount * 3);
-    for (let i = 0; i < particleCount; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 4;
-      pos[i * 3 + 1] = Math.random() * 4 + 1;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 2;
-    }
-    return pos;
-  }, []);
-
-  const colors = useMemo(() => {
-    const cols = new Float32Array(particleCount * 3);
-    const confettiColors = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff', '#5f27cd', color];
-    for (let i = 0; i < particleCount; i++) {
-      const c = new THREE.Color(confettiColors[Math.floor(Math.random() * confettiColors.length)]);
-      cols[i * 3] = c.r;
-      cols[i * 3 + 1] = c.g;
-      cols[i * 3 + 2] = c.b;
-    }
-    return cols;
-  }, [color]);
-
-  // Cleanup geometry and material on unmount
-  useEffect(() => {
-    return () => {
-      if (particlesRef.current) {
-        particlesRef.current.geometry?.dispose();
-        const material = particlesRef.current.material as THREE.Material;
-        material?.dispose();
-      }
-    };
-  }, []);
-
-  useFrame((_, delta) => {
-    if (!particlesRef.current) return;
-    timeRef.current += delta * 1000; // Accumulate time in ms
-    const positions = particlesRef.current.geometry.attributes.position.array as Float32Array;
-
-    for (let i = 0; i < particleCount; i++) {
-      // Fall down
-      positions[i * 3 + 1] -= delta * 2 * speed;
-      // Sway side to side - use accumulated time instead of Date.now()
-      positions[i * 3] += Math.sin(timeRef.current * 0.003 * speed + i) * delta * 0.5;
-
-      // Reset if below ground
-      if (positions[i * 3 + 1] < -1) {
-        positions[i * 3 + 1] = 4;
-        positions[i * 3] = (Math.random() - 0.5) * 4;
-      }
-    }
-    particlesRef.current.geometry.attributes.position.needsUpdate = true;
-  });
-
-  return (
-    <points ref={particlesRef}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={particleCount} array={positions} itemSize={3} />
-        <bufferAttribute attach="attributes-color" count={particleCount} array={colors} itemSize={3} />
-      </bufferGeometry>
-      <pointsMaterial size={0.08} vertexColors transparent opacity={0.9} />
-    </points>
-  );
-}
-
-// Spotlight/concert light effect
-function SpotlightEffect({ color = '#ffd700', speed = 1 }: { color?: string; speed?: number }) {
-  const lightRef = useRef<THREE.SpotLight>(null);
-  const coneRef = useRef<THREE.Mesh>(null);
-  const timeRef = useRef(0); // Accumulate time instead of calling Date.now() each frame
-
-  // Cleanup geometry and material on unmount
-  useEffect(() => {
-    return () => {
-      if (coneRef.current) {
-        coneRef.current.geometry?.dispose();
-        const material = coneRef.current.material as THREE.Material;
-        material?.dispose();
-      }
-    };
-  }, []);
-
-  useFrame((_, delta) => {
-    timeRef.current += delta * speed;
-    const time = timeRef.current;
-    if (lightRef.current) {
-      lightRef.current.position.x = Math.sin(time * 0.5) * 1.5;
-      lightRef.current.intensity = 2 + Math.sin(time * 2) * 0.5;
-    }
-    if (coneRef.current) {
-      coneRef.current.rotation.z = Math.sin(time * 0.5) * 0.3;
-      coneRef.current.position.x = Math.sin(time * 0.5) * 1.5;
-    }
-  });
-
-  return (
-    <group>
-      <spotLight
-        ref={lightRef}
-        position={[0, 5, 2]}
-        angle={0.4}
-        penumbra={0.8}
-        intensity={2.5}
-        color={color}
-        target-position={[0, 0, 0]}
-        castShadow
-      />
-      {/* Visible light cone */}
-      <mesh ref={coneRef} position={[0, 3, 1]} rotation={[Math.PI / 6, 0, 0]}>
-        <coneGeometry args={[1.5, 4, 32, 1, true]} />
-        <meshBasicMaterial color={color} transparent opacity={0.15} side={THREE.DoubleSide} />
-      </mesh>
-    </group>
-  );
-}
-
-// Sparkles effect
-function SparklesEffect({ color = '#ffd700', speed = 1 }: { color?: string; speed?: number }) {
-  const particlesRef = useRef<THREE.Points>(null);
-  const timeRef = useRef(0); // Accumulate time instead of calling Date.now() each frame
-  const particleCount = 50;
-
-  const positions = useMemo(() => {
-    const pos = new Float32Array(particleCount * 3);
-    for (let i = 0; i < particleCount; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const radius = 0.5 + Math.random() * 1.5;
-      pos[i * 3] = Math.cos(angle) * radius;
-      pos[i * 3 + 1] = Math.random() * 2;
-      pos[i * 3 + 2] = Math.sin(angle) * radius;
-    }
-    return pos;
-  }, []);
-
-  // Cleanup geometry and material on unmount
-  useEffect(() => {
-    return () => {
-      if (particlesRef.current) {
-        particlesRef.current.geometry?.dispose();
-        const material = particlesRef.current.material as THREE.Material;
-        material?.dispose();
-      }
-    };
-  }, []);
-
-  useFrame((_, delta) => {
-    if (!particlesRef.current) return;
-    timeRef.current += delta * 1000 * speed; // Accumulate time in ms
-    const positions = particlesRef.current.geometry.attributes.position.array as Float32Array;
-    const time = timeRef.current * 0.002;
-
-    for (let i = 0; i < particleCount; i++) {
-      const baseAngle = time + i * 0.5;
-      const radius = 0.5 + Math.sin(time + i) * 0.5 + 1;
-      positions[i * 3] = Math.cos(baseAngle) * radius;
-      positions[i * 3 + 1] = 0.5 + Math.sin(time * 2 + i) * 0.8 + Math.sin(i) * 0.5;
-      positions[i * 3 + 2] = Math.sin(baseAngle) * radius * 0.5;
-    }
-    particlesRef.current.geometry.attributes.position.needsUpdate = true;
-  });
-
-  return (
-    <points ref={particlesRef}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={particleCount} array={positions} itemSize={3} />
-      </bufferGeometry>
-      <pointsMaterial size={0.1} color={color} transparent opacity={0.8} />
-    </points>
-  );
-}
-
-// Hearts effect
-function HeartsEffect({ color = '#ff6b6b', speed = 1 }: { color?: string; speed?: number }) {
-  const groupRef = useRef<THREE.Group>(null);
-  const timeRef = useRef(0); // Accumulate time instead of calling Date.now() each frame
-  const heartCount = 8;
-
-  const heartPositions = useMemo(() => {
-    return Array.from({ length: heartCount }, (_, i) => ({
-      x: (Math.random() - 0.5) * 2,
-      y: Math.random() * 0.5,
-      z: (Math.random() - 0.5) * 1,
-      speed: 0.5 + Math.random() * 0.5,
-      phase: Math.random() * Math.PI * 2,
-    }));
-  }, []);
-
-  // Cleanup all heart geometries and materials on unmount
-  useEffect(() => {
-    return () => {
-      if (groupRef.current) {
-        groupRef.current.children.forEach((child) => {
-          if (child instanceof THREE.Mesh) {
-            child.geometry?.dispose();
-            const material = child.material as THREE.Material;
-            material?.dispose();
-          }
-        });
-      }
-    };
-  }, []);
-
-  useFrame((_, delta) => {
-    if (!groupRef.current) return;
-    timeRef.current += delta * 1000; // Accumulate time in ms
-    groupRef.current.children.forEach((child, i) => {
-      const data = heartPositions[i];
-      child.position.y += delta * data.speed * speed;
-      child.position.x = data.x + Math.sin(timeRef.current * 0.002 * speed + data.phase) * 0.3;
-      child.rotation.z = Math.sin(timeRef.current * 0.003 * speed + data.phase) * 0.2;
-
-      if (child.position.y > 3) {
-        child.position.y = -0.5;
-      }
-    });
-  });
-
-  return (
-    <group ref={groupRef}>
-      {heartPositions.map((pos, i) => (
-        <mesh key={i} position={[pos.x, pos.y, pos.z]} scale={0.15}>
-          <sphereGeometry args={[1, 8, 8]} />
-          <meshBasicMaterial color={color} transparent opacity={0.7} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
+// Re-export types for backward compatibility
+export type { AnimationState, ComplementaryAnimation, CharacterDisplay3DProps } from './character3d/types';
+export type {
+  LookDirection,
+  EyeState,
+  EyebrowState,
+  MouthState,
+  FaceState,
+  NoseState,
+  CheekState,
+  ForeheadState,
+  JawState,
+  VisualEffect,
+  ModelStyle,
+  HeadStyle,
+} from './character3d/types';
 
 // ============================================
 // MAIN CHARACTER COMPONENT
@@ -459,46 +74,6 @@ interface CharacterProps {
   positionY?: number;
   positionZ?: number;
   onAnimationComplete?: () => void;
-}
-
-// One-shot animations and their durations (in seconds)
-const ONE_SHOT_ANIMATIONS: Partial<Record<AnimationState, number>> = {
-  wave: 2.0,
-  nod: 1.5,
-  shake_head: 1.5,
-  shrug: 1.2,
-  celebrate: 2.5,
-  bow: 2.0,
-  point: 1.5,
-  clap: 2.0,
-};
-
-// Global lerp speed constants for smooth animations
-const LERP_SPEED = {
-  verySlow: 0.01,
-  slow: 0.03,
-  normal: 0.08,
-  fast: 0.15,
-  veryFast: 0.3,
-} as const;
-
-// Automatic blink timing constants
-const AUTO_BLINK = {
-  minInterval: 2.0,   // minimum seconds between blinks
-  maxInterval: 5.0,   // maximum seconds between blinks
-  duration: 0.09,     // how long a single blink takes
-} as const;
-
-// Surprised blink timing (fast triple blink)
-const SURPRISED_BLINK = {
-  blinkDuration: 0.08,   // very fast individual blinks
-  pauseBetween: 0.1,     // short pause between blinks
-  totalBlinks: 5,        // triple blink
-} as const;
-
-// Lerp helper for smooth transitions 
-function lerp(current: number, target: number, factor: number): number {
-  return current + (target - current) * factor;
 }
 
 // Character component with switchable 3D style
@@ -573,6 +148,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       let targetHeadRotX = 0;
       let targetHeadRotY = 0;
       let targetHeadRotZ = 0;
+      let targetHeadPosZ = 0; // Head moves forward when nodding to prevent chin clipping
       let targetLeftArmRotX = 0;
       let targetLeftArmRotZ = 0;
       let targetRightArmRotX = 0;
@@ -1317,7 +893,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         case 'stretch':
           // Stretch - arms up, yawning
           const stretchPhase = (Math.sin(time * 0.8) + 1) / 2;
-          targetMeshY = stretchPhase * 0.1;
+          // targetMeshY = stretchPhase * 0.1;
           targetHeadRotX = -0.3 * stretchPhase + lookXOffset;
           targetHeadRotY = lookYOffset;
           targetLeftArmRotX = -2.5 * stretchPhase;
@@ -1502,6 +1078,9 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         headRef.current.rotation.x = lerp(headRef.current.rotation.x, targetHeadRotX, transitionSpeed);
         headRef.current.rotation.y = lerp(headRef.current.rotation.y, targetHeadRotY, transitionSpeed);
         headRef.current.rotation.z = lerp(headRef.current.rotation.z, targetHeadRotZ, transitionSpeed);
+        // Move head forward when nodding down to prevent chin clipping into body
+        targetHeadPosZ = Math.max(0, targetHeadRotX) * 0.45;
+        headRef.current.position.z = lerp(headRef.current.position.z, targetHeadPosZ, transitionSpeed);
       }
       if (leftArmRef.current) {
         leftArmRef.current.rotation.x = lerp(leftArmRef.current.rotation.x, targetLeftArmRotX, transitionSpeed);
@@ -1914,75 +1493,8 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
   // BLOCKY STYLE (Minecraft-like)
   // =========================================
 
-  // Body dimensions configuration - all positions derived from these
-  const body = useMemo(() => {
-    // === TORSO ===
-    const torso = {
-      width: 0.9,
-      height: 0.6,
-      depth: 0.5,
-      y: 0.25,
-    };
-    // Derived torso positions
-    const torsoTop = torso.y + torso.height / 2;
-    const torsoBottom = torso.y - torso.height / 2;
-    const torsoFront = torso.depth / 2;
-    const torsoBack = -torso.depth / 2;
-
-    // === ARMS ===
-    const armDiameter = { width: 0.2, depth: 0.25 };
-    const upperArm = { ...armDiameter, height: 0.25 };
-    const forearm = { ...armDiameter, height: 0.25 };
-    const hand = { ...armDiameter, height: 0.1 };
-    const armX = torso.width / 2 + armDiameter.width / 2 + 0.025;
-    const armY = 0.45;
-    const forearmY = -upperArm.height;
-    const handY = -(forearm.height / 2 + hand.height / 2);
-
-    // === LEGS ===
-    const legDiameter = { width: 0.25, depth: 0.25 };
-    const upperLeg = { ...legDiameter, height: 0.22 };
-    const lowerLeg = { ...legDiameter, height: 0.22 };
-    const foot = { width: 0.25, height: 0.06, depth: 0.35 };
-    const legX = 0.15;
-    const legY = torsoBottom;
-    const lowerLegY = -upperLeg.height;
-    const footY = -(lowerLeg.height / 2 + foot.height / 2);
-    const footZ = 0.05;
-
-    // === NECK / COLLAR ===
-    const neckY = torsoTop - 0.05;
-    const collarY = torsoTop;
-
-    // === CLOTHING OVERLAYS (slightly larger than torso) ===
-    const clothingOffset = 0.02;
-    const clothing = {
-      width: torso.width + clothingOffset,
-      height: torso.height + clothingOffset,
-      depth: torso.depth + clothingOffset,
-    };
-
-    // === ACCESSORY Z POSITIONS ===
-    const frontZ = torsoFront - 0.02; // On front surface
-    const frontZOuter = torsoFront + 0.01; // Just in front of torso
-    const backZ = torsoBack + 0.02; // On back surface
-    const backZOuter = torsoBack - 0.05; // Behind torso
-
-    return {
-      // Torso
-      torso, torsoTop, torsoBottom, torsoFront, torsoBack,
-      // Arms
-      upperArm, forearm, hand, armX, armY, forearmY, handY,
-      // Legs
-      upperLeg, lowerLeg, foot, legX, legY, lowerLegY, footY, footZ,
-      // Neck/collar
-      neckY, collarY,
-      // Clothing
-      clothing,
-      // Accessory Z positions
-      frontZ, frontZOuter, backZ, backZOuter,
-    };
-  }, []);
+  // Body dimensions configuration - imported from character3d/bodyConfig
+  const body = useBodyConfig();
 
   const renderBlockyBody = () => (
     <>
