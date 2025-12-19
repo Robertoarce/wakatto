@@ -1919,8 +1919,8 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
     // === TORSO ===
     const torso = {
       width: 0.9,
-      height: 0.7,
-      depth: 0.3,
+      height: 0.6,
+      depth: 0.5,
       y: 0.25,
     };
     // Derived torso positions
@@ -1930,7 +1930,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
     const torsoBack = -torso.depth / 2;
 
     // === ARMS ===
-    const armDiameter = { width: 0.2, depth: 0.3 };
+    const armDiameter = { width: 0.2, depth: 0.25 };
     const upperArm = { ...armDiameter, height: 0.25 };
     const forearm = { ...armDiameter, height: 0.25 };
     const hand = { ...armDiameter, height: 0.1 };
@@ -2007,26 +2007,48 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           </mesh>
         </group>
       </group>
-      {/* Right Leg */}
-      <group ref={rightLegRef} position={[body.legX, body.legY, 0]}>
-        {/* Upper Leg */}
-        <mesh castShadow>
-          <boxGeometry args={[body.upperLeg.width, body.upperLeg.height, body.upperLeg.depth]} />
-          <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
-        </mesh>
-        {/* Lower Leg group */}
-        <group ref={rightLowerLegRef} position={[0, body.lowerLegY, 0]}>
+      {/* Right Leg OR Peg Leg */}
+      {hasPegLeg ? (
+        <group ref={rightLegRef} position={[body.legX, body.legY, 0]}>
+          {/* Stump/attachment at hip */}
           <mesh castShadow>
-            <boxGeometry args={[body.lowerLeg.width, body.lowerLeg.height, body.lowerLeg.depth]} />
+            <boxGeometry args={[body.upperLeg.width * 0.5, body.upperLeg.height * 0.4, body.upperLeg.depth * 0.5]} />
             <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
           </mesh>
-          {/* Foot */}
-          <mesh ref={rightFootRef} position={[0, body.footY, body.footZ]} castShadow>
-            <boxGeometry args={[body.foot.width, body.foot.height, body.foot.depth]} />
-            <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
-          </mesh>
+          {/* Wooden peg - positioned below stump */}
+          <group ref={rightLowerLegRef} position={[0, body.lowerLegY * 0.5, 0]}>
+            <mesh castShadow>
+              <boxGeometry args={[0.08, body.upperLeg.height + body.lowerLeg.height, 0.08]} />
+              <meshStandardMaterial color="#5c4a3a" roughness={0.8} />
+            </mesh>
+            {/* Metal cap at bottom */}
+            <mesh ref={rightFootRef} position={[0, -(body.upperLeg.height + body.lowerLeg.height) / 2, 0]} castShadow>
+              <boxGeometry args={[0.09, 0.02, 0.09]} />
+              <meshStandardMaterial color="#4a4a4a" metalness={0.7} roughness={0.3} />
+            </mesh>
+          </group>
         </group>
-      </group>
+      ) : (
+        <group ref={rightLegRef} position={[body.legX, body.legY, 0]}>
+          {/* Upper Leg */}
+          <mesh castShadow>
+            <boxGeometry args={[body.upperLeg.width, body.upperLeg.height, body.upperLeg.depth]} />
+            <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+          </mesh>
+          {/* Lower Leg group */}
+          <group ref={rightLowerLegRef} position={[0, body.lowerLegY, 0]}>
+            <mesh castShadow>
+              <boxGeometry args={[body.lowerLeg.width, body.lowerLeg.height, body.lowerLeg.depth]} />
+              <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+            </mesh>
+            {/* Foot */}
+            <mesh ref={rightFootRef} position={[0, body.footY, body.footZ]} castShadow>
+              <boxGeometry args={[body.foot.width, body.foot.height, body.foot.depth]} />
+              <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+            </mesh>
+          </group>
+        </group>
+      )}
 
       {/* Body/Torso */}
       <mesh position={[0, body.torso.y, 0]} castShadow>
@@ -2461,26 +2483,6 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         </group>
       )}
 
-      {/* PIRATE HOOK - Replaces right hand */}
-      {hasHook && (
-        <group position={[body.armX, body.armY + body.forearmY + body.handY, 0]}>
-          {/* Cuff/bracelet */}
-          <mesh position={[0, 0, 0]} castShadow>
-            <boxGeometry args={[0.08, 0.06, 0.08]} />
-            <meshStandardMaterial color="#4a4a4a" metalness={0.7} roughness={0.3} />
-          </mesh>
-          {/* Hook curve */}
-          <mesh position={[0, -0.08, 0]} rotation={[0, 0, Math.PI / 6]} castShadow>
-            <torusGeometry args={[0.06, 0.02, 8, 16, Math.PI * 1.5]} />
-            <meshStandardMaterial color="#6a6a6a" metalness={0.8} roughness={0.2} />
-          </mesh>
-          {/* Hook point */}
-          <mesh position={[-0.04, -0.14, 0]} rotation={[0, 0, -Math.PI / 3]} castShadow>
-            <boxGeometry args={[0.02, 0.08, 0.02]} />
-            <meshStandardMaterial color="#6a6a6a" metalness={0.8} roughness={0.2} />
-          </mesh>
-        </group>
-      )}
 
       {/* PARROT - Pirate's companion */}
       {hasParrot && (
@@ -2513,26 +2515,6 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         </group>
       )}
 
-      {/* PEG LEG - Wooden leg replacement */}
-      {hasPegLeg && (
-        <group position={[body.legX, body.legY - 0.05, 0]}>
-          {/* Top stump/attachment */}
-          <mesh position={[0, 0.15, 0]} castShadow>
-            <boxGeometry args={[body.upperLeg.width * 0.48, body.upperLeg.height * 0.45, body.upperLeg.depth * 0.6]} />
-            <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
-          </mesh>
-          {/* Wooden peg */}
-          <mesh position={[0, -0.05, 0]} castShadow>
-            <boxGeometry args={[0.08, body.upperLeg.height + body.lowerLeg.height, 0.08]} />
-            <meshStandardMaterial color="#5c4a3a" roughness={0.8} />
-          </mesh>
-          {/* Metal cap at bottom */}
-          <mesh position={[0, -(body.upperLeg.height + body.lowerLeg.height) / 2 + 0.05, 0]} castShadow>
-            <boxGeometry args={[0.08, 0.02, 0.08]} />
-            <meshStandardMaterial color="#4a4a4a" metalness={0.7} roughness={0.3} />
-          </mesh>
-        </group>
-      )}
 
       {/* WHEELCHAIR - Full wheelchair model */}
       {hasWheelchair && (
@@ -2630,11 +2612,31 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
             <boxGeometry args={[body.forearm.width, body.forearm.height, body.forearm.depth]} />
             <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
           </mesh>
-          {/* Hand - skin color */}
-          <mesh ref={rightHandRef} position={[0, body.handY, 0]} castShadow>
-            <boxGeometry args={[body.hand.width, body.hand.height, body.hand.depth]} />
-            <meshStandardMaterial color={skinColor} roughness={0.6} />
-          </mesh>
+          {/* Hand OR Hook - conditionally rendered */}
+          {hasHook ? (
+            <group position={[0, body.handY, 0]}>
+              {/* Cuff/bracelet */}
+              <mesh castShadow>
+                <boxGeometry args={[0.08, 0.06, 0.08]} />
+                <meshStandardMaterial color="#4a4a4a" metalness={0.7} roughness={0.3} />
+              </mesh>
+              {/* Hook curve */}
+              <mesh position={[0, -0.08, 0]} rotation={[0, 0, Math.PI / 6]} castShadow>
+                <torusGeometry args={[0.06, 0.02, 8, 16, Math.PI * 1.5]} />
+                <meshStandardMaterial color="#6a6a6a" metalness={0.8} roughness={0.2} />
+              </mesh>
+              {/* Hook point */}
+              <mesh position={[-0.04, -0.14, 0]} rotation={[0, 0, -Math.PI / 3]} castShadow>
+                <boxGeometry args={[0.02, 0.08, 0.02]} />
+                <meshStandardMaterial color="#6a6a6a" metalness={0.8} roughness={0.2} />
+              </mesh>
+            </group>
+          ) : (
+            <mesh ref={rightHandRef} position={[0, body.handY, 0]} castShadow>
+              <boxGeometry args={[body.hand.width, body.hand.height, body.hand.depth]} />
+              <meshStandardMaterial color={skinColor} roughness={0.6} />
+            </mesh>
+          )}
         </group>
       </group>
 
@@ -2642,19 +2644,17 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       {(() => {
         // Head style configuration
         const headStyle = complementary?.headStyle || 'bigger';
-        
+
         // Head dimensions: [width, height, depth]
         const headDimensions: Record<HeadStyle, [number, number, number]> = {
           default: [0.5, 0.55, 0.5],
           bigger: [0.6, 0.70, 0.6],
         };
-        
+
         const [headW, headH, headD] = headDimensions[headStyle];
-        
-        // Calculate head group Y position to keep bottom of head at same level
-        // Default head bottom is at 0.85 - 0.25 = 0.60
-        const defaultHeadBottom = 0.60;
-        const headGroupY = defaultHeadBottom + headH / 2;
+
+        // Calculate head group Y position - head sits on top of torso
+        const headGroupY = body.torsoTop + headH / 2;
         
         // Calculate face Y offset: taller heads get more forehead space
         // Features stay at same absolute distance from bottom of head
