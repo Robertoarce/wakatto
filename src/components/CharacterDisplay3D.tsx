@@ -1748,13 +1748,22 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         {hasEyePatch && (
           <>
             {/* Patch (over right eye) */}
-            <mesh position={[0.12 * headScale, 0.05 + faceYOffset, 0.27 * headScale]}>
-              <boxGeometry args={[0.12 * headScale, 0.12 * headScale, 0.01]} />
-              <meshStandardMaterial color="#1a1a1a" roughness={0.9} />
+            <mesh position={[0.12 * headScale, 0.1 + faceYOffset, 0.27 * headScale]}>
+              <boxGeometry args={[0.12 * headScale, 0.1 * headScale, 0.01]} />
+              <meshStandardMaterial color="#2a2a2a" roughness={0.9} />
             </mesh>
-            {/* Strap going around head */}
-            <mesh position={[0, 0.05 + faceYOffset, 0]} rotation={[0, Math.PI / 2, 0]}>
-              <torusGeometry args={[0.28 * headScale, 0.01 * headScale, 8, 32, Math.PI]} />
+        
+            {/* Patch (over right eye) - Demi-circle shape */}
+            <mesh position={[0.12 * headScale, 0.06 + faceYOffset, 0.27 * headScale]} rotation={[Math.PI / 2, -Math.PI / 2,0]}>
+              <cylinderGeometry 
+                args={[0.06 * headScale, 0.06 * headScale, 0.01, 32, 1, false, 0, Math.PI]} 
+              />
+              <meshStandardMaterial color="#2a2a2a" roughness={0.9} side={THREE.DoubleSide} />
+            </mesh>    
+          
+            {/* Flat strap across face - diagonal from patch to left side */}
+            <mesh position={[-faceYOffset, 0.18 + faceYOffset, 0.27 * headScale]} rotation={[0, 0, -Math.PI / 6]}>
+              <boxGeometry args={[0.47 * headScale, 0.025 * headScale, 0.01]} />
               <meshStandardMaterial color="#2a2a2a" roughness={0.7} />
             </mesh>
           </>

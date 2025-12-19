@@ -1931,16 +1931,16 @@ const styles = StyleSheet.create({
   },
   chatScrollView: {
     flex: 1,
+    minHeight: 100,
     // @ts-ignore - web-specific scrollbar styling
     scrollbarWidth: 'thin',
     scrollbarColor: 'rgba(82, 82, 91, 0.5) transparent',
   },
   messagesContainer: {
     flexGrow: 1,
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 4,
+    paddingVertical: 12,
   },
   messagesContent: {
     width: '100%',
