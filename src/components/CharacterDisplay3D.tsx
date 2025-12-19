@@ -505,10 +505,23 @@ function lerp(current: number, target: number, factor: number): number {
 function Character({ character, isActive, animation = 'idle', isTalking = false, scale = 1, complementary, modelStyle = 'blocky', positionX = 0, positionY = 0, positionZ = 0, onAnimationComplete }: CharacterProps) {
   const meshRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Group>(null);
-  const leftArmRef = useRef<THREE.Mesh>(null);
-  const rightArmRef = useRef<THREE.Mesh>(null);
-  const leftLegRef = useRef<THREE.Mesh>(null);
-  const rightLegRef = useRef<THREE.Mesh>(null);
+  // Limbs as groups (for articulated joints)
+  const leftArmRef = useRef<THREE.Group>(null);
+  const rightArmRef = useRef<THREE.Group>(null);
+  const leftLegRef = useRef<THREE.Group>(null);
+  const rightLegRef = useRef<THREE.Group>(null);
+  // Forearms as groups (contain hands)
+  const leftForearmRef = useRef<THREE.Group>(null);
+  const rightForearmRef = useRef<THREE.Group>(null);
+  // Lower legs as groups (contain feet)
+  const leftLowerLegRef = useRef<THREE.Group>(null);
+  const rightLowerLegRef = useRef<THREE.Group>(null);
+  // Hands and feet as meshes
+  const leftHandRef = useRef<THREE.Mesh>(null);
+  const rightHandRef = useRef<THREE.Mesh>(null);
+  const leftFootRef = useRef<THREE.Mesh>(null);
+  const rightFootRef = useRef<THREE.Mesh>(null);
+  // Face refs
   const mouthRef = useRef<THREE.Mesh>(null);
   const leftEyeRef = useRef<THREE.Mesh>(null);
   const rightEyeRef = useRef<THREE.Mesh>(null);
@@ -566,6 +579,15 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       let targetRightArmRotZ = 0;
       let targetLeftLegRotX = 0;
       let targetRightLegRotX = 0;
+      // NEW: Forearm bend (elbow) targets
+      let targetLeftForearmRotX = 0;
+      let targetRightForearmRotX = 0;
+      // NEW: Lower leg bend (knee) targets
+      let targetLeftLowerLegRotX = 0;
+      let targetRightLowerLegRotX = 0;
+      // NEW: Foot rotation (ankle) targets
+      let targetLeftFootRotX = 0;
+      let targetRightFootRotX = 0;
       let targetLeftEyeScaleY = 1;
       let targetRightEyeScaleY = 1;
       // NEW: Eye X-scale targets for wide/narrow states
@@ -947,6 +969,8 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           targetHeadRotX = lookXOffset;
           targetRightArmRotX = -1.5;
           targetRightArmRotZ = 0.3;
+          // Forearm bent to bring hand to chin
+          targetRightForearmRotX = -1.2;
           break;
 
         case 'talking':
@@ -956,6 +980,9 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           targetHeadRotY = lookYOffset;
           targetLeftArmRotX = Math.sin(time * 3) * 0.3 - 0.3;
           targetRightArmRotX = Math.sin(time * 3 + Math.PI) * 0.3 - 0.3;
+          // Alternating forearm bends for gestures
+          targetLeftForearmRotX = Math.sin(time * 3) * 0.4 - 0.3;
+          targetRightForearmRotX = Math.sin(time * 3 + Math.PI) * 0.4 - 0.3;
           break;
 
         case 'confused':
@@ -986,6 +1013,9 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           targetLeftArmRotZ = -0.5;
           targetRightArmRotX = Math.sin(time * 6 + Math.PI) * 0.5 - 0.5;
           targetRightArmRotZ = 0.5;
+          // Bent elbows with waving forearms
+          targetLeftForearmRotX = Math.sin(time * 6) * 0.6 - 0.5;
+          targetRightForearmRotX = Math.sin(time * 6 + Math.PI) * 0.6 - 0.5;
           break;
 
         case 'winning':
@@ -997,9 +1027,15 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           targetLeftArmRotZ = -0.8;
           targetRightArmRotX = -2.8; // Arms up
           targetRightArmRotZ = 0.8;
+          // Forearms bent for fist pump celebration
+          targetLeftForearmRotX = -0.5 + Math.sin(time * 6) * 0.3;
+          targetRightForearmRotX = -0.5 + Math.sin(time * 6 + Math.PI) * 0.3;
           // Alternating leg kicks during jump
           targetLeftLegRotX = Math.sin(time * 4) * 0.5;
           targetRightLegRotX = Math.sin(time * 4 + Math.PI) * 0.5;
+          // Feet flex on jump
+          targetLeftFootRotX = Math.sin(time * 4) * 0.4;
+          targetRightFootRotX = Math.sin(time * 4 + Math.PI) * 0.4;
           break;
 
         case 'walking':
@@ -1010,6 +1046,12 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           targetRightArmRotX = Math.sin(time * 4 + Math.PI) * 0.6;
           targetLeftLegRotX = Math.sin(time * 4 + Math.PI) * 0.5;
           targetRightLegRotX = Math.sin(time * 4) * 0.5;
+          // Slight forearm counter-swing
+          targetLeftForearmRotX = Math.sin(time * 4) * 0.2;
+          targetRightForearmRotX = Math.sin(time * 4 + Math.PI) * 0.2;
+          // Feet flex at ankle during walk cycle
+          targetLeftFootRotX = Math.sin(time * 4 + Math.PI) * 0.3;
+          targetRightFootRotX = Math.sin(time * 4) * 0.3;
           break;
 
         case 'jump':
@@ -1115,7 +1157,9 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           targetHeadRotZ = Math.sin(time * 1.5) * 0.1;
           targetLeftArmRotX = 0;
           targetRightArmRotX = -2.5; // Arm raised
-          targetRightArmRotZ = 0.3 + Math.sin(time * 8) * 0.4; // Wave motion
+          targetRightArmRotZ = 0.3;
+          // Forearm does the actual waving motion
+          targetRightForearmRotX = -0.8 + Math.sin(time * 8) * 0.5;
           break;
 
         case 'point':
@@ -1126,6 +1170,8 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           targetLeftArmRotX = 0;
           targetRightArmRotX = -1.5; // Arm extended forward
           targetRightArmRotZ = 0.2;
+          // Forearm extended straight for pointing
+          targetRightForearmRotX = 0;
           break;
 
         case 'clap':
@@ -1135,9 +1181,12 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           // Clapping motion - arms come together
           const clapPhase = Math.sin(time * 6);
           targetLeftArmRotX = -1.5;
-          targetLeftArmRotZ = clapPhase * 0.5;
+          targetLeftArmRotZ = clapPhase * 0.4;
           targetRightArmRotX = -1.5;
-          targetRightArmRotZ = -clapPhase * 0.5;
+          targetRightArmRotZ = -clapPhase * 0.4;
+          // Forearms bent inward for clapping
+          targetLeftForearmRotX = -0.8 + clapPhase * 0.3;
+          targetRightForearmRotX = -0.8 + clapPhase * 0.3;
           break;
 
         case 'bow':
@@ -1234,6 +1283,12 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           targetLeftArmRotZ = -0.3;
           targetRightArmRotX = -2.8;
           targetRightArmRotZ = 0.3;
+          // Forearms bent for fist pump
+          targetLeftForearmRotX = -0.6 + Math.sin(time * 5) * 0.4;
+          targetRightForearmRotX = -0.6 + Math.sin(time * 5 + Math.PI) * 0.4;
+          // Feet flex on bounces
+          targetLeftFootRotX = celebrateBounce * 0.3;
+          targetRightFootRotX = celebrateBounce * 0.3;
           break;
 
         case 'peek':
@@ -1461,6 +1516,27 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       }
       if (rightLegRef.current) {
         rightLegRef.current.rotation.x = lerp(rightLegRef.current.rotation.x, targetRightLegRotX, transitionSpeed);
+      }
+      // Forearm animations (elbow bend)
+      if (leftForearmRef.current) {
+        leftForearmRef.current.rotation.x = lerp(leftForearmRef.current.rotation.x, targetLeftForearmRotX, transitionSpeed);
+      }
+      if (rightForearmRef.current) {
+        rightForearmRef.current.rotation.x = lerp(rightForearmRef.current.rotation.x, targetRightForearmRotX, transitionSpeed);
+      }
+      // Lower leg animations (knee bend)
+      if (leftLowerLegRef.current) {
+        leftLowerLegRef.current.rotation.x = lerp(leftLowerLegRef.current.rotation.x, targetLeftLowerLegRotX, transitionSpeed);
+      }
+      if (rightLowerLegRef.current) {
+        rightLowerLegRef.current.rotation.x = lerp(rightLowerLegRef.current.rotation.x, targetRightLowerLegRotX, transitionSpeed);
+      }
+      // Foot animations (ankle flex)
+      if (leftFootRef.current) {
+        leftFootRef.current.rotation.x = lerp(leftFootRef.current.rotation.x, targetLeftFootRotX, transitionSpeed);
+      }
+      if (rightFootRef.current) {
+        rightFootRef.current.rotation.x = lerp(rightFootRef.current.rotation.x, targetRightFootRotX, transitionSpeed);
       }
       if (leftEyeRef.current) {
         // Use faster lerp for blinks (explicit or automatic) vs normal transitions
@@ -1837,28 +1913,131 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
   // =========================================
   // BLOCKY STYLE (Minecraft-like)
   // =========================================
+
+  // Body dimensions configuration - all positions derived from these
+  const body = useMemo(() => {
+    // === TORSO ===
+    const torso = {
+      width: 0.9,
+      height: 0.7,
+      depth: 0.3,
+      y: 0.25,
+    };
+    // Derived torso positions
+    const torsoTop = torso.y + torso.height / 2;
+    const torsoBottom = torso.y - torso.height / 2;
+    const torsoFront = torso.depth / 2;
+    const torsoBack = -torso.depth / 2;
+
+    // === ARMS ===
+    const armDiameter = { width: 0.2, depth: 0.3 };
+    const upperArm = { ...armDiameter, height: 0.25 };
+    const forearm = { ...armDiameter, height: 0.25 };
+    const hand = { ...armDiameter, height: 0.1 };
+    const armX = torso.width / 2 + armDiameter.width / 2 + 0.025;
+    const armY = 0.45;
+    const forearmY = -upperArm.height;
+    const handY = -(forearm.height / 2 + hand.height / 2);
+
+    // === LEGS ===
+    const legDiameter = { width: 0.25, depth: 0.25 };
+    const upperLeg = { ...legDiameter, height: 0.22 };
+    const lowerLeg = { ...legDiameter, height: 0.22 };
+    const foot = { width: 0.25, height: 0.06, depth: 0.35 };
+    const legX = 0.15;
+    const legY = torsoBottom;
+    const lowerLegY = -upperLeg.height;
+    const footY = -(lowerLeg.height / 2 + foot.height / 2);
+    const footZ = 0.05;
+
+    // === NECK / COLLAR ===
+    const neckY = torsoTop - 0.05;
+    const collarY = torsoTop;
+
+    // === CLOTHING OVERLAYS (slightly larger than torso) ===
+    const clothingOffset = 0.02;
+    const clothing = {
+      width: torso.width + clothingOffset,
+      height: torso.height + clothingOffset,
+      depth: torso.depth + clothingOffset,
+    };
+
+    // === ACCESSORY Z POSITIONS ===
+    const frontZ = torsoFront - 0.02; // On front surface
+    const frontZOuter = torsoFront + 0.01; // Just in front of torso
+    const backZ = torsoBack + 0.02; // On back surface
+    const backZOuter = torsoBack - 0.05; // Behind torso
+
+    return {
+      // Torso
+      torso, torsoTop, torsoBottom, torsoFront, torsoBack,
+      // Arms
+      upperArm, forearm, hand, armX, armY, forearmY, handY,
+      // Legs
+      upperLeg, lowerLeg, foot, legX, legY, lowerLegY, footY, footZ,
+      // Neck/collar
+      neckY, collarY,
+      // Clothing
+      clothing,
+      // Accessory Z positions
+      frontZ, frontZOuter, backZ, backZOuter,
+    };
+  }, []);
+
   const renderBlockyBody = () => (
     <>
-      {/* Legs */}
-      <mesh ref={leftLegRef} position={[-0.15, -0.25, 0]} castShadow>
-        <boxGeometry args={[0.25, 0.5, 0.25]} />
-        <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
-      </mesh>
-      <mesh ref={rightLegRef} position={[0.15, -0.25, 0]} castShadow>
-        <boxGeometry args={[0.25, 0.5, 0.25]} />
-        <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
-      </mesh>
+      {/* Legs - articulated with upper leg, lower leg, and foot */}
+      {/* Left Leg */}
+      <group ref={leftLegRef} position={[-body.legX, body.legY, 0]}>
+        {/* Upper Leg */}
+        <mesh castShadow>
+          <boxGeometry args={[body.upperLeg.width, body.upperLeg.height, body.upperLeg.depth]} />
+          <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+        </mesh>
+        {/* Lower Leg group */}
+        <group ref={leftLowerLegRef} position={[0, body.lowerLegY, 0]}>
+          <mesh castShadow>
+            <boxGeometry args={[body.lowerLeg.width, body.lowerLeg.height, body.lowerLeg.depth]} />
+            <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+          </mesh>
+          {/* Foot */}
+          <mesh ref={leftFootRef} position={[0, body.footY, body.footZ]} castShadow>
+            <boxGeometry args={[body.foot.width, body.foot.height, body.foot.depth]} />
+            <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+          </mesh>
+        </group>
+      </group>
+      {/* Right Leg */}
+      <group ref={rightLegRef} position={[body.legX, body.legY, 0]}>
+        {/* Upper Leg */}
+        <mesh castShadow>
+          <boxGeometry args={[body.upperLeg.width, body.upperLeg.height, body.upperLeg.depth]} />
+          <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+        </mesh>
+        {/* Lower Leg group */}
+        <group ref={rightLowerLegRef} position={[0, body.lowerLegY, 0]}>
+          <mesh castShadow>
+            <boxGeometry args={[body.lowerLeg.width, body.lowerLeg.height, body.lowerLeg.depth]} />
+            <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+          </mesh>
+          {/* Foot */}
+          <mesh ref={rightFootRef} position={[0, body.footY, body.footZ]} castShadow>
+            <boxGeometry args={[body.foot.width, body.foot.height, body.foot.depth]} />
+            <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+          </mesh>
+        </group>
+      </group>
 
       {/* Body/Torso */}
-      <mesh position={[0, 0.25, 0]} castShadow>
-        <boxGeometry args={[0.6, 0.7, 0.35]} />  
+      <mesh position={[0, body.torso.y, 0]} castShadow>
+        <boxGeometry args={[body.torso.width, body.torso.height, body.torso.depth]} />
         <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
       </mesh>
 
       {/* Tie */}
       {hasTie && (
-        <mesh position={[0, 0.35, 0.18]} castShadow>
-          <boxGeometry args={[0.15, 0.5, 0.02]} />
+        <mesh position={[0, body.torso.y + 0.1, body.frontZOuter]} castShadow>
+          <boxGeometry args={[0.15, body.torso.height * 0.7, 0.02]} />
           <meshStandardMaterial color="#2c2c2c" roughness={0.8} />
         </mesh>
       )}
@@ -1867,18 +2046,17 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       {hasBowtie && (
         <>
           {/* Center knot */}
-          {/* X=0 (centered), Y=0.35 (above torso center), Z=0.18 (in front of body) */}
-          <mesh position={[0, 0.52, 0.18]} castShadow> 
+          <mesh position={[0, body.neckY, body.frontZOuter]} castShadow>
             <boxGeometry args={[0.06, 0.06, 0.02]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
           </mesh>
           {/* Left wing */}
-          <mesh position={[-0.08, 0.52, 0.18]} castShadow>
+          <mesh position={[-0.08, body.neckY, body.frontZOuter]} castShadow>
             <boxGeometry args={[0.1, 0.08, 0.02]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
           </mesh>
           {/* Right wing */}
-          <mesh position={[0.08, 0.52, 0.18]} castShadow>
+          <mesh position={[0.08, body.neckY, body.frontZOuter]} castShadow>
             <boxGeometry args={[0.1, 0.08, 0.02]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
           </mesh>
@@ -1889,18 +2067,18 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       {hasScarf && (
         <>
           {/* Scarf wrap around neck */}
-          <mesh position={[0, 0.55, 0]} castShadow>
-            <boxGeometry args={[0.65, 0.12, 0.4]} />
+          <mesh position={[0, body.collarY, 0]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.85, 0.12, body.torso.depth]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.9} />
           </mesh>
           {/* Scarf hanging piece - left side */}
-          <mesh position={[-0.2, 0.2, 0.2]} castShadow>
-            <boxGeometry args={[0.12, 0.5, 0.04]} />
+          <mesh position={[-body.torso.width * 0.25, body.torso.y - 0.05, body.frontZOuter]} castShadow>
+            <boxGeometry args={[0.12, body.torso.height * 0.7, 0.04]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.9} />
           </mesh>
           {/* Scarf hanging piece - right side */}
-          <mesh position={[0.15, 0.28, 0.2]} castShadow>
-            <boxGeometry args={[0.12, 0.35, 0.04]} />
+          <mesh position={[body.torso.width * 0.2, body.torso.y + 0.03, body.frontZOuter]} castShadow>
+            <boxGeometry args={[0.12, body.torso.height * 0.5, 0.04]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.9} />
           </mesh>
         </>
@@ -1910,18 +2088,18 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       {hasCape && (
         <>
           {/* Cape collar */}
-          <mesh position={[0, 0.55, -0.1]} castShadow>
-            <boxGeometry args={[0.7, 0.1, 0.2]} />
+          <mesh position={[0, body.collarY, body.torsoBack]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.9, 0.1, 0.2]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.8} />
           </mesh>
           {/* Cape back - main body */}
-          <mesh position={[0, 0.1, -0.25]} castShadow>
-            <boxGeometry args={[0.75, 0.9, 0.04]} />
+          <mesh position={[0, body.torso.y - 0.15, body.backZOuter]} castShadow>
+            <boxGeometry args={[body.torso.width, body.torso.height * 1.3, 0.04]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.8} />
           </mesh>
           {/* Cape inner lining (slightly visible) */}
-          <mesh position={[0, 0.1, -0.22]} castShadow>
-            <boxGeometry args={[0.7, 0.85, 0.01]} />
+          <mesh position={[0, body.torso.y - 0.15, body.backZOuter + 0.03]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.93, body.torso.height * 1.2, 0.01]} />
             <meshStandardMaterial color="#8b0000" roughness={0.7} />
           </mesh>
         </>
@@ -1931,18 +2109,18 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       {clothingType === 'dress' && (
         <>
           {/* Dress top */}
-          <mesh position={[0, 0.25, 0.01]} castShadow>
-            <boxGeometry args={[0.62, 0.72, 0.36]} />
+          <mesh position={[0, body.torso.y, 0.01]} castShadow>
+            <boxGeometry args={[body.clothing.width * 0.82, body.clothing.height, body.clothing.depth * 0.9]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
           </mesh>
           {/* Dress skirt - flared */}
-          <mesh position={[0, -0.2, 0]} castShadow>
-            <boxGeometry args={[0.75, 0.4, 0.45]} />
+          <mesh position={[0, body.torsoBottom - 0.1, 0]} castShadow>
+            <boxGeometry args={[body.torso.width, 0.4, body.torso.depth * 1.1]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
           </mesh>
           {/* Dress waist ribbon */}
-          <mesh position={[0, 0.0, 0.19]} castShadow>
-            <boxGeometry args={[0.64, 0.08, 0.02]} />
+          <mesh position={[0, body.torsoBottom + 0.1, body.frontZOuter]} castShadow>
+            <boxGeometry args={[body.clothing.width * 0.85, 0.08, 0.02]} />
             <meshStandardMaterial color="#ffffff" roughness={0.6} />
           </mesh>
         </>
@@ -1952,31 +2130,31 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       {clothingType === 'jacket' && (
         <>
           {/* Jacket body */}
-          <mesh position={[0, 0.25, 0.01]} castShadow>
-            <boxGeometry args={[0.64, 0.72, 0.37]} />
+          <mesh position={[0, body.torso.y, 0.01]} castShadow>
+            <boxGeometry args={[body.clothing.width * 0.85, body.clothing.height, body.clothing.depth * 0.92]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
           </mesh>
           {/* Jacket lapel left */}
-          <mesh position={[-0.18, 0.4, 0.19]} rotation={[0, 0, 0.2]} castShadow>
+          <mesh position={[-body.torso.width * 0.24, body.torso.y + 0.15, body.frontZOuter - 0.01]} rotation={[0, 0, 0.2]} castShadow>
             <boxGeometry args={[0.15, 0.3, 0.02]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
           </mesh>
           {/* Jacket lapel right */}
-          <mesh position={[0.18, 0.4, 0.19]} rotation={[0, 0, -0.2]} castShadow>
+          <mesh position={[body.torso.width * 0.24, body.torso.y + 0.15, body.frontZOuter - 0.01]} rotation={[0, 0, -0.2]} castShadow>
             <boxGeometry args={[0.15, 0.3, 0.02]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
           </mesh>
           {/* Shirt visible underneath */}
-          <mesh position={[0, 0.35, 0.18]} castShadow>
+          <mesh position={[0, body.torso.y + 0.1, body.frontZOuter - 0.02]} castShadow>
             <boxGeometry args={[0.12, 0.35, 0.02]} />
             <meshStandardMaterial color="#ffffff" roughness={0.6} />
           </mesh>
           {/* Jacket buttons */}
-          <mesh position={[0, 0.2, 0.2]} castShadow>
+          <mesh position={[0, body.torso.y - 0.05, body.frontZOuter]} castShadow>
             <boxGeometry args={[0.04, 0.04, 0.02]} />
             <meshStandardMaterial color="#1a1a1a" roughness={0.5} />
           </mesh>
-          <mesh position={[0, 0.08, 0.2]} castShadow>
+          <mesh position={[0, body.torso.y - 0.17, body.frontZOuter]} castShadow>
             <boxGeometry args={[0.04, 0.04, 0.02]} />
             <meshStandardMaterial color="#1a1a1a" roughness={0.5} />
           </mesh>
@@ -1987,31 +2165,31 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       {clothingType === 'hoodie' && (
         <>
           {/* Hoodie body */}
-          <mesh position={[0, 0.25, 0.01]} castShadow>
-            <boxGeometry args={[0.64, 0.72, 0.37]} />
+          <mesh position={[0, body.torso.y, 0.01]} castShadow>
+            <boxGeometry args={[body.clothing.width * 0.85, body.clothing.height, body.clothing.depth * 0.92]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.9} />
           </mesh>
           {/* Hoodie pocket */}
-          <mesh position={[0, 0.05, 0.19]} castShadow>
-            <boxGeometry args={[0.4, 0.18, 0.02]} />
+          <mesh position={[0, body.torso.y - 0.2, body.frontZOuter - 0.01]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.53, 0.18, 0.02]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.9} />
           </mesh>
           {/* Pocket line */}
-          <mesh position={[0, 0.14, 0.2]} castShadow>
-            <boxGeometry args={[0.35, 0.02, 0.01]} />
+          <mesh position={[0, body.torso.y - 0.11, body.frontZOuter]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.47, 0.02, 0.01]} />
             <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
           </mesh>
           {/* Hood (behind head) */}
-          <mesh position={[0, 0.7, -0.15]} castShadow>
-            <boxGeometry args={[0.55, 0.35, 0.2]} />
+          <mesh position={[0, body.torsoTop + 0.1, body.torsoBack + 0.05]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.73, 0.35, 0.2]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.9} />
           </mesh>
           {/* Drawstrings */}
-          <mesh position={[-0.1, 0.45, 0.19]} castShadow>
+          <mesh position={[-0.1, body.torso.y + 0.2, body.frontZOuter - 0.01]} castShadow>
             <boxGeometry args={[0.03, 0.2, 0.02]} />
             <meshStandardMaterial color="#ffffff" roughness={0.7} />
           </mesh>
-          <mesh position={[0.1, 0.45, 0.19]} castShadow>
+          <mesh position={[0.1, body.torso.y + 0.2, body.frontZOuter - 0.01]} castShadow>
             <boxGeometry args={[0.03, 0.2, 0.02]} />
             <meshStandardMaterial color="#ffffff" roughness={0.7} />
           </mesh>
@@ -2022,30 +2200,30 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       {clothingType === 'vest' && (
         <>
           {/* Vest body (open front) */}
-          <mesh position={[-0.2, 0.25, 0.18]} castShadow>
-            <boxGeometry args={[0.2, 0.65, 0.04]} />
+          <mesh position={[-body.torso.width * 0.27, body.torso.y, body.frontZOuter - 0.02]} castShadow>
+            <boxGeometry args={[0.2, body.torso.height * 0.93, 0.04]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
           </mesh>
-          <mesh position={[0.2, 0.25, 0.18]} castShadow>
-            <boxGeometry args={[0.2, 0.65, 0.04]} />
+          <mesh position={[body.torso.width * 0.27, body.torso.y, body.frontZOuter - 0.02]} castShadow>
+            <boxGeometry args={[0.2, body.torso.height * 0.93, 0.04]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
           </mesh>
           {/* Vest back */}
-          <mesh position={[0, 0.25, -0.17]} castShadow>
-            <boxGeometry args={[0.58, 0.65, 0.04]} />
+          <mesh position={[0, body.torso.y, body.backZ]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.77, body.torso.height * 0.93, 0.04]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
           </mesh>
           {/* Shirt underneath */}
-          <mesh position={[0, 0.25, 0.17]} castShadow>
-            <boxGeometry args={[0.18, 0.6, 0.02]} />
+          <mesh position={[0, body.torso.y, body.frontZOuter - 0.03]} castShadow>
+            <boxGeometry args={[0.18, body.torso.height * 0.86, 0.02]} />
             <meshStandardMaterial color="#ffffff" roughness={0.6} />
           </mesh>
           {/* Vest buttons */}
-          <mesh position={[-0.12, 0.35, 0.2]} castShadow>
+          <mesh position={[-0.12, body.torso.y + 0.1, body.frontZOuter]} castShadow>
             <boxGeometry args={[0.03, 0.03, 0.02]} />
             <meshStandardMaterial color="#c9a227" metalness={0.5} roughness={0.4} />
           </mesh>
-          <mesh position={[-0.12, 0.22, 0.2]} castShadow>
+          <mesh position={[-0.12, body.torso.y - 0.03, body.frontZOuter]} castShadow>
             <boxGeometry args={[0.03, 0.03, 0.02]} />
             <meshStandardMaterial color="#c9a227" metalness={0.5} roughness={0.4} />
           </mesh>
@@ -2056,31 +2234,31 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       {clothingType === 'apron' && (
         <>
           {/* Apron bib */}
-          <mesh position={[0, 0.35, 0.18]} castShadow>
-            <boxGeometry args={[0.45, 0.45, 0.02]} />
+          <mesh position={[0, body.torso.y + 0.1, body.frontZOuter - 0.02]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.6, 0.45, 0.02]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.9} />
           </mesh>
           {/* Apron skirt */}
-          <mesh position={[0, -0.1, 0.18]} castShadow>
-            <boxGeometry args={[0.55, 0.5, 0.02]} />
+          <mesh position={[0, body.torsoBottom - 0.2, body.frontZOuter - 0.02]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.73, 0.5, 0.02]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.9} />
           </mesh>
           {/* Apron pocket */}
-          <mesh position={[0, 0.0, 0.2]} castShadow>
-            <boxGeometry args={[0.3, 0.15, 0.02]} />
+          <mesh position={[0, body.torsoBottom, body.frontZOuter]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.4, 0.15, 0.02]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.9} />
           </mesh>
           {/* Neck strap */}
-          <mesh position={[0, 0.6, 0.02]} castShadow>
+          <mesh position={[0, body.torsoTop, 0.02]} castShadow>
             <boxGeometry args={[0.06, 0.08, 0.02]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.9} />
           </mesh>
           {/* Waist ties */}
-          <mesh position={[-0.35, 0.12, -0.05]} castShadow>
+          <mesh position={[-body.torso.width * 0.47, body.torsoBottom + 0.22, -0.05]} castShadow>
             <boxGeometry args={[0.15, 0.06, 0.02]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.9} />
           </mesh>
-          <mesh position={[0.35, 0.12, -0.05]} castShadow>
+          <mesh position={[body.torso.width * 0.47, body.torsoBottom + 0.22, -0.05]} castShadow>
             <boxGeometry args={[0.15, 0.06, 0.02]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.9} />
           </mesh>
@@ -2091,49 +2269,49 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       {clothingType === 'labcoat' && (
         <>
           {/* Lab coat body - long */}
-          <mesh position={[0, 0.1, 0.01]} castShadow>
-            <boxGeometry args={[0.68, 1.0, 0.38]} />
+          <mesh position={[0, body.torso.y - 0.15, 0.01]} castShadow>
+            <boxGeometry args={[body.clothing.width * 0.9, body.torso.height * 1.4, body.clothing.depth * 0.95]} />
             <meshStandardMaterial color="#ffffff" roughness={0.6} />
           </mesh>
           {/* Coat collar left */}
-          <mesh position={[-0.2, 0.52, 0.19]} rotation={[0, 0, 0.15]} castShadow>
+          <mesh position={[-body.torso.width * 0.27, body.neckY - 0.03, body.frontZOuter - 0.01]} rotation={[0, 0, 0.15]} castShadow>
             <boxGeometry args={[0.18, 0.2, 0.02]} />
             <meshStandardMaterial color="#ffffff" roughness={0.6} />
           </mesh>
           {/* Coat collar right */}
-          <mesh position={[0.2, 0.52, 0.19]} rotation={[0, 0, -0.15]} castShadow>
+          <mesh position={[body.torso.width * 0.27, body.neckY - 0.03, body.frontZOuter - 0.01]} rotation={[0, 0, -0.15]} castShadow>
             <boxGeometry args={[0.18, 0.2, 0.02]} />
             <meshStandardMaterial color="#ffffff" roughness={0.6} />
           </mesh>
           {/* Coat pockets */}
-          <mesh position={[-0.2, 0.0, 0.2]} castShadow>
+          <mesh position={[-body.torso.width * 0.27, body.torsoBottom, body.frontZOuter]} castShadow>
             <boxGeometry args={[0.2, 0.25, 0.02]} />
             <meshStandardMaterial color="#f5f5f5" roughness={0.6} />
           </mesh>
-          <mesh position={[0.2, 0.0, 0.2]} castShadow>
+          <mesh position={[body.torso.width * 0.27, body.torsoBottom, body.frontZOuter]} castShadow>
             <boxGeometry args={[0.2, 0.25, 0.02]} />
             <meshStandardMaterial color="#f5f5f5" roughness={0.6} />
           </mesh>
           {/* Breast pocket */}
-          <mesh position={[-0.18, 0.35, 0.2]} castShadow>
+          <mesh position={[-body.torso.width * 0.24, body.torso.y + 0.1, body.frontZOuter]} castShadow>
             <boxGeometry args={[0.12, 0.1, 0.02]} />
             <meshStandardMaterial color="#f5f5f5" roughness={0.6} />
           </mesh>
           {/* Pen in pocket */}
-          <mesh position={[-0.18, 0.38, 0.22]} castShadow>
+          <mesh position={[-body.torso.width * 0.24, body.torso.y + 0.13, body.frontZOuter + 0.02]} castShadow>
             <boxGeometry args={[0.02, 0.08, 0.02]} />
             <meshStandardMaterial color="#1a1a1a" roughness={0.5} />
           </mesh>
           {/* Buttons */}
-          <mesh position={[0, 0.3, 0.2]} castShadow>
+          <mesh position={[0, body.torso.y + 0.05, body.frontZOuter]} castShadow>
             <boxGeometry args={[0.04, 0.04, 0.02]} />
             <meshStandardMaterial color="#e0e0e0" roughness={0.5} />
           </mesh>
-          <mesh position={[0, 0.15, 0.2]} castShadow>
+          <mesh position={[0, body.torso.y - 0.1, body.frontZOuter]} castShadow>
             <boxGeometry args={[0.04, 0.04, 0.02]} />
             <meshStandardMaterial color="#e0e0e0" roughness={0.5} />
           </mesh>
-          <mesh position={[0, 0.0, 0.2]} castShadow>
+          <mesh position={[0, body.torso.y - 0.25, body.frontZOuter]} castShadow>
             <boxGeometry args={[0.04, 0.04, 0.02]} />
             <meshStandardMaterial color="#e0e0e0" roughness={0.5} />
           </mesh>
@@ -2144,31 +2322,31 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       {hasSuspenders && (
         <>
           {/* Left suspender - front */}
-          <mesh position={[-0.18, 0.3, 0.18]} castShadow>
-            <boxGeometry args={[0.06, 0.6, 0.02]} />
+          <mesh position={[-body.torso.width * 0.24, body.torso.y + 0.05, body.frontZOuter - 0.02]} castShadow>
+            <boxGeometry args={[0.06, body.torso.height * 0.86, 0.02]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.8} />
           </mesh>
           {/* Right suspender - front */}
-          <mesh position={[0.18, 0.3, 0.18]} castShadow>
-            <boxGeometry args={[0.06, 0.6, 0.02]} />
+          <mesh position={[body.torso.width * 0.24, body.torso.y + 0.05, body.frontZOuter - 0.02]} castShadow>
+            <boxGeometry args={[0.06, body.torso.height * 0.86, 0.02]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.8} />
           </mesh>
           {/* Left suspender - back */}
-          <mesh position={[-0.18, 0.3, -0.17]} castShadow>
-            <boxGeometry args={[0.06, 0.6, 0.02]} />
+          <mesh position={[-body.torso.width * 0.24, body.torso.y + 0.05, body.backZ + 0.03]} castShadow>
+            <boxGeometry args={[0.06, body.torso.height * 0.86, 0.02]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.8} />
           </mesh>
           {/* Right suspender - back */}
-          <mesh position={[0.18, 0.3, -0.17]} castShadow>
-            <boxGeometry args={[0.06, 0.6, 0.02]} />
+          <mesh position={[body.torso.width * 0.24, body.torso.y + 0.05, body.backZ + 0.03]} castShadow>
+            <boxGeometry args={[0.06, body.torso.height * 0.86, 0.02]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.8} />
           </mesh>
           {/* Connector clips */}
-          <mesh position={[-0.18, 0.0, 0.19]} castShadow>
+          <mesh position={[-body.torso.width * 0.24, body.torsoBottom + 0.1, body.frontZOuter - 0.01]} castShadow>
             <boxGeometry args={[0.08, 0.05, 0.02]} />
             <meshStandardMaterial color="#c9a227" metalness={0.6} roughness={0.3} />
           </mesh>
-          <mesh position={[0.18, 0.0, 0.19]} castShadow>
+          <mesh position={[body.torso.width * 0.24, body.torsoBottom + 0.1, body.frontZOuter - 0.01]} castShadow>
             <boxGeometry args={[0.08, 0.05, 0.02]} />
             <meshStandardMaterial color="#c9a227" metalness={0.6} roughness={0.3} />
           </mesh>
@@ -2179,17 +2357,17 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       {hasNecklace && (
         <>
           {/* Chain around neck */}
-          <mesh position={[0, 0.55, 0.16]} castShadow>
+          <mesh position={[0, body.collarY, body.frontZ - 0.04]} castShadow>
             <torusGeometry args={[0.15, 0.015, 8, 16, Math.PI]} />
             <meshStandardMaterial color="#c9a227" metalness={0.8} roughness={0.2} />
           </mesh>
           {/* Pendant */}
-          <mesh position={[0, 0.42, 0.2]} castShadow>
+          <mesh position={[0, body.torso.y + 0.17, body.frontZOuter]} castShadow>
             <boxGeometry args={[0.08, 0.1, 0.02]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} metalness={0.6} roughness={0.3} />
           </mesh>
           {/* Gem in pendant */}
-          <mesh position={[0, 0.42, 0.22]} castShadow>
+          <mesh position={[0, body.torso.y + 0.17, body.frontZOuter + 0.02]} castShadow>
             <boxGeometry args={[0.04, 0.04, 0.02]} />
             <meshStandardMaterial color="#e91e63" metalness={0.3} roughness={0.2} />
           </mesh>
@@ -2200,36 +2378,36 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       {hasBackpack && (
         <>
           {/* Main bag body */}
-          <mesh position={[0, 0.2, -0.3]} castShadow>
-            <boxGeometry args={[0.5, 0.6, 0.25]} />
+          <mesh position={[0, body.torso.y - 0.05, body.backZOuter - 0.1]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.67, body.torso.height * 0.86, 0.25]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.8} />
           </mesh>
           {/* Top flap */}
-          <mesh position={[0, 0.52, -0.25]} castShadow>
-            <boxGeometry args={[0.48, 0.08, 0.3]} />
+          <mesh position={[0, body.torsoTop - 0.08, body.backZOuter - 0.05]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.64, 0.08, 0.3]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.8} />
           </mesh>
           {/* Front pocket */}
-          <mesh position={[0, 0.1, -0.17]} castShadow>
-            <boxGeometry args={[0.35, 0.3, 0.04]} />
+          <mesh position={[0, body.torso.y - 0.15, body.backZOuter + 0.03]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.47, 0.3, 0.04]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.8} />
           </mesh>
           {/* Straps - left */}
-          <mesh position={[-0.15, 0.25, -0.05]} castShadow>
-            <boxGeometry args={[0.08, 0.55, 0.04]} />
+          <mesh position={[-body.torso.width * 0.2, body.torso.y, body.torsoBack + 0.15]} castShadow>
+            <boxGeometry args={[0.08, body.torso.height * 0.79, 0.04]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.8} />
           </mesh>
           {/* Straps - right */}
-          <mesh position={[0.15, 0.25, -0.05]} castShadow>
-            <boxGeometry args={[0.08, 0.55, 0.04]} />
+          <mesh position={[body.torso.width * 0.2, body.torso.y, body.torsoBack + 0.15]} castShadow>
+            <boxGeometry args={[0.08, body.torso.height * 0.79, 0.04]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.8} />
           </mesh>
           {/* Buckles */}
-          <mesh position={[-0.15, 0.0, 0.15]} castShadow>
+          <mesh position={[-body.torso.width * 0.2, body.torsoBottom + 0.1, body.frontZ - 0.05]} castShadow>
             <boxGeometry args={[0.06, 0.04, 0.02]} />
             <meshStandardMaterial color="#1a1a1a" roughness={0.5} />
           </mesh>
-          <mesh position={[0.15, 0.0, 0.15]} castShadow>
+          <mesh position={[body.torso.width * 0.2, body.torsoBottom + 0.1, body.frontZ - 0.05]} castShadow>
             <boxGeometry args={[0.06, 0.04, 0.02]} />
             <meshStandardMaterial color="#1a1a1a" roughness={0.5} />
           </mesh>
@@ -2240,23 +2418,23 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       {hasWings && (
         <>
           {/* Left wing - main */}
-          <mesh position={[-0.45, 0.35, -0.15]} rotation={[0, 0.3, 0.2]} castShadow>
-            <boxGeometry args={[0.5, 0.7, 0.03]} />
+          <mesh position={[-body.armX - 0.05, body.torso.y + 0.1, body.torsoBack + 0.05]} rotation={[0, 0.3, 0.2]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.67, body.torso.height, 0.03]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.6} transparent opacity={0.9} />
           </mesh>
           {/* Left wing - secondary feathers */}
-          <mesh position={[-0.6, 0.2, -0.18]} rotation={[0, 0.4, 0.3]} castShadow>
-            <boxGeometry args={[0.35, 0.5, 0.02]} />
+          <mesh position={[-body.armX - 0.2, body.torso.y - 0.05, body.torsoBack + 0.02]} rotation={[0, 0.4, 0.3]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.47, body.torso.height * 0.71, 0.02]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.6} transparent opacity={0.85} />
           </mesh>
           {/* Right wing - main */}
-          <mesh position={[0.45, 0.35, -0.15]} rotation={[0, -0.3, -0.2]} castShadow>
-            <boxGeometry args={[0.5, 0.7, 0.03]} />
+          <mesh position={[body.armX + 0.05, body.torso.y + 0.1, body.torsoBack + 0.05]} rotation={[0, -0.3, -0.2]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.67, body.torso.height, 0.03]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.6} transparent opacity={0.9} />
           </mesh>
           {/* Right wing - secondary feathers */}
-          <mesh position={[0.6, 0.2, -0.18]} rotation={[0, -0.4, -0.3]} castShadow>
-            <boxGeometry args={[0.35, 0.5, 0.02]} />
+          <mesh position={[body.armX + 0.2, body.torso.y - 0.05, body.torsoBack + 0.02]} rotation={[0, -0.4, -0.3]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.47, body.torso.height * 0.71, 0.02]} />
             <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.6} transparent opacity={0.85} />
           </mesh>
         </>
@@ -2264,7 +2442,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
 
       {/* CANE - Walking stick */}
       {hasCane && (
-        <group position={[0.25, 0.1, 0]}>
+        <group position={[body.armX - 0.25, body.armY - 0.05, body.torsoFront * 0.25]}>
           {/* Main shaft */}
           <mesh position={[0, -0.15, 0]} castShadow>
             <boxGeometry args={[0.03, 0.6, 0.03]} />
@@ -2285,7 +2463,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
 
       {/* PIRATE HOOK - Replaces right hand */}
       {hasHook && (
-        <group position={[0.25, 0.35, 0]}>
+        <group position={[body.armX, body.armY + body.forearmY + body.handY, 0]}>
           {/* Cuff/bracelet */}
           <mesh position={[0, 0, 0]} castShadow>
             <boxGeometry args={[0.08, 0.06, 0.08]} />
@@ -2306,7 +2484,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
 
       {/* PARROT - Pirate's companion */}
       {hasParrot && (
-        <group position={[-0.35, 0.6, 0]}>
+        <group position={[-body.armX + 0.15, body.torsoTop, 0]}>
           {/* Body */}
           <mesh position={[0, 0, 0]} castShadow>
             <boxGeometry args={[0.08, 0.12, 0.08]} />
@@ -2337,19 +2515,19 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
 
       {/* PEG LEG - Wooden leg replacement */}
       {hasPegLeg && (
-        <group position={[0.15, -0.15, 0]}>
+        <group position={[body.legX, body.legY - 0.05, 0]}>
           {/* Top stump/attachment */}
           <mesh position={[0, 0.15, 0]} castShadow>
-            <boxGeometry args={[0.12, 0.1, 0.15]} />
+            <boxGeometry args={[body.upperLeg.width * 0.48, body.upperLeg.height * 0.45, body.upperLeg.depth * 0.6]} />
             <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
           </mesh>
           {/* Wooden peg */}
           <mesh position={[0, -0.05, 0]} castShadow>
-            <boxGeometry args={[0.08, 0.35, 0.08]} />
+            <boxGeometry args={[0.08, body.upperLeg.height + body.lowerLeg.height, 0.08]} />
             <meshStandardMaterial color="#5c4a3a" roughness={0.8} />
           </mesh>
           {/* Metal cap at bottom */}
-          <mesh position={[0, -0.23, 0]} castShadow>
+          <mesh position={[0, -(body.upperLeg.height + body.lowerLeg.height) / 2 + 0.05, 0]} castShadow>
             <boxGeometry args={[0.08, 0.02, 0.08]} />
             <meshStandardMaterial color="#4a4a4a" metalness={0.7} roughness={0.3} />
           </mesh>
@@ -2358,19 +2536,19 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
 
       {/* WHEELCHAIR - Full wheelchair model */}
       {hasWheelchair && (
-        <group position={[0, -0.3, 0]}>
+        <group position={[0, body.torsoBottom - 0.2, 0]}>
           {/* Seat */}
           <mesh position={[0, 0.05, 0]} castShadow>
-            <boxGeometry args={[0.5, 0.08, 0.5]} />
+            <boxGeometry args={[body.torso.width * 0.67, 0.08, body.torso.width * 0.67]} />
             <meshStandardMaterial color="#2c2c2c" roughness={0.7} />
           </mesh>
           {/* Backrest */}
-          <mesh position={[0, 0.25, -0.2]} castShadow>
-            <boxGeometry args={[0.5, 0.4, 0.05]} />
+          <mesh position={[0, 0.25, -body.torso.width * 0.27]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.67, 0.4, 0.05]} />
             <meshStandardMaterial color="#2c2c2c" roughness={0.7} />
           </mesh>
           {/* Left wheel */}
-          <group position={[-0.28, -0.05, 0.1]}>
+          <group position={[-body.torso.width * 0.37, -0.05, body.torso.width * 0.13]}>
             <mesh rotation={[0, Math.PI / 2, 0]} castShadow>
               <torusGeometry args={[0.15, 0.03, 8, 16]} />
               <meshStandardMaterial color="#3a3a3a" roughness={0.5} />
@@ -2386,7 +2564,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
             </mesh>
           </group>
           {/* Right wheel */}
-          <group position={[0.28, -0.05, 0.1]}>
+          <group position={[body.torso.width * 0.37, -0.05, body.torso.width * 0.13]}>
             <mesh rotation={[0, Math.PI / 2, 0]} castShadow>
               <torusGeometry args={[0.15, 0.03, 8, 16]} />
               <meshStandardMaterial color="#3a3a3a" roughness={0.5} />
@@ -2402,31 +2580,63 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
             </mesh>
           </group>
           {/* Front caster wheels */}
-          <mesh position={[-0.2, -0.15, 0.35]} rotation={[0, Math.PI / 2, 0]} castShadow>
+          <mesh position={[-body.torso.width * 0.27, -0.15, body.torso.width * 0.47]} rotation={[0, Math.PI / 2, 0]} castShadow>
             <torusGeometry args={[0.06, 0.02, 6, 12]} />
             <meshStandardMaterial color="#3a3a3a" roughness={0.5} />
           </mesh>
-          <mesh position={[0.2, -0.15, 0.35]} rotation={[0, Math.PI / 2, 0]} castShadow>
+          <mesh position={[body.torso.width * 0.27, -0.15, body.torso.width * 0.47]} rotation={[0, Math.PI / 2, 0]} castShadow>
             <torusGeometry args={[0.06, 0.02, 6, 12]} />
             <meshStandardMaterial color="#3a3a3a" roughness={0.5} />
           </mesh>
           {/* Frame */}
-          <mesh position={[0, 0.05, 0.25]} castShadow>
-            <boxGeometry args={[0.5, 0.03, 0.03]} />
+          <mesh position={[0, 0.05, body.torso.width * 0.33]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.67, 0.03, 0.03]} />
             <meshStandardMaterial color="#4a4a4a" metalness={0.7} roughness={0.3} />
           </mesh>
         </group>
       )}
 
-      {/* Arms */}
-      <mesh ref={leftArmRef} position={[-0.425, 0.15, 0]} castShadow>
-        <boxGeometry args={[0.2, 0.6, 0.3]} />
-        <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
-      </mesh>
-      <mesh ref={rightArmRef} position={[0.425, 0.15, 0]} castShadow>
-        <boxGeometry args={[0.2, 0.6, 0.3]} />
-        <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
-      </mesh>
+      {/* Arms - articulated with upper arm, forearm, and hand */}
+      {/* Left Arm */}
+      <group ref={leftArmRef} position={[-body.armX, body.armY, 0]}>
+        {/* Upper Arm */}
+        <mesh castShadow>
+          <boxGeometry args={[body.upperArm.width, body.upperArm.height, body.upperArm.depth]} />
+          <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+        </mesh>
+        {/* Forearm group */}
+        <group ref={leftForearmRef} position={[0, body.forearmY, 0]}>
+          <mesh castShadow>
+            <boxGeometry args={[body.forearm.width, body.forearm.height, body.forearm.depth]} />
+            <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+          </mesh>
+          {/* Hand - skin color */}
+          <mesh ref={leftHandRef} position={[0, body.handY, 0]} castShadow>
+            <boxGeometry args={[body.hand.width, body.hand.height, body.hand.depth]} />
+            <meshStandardMaterial color={skinColor} roughness={0.6} />
+          </mesh>
+        </group>
+      </group>
+      {/* Right Arm */}
+      <group ref={rightArmRef} position={[body.armX, body.armY, 0]}>
+        {/* Upper Arm */}
+        <mesh castShadow>
+          <boxGeometry args={[body.upperArm.width, body.upperArm.height, body.upperArm.depth]} />
+          <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+        </mesh>
+        {/* Forearm group */}
+        <group ref={rightForearmRef} position={[0, body.forearmY, 0]}>
+          <mesh castShadow>
+            <boxGeometry args={[body.forearm.width, body.forearm.height, body.forearm.depth]} />
+            <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+          </mesh>
+          {/* Hand - skin color */}
+          <mesh ref={rightHandRef} position={[0, body.handY, 0]} castShadow>
+            <boxGeometry args={[body.hand.width, body.hand.height, body.hand.depth]} />
+            <meshStandardMaterial color={skinColor} roughness={0.6} />
+          </mesh>
+        </group>
+      </group>
 
       {/* Head Group */}
       {(() => {
