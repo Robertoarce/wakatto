@@ -228,6 +228,7 @@ export interface BodyConfig {
   footZ: number;
   neckY: number;
   collarY: number;
+  shoulderY: number;
   clothing: { width: number; height: number; depth: number };
   frontZ: number;
   frontZOuter: number;

@@ -1938,7 +1938,7 @@ const styles = StyleSheet.create({
   },
   messagesContainer: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     paddingHorizontal: 16,
     paddingVertical: 12,
   },

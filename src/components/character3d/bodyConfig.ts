@@ -41,9 +41,10 @@ export function useBodyConfig(): BodyConfig {
     const footY = -(lowerLeg.height / 2 + foot.height / 2);
     const footZ = 0.05;
 
-    // === NECK / COLLAR ===
+    // === NECK / COLLAR / SHOULDER ===
     const neckY = torsoTop - 0.05;
     const collarY = torsoTop;
+    const shoulderY = armY; // Where arms attach - used for shoulder accessories like parrot
 
     // === CLOTHING OVERLAYS (slightly larger than torso) ===
     const clothingOffset = 0.02;
@@ -66,8 +67,8 @@ export function useBodyConfig(): BodyConfig {
       upperArm, forearm, hand, armX, armY, forearmY, handY,
       // Legs
       upperLeg, lowerLeg, foot, legX, legY, lowerLegY, footY, footZ,
-      // Neck/collar
-      neckY, collarY,
+      // Neck/collar/shoulder
+      neckY, collarY, shoulderY,
       // Clothing
       clothing,
       // Accessory Z positions

@@ -1,6 +1,9 @@
 import React from 'react';
 import { BodyConfig } from '../types';
 
+// Parrot scale factor - adjust to make parrot bigger/smaller
+const PARROT_SCALE = 3;
+
 interface BodyAccessoriesProps {
   body: BodyConfig;
   accessoryColor: string;
@@ -175,30 +178,34 @@ export function BodyAccessories({
 
       {/* PARROT - Pirate's companion */}
       {hasParrot && (
-        <group position={[-body.armX + 0.15, body.torsoTop, 0]}>
+        <group position={[-body.armX - 0.02*PARROT_SCALE, body.shoulderY + 0.3, 0]}>
           {/* Body */}
           <mesh position={[0, 0, 0]} castShadow>
-            <boxGeometry args={[0.08, 0.12, 0.08]} />
+            <boxGeometry args={[0.08 * PARROT_SCALE, 0.12 * PARROT_SCALE, 0.08 * PARROT_SCALE]} />
             <meshStandardMaterial color="#e74c3c" roughness={0.6} />
           </mesh>
           {/* Head */}
-          <mesh position={[0, 0.08, 0.02]} castShadow>
-            <boxGeometry args={[0.06, 0.06, 0.06]} />
+          <mesh position={[0, 0.08 * PARROT_SCALE, 0.02 * PARROT_SCALE]} castShadow>
+            <boxGeometry args={[0.06 * PARROT_SCALE, 0.06 * PARROT_SCALE, 0.06 * PARROT_SCALE]} />
             <meshStandardMaterial color="#e74c3c" roughness={0.6} />
           </mesh>
           {/* Beak */}
-          <mesh position={[0, 0.08, 0.06]} castShadow>
-            <boxGeometry args={[0.03, 0.02, 0.04]} />
+          <mesh position={[0, 0.08 * PARROT_SCALE, 0.06 * PARROT_SCALE]} castShadow>
+            <boxGeometry args={[0.03 * PARROT_SCALE, 0.02 * PARROT_SCALE, 0.04 * PARROT_SCALE]} />
             <meshStandardMaterial color="#f39c12" roughness={0.7} />
           </mesh>
           {/* Tail feathers */}
-          <mesh position={[0, -0.08, -0.06]} rotation={[Math.PI / 6, 0, 0]} castShadow>
-            <boxGeometry args={[0.06, 0.12, 0.02]} />
+          <mesh position={[0, -0.08 * PARROT_SCALE, -0.06 * PARROT_SCALE]} rotation={[Math.PI / 6, 0, 0]} castShadow>
+            <boxGeometry args={[0.06 * PARROT_SCALE, 0.12 * PARROT_SCALE, 0.02 * PARROT_SCALE]} />
             <meshStandardMaterial color="#3498db" roughness={0.6} />
           </mesh>
           {/* Wing */}
-          <mesh position={[-0.05, 0, 0]} rotation={[0, 0, -Math.PI / 4]} castShadow>
-            <boxGeometry args={[0.04, 0.08, 0.02]} />
+          <mesh position={[-0.05 * PARROT_SCALE, 0, 0]} rotation={[Math.PI / 6, Math.PI / 4, -Math.PI / 4]} castShadow>
+            <boxGeometry args={[0.04 * PARROT_SCALE, 0.08 * PARROT_SCALE, 0.02 * PARROT_SCALE]} />
+            <meshStandardMaterial color="#2ecc71" roughness={0.6} />
+          </mesh>
+           <mesh position={[+0.05 * PARROT_SCALE, 0, 0]} rotation={[Math.PI / 6, -Math.PI /4, Math.PI / 4]} castShadow>
+            <boxGeometry args={[0.04 * PARROT_SCALE, 0.08 * PARROT_SCALE, 0.02 * PARROT_SCALE]} />
             <meshStandardMaterial color="#2ecc71" roughness={0.6} />
           </mesh>
         </group>
