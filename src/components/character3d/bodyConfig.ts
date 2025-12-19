@@ -10,8 +10,8 @@ export function useBodyConfig(): BodyConfig {
     // === TORSO ===
     const torso = {
       width: 0.9,
-      height: 0.6,
-      depth: 0.5,
+      height: 0.65,
+      depth: 0.45,
       y: 0.25,
     };
     // Derived torso positions

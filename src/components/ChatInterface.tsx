@@ -1462,7 +1462,7 @@ Each silence, a cathedral where you still reside.`;
           />
           {messages.length > 0 && (
             <View style={[styles.dividerMessageBadge, showChatHistory && styles.dividerMessageBadgeActive]}>
-              <Text style={[styles.dividerMessageBadgeText, showChatHistory && { color: '#8b5cf6' }, { fontSize: fonts.xs }]}>
+              <Text style={[styles.dividerMessageBadgeText, showChatHistory && { color: '#5398BE' }, { fontSize: fonts.xs }]}>
                 {messages.length > 99 ? '99+' : messages.length}
               </Text>
             </View>
@@ -1663,7 +1663,7 @@ Each silence, a cathedral where you still reside.`;
             )}
             {isTranscribing && (
               <View style={styles.transcribingStatus}>
-                <ActivityIndicator size="small" color="#8b5cf6" />
+                <ActivityIndicator size="small" color="#5398BE" />
                 <Text style={[styles.transcribingText, { fontSize: fonts.sm }]}>Transcribing...</Text>
               </View>
             )}
@@ -1679,12 +1679,12 @@ Each silence, a cathedral where you still reside.`;
         <View style={[
           styles.inputWrapper,
           {
-            // Golden ratio: wider, less tall - 95% at 320px, 75% at 768px, 60% at 1200px+
-            width: `${Math.max(60, 95 - ((screenWidth - 280) / (1200 - 280)) * 35)}%`,
-            minWidth: Math.min(280, screenWidth - 24),
+            // Narrower input: 70% at 320px, 55% at 768px, 45% at 1200px+ (25% more margin on sides)
+            width: `${Math.max(45, 70 - ((screenWidth - 280) / (1200 - 280)) * 25)}%`,
+            minWidth: Math.min(240, screenWidth - 24),
             maxWidth: 650,
-            // Reduced vertical padding for golden ratio (horizontal emphasis)
-            paddingVertical: Math.max(6, 6 + ((screenWidth - 280) / (768 - 280)) * 4), // 6-10px
+            // Compact single-line padding
+            paddingVertical: Math.max(4, 4 + ((screenWidth - 280) / (768 - 280)) * 2), // 4-6px
             paddingHorizontal: Math.max(10, 10 + ((screenWidth - 280) / (768 - 280)) * 6), // 10-16px
             gap: Math.max(6, 6 + ((screenWidth - 280) / (768 - 280)) * 4),
           }
@@ -1698,12 +1698,12 @@ Each silence, a cathedral where you still reside.`;
               styles.textInput,
               {
                 fontSize: fonts.md,
-                minHeight: Math.max(28, 28 + ((screenWidth - 280) / (768 - 280)) * 8), // 28-36px (less tall)
-                maxHeight: 80, // Reduced max height
-                paddingVertical: 4,
+                height: 32, // Fixed single-line height
+                minHeight: 32,
+                maxHeight: 32,
+                paddingVertical: 0,
               }
             ]}
-            multiline
             onFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
             onKeyPress={handleKeyPress}
           />
@@ -1781,7 +1781,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 14,
+    paddingHorizontal: 18,
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: '#171717',
@@ -1793,8 +1793,8 @@ const styles = StyleSheet.create({
     zIndex: 51,
   },
   dividerToggleButtonActive: {
-    backgroundColor: '#8b5cf6',
-    borderColor: '#8b5cf6',
+    backgroundColor: '#5398BE',
+    borderColor: '#5398BE',
   },
   // Mobile Landscape Toggle Button Styles
   landscapeToggleButton: {
@@ -1807,14 +1807,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 24,
-    backgroundColor: '#8b5cf6',
+    backgroundColor: '#5398BE',
     zIndex: 100,
     ...Platform.select({
       web: {
         boxShadow: '0 4px 12px rgba(139, 92, 246, 0.4)',
       },
       ios: {
-        shadowColor: '#8b5cf6',
+        shadowColor: '#5398BE',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.4,
         shadowRadius: 12,
@@ -1842,7 +1842,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   landscapeToggleBadgeText: {
-    color: '#8b5cf6',
+    color: '#5398BE',
     fontWeight: '700',
   },
   // Fullscreen Button Styles
@@ -1867,11 +1867,11 @@ const styles = StyleSheet.create({
     }),
   },
   fullscreenButtonActive: {
-    backgroundColor: '#8b5cf6',
-    borderColor: '#8b5cf6',
+    backgroundColor: '#5398BE',
+    borderColor: '#5399beff',
   },
   dividerMessageBadge: {
-    backgroundColor: '#8b5cf6',
+    backgroundColor: '#5398BE',
     borderRadius: 10,
     minWidth: 18,
     height: 18,
@@ -1939,7 +1939,8 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'flex-end',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
   messagesContent: {
     width: '100%',
@@ -1949,7 +1950,7 @@ const styles = StyleSheet.create({
   },
   messageBubbleContainer: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 6,
   },
   userMessageContainer: {
     justifyContent: 'center', // Center user messages
@@ -1975,7 +1976,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   userMessageBubble: {
-    backgroundColor: '#8b5cf6',
+    backgroundColor: '#5398BE',
   },
   assistantMessageBubble: {
     backgroundColor: '#27272a',
@@ -1987,7 +1988,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   messageTypingCursor: {
-    color: '#8b5cf6',
+    color: '#5398BE',
     fontWeight: 'bold',
     opacity: 0.8,
   },
@@ -2009,8 +2010,8 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     borderTopWidth: 0,
-    padding: 16,
-    marginTop: 16,
+    padding: 12,
+    marginTop: 8,
     alignItems: 'center',
   },
   inputWrapper: {
@@ -2049,7 +2050,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   sendButton: {
-    backgroundColor: '#8b5cf6',
+    backgroundColor: '#5398BE',
   },
   sendButtonDisabled: {
     opacity: 0.5,
@@ -2064,7 +2065,7 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#8b5cf6',
+    borderColor: '#5398BE',
     minHeight: 60,
     marginBottom: 8,
   },
@@ -2079,7 +2080,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   saveButton: {
-    backgroundColor: '#8b5cf6',
+    backgroundColor: '#5398BE',
   },
   cancelText: {
     color: '#a1a1aa',
@@ -2354,8 +2355,8 @@ const styles = StyleSheet.create({
     borderColor: '#3f3f46',
   },
   roleFilterChipActive: {
-    backgroundColor: '#8b5cf6',
-    borderColor: '#8b5cf6',
+    backgroundColor: '#5398BE',
+    borderColor: '#5398BE',
   },
   roleFilterText: {
     color: '#a1a1aa',
@@ -2478,7 +2479,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   transcribingText: {
-    color: '#8b5cf6',
+    color: '#5398BE',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -2492,7 +2493,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   liveTranscriptLabel: {
-    color: '#8b5cf6',
+    color: '#5398BE',
     fontSize: 12,
     fontWeight: '700',
   },
