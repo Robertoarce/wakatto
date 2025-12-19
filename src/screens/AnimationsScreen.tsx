@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Animated } from 'react-native';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useResponsive } from '../constants/Layout';
 import {
   CharacterDisplay3D,
   AnimationState,
@@ -222,7 +223,115 @@ const JAW_STATES: { value: JawState; label: string; icon: string }[] = [
 
 const AnimationsScreen = (): JSX.Element => {
   const navigation = useNavigation<any>();
-  
+  const { fonts, spacing, layout, isMobile, isTablet, width: screenWidth, height: screenHeight } = useResponsive();
+
+  // Responsive layout calculations
+  const isSmallScreen = isMobile || isTablet;
+
+  // Dynamic styles based on responsive values
+  const dynamicStyles = useMemo(() => ({
+    content: {
+      flex: 1,
+      flexDirection: (isSmallScreen ? 'column' : 'row') as 'column' | 'row',
+    },
+    previewSection: {
+      width: isSmallScreen ? '100%' as const : '35%' as const,
+      padding: spacing.sm,
+    },
+    characterPreview: {
+      height: isSmallScreen ? Math.floor(screenHeight * 0.28) : Math.floor(screenHeight * 0.35),
+      borderRadius: spacing.sm,
+      overflow: 'hidden' as const,
+      backgroundColor: '#1a1a1a',
+      marginBottom: spacing.sm,
+    },
+    controlsSection: {
+      flex: 1,
+      padding: spacing.sm,
+      paddingLeft: isSmallScreen ? spacing.sm : 0,
+    },
+    header: {
+      padding: spacing.lg,
+      paddingTop: spacing.xl,
+      backgroundColor: '#111111',
+      borderBottomWidth: 1,
+      borderBottomColor: '#27272a',
+    },
+    title: {
+      fontSize: fonts.xxl,
+      fontWeight: 'bold' as const,
+      color: '#ffffff',
+      marginBottom: spacing.xs,
+    },
+    subtitle: {
+      fontSize: fonts.sm,
+      color: '#71717a',
+    },
+    sectionTitle: {
+      fontSize: fonts.md,
+      fontWeight: '600' as const,
+      color: '#e4e4e7',
+      marginBottom: spacing.sm,
+    },
+    stateLabel: {
+      fontSize: fonts.xs,
+      color: '#71717a',
+      textTransform: 'uppercase' as const,
+    },
+    selectorLabel: {
+      fontSize: fonts.xs,
+      color: '#71717a',
+      marginBottom: spacing.xs,
+      textTransform: 'uppercase' as const,
+    },
+    characterButtonText: {
+      fontSize: fonts.sm,
+      fontWeight: '600' as const,
+      color: '#a1a1aa',
+    },
+    quickButtonText: {
+      fontSize: fonts.sm,
+      fontWeight: '600' as const,
+      color: '#71717a',
+    },
+    tabText: {
+      fontSize: fonts.sm,
+      fontWeight: '600' as const,
+      color: '#71717a',
+    },
+    categoryChipText: {
+      fontSize: fonts.sm,
+      color: '#a1a1aa',
+    },
+    animationName: {
+      fontSize: fonts.md,
+      fontWeight: '600' as const,
+      color: '#ffffff',
+    },
+    animationDescription: {
+      fontSize: fonts.xs,
+      color: '#71717a',
+    },
+    optionLabel: {
+      fontSize: fonts.xs,
+      fontWeight: '600' as const,
+      color: '#71717a',
+      textTransform: 'uppercase' as const,
+    },
+    colorButton: {
+      width: layout.minTouchTarget,
+      height: layout.minTouchTarget,
+      borderRadius: layout.minTouchTarget / 2,
+      borderWidth: 2,
+      borderColor: 'transparent',
+    },
+    presetText: {
+      fontSize: fonts.xs,
+      color: '#a1a1aa',
+      textAlign: 'center' as const,
+    },
+  }), [fonts, spacing, layout, isSmallScreen, screenHeight]);
+
   // Base animation state
   const [currentAnimation, setCurrentAnimation] = useState<AnimationState>('idle');
   const [isTalking, setIsTalking] = useState(false);
@@ -304,22 +413,22 @@ const AnimationsScreen = (): JSX.Element => {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={dynamicStyles.header}>
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.title}>🎬 Animation Tester</Text>
-            <Text style={styles.subtitle}>
+            <Text style={dynamicStyles.title}>🎬 Animation Tester</Text>
+            <Text style={dynamicStyles.subtitle}>
               {ALL_ANIMATIONS.length} base animations + complementary layers
             </Text>
           </View>
         </View>
       </View>
 
-      <View style={styles.content}>
+      <View style={dynamicStyles.content}>
         {/* 3D Character Preview */}
-        <View style={styles.previewSection}>
+        <View style={dynamicStyles.previewSection}>
           <Card variant="elevated" style={styles.previewCard}>
-            <View style={styles.characterPreview}>
+            <View style={dynamicStyles.characterPreview}>
               <CharacterDisplay3D
                 characterId={selectedCharacter}
                 isActive={true}
@@ -337,7 +446,7 @@ const AnimationsScreen = (): JSX.Element => {
             {/* Current state info */}
             <View style={styles.stateInfo}>
               <View style={styles.stateRow}>
-                <Text style={styles.stateLabel}>Animation:</Text>
+                <Text style={dynamicStyles.stateLabel}>Animation:</Text>
                 <Badge label={currentAnimation} variant="primary" size="md" />
               </View>
               <View style={styles.stateRow}>
@@ -448,7 +557,7 @@ const AnimationsScreen = (): JSX.Element => {
         </View>
 
         {/* Controls Section */}
-        <View style={styles.controlsSection}>
+        <View style={dynamicStyles.controlsSection}>
           {/* Tab switcher */}
           <View style={styles.tabSwitcher}>
             <TouchableOpacity
@@ -990,35 +1099,16 @@ const AnimationsScreen = (): JSX.Element => {
   );
 };
 
-const { width } = Dimensions.get('window');
-const isSmallScreen = width < 768;
-
+// Static styles - dynamic styles are computed inside the component
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a0a0a',
   },
-  header: {
-    padding: 16,
-    paddingTop: 24,
-    backgroundColor: '#111111',
-    borderBottomWidth: 1,
-    borderBottomColor: '#27272a',
-  },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: '#71717a',
   },
   testButton: {
     flexDirection: 'row',
@@ -1034,23 +1124,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ffffff',
   },
-  content: {
-    flex: 1,
-    flexDirection: isSmallScreen ? 'column' : 'row',
-  },
-  previewSection: {
-    width: isSmallScreen ? '100%' : '35%',
-    padding: 12,
-  },
   previewCard: {
     padding: 12,
-  },
-  characterPreview: {
-    height: isSmallScreen ? 220 : 260,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#1a1a1a',
-    marginBottom: 12,
   },
   stateInfo: {
     flexDirection: 'row',
@@ -1154,11 +1229,6 @@ const styles = StyleSheet.create({
   quickButtonTextActive: {
     color: '#10b981',
   },
-  controlsSection: {
-    flex: 1,
-    padding: 12,
-    paddingLeft: isSmallScreen ? 12 : 0,
-  },
   tabSwitcher: {
     flexDirection: 'row',
     marginBottom: 12,
@@ -1221,7 +1291,8 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
   },
   animationCard: {
-    width: isSmallScreen ? '100%' : 'calc(50% - 4px)',
+    flexBasis: '48%',
+    flexGrow: 0,
     padding: 12,
     borderRadius: 8,
     backgroundColor: '#171717',
@@ -1320,7 +1391,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   presetButton: {
-    width: isSmallScreen ? 'calc(33.33% - 7px)' : 'calc(33.33% - 7px)',
+    flexBasis: '30%',
+    flexGrow: 0,
     padding: 12,
     borderRadius: 10,
     backgroundColor: '#27272a',

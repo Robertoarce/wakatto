@@ -7,17 +7,18 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
   Platform,
   ScrollView,
+  StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CharacterBehavior, getAllCharacters, registerCustomCharacters } from '../config/characters';
 import { getCustomWakattors } from '../services/customWakattorsService';
 import { useCustomAlert } from '../components/CustomAlert';
+import { useResponsive } from '../constants/Layout';
 
 interface Props {
   onStartConversation: (selectedCharacterIds: string[]) => void;
@@ -38,11 +39,152 @@ const PROFESSIONS = [
 
 export default function CharacterSelectionScreen({ onStartConversation, onCancel }: Props) {
   const { showAlert, AlertComponent } = useCustomAlert();
+  const { fonts, spacing, layout, isMobile, isTablet, width: screenWidth } = useResponsive();
   const [characters, setCharacters] = useState<CharacterBehavior[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedProfession, setSelectedProfession] = useState('all');
+
+  // Responsive card dimensions
+  const cardWidth = useMemo(() => {
+    if (isMobile) return Math.floor((screenWidth - spacing.lg * 3) / 2); // 2 columns on mobile
+    if (isTablet) return Math.floor((screenWidth - spacing.lg * 4) / 3); // 3 columns on tablet
+    return Math.floor((screenWidth - spacing.lg * 5) / 4); // 4 columns on desktop
+  }, [isMobile, isTablet, screenWidth, spacing.lg]);
+
+  const avatarSize = useMemo(() => {
+    return isMobile ? 50 : isTablet ? 56 : 64;
+  }, [isMobile, isTablet]);
+
+  // Dynamic styles based on responsive values
+  const dynamicStyles = useMemo(() => ({
+    mosaicCard: {
+      width: cardWidth,
+      minWidth: isMobile ? 130 : 150,
+      maxWidth: isMobile ? 180 : 220,
+      padding: spacing.md,
+      backgroundColor: '#18181b',
+      borderRadius: spacing.md,
+      borderWidth: 1,
+      borderColor: '#27272a',
+      alignItems: 'center' as const,
+      position: 'relative' as const,
+    },
+    checkBadge: {
+      position: 'absolute' as const,
+      top: spacing.sm,
+      right: spacing.sm,
+      width: layout.minTouchTarget * 0.5,
+      height: layout.minTouchTarget * 0.5,
+      borderRadius: layout.minTouchTarget * 0.25,
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
+    },
+    mosaicAvatar: {
+      width: avatarSize,
+      height: avatarSize,
+      borderRadius: avatarSize / 2,
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
+      marginBottom: spacing.sm,
+    },
+    mosaicAvatarText: {
+      fontSize: fonts.xxl,
+      fontWeight: '700' as const,
+    },
+    mosaicName: {
+      fontSize: fonts.md,
+      fontWeight: '600' as const,
+      marginBottom: spacing.xs,
+      textAlign: 'center' as const,
+    },
+    mosaicRole: {
+      fontSize: fonts.xs,
+      color: '#8b5cf6',
+      textAlign: 'center' as const,
+    },
+    topBar: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'space-between' as const,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      backgroundColor: '#18181b',
+      borderBottomWidth: 1,
+      borderBottomColor: '#27272a',
+    },
+    title: {
+      color: '#fff',
+      fontSize: fonts.lg,
+      fontWeight: '600' as const,
+    },
+    cancelText: {
+      color: '#a1a1aa',
+      fontSize: fonts.md,
+    },
+    startBtn: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: spacing.xs,
+      backgroundColor: '#22c55e',
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: spacing.sm,
+      minHeight: layout.minTouchTarget,
+    },
+    startText: {
+      color: '#fff',
+      fontSize: fonts.md,
+      fontWeight: '600' as const,
+    },
+    selectedChip: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: spacing.xs,
+      backgroundColor: '#27272a',
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: spacing.lg,
+      minHeight: layout.minTouchTarget * 0.75,
+    },
+    selectedName: {
+      color: '#e4e4e7',
+      fontSize: fonts.sm,
+      fontWeight: '500' as const,
+    },
+    filterChip: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.sm,
+      borderRadius: spacing.xl,
+      backgroundColor: '#27272a',
+      marginRight: spacing.sm,
+      minHeight: layout.minTouchTarget,
+    },
+    filterChipText: {
+      color: '#a1a1aa',
+      fontSize: fonts.sm,
+      fontWeight: '500' as const,
+    },
+    searchInput: {
+      flex: 1,
+      color: '#fff',
+      fontSize: fonts.md,
+    },
+    loadingText: {
+      color: '#71717a',
+      marginTop: spacing.sm,
+      fontSize: fonts.md,
+    },
+    emptyText: {
+      color: '#52525b',
+      marginTop: spacing.sm,
+      fontSize: fonts.md,
+    },
+  }), [fonts, spacing, layout, cardWidth, avatarSize, isMobile]);
 
   useEffect(() => {
     loadCharacters();
@@ -139,28 +281,28 @@ export default function CharacterSelectionScreen({ onStartConversation, onCancel
       <TouchableOpacity
         key={char.id}
         style={[
-          styles.mosaicCard,
+          dynamicStyles.mosaicCard,
           selected && { borderColor: char.color, borderWidth: 2 },
         ]}
         onPress={() => toggle(char.id)}
         activeOpacity={0.7}
       >
         {selected && (
-          <View style={[styles.checkBadge, { backgroundColor: char.color }]}>
-            <Ionicons name="checkmark" size={12} color="#fff" />
+          <View style={[dynamicStyles.checkBadge, { backgroundColor: char.color }]}>
+            <Ionicons name="checkmark" size={Math.round(fonts.sm)} color="#fff" />
           </View>
         )}
 
-        <View style={[styles.mosaicAvatar, { backgroundColor: char.color + '30' }]}>
-          <Text style={[styles.mosaicAvatarText, { color: char.color }]}>
+        <View style={[dynamicStyles.mosaicAvatar, { backgroundColor: char.color + '30' }]}>
+          <Text style={[dynamicStyles.mosaicAvatarText, { color: char.color }]}>
             {char.name?.charAt(0).toUpperCase()}
           </Text>
         </View>
 
-        <Text style={[styles.mosaicName, { color: char.color }]} numberOfLines={1}>
+        <Text style={[dynamicStyles.mosaicName, { color: char.color }]} numberOfLines={1}>
           {char.name}
         </Text>
-        <Text style={styles.mosaicRole} numberOfLines={1}>
+        <Text style={dynamicStyles.mosaicRole} numberOfLines={1}>
           {char.role || 'Character'}
         </Text>
       </TouchableOpacity>
@@ -171,7 +313,7 @@ export default function CharacterSelectionScreen({ onStartConversation, onCancel
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color="#8b5cf6" />
-        <Text style={styles.loadingText}>Loading...</Text>
+        <Text style={dynamicStyles.loadingText}>Loading...</Text>
       </View>
     );
   }
@@ -181,35 +323,35 @@ export default function CharacterSelectionScreen({ onStartConversation, onCancel
       <AlertComponent />
 
       {/* Top Bar */}
-      <View style={styles.topBar}>
+      <View style={dynamicStyles.topBar}>
         <TouchableOpacity onPress={onCancel} style={styles.cancelBtn}>
-          <Ionicons name="arrow-back" size={20} color="#fff" />
-          <Text style={styles.cancelText}>Back</Text>
+          <Ionicons name="arrow-back" size={Math.round(fonts.xl)} color="#fff" />
+          <Text style={dynamicStyles.cancelText}>Back</Text>
         </TouchableOpacity>
 
-        <Text style={styles.title}>New Conversation</Text>
+        <Text style={dynamicStyles.title}>New Conversation</Text>
 
         <TouchableOpacity
           onPress={start}
-          style={[styles.startBtn, selectedIds.length === 0 && styles.startBtnDisabled]}
+          style={[dynamicStyles.startBtn, selectedIds.length === 0 && styles.startBtnDisabled]}
           disabled={selectedIds.length === 0}
         >
-          <Text style={styles.startText}>Start ({selectedIds.length})</Text>
-          <Ionicons name="arrow-forward" size={18} color="#fff" />
+          <Text style={dynamicStyles.startText}>Start ({selectedIds.length})</Text>
+          <Ionicons name="arrow-forward" size={Math.round(fonts.lg)} color="#fff" />
         </TouchableOpacity>
       </View>
 
       {/* Selected Preview */}
       {selectedIds.length > 0 && (
-        <View style={styles.selectedBar}>
+        <View style={[styles.selectedBar, { padding: spacing.sm, gap: spacing.sm }]}>
           {selectedIds.map(id => {
             const c = characters.find(x => x.id === id);
             if (!c) return null;
             return (
-              <TouchableOpacity key={id} onPress={() => toggle(id)} style={styles.selectedChip}>
+              <TouchableOpacity key={id} onPress={() => toggle(id)} style={dynamicStyles.selectedChip}>
                 <View style={[styles.dot, { backgroundColor: c.color }]} />
-                <Text style={styles.selectedName}>{c.name}</Text>
-                <Ionicons name="close" size={14} color="#f87171" />
+                <Text style={dynamicStyles.selectedName}>{c.name}</Text>
+                <Ionicons name="close" size={Math.round(fonts.sm)} color="#f87171" />
               </TouchableOpacity>
             );
           })}
@@ -217,29 +359,29 @@ export default function CharacterSelectionScreen({ onStartConversation, onCancel
       )}
 
       {/* Profession Filter - Horizontal scroll */}
-      <View style={styles.filterContainer}>
+      <View style={[styles.filterContainer, { paddingVertical: spacing.sm }]}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={true}
-          contentContainerStyle={styles.filterScroll}
+          contentContainerStyle={[styles.filterScroll, { paddingHorizontal: spacing.sm, gap: spacing.sm }]}
         >
           {PROFESSIONS.map(prof => (
             <TouchableOpacity
               key={prof.id}
               style={[
-                styles.filterChip,
+                dynamicStyles.filterChip,
                 selectedProfession === prof.id && styles.filterChipActive,
               ]}
               onPress={() => setSelectedProfession(prof.id)}
             >
               <Ionicons
                 name={prof.icon as any}
-                size={16}
+                size={Math.round(fonts.lg)}
                 color={selectedProfession === prof.id ? '#fff' : '#a1a1aa'}
               />
               <Text
                 style={[
-                  styles.filterChipText,
+                  dynamicStyles.filterChipText,
                   selectedProfession === prof.id && styles.filterChipTextActive,
                 ]}
               >
@@ -251,10 +393,10 @@ export default function CharacterSelectionScreen({ onStartConversation, onCancel
       </View>
 
       {/* Search */}
-      <View style={styles.searchBox}>
-        <Ionicons name="search" size={18} color="#71717a" />
+      <View style={[styles.searchBox, { margin: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }]}>
+        <Ionicons name="search" size={Math.round(fonts.lg)} color="#71717a" />
         <TextInput
-          style={styles.searchInput}
+          style={dynamicStyles.searchInput}
           placeholder="Search characters..."
           placeholderTextColor="#71717a"
           value={searchQuery}
@@ -262,7 +404,7 @@ export default function CharacterSelectionScreen({ onStartConversation, onCancel
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={18} color="#71717a" />
+            <Ionicons name="close-circle" size={Math.round(fonts.lg)} color="#71717a" />
           </TouchableOpacity>
         )}
       </View>
@@ -279,20 +421,20 @@ export default function CharacterSelectionScreen({ onStartConversation, onCancel
               bottom: 0,
               overflowY: 'auto',
               overflowX: 'hidden',
-              padding: 12,
+              padding: spacing.sm,
             }}
           >
             {filtered.length === 0 ? (
-              <View style={styles.empty}>
-                <Ionicons name="people-outline" size={48} color="#3f3f46" />
-                <Text style={styles.emptyText}>No characters found</Text>
+              <View style={[styles.empty, { paddingTop: spacing.xxxl }]}>
+                <Ionicons name="people-outline" size={Math.round(fonts.xxxl * 1.5)} color="#3f3f46" />
+                <Text style={dynamicStyles.emptyText}>No characters found</Text>
               </View>
             ) : (
               <div
                 style={{
                   display: 'flex',
                   flexWrap: 'wrap',
-                  gap: 12,
+                  gap: spacing.sm,
                   justifyContent: 'flex-start',
                 }}
               >
@@ -301,11 +443,11 @@ export default function CharacterSelectionScreen({ onStartConversation, onCancel
             )}
           </div>
         ) : (
-          <ScrollView style={styles.listContainer} contentContainerStyle={styles.mosaicGrid}>
+          <ScrollView style={styles.listContainer} contentContainerStyle={[styles.mosaicGrid, { padding: spacing.sm, gap: spacing.sm }]}>
             {filtered.length === 0 ? (
-              <View style={styles.empty}>
-                <Ionicons name="people-outline" size={48} color="#3f3f46" />
-                <Text style={styles.emptyText}>No characters found</Text>
+              <View style={[styles.empty, { paddingTop: spacing.xxxl }]}>
+                <Ionicons name="people-outline" size={Math.round(fonts.xxxl * 1.5)} color="#3f3f46" />
+                <Text style={dynamicStyles.emptyText}>No characters found</Text>
               </View>
             ) : (
               filtered.map(char => renderCard(char))
@@ -317,6 +459,7 @@ export default function CharacterSelectionScreen({ onStartConversation, onCancel
   );
 }
 
+// Static styles (non-responsive) - dynamic styles are computed in component
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -338,107 +481,36 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: {
-    color: '#71717a',
-    marginTop: 12,
-    fontSize: 14,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#18181b',
-    borderBottomWidth: 1,
-    borderBottomColor: '#27272a',
-  },
   cancelBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  cancelText: {
-    color: '#a1a1aa',
-    fontSize: 14,
-  },
-  title: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  startBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#22c55e',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
   startBtnDisabled: {
     backgroundColor: '#3f3f46',
-  },
-  startText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
   },
   selectedBar: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    padding: 12,
     backgroundColor: '#18181b',
     borderBottomWidth: 1,
     borderBottomColor: '#27272a',
-  },
-  selectedChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#27272a',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
   },
-  selectedName: {
-    color: '#e4e4e7',
-    fontSize: 12,
-    fontWeight: '500',
-  },
   filterContainer: {
     backgroundColor: '#18181b',
     borderBottomWidth: 1,
     borderBottomColor: '#27272a',
-    paddingVertical: 8,
   },
   filterScroll: {
-    paddingHorizontal: 12,
-    gap: 8,
-  },
-  filterChip: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#27272a',
-    marginRight: 8,
   },
   filterChipActive: {
     backgroundColor: '#8b5cf6',
-  },
-  filterChipText: {
-    color: '#a1a1aa',
-    fontSize: 13,
-    fontWeight: '500',
   },
   filterChipTextActive: {
     color: '#fff',
@@ -447,18 +519,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    margin: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
     backgroundColor: '#18181b',
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#27272a',
-  },
-  searchInput: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 14,
   },
   listWrapper: {
     flex: 1,
@@ -470,62 +534,10 @@ const styles = StyleSheet.create({
   mosaicGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    padding: 12,
-    gap: 12,
   },
   empty: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 60,
-  },
-  emptyText: {
-    color: '#52525b',
-    marginTop: 12,
-    fontSize: 14,
-  },
-  // Mosaic card styles
-  mosaicCard: {
-    width: 140,
-    padding: 16,
-    backgroundColor: '#18181b',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#27272a',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  checkBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  mosaicAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  mosaicAvatarText: {
-    fontSize: 26,
-    fontWeight: '700',
-  },
-  mosaicName: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  mosaicRole: {
-    fontSize: 11,
-    color: '#8b5cf6',
-    textAlign: 'center',
   },
 });

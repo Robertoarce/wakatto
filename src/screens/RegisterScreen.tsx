@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
@@ -8,11 +8,52 @@ import { setSession } from '../store/actions/authActions';
 import { useCustomAlert } from '../components/CustomAlert';
 import { AnimatedBackground3D } from '../components/AnimatedBackground3D';
 import { Button, Input } from '../components/ui';
+import { useResponsive } from '../constants/Layout';
 
 export default function RegisterScreen() {
   const navigation = useNavigation();
   const dispatch = useDispatch();
   const { showAlert, AlertComponent } = useCustomAlert();
+  const { fonts, spacing, isMobile, isTablet } = useResponsive();
+
+  // Responsive styles
+  const dynamicStyles = useMemo(() => ({
+    card: {
+      width: '100%' as const,
+      maxWidth: isMobile ? 440 : isTablet ? 520 : 600,
+      backgroundColor: '#2a2a2a',
+      borderRadius: spacing.xl,
+      padding: isMobile ? spacing.xl : spacing.xxl,
+      borderWidth: 1,
+      borderColor: '#3a3a3a',
+    },
+    logoBackground: {
+      width: isMobile ? 70 : 90,
+      height: isMobile ? 70 : 90,
+      borderRadius: spacing.xl,
+      backgroundColor: '#5b7ef6',
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
+    },
+    title: {
+      fontSize: fonts.xxl,
+      fontWeight: '600' as const,
+      color: '#ffffff',
+      textAlign: 'center' as const,
+      marginBottom: spacing.sm,
+    },
+    subtitle: {
+      fontSize: fonts.md,
+      color: '#9ca3af',
+      textAlign: 'center' as const,
+      marginBottom: spacing.xl,
+    },
+    tabText: {
+      fontSize: fonts.md,
+      fontWeight: '500' as const,
+      color: '#9ca3af',
+    },
+  }), [fonts, spacing, isMobile, isTablet]);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -114,25 +155,25 @@ export default function RegisterScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.card}>
+        <View style={[styles.card, dynamicStyles.card]}>
           {/* Logo Icon */}
           <View style={styles.logoContainer}>
-            <View style={styles.logoBackground}>
-              <Ionicons name="chatbubbles" size={40} color="white" />
+            <View style={dynamicStyles.logoBackground}>
+              <Ionicons name="chatbubbles" size={isMobile ? 35 : 45} color="white" />
             </View>
           </View>
 
           {/* Welcome Text */}
-          <Text style={styles.title}>Welcome to Wakatto</Text>
-          <Text style={styles.subtitle}>Organize social events with friends effortlessly</Text>
+          <Text style={dynamicStyles.title}>Welcome to Wakatto</Text>
+          <Text style={dynamicStyles.subtitle}>Organize social events with friends effortlessly</Text>
 
           {/* Tabs */}
-          <View style={styles.tabContainer}>
+          <View style={[styles.tabContainer, { marginBottom: spacing.xl }]}>
             <TouchableOpacity
               style={[styles.tab, activeTab === 'signIn' && styles.activeTab]}
               onPress={() => handleTabSwitch('signIn')}
             >
-              <Text style={[styles.tabText, activeTab === 'signIn' && styles.activeTabText]}>
+              <Text style={[dynamicStyles.tabText, activeTab === 'signIn' && styles.activeTabText]}>
                 Sign In
               </Text>
             </TouchableOpacity>
@@ -140,7 +181,7 @@ export default function RegisterScreen() {
               style={[styles.tab, activeTab === 'signUp' && styles.activeTab]}
               onPress={() => handleTabSwitch('signUp')}
             >
-              <Text style={[styles.tabText, activeTab === 'signUp' && styles.activeTabText]}>
+              <Text style={[dynamicStyles.tabText, activeTab === 'signUp' && styles.activeTabText]}>
                 Sign Up
               </Text>
             </TouchableOpacity>

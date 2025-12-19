@@ -22,6 +22,19 @@ const SettingsScreen = (): JSX.Element => {
   const { user } = useSelector((state: RootState) => state.auth);
   const { fonts, spacing, layout, isMobile } = useResponsive();
 
+  // Dynamic styles for responsive typography
+  const dynamicStyles = {
+    section: { padding: spacing.lg },
+    sectionTitle: { fontSize: fonts.lg, fontWeight: 'bold' as const, color: 'white', marginBottom: spacing.sm },
+    label: { color: '#d4d4d8', fontSize: fonts.md, fontWeight: '600' as const, marginBottom: spacing.sm, marginTop: spacing.sm },
+    infoText: { color: '#a1a1aa', fontSize: fonts.lg },
+    aboutText: { color: '#a1a1aa', fontSize: fonts.md },
+    helperText: { fontSize: fonts.sm, color: '#71717a' },
+    providerButtonText: { color: '#a1a1aa', fontSize: fonts.md, fontWeight: '600' as const },
+    testResultLabel: { color: '#a1a1aa', fontSize: fonts.sm },
+    testResultValue: { color: '#22c55e', fontSize: fonts.sm, fontWeight: '600' as const },
+  };
+
   const [aiProvider, setAIProvider] = useState<AIProvider>('anthropic');
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('claude-3-haiku-20240307');
@@ -433,10 +446,10 @@ const SettingsScreen = (): JSX.Element => {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>About</Text>
+        <Text style={dynamicStyles.sectionTitle}>About</Text>
         <Card variant="elevated">
-          <Text style={styles.aboutText}>Psyche AI - Your Personal Journal Companion</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+          <Text style={dynamicStyles.aboutText}>Psyche AI - Your Personal Journal Companion</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm }}>
             <Badge label="Version 0.1.0" variant="info" />
             <Badge label="Beta" variant="warning" />
           </View>

@@ -99,32 +99,45 @@ export function calculateSpacing(width: number): ResponsiveSpacing {
 export interface ResponsiveLayout {
   // Touch targets (minimum 44px on mobile for accessibility)
   minTouchTarget: number;
-  
+
   // Card widths
   cardWidth: number | string;
   cardMaxWidth: number;
-  
+
+  // Character card sizing (for selection screens)
+  characterCardWidth: number;
+  characterCardMinWidth: number;
+  characterCardMaxWidth: number;
+
+  // Form container sizing
+  formContainerMaxWidth: number;
+
   // Modal sizing
   modalWidth: string;
   modalHeight: string;
   modalMaxWidth: number;
   modalBorderRadius: number;
-  
+
   // Input sizing
   inputMinHeight: number;
   inputPadding: number;
-  
+
   // Header sizing
   headerPadding: number;
   headerHeight: number;
-  
+
   // Sidebar
   sidebarWidth: number;
   sidebarCollapsedWidth: number;
-  
+
   // Grid columns
   gridColumns: number;
   gridGap: number;
+
+  // Border radius scale
+  borderRadiusSm: number;
+  borderRadiusMd: number;
+  borderRadiusLg: number;
 }
 
 export function calculateLayout(width: number): ResponsiveLayout {
@@ -132,7 +145,7 @@ export function calculateLayout(width: number): ResponsiveLayout {
   const isTablet = width >= BREAKPOINTS.mobile && width < BREAKPOINTS.tablet;
   const isDesktop = width >= BREAKPOINTS.tablet && width < BREAKPOINTS.large;
   const isUltrawide = width >= BREAKPOINTS.large;
-  
+
   return {
     // Touch targets - always at least 44px on touch devices
     minTouchTarget: isMobile ? 44 : 40,
@@ -140,6 +153,14 @@ export function calculateLayout(width: number): ResponsiveLayout {
     // Card widths - full width on mobile, fixed on larger screens
     cardWidth: isMobile ? '100%' : isTablet ? '48%' : isDesktop ? 200 : 280,
     cardMaxWidth: isMobile ? 9999 : isTablet ? 300 : isDesktop ? 220 : 350,
+
+    // Character card sizing - for selection grids (2/3/4 columns)
+    characterCardWidth: isMobile ? Math.floor((width - 48) / 2) : isTablet ? Math.floor((width - 64) / 3) : 180,
+    characterCardMinWidth: isMobile ? 130 : isTablet ? 140 : 160,
+    characterCardMaxWidth: isMobile ? 200 : isTablet ? 220 : 280,
+
+    // Form container sizing - login/register cards
+    formContainerMaxWidth: isMobile ? 9999 : isTablet ? 520 : isDesktop ? 600 : 720,
 
     // Modal sizing - full screen on mobile, larger max-width for ultrawide
     modalWidth: isMobile ? '100%' : isTablet ? '90%' : isDesktop ? '66.67%' : '50%',
@@ -162,6 +183,11 @@ export function calculateLayout(width: number): ResponsiveLayout {
     // Grid - more columns on ultrawide
     gridColumns: isMobile ? 1 : isTablet ? 2 : isDesktop ? 3 : 4,
     gridGap: isMobile ? 12 : isUltrawide ? 20 : 16,
+
+    // Border radius scale - smaller on mobile for tighter designs
+    borderRadiusSm: isMobile ? 6 : 8,
+    borderRadiusMd: isMobile ? 10 : 12,
+    borderRadiusLg: isMobile ? 14 : 16,
   };
 }
 

@@ -433,12 +433,9 @@ const styles = StyleSheet.create({
   characterCard: {
     backgroundColor: '#18181b',
     borderRadius: 12,
-    padding: 16,
     borderWidth: 1,
     borderColor: '#27272a',
-    width: '48%', // Two columns on most screens
-    minWidth: 160,
-    maxWidth: 200,
+    // width, minWidth, maxWidth, padding are set dynamically in component
   },
   characterName: {
     fontSize: 17,

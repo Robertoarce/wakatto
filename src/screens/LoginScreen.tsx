@@ -25,6 +25,7 @@ export default function LoginScreen() {
   const cardPadding = isSmallScreen ? spacing.md : isMobile ? spacing.lg : spacing.xl;
   const logoSize = isSmallScreen ? 60 : isMobile ? 70 : 80;
   const iconSize = isSmallScreen ? 30 : isMobile ? 35 : 40;
+  const cardMaxWidth = isMobile ? 440 : width < 1024 ? 520 : 600;
 
   async function signInWithEmail() {
     // Validation
@@ -114,7 +115,7 @@ export default function LoginScreen() {
         contentContainerStyle={[styles.scrollContent, { padding: spacing.md }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.card, { padding: cardPadding }]}>
+        <View style={[styles.card, { padding: cardPadding, maxWidth: cardMaxWidth }]}>
           {/* Logo Icon */}
           <View style={[styles.logoContainer, { marginBottom: spacing.lg }]}>
             <View style={[styles.logoBackground, { width: logoSize, height: logoSize, borderRadius: logoSize * 0.25 }]}>
