@@ -100,6 +100,33 @@ export async function warmupAuthCache(): Promise<void> {
 }
 
 /**
+ * Warm up the Edge Function to prevent cold start latency
+ * Fire-and-forget - doesn't wait for response
+ * Call on app startup and when returning from background
+ */
+export function warmupEdgeFunction(): void {
+  getCachedAuthSession().then(session => {
+    if (!session) {
+      console.log('[AI] Skipping edge function warmup - no session');
+      return;
+    }
+
+    console.log('[AI] Warming up edge function...');
+    fetch(`${supabaseUrl}/functions/v1/ai-chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ type: 'warmup' }),
+    })
+      .then(res => res.json())
+      .then(data => console.log('[AI] Edge function warmed up:', data.status))
+      .catch(() => {}); // Ignore errors - this is best-effort
+  });
+}
+
+/**
  * Load API key from environment or secure storage
  * Priority: Environment variable > Secure storage
  */
@@ -313,15 +340,28 @@ export async function generateAIResponseStreaming(
   const profiler = getProfiler();
   const startTime = getTimestamp();
   let accumulatedText = '';
+  let timeToFirstToken: number | null = null;
+  let edgeTimerStopped = false;
+
+  // Profile auth session fetch
+  const authTimer = profiler.start(PROFILE_OPS.AUTH_SESSION);
+
+  // Declare edgeTimer outside try so it can be stopped in catch
+  let edgeTimer: ReturnType<typeof profiler.start> | null = null;
 
   try {
     console.log('[AI-Stream] Starting streaming request');
 
     // Get cached auth session
     const session = await getCachedAuthSession();
+    authTimer.stop({ cached: cachedAuthSession !== null });
+
     if (!session) {
       throw new Error('User not authenticated');
     }
+
+    // Profile edge function call (time to establish connection + first token)
+    edgeTimer = profiler.start(PROFILE_OPS.EDGE_FUNCTION_CALL);
 
     // Make streaming request
     const response = await fetch(
@@ -378,13 +418,33 @@ export async function generateAIResponseStreaming(
               if (parsed.type === 'start') {
                 callbacks?.onStart?.(parsed.timestamp);
               } else if (parsed.type === 'delta') {
+                // Track time to first token
+                if (timeToFirstToken === null) {
+                  timeToFirstToken = getTimestamp() - startTime;
+                  console.log('[AI-Stream] Time to first token:', timeToFirstToken.toFixed(0), 'ms');
+                }
                 accumulatedText += parsed.text;
                 callbacks?.onDelta?.(parsed.text, accumulatedText);
               } else if (parsed.type === 'done') {
+                // Stop edge function timer when streaming completes
+                if (edgeTimer && !edgeTimerStopped) {
+                  edgeTimer.stop({
+                    streaming: true,
+                    timeToFirstToken: timeToFirstToken || 0,
+                    responseLength: accumulatedText.length,
+                    model: config.model,
+                    provider: config.provider,
+                  });
+                  edgeTimerStopped = true;
+                }
                 const durationMs = getTimestamp() - startTime;
                 callbacks?.onDone?.(accumulatedText, durationMs);
                 console.log('[AI-Stream] Complete in', durationMs.toFixed(0), 'ms');
               } else if (parsed.type === 'error') {
+                if (edgeTimer && !edgeTimerStopped) {
+                  edgeTimer.stop({ error: parsed.message, streaming: true });
+                  edgeTimerStopped = true;
+                }
                 throw new Error(parsed.message);
               }
             } catch (e) {
@@ -404,16 +464,35 @@ export async function generateAIResponseStreaming(
       console.log('[AI-Stream] Received non-streaming response, falling back to regular JSON');
       const json = await response.json();
       const content = json.content || '';
-      
+
+      // Stop edge timer for non-streaming fallback
+      if (edgeTimer && !edgeTimerStopped) {
+        edgeTimer.stop({
+          streaming: false,
+          fallback: true,
+          responseLength: content.length,
+          model: config.model,
+          provider: config.provider,
+        });
+        edgeTimerStopped = true;
+      }
+
       callbacks?.onStart?.(Date.now());
       callbacks?.onDelta?.(content, content);
       const durationMs = getTimestamp() - startTime;
       callbacks?.onDone?.(content, durationMs);
-      
+
       return content;
     }
 
   } catch (error: any) {
+    // Stop edge timer if it was started but not yet stopped
+    if (edgeTimer && !edgeTimerStopped) {
+      edgeTimer.stop({
+        error: error.message || String(error),
+        streaming: true
+      });
+    }
     console.error('[AI-Stream] Error:', error);
     callbacks?.onError?.(error);
     throw error;

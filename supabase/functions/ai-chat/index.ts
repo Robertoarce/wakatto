@@ -28,6 +28,22 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  // Handle warmup requests (no auth required) - prevents cold start latency
+  if (req.method === 'POST') {
+    try {
+      const body = await req.clone().json()
+      if (body.type === 'warmup') {
+        console.log('[AI-Chat] Warmup ping received')
+        return new Response(
+          JSON.stringify({ status: 'warm', timestamp: Date.now() }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    } catch {
+      // Not JSON or no type field, continue to normal flow
+    }
+  }
+
   try {
     // Get the API key from environment variables (stored in Supabase)
     const CLAUDE_API_KEY = Deno.env.get('CLAUDE_API_KEY')

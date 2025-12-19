@@ -539,7 +539,8 @@ ${config.includeInterruptions ? '- Characters can interrupt by setting "int": tr
 ${characterProfiles}
 ${characterChangeNote}
 
-Generate the animated scene now.`;
+CRITICAL: Your ENTIRE response must be ONLY valid JSON. No text before or after.
+Start with { and end with }. Example: {"s":{"ch":[...]}}`;
 }
 
 /**

@@ -34,7 +34,7 @@ import {
 } from '../services/singleCallOrchestration';
 import { OrchestrationScene, createFallbackScene, fillGapsForNonSpeakers } from '../services/animationOrchestration';
 import { ORCHESTRATION_CONFIG } from '../config/llmConfig';
-import { isStreamingSupported } from '../services/aiService';
+import { isStreamingSupported, warmupAuthCache, warmupEdgeFunction } from '../services/aiService';
 import { generateConversationTitle } from '../services/conversationTitleGenerator';
 import { getProfiler, PROFILE_OPS, ProfileSession } from '../services/profilingService';
 import { ProfilingDashboard, useProfilingDashboard } from '../components/ProfilingDashboard';
@@ -77,12 +77,16 @@ export default function MainTabs() {
     }
   }, [isMobileLandscape, showSidebar, dispatch]);
 
-  // Load conversations on mount
+  // Load conversations on mount and warm up services
   useEffect(() => {
     console.log('[MainTabs] Loading conversations on mount...');
     dispatch(loadConversations() as any).then(() => {
       setConversationsLoaded(true);
     });
+
+    // Warm up auth cache and edge function to reduce TTFT
+    warmupAuthCache();
+    warmupEdgeFunction();
   }, [dispatch]);
 
   // If no conversation is selected and we have conversations, select the first one
@@ -440,9 +444,12 @@ The text behaves as it should be.`;
                 nonSpeakers: Object.keys(scene.nonSpeakerBehavior).length
               });
 
+              // Profile animation setup for multi-character
+              const animSetupTimer = profiler.start(PROFILE_OPS.ANIMATION_SETUP);
               // Start animation playback IMMEDIATELY (display first, save in background)
               setAnimationScene(scene);
               setStreamingProgress(0); // Reset progress
+              animSetupTimer.stop({ characterCount: selectedCharacters.length, multiCharacter: true });
 
               console.log(`[Chat] Generated ${characterResponses.length} animated responses - saving in background`);
 
