@@ -142,7 +142,7 @@ const RESPONSE_STYLE_TO_TEMPERAMENT: Record<string, TemperamentId> = {
   'stoic': 'stoic',           // Epictetus
   'fierce': 'rebellious',     // Nietzsche
   'engaging': 'enthusiastic', // Csikszentmihalyi's engaging style
-  'peaceful': 'zen',          // Thich Nhat Hanh
+  'peaceful': 'zen',          // Peaceful/mindful style
 };
 
 /**

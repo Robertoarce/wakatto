@@ -40,7 +40,6 @@ import {
 import {
   MemoizedCharacterSpeechBubble as ExtractedSpeechBubble,
   FloatingCharacterWrapper as ExtractedFloatingWrapper,
-  CharacterNameLabel as ExtractedCharacterNameLabel,
   FadingLine as ExtractedFadingLine,
 } from './ChatInterface/components';
 // Import extracted hooks
@@ -112,9 +111,6 @@ export function stopAnimationPlayback(): void {
 type IdleAnimationState = ExtractedIdleAnimationState;
 const getRandomIdleAnimation = getRandomIdleAnimationUtil;
 const getRandomIdleInterval = getRandomIdleIntervalUtil;
-
-// Use extracted CharacterNameLabel component
-const CharacterNameLabel = ExtractedCharacterNameLabel;
 
 // Use extracted FadingLine component
 const FadingLine = ExtractedFadingLine;
@@ -1390,13 +1386,6 @@ Each silence, a cathedral where you still reside.`;
                       />
                     );
                   })()}
-                  {/* Character Name Label - Shows on hover */}
-                  <CharacterNameLabel
-                    key={`name-${nameKey}`}
-                    name={character.name}
-                    color={character.color}
-                    visible={hoveredCharacterId === characterId}
-                  />
                   {/* Speech Bubble - Comic book style, to the side of character (or above if single/center) */}
                   {/* On mobile portrait with multiple characters, use the stacked bubbles above instead */}
                   {/* In mobile landscape, always show bubbles beside characters */}

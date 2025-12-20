@@ -35,7 +35,8 @@ interface CharacterSeed {
     skinTone: 'light' | 'medium' | 'tan' | 'dark';
     clothing: 'suit' | 'tshirt' | 'dress' | 'casual';
     hair: 'short' | 'long' | 'none' | 'medium';
-    accessory: 'glasses' | 'none' | 'hat' | 'tie';
+    accessory?: 'glasses' | 'none' | 'hat' | 'tie';  // Legacy single accessory (optional)
+    accessories?: string[];  // New array format for multiple accessories
     bodyColor: string;
     accessoryColor: string;
     hairColor: string;
@@ -457,7 +458,7 @@ const leaders: CharacterSeed[] = [
     prompt_style: 'socratic',
     response_style: 'strategic',
     traits: { empathy: 6, directness: 9, formality: 8, humor: 7, creativity: 8, patience: 7, wisdom: 9, energy: 9 },
-    customization: { gender: 'female', skinTone: 'tan', clothing: 'dress', hair: 'long', accessory: 'none', bodyColor: '#a855f7', accessoryColor: '#7c3aed', hairColor: '#1f2937' },
+    customization: { gender: 'female', skinTone: 'tan', clothing: 'dress', hair: 'long', accessories: ['crown', 'necklace', 'lion'], bodyColor: '#a855f7', accessoryColor: '#7c3aed', hairColor: '#1f2937' },
     model3d: { bodyColor: '#a855f7', accessoryColor: '#7c3aed', position: [0, 0, 0] },
     is_public: true,
   },

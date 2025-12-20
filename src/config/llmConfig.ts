@@ -14,6 +14,45 @@ export interface ModelParameters {
   presencePenalty?: number;  // Encourages new topics (OpenAI)
 }
 
+/**
+ * GLOBAL TEMPERATURE SETTING
+ *
+ * This single value controls the creativity/randomness of ALL character responses.
+ * - 0.0-0.2: Very deterministic, focused, predictable (recommended for consistency)
+ * - 0.3-0.5: Low creativity, mostly focused
+ * - 0.6-0.8: Balanced creativity and consistency
+ * - 0.9-1.2: High creativity, more varied responses
+ * - 1.3-2.0: Very creative, potentially chaotic
+ *
+ * Default: 0.1 (extremely low for maximum consistency)
+ */
+export const DEFAULT_GLOBAL_TEMPERATURE = 0.1;
+
+// Runtime temperature (can be changed via settings)
+let globalTemperature = DEFAULT_GLOBAL_TEMPERATURE;
+
+/**
+ * Get the current global temperature
+ */
+export function getGlobalTemperature(): number {
+  return globalTemperature;
+}
+
+/**
+ * Set the global temperature (called from SettingsScreen)
+ */
+export function setGlobalTemperature(temperature: number): void {
+  globalTemperature = Math.max(0, Math.min(2, temperature)); // Clamp between 0-2
+  console.log(`[LLM Config] Global temperature set to: ${globalTemperature}`);
+}
+
+/**
+ * Reset temperature to default
+ */
+export function resetGlobalTemperature(): void {
+  globalTemperature = DEFAULT_GLOBAL_TEMPERATURE;
+}
+
 export interface ProviderConfig {
   defaultModel: string;
   parameters: ModelParameters;
@@ -178,35 +217,28 @@ export function getModelParameters(
 /**
  * Character-specific parameter overrides
  *
- * You can customize LLM behavior per character here.
- * For example, make some characters more creative, others more analytical.
+ * NOTE: Temperature is now controlled globally via getGlobalTemperature().
+ * Only maxTokens can be customized per character.
  */
 export const CHARACTER_PARAMETER_OVERRIDES: Record<string, Partial<ModelParameters>> = {
   freud: {
-    temperature: 0.85,  // Slightly more analytical
     maxTokens: 1800,
   },
   jung: {
-    temperature: 0.95,  // More creative, symbolic
     maxTokens: 2000,
   },
   adler: {
-    temperature: 0.75,  // More practical, direct
     maxTokens: 1500,
   },
   nietzsche: {
-    temperature: 1.0,   // Very creative, bold
     maxTokens: 1800,
-  },
-  nhathanh: {
-    temperature: 0.7,   // Calm, measured
-    maxTokens: 1200,
   },
   // Add more character overrides as needed
 };
 
 /**
  * Get parameters for a specific character
+ * NOTE: Temperature is now set globally for ALL characters
  */
 export function getCharacterParameters(
   characterId: string,
@@ -214,5 +246,11 @@ export function getCharacterParameters(
 ): ModelParameters {
   const baseParams = getModelParameters(provider);
   const overrides = CHARACTER_PARAMETER_OVERRIDES[characterId] || {};
-  return { ...baseParams, ...overrides };
+
+  // Apply global temperature override (same for all characters)
+  return {
+    ...baseParams,
+    ...overrides,
+    temperature: getGlobalTemperature(), // Always use global temperature
+  };
 }

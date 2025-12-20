@@ -12,6 +12,12 @@ import { Button, Input, Card, Badge } from '../components/ui';
 import { useResponsive } from '../constants/Layout';
 import { runQuickBenchmark, runAnimationBenchmark, BenchmarkReport } from '../services/benchmarkService';
 import { getProfiler } from '../services/profilingService';
+import Slider from '@react-native-community/slider';
+import {
+  getGlobalTemperature,
+  setGlobalTemperature,
+  DEFAULT_GLOBAL_TEMPERATURE,
+} from '../config/llmConfig';
 
 type AIProvider = 'mock' | 'openai' | 'anthropic' | 'gemini';
 
@@ -46,6 +52,9 @@ const SettingsScreen = (): JSX.Element => {
   const [benchmarking, setBenchmarking] = useState(false);
   const [benchmarkReport, setBenchmarkReport] = useState<BenchmarkReport | null>(null);
   const [profilingEnabled, setProfilingEnabled] = useState(true);
+
+  // Global temperature state
+  const [temperature, setTemperature] = useState(getGlobalTemperature());
 
   useEffect(() => {
     // Load current AI configuration
@@ -273,6 +282,52 @@ const SettingsScreen = (): JSX.Element => {
                 icon="cube-outline"
                 helperText="Leave empty to use default model"
               />
+
+              {/* Global Temperature Control */}
+              <View style={{ marginTop: spacing.md }}>
+                <Text style={[styles.label, { fontSize: fonts.sm, marginBottom: spacing.xs }]}>
+                  Response Creativity (Temperature): {temperature.toFixed(2)}
+                </Text>
+                <View style={styles.temperatureContainer}>
+                  <Text style={styles.temperatureLabel}>Focused</Text>
+                  <Slider
+                    style={{ flex: 1, height: 40 }}
+                    minimumValue={0}
+                    maximumValue={2}
+                    step={0.05}
+                    value={temperature}
+                    onValueChange={(value) => setTemperature(value)}
+                    onSlidingComplete={(value) => {
+                      setGlobalTemperature(value);
+                      showAlert('Temperature Updated', `Set to ${value.toFixed(2)} - ${
+                        value <= 0.2 ? 'Very deterministic' :
+                        value <= 0.5 ? 'Low creativity' :
+                        value <= 0.8 ? 'Balanced' :
+                        value <= 1.2 ? 'High creativity' :
+                        'Very creative'
+                      }`);
+                    }}
+                    minimumTrackTintColor="#8b5cf6"
+                    maximumTrackTintColor="#3f3f46"
+                    thumbTintColor="#8b5cf6"
+                  />
+                  <Text style={styles.temperatureLabel}>Creative</Text>
+                </View>
+                <Text style={[styles.helperText, { marginTop: spacing.xs }]}>
+                  Default: {DEFAULT_GLOBAL_TEMPERATURE} (extremely low). Same for all characters.
+                </Text>
+                <TouchableOpacity
+                  style={styles.resetTempButton}
+                  onPress={() => {
+                    setTemperature(DEFAULT_GLOBAL_TEMPERATURE);
+                    setGlobalTemperature(DEFAULT_GLOBAL_TEMPERATURE);
+                    showAlert('Reset', `Temperature reset to ${DEFAULT_GLOBAL_TEMPERATURE}`);
+                  }}
+                >
+                  <Ionicons name="refresh-outline" size={14} color="#8b5cf6" />
+                  <Text style={styles.resetTempText}>Reset to default</Text>
+                </TouchableOpacity>
+              </View>
 
               <View style={styles.infoBox}>
                 <Ionicons name="information-circle-outline" size={20} color="#c4b5fd" />
@@ -686,6 +741,28 @@ const styles = StyleSheet.create({
   helperText: {
     color: '#71717a',
     fontSize: 11,
+  },
+  temperatureContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  temperatureLabel: {
+    color: '#71717a',
+    fontSize: 11,
+    width: 50,
+    textAlign: 'center',
+  },
+  resetTempButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  resetTempText: {
+    color: '#8b5cf6',
+    fontSize: 12,
   },
 });
 

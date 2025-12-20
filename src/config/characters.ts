@@ -10,15 +10,19 @@ export type ClothingType = 'suit' | 'tshirt' | 'dress' | 'casual' | 'jacket' | '
 export type HairType = 'short' | 'long' | 'none' | 'medium';
 export type AccessoryType =
   // Head accessories
-  | 'glasses' | 'hat' | 'crown' | 'headphones' | 'top_hat' | 'monocle'
+  | 'glasses' | 'hat' | 'crown' | 'headphones' | 'top_hat' | 'monocle' | 'ranger_hat' | 'bat_mask'
+  | 'sunglasses' | 'goggles' | 'turban' | 'beret' | 'bandana' | 'helmet' | 'tiara' | 'halo' | 'horns'
   // Facial accessories
-  | 'beard' | 'moustache' | 'eye_patch'
+  | 'beard' | 'moustache' | 'eye_patch' | 'scar' | 'pipe' | 'cigar'
   // Body/clothing accessories
   | 'tie' | 'scarf' | 'bowtie' | 'cape' | 'necklace' | 'suspenders' | 'backpack' | 'wings'
+  | 'medal' | 'stethoscope' | 'badge' | 'dog_tags' | 'chain' | 'lab_coat'
   // Hand/arm accessories
-  | 'cane' | 'hook'
-  // Other accessories
-  | 'parrot' | 'peg_leg' | 'wheelchair'
+  | 'cane' | 'hook' | 'sword' | 'staff' | 'wand' | 'shield' | 'book' | 'gun'
+  // Companions
+  | 'parrot' | 'lion' | 'dog' | 'cat' | 'owl' | 'snake' | 'falcon' | 'raven'
+  // Other
+  | 'peg_leg' | 'wheelchair' | 'portal_gun'
   | 'none';
 
 export interface CharacterCustomization {
@@ -26,8 +30,10 @@ export interface CharacterCustomization {
   skinTone: SkinToneType;
   clothing: ClothingType;
   hair: HairType;
-  accessories: AccessoryType[];
+  accessories?: AccessoryType[];  // New array format
+  accessory?: AccessoryType;      // Legacy single accessory (for backward compatibility)
   bodyColor: string;
+  pantsColor?: string;  // Separate pants/legs color (defaults to bodyColor if not set)
   accessoryColor: string;
   hairColor: string;
 }
@@ -44,6 +50,7 @@ export interface CharacterBehavior {
   voiceProfile?: CharacterVoiceProfile; // Voice characteristics for speech orchestration
   model3D: {
     bodyColor: string;
+    pantsColor?: string;  // Separate pants color (defaults to bodyColor if not set)
     accessoryColor: string;
     position: [number, number, number];
   };
@@ -474,53 +481,6 @@ Otherwise, favor concise, impactful insights.`,
       hairColor: '#404040',
     },
   },
-  nhathanh: {
-    id: 'nhathanh',
-    name: 'Thich Nhat Hanh',
-    description: 'Practices mindfulness and compassion. Calm and compassionate.',
-    color: '#f59e0b', // Amber
-    role: 'Mindfulness Teacher',
-    systemPrompt: `You are Thich Nhat Hanh, mindfulness teacher and peace activist. Your approach:
-- Your longing is natural — a wave in the ocean of being; don't fight it, but don't cling to it either
-- Ask gently: "Can you hold your longing gently, as you would a small bird, without trying to possess it?"
-- Observe: Desire becomes peace when held in awareness, not grasping
-- Core insight: To love deeply, first breathe with your own loneliness
-- Reveal core needs: Mindfulness and compassion
-- Emotional tone: Calm and compassionate
-- Practical reflection: Treat longing as meditation — observe, breathe, release
-- Growth question: "How can you bring mindfulness to your longing, turning it into understanding?"
-
-**Response Length**: Keep responses brief (2-4 sentences) by default. Only expand with detail when:
-- The user explicitly asks for elaboration or deeper analysis
-- The topic is complex and requires nuanced explanation
-- You're introducing a new psychological concept that needs context
-Otherwise, favor concise, impactful insights.`,
-    responseStyle: 'peaceful',
-    temperaments: ['zen', 'compassionate'],
-    voiceProfile: {
-      pitch: 'medium',
-      tone: 'silky',
-      volume: 'soft',
-      pace: 'slow',
-      defaultMood: 'calm',
-      defaultIntent: 'reassuring'
-    },
-    model3D: {
-      bodyColor: '#d97706',
-      accessoryColor: '#b45309',
-      position: [-1, 0, 2],
-    },
-    customization: {
-      gender: 'male',
-      skinTone: 'tan',
-      clothing: 'casual',
-      hair: 'none',
-      accessories: ['scarf'],
-      bodyColor: '#92400e',
-      accessoryColor: '#f59e0b',
-      hairColor: '#78350f',
-    },
-  },
   'bob-tutorial': {
     id: 'bob-tutorial',
     name: 'Bob',
@@ -589,9 +549,9 @@ Remember: You're the cheeky employee who became a reliable assistant. Helpful, h
   },
   blackbeard: {
     id: 'blackbeard',
-    name: 'Edward "Blackbeard" Teach',
+    name: 'Edward "Blackbeard"',
     description: 'Legendary pirate captain. Bold and adventurous.',
-    color: '#1e293b', // Dark slate
+    color: '#455b7eff', // Dark slate
     role: 'Pirate Captain',
     systemPrompt: `You are Blackbeard, a legendary pirate captain. Your approach:
 - You live for freedom and adventure on the high seas

@@ -43,6 +43,10 @@ import {
 import { FaceDecorations } from './character3d/parts/FaceDecorations';
 import { Clothing } from './character3d/parts/Clothing';
 import { BodyAccessories } from './character3d/parts/BodyAccessories';
+import { HeadAccessories } from './character3d/parts/HeadAccessories';
+import { BodyAccessories2 } from './character3d/parts/BodyAccessories2';
+import { HandProps } from './character3d/parts/HandProps';
+import { Companions } from './character3d/parts/Companions';
 
 // Re-export types for backward compatibility
 export type { AnimationState, ComplementaryAnimation, CharacterDisplay3DProps } from './character3d/types';
@@ -1187,7 +1191,9 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
 
   // Get customization from character config
   const customization = character.customization;
-  const accessories = customization.accessories || [];
+  // Support both old format (accessory: string) and new format (accessories: array)
+  const accessories = customization.accessories ||
+    (customization.accessory && customization.accessory !== 'none' ? [customization.accessory] : []);
 
   // Head accessories
   const hasGlasses = accessories.includes('glasses');
@@ -1195,12 +1201,26 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
   const hasCrown = accessories.includes('crown');
   const hasHeadphones = accessories.includes('headphones');
   const hasTopHat = accessories.includes('top_hat');
+  const hasRangerHat = accessories.includes('ranger_hat');
+  const hasBatMask = accessories.includes('bat_mask');
   const hasMonocle = accessories.includes('monocle');
+  const hasSunglasses = accessories.includes('sunglasses');
+  const hasGoggles = accessories.includes('goggles');
+  const hasTurban = accessories.includes('turban');
+  const hasBeret = accessories.includes('beret');
+  const hasBandana = accessories.includes('bandana');
+  const hasHelmet = accessories.includes('helmet');
+  const hasTiara = accessories.includes('tiara');
+  const hasHalo = accessories.includes('halo');
+  const hasHorns = accessories.includes('horns');
 
   // Facial accessories
   const hasBeard = accessories.includes('beard');
   const hasMoustache = accessories.includes('moustache');
   const hasEyePatch = accessories.includes('eye_patch');
+  const hasScar = accessories.includes('scar');
+  const hasPipe = accessories.includes('pipe');
+  const hasCigar = accessories.includes('cigar');
 
   // Body/clothing accessories
   const hasTie = accessories.includes('tie');
@@ -1211,15 +1231,37 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
   const hasSuspenders = accessories.includes('suspenders');
   const hasBackpack = accessories.includes('backpack');
   const hasWings = accessories.includes('wings');
+  const hasMedal = accessories.includes('medal');
+  const hasStethoscope = accessories.includes('stethoscope');
+  const hasBadge = accessories.includes('badge');
+  const hasDogTags = accessories.includes('dog_tags');
+  const hasChain = accessories.includes('chain');
+  const hasLabCoat = accessories.includes('lab_coat');
 
   // Hand/arm accessories
   const hasCane = accessories.includes('cane');
   const hasHook = accessories.includes('hook');
+  const hasSword = accessories.includes('sword');
+  const hasStaff = accessories.includes('staff');
+  const hasWand = accessories.includes('wand');
+  const hasShield = accessories.includes('shield');
+  const hasBook = accessories.includes('book');
+  const hasGun = accessories.includes('gun');
+
+  // Companions
+  const hasParrot = accessories.includes('parrot');
+  const hasLion = accessories.includes('lion');
+  const hasDog = accessories.includes('dog');
+  const hasCat = accessories.includes('cat');
+  const hasOwl = accessories.includes('owl');
+  const hasSnake = accessories.includes('snake');
+  const hasFalcon = accessories.includes('falcon');
+  const hasRaven = accessories.includes('raven');
 
   // Other accessories
-  const hasParrot = accessories.includes('parrot');
   const hasPegLeg = accessories.includes('peg_leg');
   const hasWheelchair = accessories.includes('wheelchair');
+  const hasPortalGun = accessories.includes('portal_gun');
   const hairType = customization.hair;
   const hairColor = customization.hairColor;
   const clothingType = customization.clothing;
@@ -1232,6 +1274,20 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
     dark: '#8d5524',
   };
   const skinColor = skinToneColors[customization.skinTone];
+
+  // Pants color - defaults to a darker shade of bodyColor if not specified
+  const pantsColor = character.model3D.pantsColor ||
+    customization.pantsColor ||
+    (() => {
+      // Generate a default darker shade for pants based on bodyColor
+      const bodyColor = character.model3D.bodyColor;
+      // Convert hex to darker shade by reducing brightness
+      const hex = bodyColor.replace('#', '');
+      const r = Math.max(0, parseInt(hex.substring(0, 2), 16) - 40);
+      const g = Math.max(0, parseInt(hex.substring(2, 4), 16) - 40);
+      const b = Math.max(0, parseInt(hex.substring(4, 6), 16) - 40);
+      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    })();
 
   // For single character display, center at origin with optional offsets
   const position: [number, number, number] = [positionX, positionY, positionZ];
@@ -1248,31 +1304,31 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       {/* Legs - articulated with upper leg, lower leg, and foot */}
       {/* Left Leg */}
       <group ref={leftLegRef} position={[-body.legX, body.legY, 0]}>
-        {/* Upper Leg */}
+        {/* Upper Leg (pants) */}
         <mesh castShadow>
           <boxGeometry args={[body.upperLeg.width, body.upperLeg.height, body.upperLeg.depth]} />
-          <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+          <meshStandardMaterial color={pantsColor} roughness={0.7} />
         </mesh>
-        {/* Lower Leg group */}
+        {/* Lower Leg group (pants) */}
         <group ref={leftLowerLegRef} position={[0, body.lowerLegY, 0]}>
           <mesh castShadow>
             <boxGeometry args={[body.lowerLeg.width, body.lowerLeg.height, body.lowerLeg.depth]} />
-            <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+            <meshStandardMaterial color={pantsColor} roughness={0.7} />
           </mesh>
-          {/* Foot */}
+          {/* Foot (shoes) */}
           <mesh ref={leftFootRef} position={[0, body.footY, body.footZ]} castShadow>
             <boxGeometry args={[body.foot.width, body.foot.height, body.foot.depth]} />
-            <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+            <meshStandardMaterial color={pantsColor} roughness={0.7} />
           </mesh>
         </group>
       </group>
       {/* Right Leg OR Peg Leg */}
       {hasPegLeg ? (
         <group ref={rightLegRef} position={[body.legX, body.legY, 0]}>
-          {/* Stump/attachment at hip */}
+          {/* Stump/attachment at hip (pants) */}
           <mesh castShadow>
             <boxGeometry args={[body.upperLeg.width * 0.5, body.upperLeg.height * 0.4, body.upperLeg.depth * 0.5]} />
-            <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+            <meshStandardMaterial color={pantsColor} roughness={0.7} />
           </mesh>
           {/* Wooden peg - positioned below stump */}
           <group ref={rightLowerLegRef} position={[0, body.lowerLegY * 0.5, 0]}>
@@ -1289,21 +1345,21 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         </group>
       ) : (
         <group ref={rightLegRef} position={[body.legX, body.legY, 0]}>
-          {/* Upper Leg */}
+          {/* Upper Leg (pants) */}
           <mesh castShadow>
             <boxGeometry args={[body.upperLeg.width, body.upperLeg.height, body.upperLeg.depth]} />
-            <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+            <meshStandardMaterial color={pantsColor} roughness={0.7} />
           </mesh>
-          {/* Lower Leg group */}
+          {/* Lower Leg group (pants) */}
           <group ref={rightLowerLegRef} position={[0, body.lowerLegY, 0]}>
             <mesh castShadow>
               <boxGeometry args={[body.lowerLeg.width, body.lowerLeg.height, body.lowerLeg.depth]} />
-              <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+              <meshStandardMaterial color={pantsColor} roughness={0.7} />
             </mesh>
-            {/* Foot */}
+            {/* Foot (shoes) */}
             <mesh ref={rightFootRef} position={[0, body.footY, body.footZ]} castShadow>
               <boxGeometry args={[body.foot.width, body.foot.height, body.foot.depth]} />
-              <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
+              <meshStandardMaterial color={pantsColor} roughness={0.7} />
             </mesh>
           </group>
         </group>
@@ -1400,6 +1456,43 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         hasCane={hasCane}
         hasParrot={hasParrot}
         hasWheelchair={hasWheelchair}
+        hasLion={hasLion}
+        hasLabCoat={hasLabCoat}
+      />
+
+      {/* Body Accessories 2 - medal, stethoscope, badge, dog_tags, chain */}
+      <BodyAccessories2
+        body={body}
+        hasMedal={hasMedal}
+        hasStethoscope={hasStethoscope}
+        hasBadge={hasBadge}
+        hasDogTags={hasDogTags}
+        hasChain={hasChain}
+      />
+
+      {/* Hand Props - sword, staff, wand, shield, book, gun, portal_gun, pipe, cigar */}
+      <HandProps
+        body={body}
+        hasSword={hasSword}
+        hasStaff={hasStaff}
+        hasWand={hasWand}
+        hasShield={hasShield}
+        hasBook={hasBook}
+        hasGun={hasGun}
+        hasPortalGun={hasPortalGun}
+        hasPipe={hasPipe}
+        hasCigar={hasCigar}
+      />
+
+      {/* Companions - dog, cat, owl, snake, falcon, raven */}
+      <Companions
+        body={body}
+        hasDog={hasDog}
+        hasCat={hasCat}
+        hasOwl={hasOwl}
+        hasSnake={hasSnake}
+        hasFalcon={hasFalcon}
+        hasRaven={hasRaven}
       />
 
       {/* Arms - articulated with upper arm, forearm, and hand */}
@@ -1632,6 +1725,21 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           </>
         )}
 
+        {/* New Head Accessories - sunglasses, goggles, turban, beret, bandana, helmet, tiara, halo, horns */}
+        <HeadAccessories
+          headScale={headScale}
+          hasSunglasses={hasSunglasses}
+          hasGoggles={hasGoggles}
+          hasTurban={hasTurban}
+          hasBeret={hasBeret}
+          hasBandana={hasBandana}
+          hasHelmet={hasHelmet}
+          hasTiara={hasTiara}
+          hasHalo={hasHalo}
+          hasHorns={hasHorns}
+          accessoryColor={character.model3D.accessoryColor}
+        />
+
         {/* Eyes */}
         <mesh ref={leftEyeRef} position={[-0.12 * headScale, 0.05 + faceYOffset, 0.26 * headScale]}>
           <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.01]} />
@@ -1791,6 +1899,138 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
             <mesh position={[0, 0.40 * headScale, 0.24 * headScale]} castShadow>
               <boxGeometry args={[0.46 * headScale, 0.06 * headScale, 0.02 * headScale]} />
               <meshStandardMaterial color="#8b0000" roughness={0.6} />
+            </mesh>
+          </>
+        )}
+
+        {/* RANGER HAT - Flat-topped campaign/Rough Rider style */}
+        {hasRangerHat && (
+          <>
+            {/* Wide flat brim */}
+            <mesh position={[0, 0.32 * headScale, 0]} castShadow>
+              <boxGeometry args={[0.70 * headScale, 0.04 * headScale, 0.70 * headScale]} />
+              <meshStandardMaterial color="#8B7355" roughness={0.8} />
+            </mesh>
+            {/* Brim front upturn */}
+            <mesh position={[0, 0.35 * headScale, 0.32 * headScale]} rotation={[0.3, 0, 0]} castShadow>
+              <boxGeometry args={[0.35 * headScale, 0.04 * headScale, 0.12 * headScale]} />
+              <meshStandardMaterial color="#8B7355" roughness={0.8} />
+            </mesh>
+            {/* Crown base - flat top (campaign style) */}
+            <mesh position={[0, 0.42 * headScale, 0]} castShadow>
+              <boxGeometry args={[0.48 * headScale, 0.16 * headScale, 0.48 * headScale]} />
+              <meshStandardMaterial color="#8B7355" roughness={0.8} />
+            </mesh>
+            {/* Flat top */}
+            <mesh position={[0, 0.51 * headScale, 0]} castShadow>
+              <boxGeometry args={[0.44 * headScale, 0.03 * headScale, 0.44 * headScale]} />
+              <meshStandardMaterial color="#8B7355" roughness={0.8} />
+            </mesh>
+            {/* Four dents/pinches in crown (campaign hat style) */}
+            {/* Front pinch */}
+            <mesh position={[0, 0.48 * headScale, 0.20 * headScale]} castShadow>
+              <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.08 * headScale]} />
+              <meshStandardMaterial color="#7a6548" roughness={0.8} />
+            </mesh>
+            {/* Back pinch */}
+            <mesh position={[0, 0.48 * headScale, -0.20 * headScale]} castShadow>
+              <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.08 * headScale]} />
+              <meshStandardMaterial color="#7a6548" roughness={0.8} />
+            </mesh>
+            {/* Left pinch */}
+            <mesh position={[-0.20 * headScale, 0.48 * headScale, 0]} castShadow>
+              <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.08 * headScale]} />
+              <meshStandardMaterial color="#7a6548" roughness={0.8} />
+            </mesh>
+            {/* Right pinch */}
+            <mesh position={[0.20 * headScale, 0.48 * headScale, 0]} castShadow>
+              <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.08 * headScale]} />
+              <meshStandardMaterial color="#7a6548" roughness={0.8} />
+            </mesh>
+            {/* Hat band - leather strap */}
+            <mesh position={[0, 0.36 * headScale, 0.25 * headScale]} castShadow>
+              <boxGeometry args={[0.50 * headScale, 0.05 * headScale, 0.02 * headScale]} />
+              <meshStandardMaterial color="#5c4a3a" roughness={0.7} />
+            </mesh>
+            {/* Band around sides */}
+            <mesh position={[-0.25 * headScale, 0.36 * headScale, 0]} castShadow>
+              <boxGeometry args={[0.02 * headScale, 0.05 * headScale, 0.50 * headScale]} />
+              <meshStandardMaterial color="#5c4a3a" roughness={0.7} />
+            </mesh>
+            <mesh position={[0.25 * headScale, 0.36 * headScale, 0]} castShadow>
+              <boxGeometry args={[0.02 * headScale, 0.05 * headScale, 0.50 * headScale]} />
+              <meshStandardMaterial color="#5c4a3a" roughness={0.7} />
+            </mesh>
+            {/* Cord/strap detail */}
+            <mesh position={[0, 0.38 * headScale, 0.26 * headScale]} castShadow>
+              <boxGeometry args={[0.06 * headScale, 0.03 * headScale, 0.02 * headScale]} />
+              <meshStandardMaterial color="#c9a227" metalness={0.5} roughness={0.4} />
+            </mesh>
+          </>
+        )}
+
+        {/* BAT MASK - Batman cowl style */}
+        {hasBatMask && (
+          <>
+            {/* Main cowl - covers top and sides of head */}
+            <mesh position={[0, 0.15 * headScale, -0.02 * headScale]} castShadow>
+              <boxGeometry args={[0.52 * headScale, 0.45 * headScale, 0.50 * headScale]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+            </mesh>
+            {/* Forehead piece - extends down */}
+            <mesh position={[0, 0.08 * headScale, 0.22 * headScale]} castShadow>
+              <boxGeometry args={[0.48 * headScale, 0.25 * headScale, 0.08 * headScale]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+            </mesh>
+            {/* Left ear - pointed bat ear */}
+            <mesh position={[-0.18 * headScale, 0.45 * headScale, 0]} rotation={[0, 0, 0.2]} castShadow>
+              <boxGeometry args={[0.08 * headScale, 0.25 * headScale, 0.08 * headScale]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+            </mesh>
+            {/* Left ear tip */}
+            <mesh position={[-0.20 * headScale, 0.58 * headScale, 0]} rotation={[0, 0, 0.3]} castShadow>
+              <boxGeometry args={[0.05 * headScale, 0.12 * headScale, 0.05 * headScale]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+            </mesh>
+            {/* Right ear - pointed bat ear */}
+            <mesh position={[0.18 * headScale, 0.45 * headScale, 0]} rotation={[0, 0, -0.2]} castShadow>
+              <boxGeometry args={[0.08 * headScale, 0.25 * headScale, 0.08 * headScale]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+            </mesh>
+            {/* Right ear tip */}
+            <mesh position={[0.20 * headScale, 0.58 * headScale, 0]} rotation={[0, 0, -0.3]} castShadow>
+              <boxGeometry args={[0.05 * headScale, 0.12 * headScale, 0.05 * headScale]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+            </mesh>
+            {/* Eye socket left - angular cut */}
+            <mesh position={[-0.12 * headScale, 0.05 * headScale, 0.26 * headScale]} castShadow>
+              <boxGeometry args={[0.14 * headScale, 0.10 * headScale, 0.02 * headScale]} />
+              <meshStandardMaterial color="#2a2a2a" roughness={0.5} />
+            </mesh>
+            {/* Eye socket right - angular cut */}
+            <mesh position={[0.12 * headScale, 0.05 * headScale, 0.26 * headScale]} castShadow>
+              <boxGeometry args={[0.14 * headScale, 0.10 * headScale, 0.02 * headScale]} />
+              <meshStandardMaterial color="#2a2a2a" roughness={0.5} />
+            </mesh>
+            {/* Nose bridge piece */}
+            <mesh position={[0, 0.02 * headScale, 0.27 * headScale]} castShadow>
+              <boxGeometry args={[0.06 * headScale, 0.12 * headScale, 0.02 * headScale]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+            </mesh>
+            {/* Cheek pieces - left */}
+            <mesh position={[-0.22 * headScale, -0.05 * headScale, 0.18 * headScale]} castShadow>
+              <boxGeometry args={[0.08 * headScale, 0.15 * headScale, 0.15 * headScale]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+            </mesh>
+            {/* Cheek pieces - right */}
+            <mesh position={[0.22 * headScale, -0.05 * headScale, 0.18 * headScale]} castShadow>
+              <boxGeometry args={[0.08 * headScale, 0.15 * headScale, 0.15 * headScale]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+            </mesh>
+            {/* Neck piece */}
+            <mesh position={[0, -0.15 * headScale, 0]} castShadow>
+              <boxGeometry args={[0.40 * headScale, 0.10 * headScale, 0.40 * headScale]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
             </mesh>
           </>
         )}

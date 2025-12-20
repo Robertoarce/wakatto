@@ -375,7 +375,7 @@ class BenchmarkRunner {
    * Get test character IDs
    */
   private getTestCharacters(count: number): string[] {
-    const characters = ['freud', 'jung', 'nietzsche', 'nhathanh', 'adler'];
+    const characters = ['freud', 'jung', 'nietzsche', 'adler', 'seligman'];
     return characters.slice(0, Math.min(count, characters.length));
   }
 
