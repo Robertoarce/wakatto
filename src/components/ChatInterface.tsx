@@ -4,7 +4,12 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../store';
 import { setFullscreen } from '../store/actions/uiActions';
+import { fetchUsage, dismissWarning, setupUsageListeners, shouldFetchUsage } from '../store/actions/usageActions';
 import { useCustomAlert } from './CustomAlert';
+import { canSendMessage, UsageInfo } from '../services/usageTrackingService';
+import { LimitWarningBanner } from './LimitWarningBanner';
+import { BlockedInputIndicator } from './BlockedStateOverlay';
+import { UpgradePromptModal } from './UpgradePromptModal';
 import { CharacterDisplay3D, AnimationState, ComplementaryAnimation, LookDirection, EyeState, MouthState } from './CharacterDisplay3D';
 import { DEFAULT_CHARACTER, getAllCharacters, getCharacter, CharacterBehavior, registerCustomCharacters } from '../config/characters';
 import { CharacterVoiceProfile } from '../config/voiceConfig';
@@ -139,7 +144,11 @@ const FloatingCharacterWrapper = ExtractedFloatingWrapper;
 export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting, conversationId, savedCharacters, onSaveIdleMessage }: ChatInterfaceProps) {
   const dispatch = useDispatch();
   const { isFullscreen } = useSelector((state: RootState) => state.ui);
+  const { currentUsage, lastWarningDismissed, lastFetchedAt } = useSelector((state: RootState) => state.usage);
   const { showAlert, AlertComponent } = useCustomAlert();
+
+  // Upgrade prompt modal state
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { fonts, spacing, layout, isMobile, isTablet, isDesktop, isMobileLandscape, width: screenWidth, height: screenHeight } = useResponsive();
   const [input, setInput] = useState('');
   const [replayOffset, setReplayOffset] = useState(0); // Tracks how far back we are in replay (cumulative: 5, 10, 15, etc.)
@@ -236,6 +245,45 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
     return () => clearInterval(typingInterval);
   }, [pendingUserMessage]);
+
+  // Fetch usage data on mount and setup event listeners
+  useEffect(() => {
+    // Fetch usage if stale or not loaded
+    if (shouldFetchUsage(lastFetchedAt)) {
+      dispatch(fetchUsage() as any);
+    }
+
+    // Setup event listeners for usage updates from aiService
+    const cleanup = dispatch(setupUsageListeners() as any);
+    return cleanup;
+  }, [dispatch, lastFetchedAt]);
+
+  // Show upgrade modal when hitting 80% for the first time
+  useEffect(() => {
+    if (
+      currentUsage &&
+      currentUsage.warningLevel === 'warning' &&
+      !lastWarningDismissed &&
+      currentUsage.tier !== 'admin'
+    ) {
+      setShowUpgradeModal(true);
+    }
+  }, [currentUsage?.warningLevel, lastWarningDismissed]);
+
+  // Check if user can send messages (not blocked)
+  const isBlocked = currentUsage && !canSendMessage(currentUsage);
+
+  // Handle upgrade button press
+  const handleUpgradePress = useCallback(() => {
+    setShowUpgradeModal(false);
+    showAlert('Coming Soon', 'Subscription upgrades will be available soon!');
+  }, [showAlert]);
+
+  // Handle dismiss warning
+  const handleDismissWarning = useCallback(() => {
+    dispatch(dismissWarning());
+    setShowUpgradeModal(false);
+  }, [dispatch]);
 
   // In mobile landscape, default to characters view (not chat history)
   // This effect ensures chat history is hidden when rotating to landscape
@@ -836,6 +884,15 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   // Voice recorder setup is handled by useVoiceRecording hook
 
   const handleSendMessagePress = () => {
+    // Check if user is blocked due to token limit
+    if (isBlocked) {
+      showAlert(
+        'Token Limit Reached',
+        'You have used all your tokens for this period. Please wait for the reset or upgrade your plan.'
+      );
+      return;
+    }
+
     if (input.trim()) {
       setPendingUserMessage(input.trim()); // Show user message in speech bubble
       onSendMessage(input, selectedCharacters);
@@ -1103,6 +1160,17 @@ Each silence, a cathedral where you still reside.`;
   return (
     <>
       <AlertComponent />
+
+      {/* Upgrade Prompt Modal - shown at 80% usage */}
+      {currentUsage && (
+        <UpgradePromptModal
+          visible={showUpgradeModal}
+          usage={currentUsage}
+          onUpgrade={handleUpgradePress}
+          onDismiss={handleDismissWarning}
+        />
+      )}
+
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1620,6 +1688,26 @@ Each silence, a cathedral where you still reside.`;
             })}
           </View>
         </ScrollView>
+      )}
+
+      {/* Token Usage Warning Banner - shown at 90%+ usage */}
+      {currentUsage &&
+        currentUsage.warningLevel === 'critical' &&
+        !lastWarningDismissed &&
+        currentUsage.tier !== 'admin' && (
+        <LimitWarningBanner
+          usage={currentUsage}
+          onDismiss={handleDismissWarning}
+          onUpgrade={handleUpgradePress}
+        />
+      )}
+
+      {/* Blocked Indicator - shown when at 100% usage */}
+      {isBlocked && currentUsage && (
+        <BlockedInputIndicator
+          usage={currentUsage}
+          onUpgrade={handleUpgradePress}
+        />
       )}
 
       <View style={[styles.inputContainer, { padding: screenWidth < 360 ? spacing.sm : spacing.md }]}>

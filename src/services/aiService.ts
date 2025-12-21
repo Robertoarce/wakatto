@@ -12,6 +12,13 @@ import { setSecureItem, getSecureItem, deleteSecureItem } from './secureStorage'
 import { supabase, supabaseUrl } from '../lib/supabase';
 import { getCharacterParameters, getModelParameters, ModelParameters } from '../config/llmConfig';
 import { getProfiler, PROFILE_OPS } from './profilingService';
+import {
+  UsageInfo,
+  WarningLevel,
+  parseUsageFromResponse,
+  isLimitExceededError,
+  getUsageFromLimitError,
+} from './usageTrackingService';
 
 // Cross-platform timing helper
 const getTimestamp = (): number => {
@@ -271,6 +278,18 @@ export async function generateAIResponse(
       const error = await response.json();
       edgeTimer.stop({ error: error.error || 'Unknown error' });
       console.error('[AI] Edge Function error:', error);
+
+      // Handle token limit exceeded error (429)
+      if (response.status === 429 && isLimitExceededError(error)) {
+        const usageInfo = getUsageFromLimitError(error);
+        if (usageInfo) {
+          throw new TokenLimitExceededError(
+            error.message || 'Token limit exceeded',
+            usageInfo
+          );
+        }
+      }
+
       throw new Error(error.error || 'Failed to generate AI response');
     }
 
@@ -282,7 +301,24 @@ export async function generateAIResponse(
       model: config.model,
       provider: config.provider,
     });
-    
+
+    // Parse usage info from response (if available)
+    const usage = parseUsageFromResponse(data);
+    if (usage) {
+      console.log('[AI] Usage update:', usage);
+      // Dispatch a custom event for usage updates
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ai:usage-update', { detail: usage }));
+
+        // Dispatch warning event if needed
+        if (usage.warningLevel) {
+          window.dispatchEvent(new CustomEvent('ai:limit-warning', {
+            detail: { warningLevel: usage.warningLevel, usage }
+          }));
+        }
+      }
+    }
+
     return data.content;
   } catch (error: any) {
     console.error('[AI] Error:', error);
@@ -299,6 +335,21 @@ export interface StreamingCallbacks {
   onDelta?: (text: string, accumulated: string) => void;
   onDone?: (fullText: string, durationMs: number) => void;
   onError?: (error: Error) => void;
+  // Usage tracking callbacks
+  onUsageUpdate?: (usage: Partial<UsageInfo>) => void;
+  onLimitWarning?: (warningLevel: WarningLevel, usage: Partial<UsageInfo>) => void;
+  onLimitExceeded?: (usage: UsageInfo) => void;
+}
+
+// Custom error class for limit exceeded
+export class TokenLimitExceededError extends Error {
+  public usage: UsageInfo;
+
+  constructor(message: string, usage: UsageInfo) {
+    super(message);
+    this.name = 'TokenLimitExceededError';
+    this.usage = usage;
+  }
 }
 
 /**
@@ -384,6 +435,19 @@ export async function generateAIResponseStreaming(
 
     if (!response.ok) {
       const error = await response.json();
+
+      // Handle token limit exceeded error (429)
+      if (response.status === 429 && isLimitExceededError(error)) {
+        const usageInfo = getUsageFromLimitError(error);
+        if (usageInfo) {
+          callbacks?.onLimitExceeded?.(usageInfo);
+          throw new TokenLimitExceededError(
+            error.message || 'Token limit exceeded',
+            usageInfo
+          );
+        }
+      }
+
       throw new Error(error.error || 'Failed to generate AI response');
     }
 
@@ -425,6 +489,26 @@ export async function generateAIResponseStreaming(
                 }
                 accumulatedText += parsed.text;
                 callbacks?.onDelta?.(parsed.text, accumulatedText);
+              } else if (parsed.type === 'usage') {
+                // Handle usage update from Edge Function
+                const usage = parsed.usage as Partial<UsageInfo>;
+                console.log('[AI-Stream] Usage update:', usage);
+                callbacks?.onUsageUpdate?.(usage);
+
+                // Dispatch warning if at threshold
+                if (usage.warningLevel) {
+                  callbacks?.onLimitWarning?.(usage.warningLevel as WarningLevel, usage);
+                }
+
+                // Also dispatch global events for Redux integration
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('ai:usage-update', { detail: usage }));
+                  if (usage.warningLevel) {
+                    window.dispatchEvent(new CustomEvent('ai:limit-warning', {
+                      detail: { warningLevel: usage.warningLevel, usage }
+                    }));
+                  }
+                }
               } else if (parsed.type === 'done') {
                 // Stop edge function timer when streaming completes
                 if (edgeTimer && !edgeTimerStopped) {

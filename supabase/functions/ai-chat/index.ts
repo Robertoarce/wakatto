@@ -1,6 +1,19 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+// Types for usage tracking
+interface UsageCheck {
+  can_proceed: boolean;
+  tier: 'free' | 'premium' | 'gold' | 'admin';
+  tokens_used: number;
+  token_limit: number;
+  remaining_tokens: number;
+  usage_percentage: number;
+  period_end: string;
+  warning_level: 'warning' | 'critical' | 'blocked' | null;
+  reset_period_days: number;
+}
+
 // Allowed origins for CORS - production and development
 const ALLOWED_ORIGINS = [
   'https://www.wakatto.com',
@@ -76,6 +89,50 @@ serve(async (req) => {
       )
     }
 
+    // Create admin client for usage tracking (uses service role for database operations)
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    // Check usage limit before proceeding
+    const { data: usageCheckData, error: usageError } = await supabaseAdmin.rpc(
+      'check_usage_limit',
+      { p_user_id: user.id }
+    )
+
+    if (usageError) {
+      console.error('[AI-Chat] Usage check error:', usageError)
+      // Continue anyway - don't block on usage check failures
+    }
+
+    const usageCheck: UsageCheck | null = usageCheckData?.[0] || null
+
+    // Block if at limit (unless we couldn't check)
+    if (usageCheck && !usageCheck.can_proceed) {
+      console.log(`[AI-Chat] User ${user.id} blocked - token limit exceeded`)
+      return new Response(
+        JSON.stringify({
+          error: 'Token limit exceeded',
+          code: 'LIMIT_EXCEEDED',
+          message: `You have used all ${usageCheck.token_limit.toLocaleString()} tokens for this period. Your limit resets on ${usageCheck.period_end}.`,
+          usage: {
+            tier: usageCheck.tier,
+            tokens_used: usageCheck.tokens_used,
+            token_limit: usageCheck.token_limit,
+            remaining_tokens: 0,
+            usage_percentage: 100,
+            period_end: usageCheck.period_end,
+            warning_level: 'blocked'
+          }
+        }),
+        {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
     // Parse request body
     const { messages, provider = 'anthropic', model, parameters = {}, stream = false, enablePromptCache = true } = await req.json()
 
@@ -85,13 +142,23 @@ serve(async (req) => {
     // Handle streaming vs non-streaming
     // Support both 'anthropic' and 'anthropic_fast' providers
     const isAnthropic = provider === 'anthropic' || provider === 'anthropic_fast'
-    
+
     if (stream && isAnthropic) {
-      return await streamAnthropic(messages, model || 'claude-3-haiku-20240307', CLAUDE_API_KEY, parameters, corsHeaders, enablePromptCache)
+      return await streamAnthropic(
+        messages,
+        model || 'claude-3-haiku-20240307',
+        CLAUDE_API_KEY,
+        parameters,
+        corsHeaders,
+        enablePromptCache,
+        user.id,
+        supabaseAdmin,
+        usageCheck
+      )
     }
 
     // Non-streaming response
-    let response
+    let response: { content: string; promptTokens: number; completionTokens: number }
     if (isAnthropic) {
       response = await callAnthropic(messages, model || 'claude-3-haiku-20240307', CLAUDE_API_KEY, parameters, enablePromptCache)
     } else if (provider === 'openai') {
@@ -104,8 +171,50 @@ serve(async (req) => {
       throw new Error(`Unsupported provider: ${provider}`)
     }
 
+    // Record token usage (skip for admin)
+    let updatedUsage = usageCheck
+    if (usageCheck && usageCheck.tier !== 'admin') {
+      const { data: recordedUsage, error: recordError } = await supabaseAdmin.rpc(
+        'record_token_usage',
+        {
+          p_user_id: user.id,
+          p_prompt_tokens: response.promptTokens,
+          p_completion_tokens: response.completionTokens
+        }
+      )
+      if (recordError) {
+        console.error('[AI-Chat] Failed to record usage:', recordError)
+      } else {
+        // Update usage info for response
+        const totalUsed = (usageCheck.tokens_used || 0) + response.promptTokens + response.completionTokens
+        const newPercentage = (totalUsed / usageCheck.token_limit) * 100
+        updatedUsage = {
+          ...usageCheck,
+          tokens_used: totalUsed,
+          remaining_tokens: Math.max(0, usageCheck.token_limit - totalUsed),
+          usage_percentage: Math.round(newPercentage * 100) / 100,
+          warning_level: newPercentage >= 100 ? 'blocked' :
+                        newPercentage >= 90 ? 'critical' :
+                        newPercentage >= 80 ? 'warning' : null
+        }
+      }
+    }
+
     return new Response(
-      JSON.stringify({ content: response }),
+      JSON.stringify({
+        content: response.content,
+        usage: updatedUsage ? {
+          tier: updatedUsage.tier,
+          tokens_used: updatedUsage.tokens_used,
+          token_limit: updatedUsage.token_limit,
+          remaining_tokens: updatedUsage.remaining_tokens,
+          usage_percentage: updatedUsage.usage_percentage,
+          period_end: updatedUsage.period_end,
+          warning_level: updatedUsage.warning_level,
+          prompt_tokens: response.promptTokens,
+          completion_tokens: response.completionTokens
+        } : null
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
@@ -128,12 +237,15 @@ serve(async (req) => {
 // ============================================
 
 async function streamAnthropic(
-  messages: any[], 
-  model: string, 
-  apiKey: string, 
+  messages: any[],
+  model: string,
+  apiKey: string,
   parameters: any,
   corsHeaders: Record<string, string>,
-  enablePromptCache: boolean = true
+  enablePromptCache: boolean = true,
+  userId?: string,
+  supabaseAdmin?: any,
+  usageCheck?: UsageCheck | null
 ): Promise<Response> {
   const systemMessage = messages.find(m => m.role === 'system')
   const conversationMessages = messages.filter(m => m.role !== 'system')
@@ -200,6 +312,9 @@ async function streamAnthropic(
     const reader = response.body!.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
+    let promptTokens = 0
+    let completionTokens = 0
+    let accumulatedText = ''
 
     try {
       while (true) {
@@ -217,20 +332,71 @@ async function streamAnthropic(
 
             try {
               const parsed = JSON.parse(data)
-              
+
               // Handle different event types
               if (parsed.type === 'content_block_delta') {
                 const text = parsed.delta?.text
                 if (text) {
+                  accumulatedText += text
                   // Send as SSE event
                   await writer.write(encoder.encode(`data: ${JSON.stringify({ type: 'delta', text })}\n\n`))
                 }
               } else if (parsed.type === 'message_stop') {
+                // Record token usage at end of stream (skip for admin)
+                if (userId && supabaseAdmin && usageCheck && usageCheck.tier !== 'admin') {
+                  // Estimate tokens if not provided by API
+                  // Anthropic typically provides usage in message_start/message_delta
+                  const estimatedPromptTokens = promptTokens || Math.ceil(messages.reduce((acc, m) => acc + (m.content?.length || 0), 0) / 4)
+                  const estimatedCompletionTokens = completionTokens || Math.ceil(accumulatedText.length / 4)
+
+                  try {
+                    await supabaseAdmin.rpc('record_token_usage', {
+                      p_user_id: userId,
+                      p_prompt_tokens: estimatedPromptTokens,
+                      p_completion_tokens: estimatedCompletionTokens
+                    })
+
+                    // Calculate updated usage for response
+                    const totalUsed = (usageCheck.tokens_used || 0) + estimatedPromptTokens + estimatedCompletionTokens
+                    const newPercentage = (totalUsed / usageCheck.token_limit) * 100
+                    const warningLevel = newPercentage >= 100 ? 'blocked' :
+                                        newPercentage >= 90 ? 'critical' :
+                                        newPercentage >= 80 ? 'warning' : null
+
+                    // Send usage info before done
+                    await writer.write(encoder.encode(`data: ${JSON.stringify({
+                      type: 'usage',
+                      usage: {
+                        tier: usageCheck.tier,
+                        tokens_used: totalUsed,
+                        token_limit: usageCheck.token_limit,
+                        remaining_tokens: Math.max(0, usageCheck.token_limit - totalUsed),
+                        usage_percentage: Math.round(newPercentage * 100) / 100,
+                        period_end: usageCheck.period_end,
+                        warning_level: warningLevel,
+                        prompt_tokens: estimatedPromptTokens,
+                        completion_tokens: estimatedCompletionTokens
+                      }
+                    })}\n\n`))
+                  } catch (e) {
+                    console.error('[AI-Chat] Failed to record streaming usage:', e)
+                  }
+                }
+
                 await writer.write(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`))
               } else if (parsed.type === 'message_start') {
+                // Capture usage from message_start if available
+                if (parsed.message?.usage) {
+                  promptTokens = parsed.message.usage.input_tokens || 0
+                }
                 // Send timing info
                 const startTime = Date.now()
                 await writer.write(encoder.encode(`data: ${JSON.stringify({ type: 'start', timestamp: startTime })}\n\n`))
+              } else if (parsed.type === 'message_delta') {
+                // Capture final usage from message_delta
+                if (parsed.usage) {
+                  completionTokens = parsed.usage.output_tokens || 0
+                }
               }
             } catch (e) {
               // Skip non-JSON lines
@@ -261,12 +427,12 @@ async function streamAnthropic(
 // ============================================
 
 async function callAnthropic(
-  messages: any[], 
-  model: string, 
-  apiKey: string, 
+  messages: any[],
+  model: string,
+  apiKey: string,
   parameters: any = {},
   enablePromptCache: boolean = true
-): Promise<string> {
+): Promise<{ content: string; promptTokens: number; completionTokens: number }> {
   // Separate system message from conversation messages
   const systemMessage = messages.find(m => m.role === 'system')
   const conversationMessages = messages.filter(m => m.role !== 'system')
@@ -322,14 +488,23 @@ async function callAnthropic(
   }
 
   const data = await response.json()
-  return data.content[0]?.text || 'Sorry, I could not generate a response.'
+
+  // Extract actual token usage from API response
+  const promptTokens = data.usage?.input_tokens || Math.ceil(messages.reduce((acc: number, m: any) => acc + (m.content?.length || 0), 0) / 4)
+  const completionTokens = data.usage?.output_tokens || Math.ceil((data.content[0]?.text || '').length / 4)
+
+  return {
+    content: data.content[0]?.text || 'Sorry, I could not generate a response.',
+    promptTokens,
+    completionTokens
+  }
 }
 
 // ============================================
 // Non-streaming OpenAI
 // ============================================
 
-async function callOpenAI(messages: any[], model: string, apiKey: string, parameters: any = {}): Promise<string> {
+async function callOpenAI(messages: any[], model: string, apiKey: string, parameters: any = {}): Promise<{ content: string; promptTokens: number; completionTokens: number }> {
   // Build request body with parameters
   const requestBody: any = {
     model: model,
@@ -358,5 +533,14 @@ async function callOpenAI(messages: any[], model: string, apiKey: string, parame
   }
 
   const data = await response.json()
-  return data.choices[0]?.message?.content || 'Sorry, I could not generate a response.'
+
+  // Extract token usage from OpenAI response
+  const promptTokens = data.usage?.prompt_tokens || Math.ceil(messages.reduce((acc: number, m: any) => acc + (m.content?.length || 0), 0) / 4)
+  const completionTokens = data.usage?.completion_tokens || Math.ceil((data.choices[0]?.message?.content || '').length / 4)
+
+  return {
+    content: data.choices[0]?.message?.content || 'Sorry, I could not generate a response.',
+    promptTokens,
+    completionTokens
+  }
 }

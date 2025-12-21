@@ -3,11 +3,13 @@ import { thunk } from 'redux-thunk';
 import { authReducer } from './reducers/authReducer';
 import { conversationReducer } from './reducers/conversationReducer';
 import { uiReducer } from './reducers/uiReducer';
+import { usageReducer } from './reducers/usageReducer';
 
 const rootReducer = combineReducers({
   auth: authReducer,
   conversations: conversationReducer,
   ui: uiReducer,
+  usage: usageReducer,
 });
 
 export const store = createStore(rootReducer, applyMiddleware(thunk));

@@ -4,7 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
 import { logout } from '../store/actions/authActions';
+import { fetchUsage } from '../store/actions/usageActions';
 import { configureAI, getAIConfig } from '../services/aiService';
+import { TIER_NAMES, TIER_COLORS, formatTokens, getDaysUntilReset, getUsageColor } from '../services/usageTrackingService';
 import { useNavigation } from '@react-navigation/native';
 import { runAllTests, TestResult } from '../services/aiConnectionTest';
 import { useCustomAlert } from '../components/CustomAlert';
@@ -26,6 +28,7 @@ const SettingsScreen = (): JSX.Element => {
   const dispatch = useDispatch();
   const { showAlert, AlertComponent } = useCustomAlert();
   const { user } = useSelector((state: RootState) => state.auth);
+  const { currentUsage, isLoading: usageLoading } = useSelector((state: RootState) => state.usage);
   const { fonts, spacing, layout, isMobile } = useResponsive();
 
   // Dynamic styles for responsive typography
@@ -66,6 +69,11 @@ const SettingsScreen = (): JSX.Element => {
     };
     loadConfig();
   }, []);
+
+  // Fetch usage data on mount
+  useEffect(() => {
+    dispatch(fetchUsage() as any);
+  }, [dispatch]);
 
   const handleSaveAISettings = async () => {
     await configureAI({
@@ -211,6 +219,145 @@ const SettingsScreen = (): JSX.Element => {
             fullWidth
             size="md"
           />
+        </Card>
+      </View>
+
+      {/* Usage & Subscription Section */}
+      <View style={[styles.section, { padding: spacing.lg }]}>
+        <Text style={[styles.sectionTitle, { fontSize: fonts.lg, marginBottom: spacing.md }]}>Usage & Subscription</Text>
+        <Card variant="elevated">
+          {usageLoading ? (
+            <View style={[styles.loadingContainer, { padding: spacing.xl }]}>
+              <ActivityIndicator size="small" color="#8b5cf6" />
+              <Text style={[styles.loadingText, { fontSize: fonts.sm, marginTop: spacing.sm }]}>Loading usage...</Text>
+            </View>
+          ) : currentUsage ? (
+            <>
+              {/* Tier Badge */}
+              <View style={[styles.tierRow, { marginBottom: spacing.md }]}>
+                <View style={[styles.tierBadge, { borderColor: TIER_COLORS[currentUsage.tier] }]}>
+                  <Text style={[styles.tierText, { color: TIER_COLORS[currentUsage.tier], fontSize: fonts.sm }]}>
+                    {TIER_NAMES[currentUsage.tier]}
+                  </Text>
+                </View>
+                {currentUsage.tier === 'admin' ? (
+                  <Text style={[styles.unlimitedText, { fontSize: fonts.sm }]}>Unlimited</Text>
+                ) : (
+                  <Text style={[styles.resetText, { fontSize: fonts.sm }]}>
+                    Resets in {getDaysUntilReset(currentUsage.periodEnd)} days
+                  </Text>
+                )}
+              </View>
+
+              {/* Usage Progress Bar (not shown for admin) */}
+              {currentUsage.tier !== 'admin' && (
+                <>
+                  <View style={styles.usageProgressContainer}>
+                    <View style={styles.usageProgressBar}>
+                      <View
+                        style={[
+                          styles.usageProgressFill,
+                          {
+                            width: `${Math.min(100, currentUsage.usagePercentage)}%`,
+                            backgroundColor: getUsageColor(currentUsage.usagePercentage),
+                          },
+                        ]}
+                      />
+                      {/* Threshold markers */}
+                      <View style={[styles.usageMarker, { left: '80%' }]} />
+                      <View style={[styles.usageMarker, { left: '90%' }]} />
+                    </View>
+                  </View>
+
+                  {/* Usage Stats */}
+                  <View style={[styles.usageStatsRow, { marginTop: spacing.sm }]}>
+                    <Text style={[styles.usageStatsText, { fontSize: fonts.sm }]}>
+                      {formatTokens(currentUsage.tokensUsed)} / {formatTokens(currentUsage.tokenLimit)} tokens
+                    </Text>
+                    <Text
+                      style={[
+                        styles.usagePercentage,
+                        { fontSize: fonts.sm, color: getUsageColor(currentUsage.usagePercentage) },
+                      ]}
+                    >
+                      {currentUsage.usagePercentage.toFixed(0)}%
+                    </Text>
+                  </View>
+
+                  {/* Remaining Tokens */}
+                  <Text style={[styles.remainingText, { fontSize: fonts.xs, marginTop: spacing.xs }]}>
+                    {formatTokens(currentUsage.remainingTokens)} tokens remaining
+                  </Text>
+
+                  {/* Warning Message */}
+                  {currentUsage.warningLevel && (
+                    <View
+                      style={[
+                        styles.warningBox,
+                        {
+                          marginTop: spacing.md,
+                          padding: spacing.md,
+                          backgroundColor:
+                            currentUsage.warningLevel === 'blocked'
+                              ? '#FEE2E2'
+                              : currentUsage.warningLevel === 'critical'
+                              ? '#FEF3C7'
+                              : '#FEF9C3',
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="warning-outline"
+                        size={18}
+                        color={
+                          currentUsage.warningLevel === 'blocked'
+                            ? '#991B1B'
+                            : currentUsage.warningLevel === 'critical'
+                            ? '#92400E'
+                            : '#854D0E'
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.warningText,
+                          {
+                            fontSize: fonts.xs,
+                            color:
+                              currentUsage.warningLevel === 'blocked'
+                                ? '#991B1B'
+                                : currentUsage.warningLevel === 'critical'
+                                ? '#92400E'
+                                : '#854D0E',
+                          },
+                        ]}
+                      >
+                        {currentUsage.warningLevel === 'blocked'
+                          ? 'Token limit reached. Please wait for reset or upgrade.'
+                          : currentUsage.warningLevel === 'critical'
+                          ? 'Running low on tokens. Consider upgrading.'
+                          : 'You\'re approaching your token limit.'}
+                      </Text>
+                    </View>
+                  )}
+                </>
+              )}
+
+              {/* Upgrade Button (not shown for admin or gold) */}
+              {currentUsage.tier !== 'admin' && currentUsage.tier !== 'gold' && (
+                <Button
+                  title="Upgrade Plan"
+                  onPress={() => showAlert('Coming Soon', 'Subscription upgrades will be available soon!')}
+                  variant="primary"
+                  icon="arrow-up-outline"
+                  fullWidth
+                  size="md"
+                  style={{ marginTop: spacing.md }}
+                />
+              )}
+            </>
+          ) : (
+            <Text style={[styles.errorText, { fontSize: fonts.sm }]}>Unable to load usage data</Text>
+          )}
         </Card>
       </View>
 
@@ -763,6 +910,83 @@ const styles = StyleSheet.create({
   resetTempText: {
     color: '#8b5cf6',
     fontSize: 12,
+  },
+  // Usage section styles
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    color: '#71717a',
+  },
+  tierRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  tierBadge: {
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  tierText: {
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  unlimitedText: {
+    color: '#9CA3AF',
+  },
+  resetText: {
+    color: '#9CA3AF',
+  },
+  usageProgressContainer: {
+    marginBottom: 4,
+  },
+  usageProgressBar: {
+    height: 8,
+    backgroundColor: '#374151',
+    borderRadius: 4,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  usageProgressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  usageMarker: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  usageStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  usageStatsText: {
+    color: '#D1D5DB',
+  },
+  usagePercentage: {
+    fontWeight: '600',
+  },
+  remainingText: {
+    color: '#9CA3AF',
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 8,
+  },
+  warningText: {
+    flex: 1,
+  },
+  errorText: {
+    color: '#EF4444',
+    textAlign: 'center',
   },
 });
 
