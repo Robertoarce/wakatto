@@ -12,7 +12,7 @@ const isMobileInitial = Dimensions.get('window').width < 768;
 const initialState: UIState = {
   showSidebar: !isMobileInitial, // Hidden on mobile, shown on desktop
   sidebarCollapsed: false,
-  isFullscreen: false,
+  isFullscreen: true,
 };
 
 export const uiReducer = (state = initialState, action: any): UIState => {

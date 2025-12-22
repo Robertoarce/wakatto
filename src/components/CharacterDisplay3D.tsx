@@ -1,7 +1,7 @@
 import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { OrbitControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { getCharacter, CharacterBehavior } from '../config/characters';
 
@@ -110,6 +110,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
   const smileMeshRef = useRef<THREE.Mesh>(null);
   const leftEyebrowRef = useRef<THREE.Mesh>(null);
   const rightEyebrowRef = useRef<THREE.Mesh>(null);
+  const unibrowRef = useRef<THREE.Mesh>(null);
   // NEW refs for facial features:
   const noseRef = useRef<THREE.Mesh>(null);
   const leftCheekRef = useRef<THREE.Mesh>(null);
@@ -181,6 +182,9 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       let targetRightEyebrowRotZ = 0;
       let targetLeftEyebrowPosY = 0;  // Offset from default position
       let targetRightEyebrowPosY = 0;
+      // Unibrow animation targets
+      let targetUnibrowRotZ = 0;
+      let targetUnibrowPosY = 0;
       // NEW: Nose targets for facial feature states
       let targetNoseScaleX = 1;
       let targetNoseScaleY = 1;
@@ -457,6 +461,10 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           targetRightEyebrowRotZ = 0;
           break;
       }
+
+      // Calculate unibrow targets from averaged left/right values
+      targetUnibrowPosY = (targetLeftEyebrowPosY + targetRightEyebrowPosY) / 2;
+      targetUnibrowRotZ = (targetLeftEyebrowRotZ + targetRightEyebrowRotZ) / 4;
 
       // =========================================
       // COMPLEMENTARY: Nose State (NEW)
@@ -1148,6 +1156,11 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         rightEyebrowRef.current.rotation.z = lerp(rightEyebrowRef.current.rotation.z, targetRightEyebrowRotZ, transitionSpeed);
         rightEyebrowRef.current.position.y = lerp(rightEyebrowRef.current.position.y, eyebrowBaseY + targetRightEyebrowPosY, transitionSpeed);
       }
+      // Unibrow animation
+      if (unibrowRef.current) {
+        unibrowRef.current.rotation.z = lerp(unibrowRef.current.rotation.z, targetUnibrowRotZ, transitionSpeed);
+        unibrowRef.current.position.y = lerp(unibrowRef.current.position.y, eyebrowBaseY + targetUnibrowPosY, transitionSpeed);
+      }
 
       // NEW: Eye X-scale lerping (for wide/narrow states)
       if (leftEyeRef.current) {
@@ -1203,6 +1216,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
   const hasTopHat = accessories.includes('top_hat');
   const hasRangerHat = accessories.includes('ranger_hat');
   const hasBatMask = accessories.includes('bat_mask');
+  const hasVaderMask = accessories.includes('vader_mask');
   const hasMonocle = accessories.includes('monocle');
   const hasSunglasses = accessories.includes('sunglasses');
   const hasGoggles = accessories.includes('goggles');
@@ -1265,6 +1279,10 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
   const hairType = customization.hair;
   const hairColor = customization.hairColor;
   const clothingType = customization.clothing;
+  const hasUnibrow = customization.hasUnibrow === true;
+
+  // Cape color - defaults to accessoryColor if not specified
+  const capeColor = customization.capeColor || character.model3D.accessoryColor;
 
   // Skin tone mapping
   const skinToneColors = {
@@ -1427,12 +1445,12 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           {/* Cape collar */}
           <mesh position={[0, body.collarY, body.torsoBack]} castShadow>
             <boxGeometry args={[body.torso.width * 0.9, 0.1, 0.2]} />
-            <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.8} />
+            <meshStandardMaterial color={capeColor} roughness={0.8} />
           </mesh>
           {/* Cape back - main body */}
           <mesh position={[0, body.torso.y - 0.15, body.backZOuter]} castShadow>
             <boxGeometry args={[body.torso.width, body.torso.height * 1.3, 0.04]} />
-            <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.8} />
+            <meshStandardMaterial color={capeColor} roughness={0.8} />
           </mesh>
           {/* Cape inner lining (slightly visible) */}
           <mesh position={[0, body.torso.y - 0.15, body.backZOuter + 0.03]} castShadow>
@@ -1503,6 +1521,13 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           <boxGeometry args={[body.upperArm.width, body.upperArm.height, body.upperArm.depth]} />
           <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
         </mesh>
+        {/* Lab coat sleeve - follows arm */}
+        {hasLabCoat && (
+          <mesh position={[-0.02, -0.05, 0]} castShadow>
+            <boxGeometry args={[0.18, 0.32, 0.22]} />
+            <meshStandardMaterial color="#f5f5f5" roughness={0.8} />
+          </mesh>
+        )}
         {/* Forearm group */}
         <group ref={leftForearmRef} position={[0, body.forearmY, 0]}>
           <mesh castShadow>
@@ -1514,6 +1539,79 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
             <boxGeometry args={[body.hand.width, body.hand.height, body.hand.depth]} />
             <meshStandardMaterial color={skinColor} roughness={0.6} />
           </mesh>
+
+          {/* STAFF - wizard/monk staff (moves with left arm) */}
+          {hasStaff && (
+            <group position={[-0.1, body.handY + 0.1, 0.1]}>
+              {/* Main shaft */}
+              <mesh position={[0, 0.1, 0]} castShadow>
+                <boxGeometry args={[0.04, 1.0, 0.04]} />
+                <meshStandardMaterial color="#5c4a3a" roughness={0.8} />
+              </mesh>
+              {/* Top ornament */}
+              <mesh position={[0, 0.65, 0]} castShadow>
+                <sphereGeometry args={[0.06, 8, 8]} />
+                <meshStandardMaterial color="#9333ea" emissive="#9333ea" emissiveIntensity={0.3} roughness={0.3} />
+              </mesh>
+              {/* Crystal holder */}
+              <mesh position={[0, 0.55, 0]} castShadow>
+                <boxGeometry args={[0.08, 0.05, 0.08]} />
+                <meshStandardMaterial color="#c9a227" metalness={0.6} roughness={0.4} />
+              </mesh>
+              {/* Bottom cap */}
+              <mesh position={[0, -0.4, 0]} castShadow>
+                <boxGeometry args={[0.05, 0.03, 0.05]} />
+                <meshStandardMaterial color="#3a2a1a" roughness={0.7} />
+              </mesh>
+            </group>
+          )}
+
+          {/* SHIELD - held on left arm (moves with left arm) */}
+          {hasShield && (
+            <group position={[-0.1, body.handY, 0.15]}>
+              {/* Main shield body */}
+              <mesh position={[0, 0, 0]} castShadow>
+                <boxGeometry args={[0.02, 0.35, 0.3]} />
+                <meshStandardMaterial color="#6b7280" metalness={0.7} roughness={0.4} />
+              </mesh>
+              {/* Shield boss (center) */}
+              <mesh position={[0.02, 0, 0]} castShadow>
+                <sphereGeometry args={[0.05, 8, 8, 0, Math.PI]} />
+                <meshStandardMaterial color="#c9a227" metalness={0.8} roughness={0.3} />
+              </mesh>
+              {/* Rim */}
+              <mesh position={[0.01, 0, 0]} castShadow>
+                <torusGeometry args={[0.15, 0.015, 8, 16]} />
+                <meshStandardMaterial color="#c9a227" metalness={0.7} roughness={0.3} />
+              </mesh>
+            </group>
+          )}
+
+          {/* BOOK - held in left hand (moves with left arm) */}
+          {hasBook && (
+            <group position={[0, body.handY - 0.05, 0.12]} rotation={[0, 0.3, 0]}>
+              {/* Book cover */}
+              <mesh position={[0, 0, 0]} castShadow>
+                <boxGeometry args={[0.12, 0.16, 0.03]} />
+                <meshStandardMaterial color="#8B4513" roughness={0.8} />
+              </mesh>
+              {/* Pages */}
+              <mesh position={[0, 0, 0.018]} castShadow>
+                <boxGeometry args={[0.1, 0.14, 0.02]} />
+                <meshStandardMaterial color="#f5f5dc" roughness={0.9} />
+              </mesh>
+              {/* Spine detail */}
+              <mesh position={[-0.065, 0, 0]} castShadow>
+                <boxGeometry args={[0.01, 0.16, 0.035]} />
+                <meshStandardMaterial color="#654321" roughness={0.7} />
+              </mesh>
+              {/* Gold emblem */}
+              <mesh position={[0, 0, -0.02]} castShadow>
+                <boxGeometry args={[0.04, 0.04, 0.005]} />
+                <meshStandardMaterial color="#c9a227" metalness={0.6} roughness={0.4} />
+              </mesh>
+            </group>
+          )}
         </group>
       </group>
       {/* Right Arm */}
@@ -1523,6 +1621,13 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           <boxGeometry args={[body.upperArm.width, body.upperArm.height, body.upperArm.depth]} />
           <meshStandardMaterial color={character.model3D.bodyColor} roughness={0.7} />
         </mesh>
+        {/* Lab coat sleeve - follows arm */}
+        {hasLabCoat && (
+          <mesh position={[0.02, -0.05, 0]} castShadow>
+            <boxGeometry args={[0.18, 0.32, 0.22]} />
+            <meshStandardMaterial color="#f5f5f5" roughness={0.8} />
+          </mesh>
+        )}
         {/* Forearm group */}
         <group ref={rightForearmRef} position={[0, body.forearmY, 0]}>
           <mesh castShadow>
@@ -1553,6 +1658,113 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
               <boxGeometry args={[body.hand.width, body.hand.height, body.hand.depth]} />
               <meshStandardMaterial color={skinColor} roughness={0.6} />
             </mesh>
+          )}
+          {/* Portal Gun - follows arm/hand */}
+          {hasPortalGun && (
+            <group position={[0.05, body.handY - 0.05, 0.15]} rotation={[0, -0.3, -0.3]}>
+              {/* Main body */}
+              <mesh castShadow>
+                <boxGeometry args={[0.08, 0.06, 0.15]} />
+                <meshStandardMaterial color="#a0a0a0" metalness={0.6} roughness={0.4} />
+              </mesh>
+              {/* Barrel */}
+              <mesh position={[0, 0, 0.12]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+                <cylinderGeometry args={[0.04, 0.05, 0.1, 8]} />
+                <meshStandardMaterial color="#606060" metalness={0.7} roughness={0.3} />
+              </mesh>
+              {/* Portal opening - glowing green */}
+              <mesh position={[0, 0, 0.18]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+                <cylinderGeometry args={[0.035, 0.035, 0.02, 16]} />
+                <meshStandardMaterial color="#22ff22" emissive="#22ff22" emissiveIntensity={0.8} />
+              </mesh>
+              {/* Handle */}
+              <mesh position={[0, -0.06, -0.02]} castShadow>
+                <boxGeometry args={[0.04, 0.08, 0.04]} />
+                <meshStandardMaterial color="#5a5a5a" roughness={0.6} />
+              </mesh>
+              {/* Side tubes */}
+              <mesh position={[0.05, 0.02, 0.05]} castShadow>
+                <cylinderGeometry args={[0.01, 0.01, 0.08, 6]} />
+                <meshStandardMaterial color="#22ff22" emissive="#22ff22" emissiveIntensity={0.4} transparent opacity={0.8} />
+              </mesh>
+              <mesh position={[-0.05, 0.02, 0.05]} castShadow>
+                <cylinderGeometry args={[0.01, 0.01, 0.08, 6]} />
+                <meshStandardMaterial color="#22ff22" emissive="#22ff22" emissiveIntensity={0.4} transparent opacity={0.8} />
+              </mesh>
+            </group>
+          )}
+
+          {/* SWORD - held in right hand (moves with right arm) */}
+          {hasSword && (
+            <group position={[0.1, body.handY, 0.1]}>
+              {/* Handle */}
+              <mesh position={[0, 0, 0]} castShadow>
+                <boxGeometry args={[0.04, 0.15, 0.04]} />
+                <meshStandardMaterial color="#5c4a3a" roughness={0.7} />
+              </mesh>
+              {/* Guard */}
+              <mesh position={[0, 0.1, 0]} castShadow>
+                <boxGeometry args={[0.15, 0.02, 0.03]} />
+                <meshStandardMaterial color="#c9a227" metalness={0.7} roughness={0.3} />
+              </mesh>
+              {/* Blade */}
+              <mesh position={[0, 0.4, 0]} castShadow>
+                <boxGeometry args={[0.05, 0.5, 0.01]} />
+                <meshStandardMaterial color="#d4d4d4" metalness={0.9} roughness={0.2} />
+              </mesh>
+              {/* Blade tip */}
+              <mesh position={[0, 0.68, 0]} rotation={[0, 0, Math.PI / 4]} castShadow>
+                <boxGeometry args={[0.035, 0.05, 0.01]} />
+                <meshStandardMaterial color="#d4d4d4" metalness={0.9} roughness={0.2} />
+              </mesh>
+              {/* Pommel */}
+              <mesh position={[0, -0.1, 0]} castShadow>
+                <sphereGeometry args={[0.03, 8, 8]} />
+                <meshStandardMaterial color="#c9a227" metalness={0.7} roughness={0.3} />
+              </mesh>
+            </group>
+          )}
+
+          {/* WAND - small magical wand in right hand (moves with right arm) */}
+          {hasWand && (
+            <group position={[0.05, body.handY - 0.05, 0.1]} rotation={[0.3, 0, -0.5]}>
+              {/* Handle */}
+              <mesh position={[0, 0, 0]} castShadow>
+                <boxGeometry args={[0.025, 0.12, 0.025]} />
+                <meshStandardMaterial color="#5c4a3a" roughness={0.7} />
+              </mesh>
+              {/* Shaft */}
+              <mesh position={[0, 0.15, 0]} castShadow>
+                <boxGeometry args={[0.02, 0.2, 0.02]} />
+                <meshStandardMaterial color="#8B7355" roughness={0.6} />
+              </mesh>
+              {/* Tip glow */}
+              <mesh position={[0, 0.28, 0]} castShadow>
+                <sphereGeometry args={[0.02, 8, 8]} />
+                <meshStandardMaterial color="#ffd700" emissive="#ffd700" emissiveIntensity={0.5} />
+              </mesh>
+            </group>
+          )}
+
+          {/* GUN - held in right hand (moves with right arm) */}
+          {hasGun && (
+            <group position={[0.05, body.handY - 0.02, 0.1]} rotation={[0, 0, -0.2]}>
+              {/* Handle */}
+              <mesh position={[0, 0, 0]} castShadow>
+                <boxGeometry args={[0.03, 0.1, 0.025]} />
+                <meshStandardMaterial color="#5c4a3a" roughness={0.7} />
+              </mesh>
+              {/* Barrel */}
+              <mesh position={[0, 0.08, 0.04]} castShadow>
+                <boxGeometry args={[0.025, 0.06, 0.12]} />
+                <meshStandardMaterial color="#4a4a4a" metalness={0.8} roughness={0.3} />
+              </mesh>
+              {/* Trigger guard */}
+              <mesh position={[0, 0.02, 0.02]} castShadow>
+                <boxGeometry args={[0.02, 0.04, 0.03]} />
+                <meshStandardMaterial color="#3a3a3a" metalness={0.7} roughness={0.4} />
+              </mesh>
+            </group>
           )}
         </group>
       </group>
@@ -1750,13 +1962,25 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           <meshBasicMaterial color="#3a3a3a" />
         </mesh>
 
-        {/* Eyebrows - Blocky style */}
+        {/* Eyebrows - Blocky style (or Unibrow) */}
         {(() => {
           const eyebrowColor = hairColor || '#3a3a3a';
           const eyebrowY = 0.14 + faceYOffset;
           const eyebrowX = 0.12 * headScale;
           const eyebrowZ = 0.26 * headScale;
-          
+
+          if (hasUnibrow) {
+            // Single connected unibrow spanning both eye positions
+            const unibrowWidth = (eyebrowX * 2) + (0.12 * headScale);
+            return (
+              <mesh ref={unibrowRef} position={[0, eyebrowY, eyebrowZ]}>
+                <boxGeometry args={[unibrowWidth, 0.03 * headScale, 0.02]} />
+                <meshStandardMaterial color={eyebrowColor} roughness={0.8} />
+              </mesh>
+            );
+          }
+
+          // Default: Two separate eyebrows
           return (
             <>
               <mesh ref={leftEyebrowRef} position={[-eyebrowX, eyebrowY, eyebrowZ]}>
@@ -2035,6 +2259,98 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           </>
         )}
 
+{/* VADER MASK - Improved Primitive Style */}
+      {hasVaderMask && (
+        <group name="VaderHelmetContainer">
+          {/* --- GLOSSY HELMET SECTION --- */}
+
+          {/* Main helmet dome - Stretched Sphere for roundness */}
+          <mesh position={[0, 0.3 * headScale, -0.05 * headScale]} scale={[1, 1.2, 1.1]} castShadow>
+            {/* args: [radius, widthSegments, heightSegments, phiStart, phiLength, thetaStart, thetaLength] */}
+            {/* Cut sphere in half to sit on head */}
+            <sphereGeometry args={[0.42 * headScale, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.6]} />
+            <meshStandardMaterial color="#050505" metalness={0.8} roughness={0.1} envMapIntensity={1.2} />
+          </mesh>
+
+          {/* Helmet Side/Back Flange (The "hair" shape) - Approximated with angled boxes */}
+          {/* Back piece */}
+           <mesh position={[0, -0.1 * headScale, -0.25 * headScale]} rotation={[-0.3, 0, 0]} castShadow>
+            <boxGeometry args={[0.7 * headScale, 0.6 * headScale, 0.1 * headScale]} />
+             <meshStandardMaterial color="#050505" metalness={0.8} roughness={0.1} />
+          </mesh>
+          {/* Left Side Flange */}
+           <mesh position={[-0.32 * headScale, -0.1 * headScale, -0.05 * headScale]} rotation={[0, 0.4, 0.2]} castShadow>
+            <boxGeometry args={[0.1 * headScale, 0.6 * headScale, 0.5 * headScale]} />
+             <meshStandardMaterial color="#050505" metalness={0.8} roughness={0.1} />
+          </mesh>
+           {/* Right Side Flange */}
+           <mesh position={[0.32 * headScale, -0.1 * headScale, -0.05 * headScale]} rotation={[0, -0.4, -0.2]} castShadow>
+            <boxGeometry args={[0.1 * headScale, 0.6 * headScale, 0.5 * headScale]} />
+             <meshStandardMaterial color="#050505" metalness={0.8} roughness={0.1} />
+          </mesh>
+
+          {/* Forehead ridge - The connecting strip */}
+          <mesh position={[0, 0.38 * headScale, 0.22 * headScale]} rotation={[0.2,0,0]} castShadow>
+            <boxGeometry args={[0.15 * headScale, 0.35 * headScale, 0.05 * headScale]} />
+            <meshStandardMaterial color="#050505" metalness={0.8} roughness={0.1} />
+          </mesh>
+
+          {/* --- MATTE FACE MASK SECTION --- */}
+
+          {/* Main Face Triangle base */}
+          <mesh position={[0, -0.05 * headScale, 0.2 * headScale]} castShadow>
+            {/* A cone pointing down makes a good triangular face shape */}
+            <coneGeometry args={[0.35 * headScale, 0.5 * headScale, 4]} rotation={[0, Math.PI/4, Math.PI]} scale={[1,1,0.5]}/>
+             <meshStandardMaterial color="#151515" metalness={0.3} roughness={0.6} />
+          </mesh>
+
+          {/* Eye lens left - Flattened Sphere */}
+          <mesh position={[-0.14 * headScale, 0.1 * headScale, 0.28 * headScale]} rotation={[0.1, -0.2, 0]} scale={[1, 0.7, 0.3]} castShadow>
+            <sphereGeometry args={[0.1 * headScale, 16, 16]} />
+            {/* Reddish black lenses */}
+            <meshStandardMaterial color="#1a0000" metalness={0.9} roughness={0.05} />
+          </mesh>
+          {/* Eye lens right - Flattened Sphere */}
+          <mesh position={[0.14 * headScale, 0.1 * headScale, 0.28 * headScale]} rotation={[0.1, 0.2, 0]} scale={[1, 0.7, 0.3]} castShadow>
+             <sphereGeometry args={[0.1 * headScale, 16, 16]} />
+            <meshStandardMaterial color="#1a0000" metalness={0.9} roughness={0.05} />
+          </mesh>
+
+          {/* Nose/mouth grille main block - Triangular Prism */}
+          <mesh position={[0, -0.15 * headScale, 0.32 * headScale]} rotation={[Math.PI/2, Math.PI/2, 0]} castShadow>
+            {/* Cylinder with 3 radial segments is a triangular prism */}
+            <cylinderGeometry args={[0.12 * headScale, 0.12 * headScale, 0.15 * headScale, 3]} />
+             <meshStandardMaterial color="#101010" metalness={0.5} roughness={0.5} />
+          </mesh>
+
+          {/* Grille lines - keep these as thin boxes, they work well */}
+          {[-0.04, 0, 0.04].map((offset, i) => (
+            <mesh key={i} position={[0, (-0.15 + offset * 1.5) * headScale, 0.38 * headScale]} castShadow>
+              <boxGeometry args={[0.12 * headScale, 0.01 * headScale, 0.01 * headScale]} />
+              <meshStandardMaterial color="#333333" metalness={0.7} roughness={0.3} />
+            </mesh>
+          ))}
+
+          {/* Cheek Vents/Tusks - Cylinders instead of boxes */}
+          {/* Left */}
+          <mesh position={[-0.22 * headScale, -0.18 * headScale, 0.25 * headScale]} rotation={[Math.PI/2, 0, -0.2]} castShadow>
+             <cylinderGeometry args={[0.04 * headScale, 0.05 * headScale, 0.15 * headScale, 8]} />
+             <meshStandardMaterial color="#151515" metalness={0.4} roughness={0.5} />
+          </mesh>
+          {/* Right */}
+          <mesh position={[0.22 * headScale, -0.18 * headScale, 0.25 * headScale]} rotation={[Math.PI/2, 0, 0.2]} castShadow>
+             <cylinderGeometry args={[0.04 * headScale, 0.05 * headScale, 0.15 * headScale, 8]} />
+             <meshStandardMaterial color="#151515" metalness={0.4} roughness={0.5} />
+          </mesh>
+
+          {/* Chin guard */}
+          <mesh position={[0, -0.3 * headScale, 0.22 * headScale]} rotation={[-0.2,0,0]} castShadow>
+            <boxGeometry args={[0.2 * headScale, 0.1 * headScale, 0.12 * headScale]} />
+             <meshStandardMaterial color="#151515" metalness={0.3} roughness={0.6} />
+          </mesh>
+        </group>
+      )}
+
         {/* Nose */}
         <mesh ref={noseRef} position={[0, -0.05 + faceYOffset, 0.26 * headScale]}>
           <boxGeometry args={[0.08 * headScale, 0.12 * headScale, 0.08 * headScale]} />
@@ -2144,6 +2460,48 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           </mesh>
         )}
 
+        {/* PIPE - smoking pipe in mouth (moves with head) */}
+        {hasPipe && (
+          <group position={[0.1 * headScale, -0.12 + faceYOffset, 0.3 * headScale]} rotation={[0.3, 0.3, 0]}>
+            {/* Bowl */}
+            <mesh position={[0, 0.03, 0]} castShadow>
+              <cylinderGeometry args={[0.025 * headScale, 0.02 * headScale, 0.05 * headScale, 8]} />
+              <meshStandardMaterial color="#5c4a3a" roughness={0.7} />
+            </mesh>
+            {/* Stem */}
+            <mesh position={[0, 0, 0.05 * headScale]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+              <cylinderGeometry args={[0.008 * headScale, 0.008 * headScale, 0.1 * headScale, 6]} />
+              <meshStandardMaterial color="#3a2a1a" roughness={0.6} />
+            </mesh>
+            {/* Mouthpiece */}
+            <mesh position={[0, -0.01, 0.1 * headScale]} castShadow>
+              <boxGeometry args={[0.015 * headScale, 0.01 * headScale, 0.02 * headScale]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.5} />
+            </mesh>
+          </group>
+        )}
+
+        {/* CIGAR - in mouth (moves with head) */}
+        {hasCigar && (
+          <group position={[0.12 * headScale, -0.12 + faceYOffset, 0.32 * headScale]} rotation={[0, 0.4, 0.1]}>
+            {/* Main cigar body */}
+            <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+              <cylinderGeometry args={[0.012 * headScale, 0.015 * headScale, 0.12 * headScale, 8]} />
+              <meshStandardMaterial color="#8B4513" roughness={0.8} />
+            </mesh>
+            {/* Burning tip */}
+            <mesh position={[0.07 * headScale, 0, 0]} castShadow>
+              <sphereGeometry args={[0.015 * headScale, 6, 6]} />
+              <meshStandardMaterial color="#ff4500" emissive="#ff4500" emissiveIntensity={0.5} />
+            </mesh>
+            {/* Ash */}
+            <mesh position={[0.055 * headScale, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+              <cylinderGeometry args={[0.013 * headScale, 0.012 * headScale, 0.02 * headScale, 6]} />
+              <meshStandardMaterial color="#808080" roughness={0.9} />
+            </mesh>
+          </group>
+        )}
+
         {/* Anime Face Decorations */}
         <FaceDecorations complementary={complementary} />
           </group>
@@ -2167,18 +2525,20 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       
       {/* Glow when active */}
       {isActive && (
-        <pointLight position={[0, 0.5, 1]} intensity={1.5} color={character.color} distance={4} />
+        <pointLight position={[0, 0.5, 1]} intensity={0.8} color={character.color} distance={4} />
       )}
     </group>
   );
 }
 
-export function CharacterDisplay3D({ 
-  characterId, 
-  character: passedCharacter, 
-  isActive = false, 
-  animation = 'idle', 
+export function CharacterDisplay3D({
+  characterId,
+  character: passedCharacter,
+  isActive = false,
+  animation = 'idle',
   isTalking = false,
+  showName = false,
+  nameKey,
   complementary,
   onAnimationComplete,
   modelStyle = 'blocky',
@@ -2258,21 +2618,21 @@ export function CharacterDisplay3D({
         gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
         style={{ background: 'transparent' }}
       >
-        <ambientLight intensity={0.5} />
-        <spotLight position={[5, 10, 5]} angle={0.3} penumbra={1} intensity={1} castShadow />
-        <directionalLight position={[-5, 5, 5]} intensity={0.5} />
+        <ambientLight intensity={0.3} />
+        <spotLight position={[5, 10, 5]} angle={0.3} penumbra={1} intensity={0.5} castShadow />
+        <directionalLight position={[-5, 5, 5]} intensity={0.3} />
         {/* Top light for better character illumination */}
-        <directionalLight position={[0, 10, 0]} intensity={0.8} color="#ffffff" />
+        <directionalLight position={[0, 10, 0]} intensity={0.4} color="#ffffff" />
         {/* Frontal light for face illumination */}
-        <directionalLight position={[0, 2, 5]} intensity={1.2} color="#ffffff" />
+        <directionalLight position={[0, 2, 5]} intensity={0.6} color="#ffffff" />
         {/* Frontal light for body illumination */}
-        <directionalLight position={[0, -2, 5]} intensity={1} color="#ffffff" />
+        <directionalLight position={[0, -2, 5]} intensity={0.5} color="#ffffff" />
 
-        <Character 
-          character={character} 
-          isActive={isActive} 
-          animation={animation} 
-          isTalking={isTalking} 
+        <Character
+          character={character}
+          isActive={isActive}
+          animation={animation}
+          isTalking={isTalking}
           scale={responsiveScale}
           complementary={complementary}
           modelStyle={modelStyle}

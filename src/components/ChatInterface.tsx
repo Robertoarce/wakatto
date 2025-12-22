@@ -19,7 +19,8 @@ import { transcribeAudio, isWebSpeechSupported } from '../services/speechToText'
 import { LiveSpeechRecognition, LiveTranscriptionResult } from '../services/speechToTextLive';
 import { detectBrowser, getBrowserGuidance, isVoiceSupported } from '../utils/browserDetection';
 import { getPlaybackEngine, PlaybackState, PlaybackStatus } from '../services/animationPlaybackEngine';
-import { CharacterAnimationState, OrchestrationScene, CharacterTimeline, AnimationSegment, DEFAULT_TALKING_SPEED } from '../services/animationOrchestration';
+import { CharacterAnimationState, OrchestrationScene, CharacterTimeline, AnimationSegment, DEFAULT_TALKING_SPEED, adjustTimelineToTargetDuration } from '../services/animationOrchestration';
+import { estimateTTSDuration } from '../services/ttsDurationEstimator';
 import { generateProcessingScene } from '../services/processingAnimations';
 import { getRandomGreeting } from '../services/characterGreetings';
 import { EntranceConfig, generateEntranceSequence, getTotalEntranceDuration } from '../services/entranceAnimations';
@@ -59,9 +60,11 @@ import {
   useVoiceRecording,
   useBobSales,
   useBubbleQueue,
+  useTextToSpeech,
 } from './ChatInterface/hooks';
 import { calculateCharacterPosition } from './ChatInterface/utils/characterPositioning';
 import { wrapTextWithReveal } from './ChatInterface/utils/speechBubbleHelpers';
+import { BUBBLE_ANIMATION_TIMING } from './ChatInterface/utils/bubbleQueueHelpers';
 
 interface Message {
   id: string;
@@ -151,7 +154,6 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { fonts, spacing, layout, isMobile, isTablet, isDesktop, isMobileLandscape, width: screenWidth, height: screenHeight } = useResponsive();
   const [input, setInput] = useState('');
-  const [replayOffset, setReplayOffset] = useState(0); // Tracks how far back we are in replay (cumulative: 5, 10, 15, etc.)
   const scrollViewRef = useRef<ScrollView>(null);
   // Store animation data for replay (keyed by message content hash to match messages)
   const animationDataCacheRef = useRef<Map<string, { segments: AnimationSegment[]; totalDuration: number }>>(new Map());
@@ -192,6 +194,20 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     onDeleteMessage,
     showAlert,
   });
+  // Text-to-speech for character responses
+  const {
+    isSpeaking,
+    isPaused: isTTSPaused,
+    isSupported: isTTSSupported,
+    ttsEnabled,
+    setTtsEnabled,
+    speak,
+    stop: stopTTS,
+    pause: pauseTTS,
+    resume: resumeTTS,
+  } = useTextToSpeech({
+    enabled: true, // Default on for voice-synced experience
+  });
   // Set initial height based on screen size - now using responsive values
   const [characterHeight, setCharacterHeight] = useState(() => {
     const { height, width } = Dimensions.get('window');
@@ -207,7 +223,9 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]); // Fixed characters from conversation creation
   const [isMobileView, setIsMobileView] = useState(isMobile);
   const [hoveredCharacterId, setHoveredCharacterId] = useState<string | null>(null); // Track which character is hovered
+  const [isFullscreenHovered, setIsFullscreenHovered] = useState(false); // Track fullscreen button hover
   const clickBubbleVisibleRef = useRef<Set<string>>(new Set()); // Track click bubble visibility (ref to avoid re-renders)
+  const lastCharacterTextRef = useRef<Map<string, { text: string; fullText: string }>>(new Map()); // Track last text for fade-out
   const [nameKey, setNameKey] = useState(0); // Key to trigger re-animation
   // Character loading (hook handles loading from both built-in and database)
   const { availableCharacters, isLoadingCharacters } = useCharacterLoading();
@@ -428,18 +446,84 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         const fullText = playbackEngineRef.current.getFullText(characterId);
         if (revealedText) {
           updateCharacterText(characterId, revealedText, isTyping, fullText);
+          // Save last text for fade-out display after playback ends
+          lastCharacterTextRef.current.set(characterId, { text: revealedText, fullText: fullText || revealedText });
         }
       });
     }
   }, [playbackState.isPlaying, playbackState.characterStates, selectedCharacters, updateCharacterText]);
 
-  // Clear bubbles when playback stops
+  // Clear saved text after bubbles fade out when playback stops
   useEffect(() => {
-    if (!playbackState.isPlaying) {
-      // Don't clear immediately - let the bubbles fade out naturally
-      // The CharacterSpeechBubble component handles the fade out
+    if (!playbackState.isPlaying && lastCharacterTextRef.current.size > 0) {
+      // Wait for fade-out delay + duration before clearing saved text
+      const clearDelay = BUBBLE_ANIMATION_TIMING.FADE_OUT_DELAY + BUBBLE_ANIMATION_TIMING.FADE_OUT_DURATION + 500;
+      const timer = setTimeout(() => {
+        lastCharacterTextRef.current.clear();
+      }, clearDelay);
+      return () => clearTimeout(timer);
     }
   }, [playbackState.isPlaying]);
+
+  // Track previous playback state for TTS trigger
+  const prevPlayingRef = useRef(false);
+  // Store text to speak after playback completes (used for poems and other direct playback)
+  const pendingTTSTextRef = useRef<Map<string, string>>(new Map());
+
+  // Trigger TTS when playback STARTS (synchronized with animation)
+  // Uses voice-driven mode: TTS boundary events drive text reveal
+  // Characters speak one at a time, sequentially
+  useEffect(() => {
+    const wasPlaying = prevPlayingRef.current;
+    const isNowPlaying = playbackState.isPlaying;
+
+    // Detect transition from stopped to playing (START of playback)
+    if (!wasPlaying && isNowPlaying && ttsEnabled && isTTSSupported) {
+      // Enable TTS-driven mode: text reveal follows TTS position
+      playbackEngineRef.current.setTTSDrivenMode(true);
+
+      // Speak characters sequentially - one at a time
+      const speakSequentially = async () => {
+        for (const characterId of selectedCharacters) {
+          const fullText = pendingTTSTextRef.current.get(characterId);
+
+          if (fullText && fullText.trim()) {
+            // Get character's voice profile for TTS
+            try {
+              const character = getCharacter(characterId);
+              const voiceProfile = character?.voiceProfile;
+
+              // Speak with onBoundary callback to drive text animation
+              // await ensures we wait for this character to finish before next
+              await speak(fullText, {
+                voiceProfile,
+                onBoundary: (charIndex: number) => {
+                  // Update playback engine with TTS position
+                  playbackEngineRef.current.setTTSCharPosition(characterId, charIndex);
+                },
+              });
+
+              // When TTS completes, show full text
+              playbackEngineRef.current.setTTSCharPosition(characterId, fullText.length);
+            } catch (e) {
+              // Character not found or speak failed, speak without voice profile
+              await speak(fullText);
+            }
+          }
+        }
+      };
+
+      speakSequentially();
+    }
+
+    // Clear pending TTS text and disable TTS-driven mode when playback stops
+    if (wasPlaying && !isNowPlaying) {
+      pendingTTSTextRef.current.clear();
+      playbackEngineRef.current.setTTSDrivenMode(false);
+    }
+
+    prevPlayingRef.current = isNowPlaying;
+  }, [playbackState.isPlaying, ttsEnabled, isTTSSupported, selectedCharacters, speak]);
 
   // Animation playback subscription is handled by useAnimationPlayback hook
 
@@ -503,6 +587,8 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       playbackEngineRef.current.setCharacterVoiceProfiles(voiceProfiles);
 
       // Store animation data for each timeline for replay functionality
+      // Also store text content for TTS synchronization
+      pendingTTSTextRef.current.clear();
       for (const timeline of animationScene.timelines) {
         // Create a unique key based on characterId + content
         const cacheKey = `${timeline.characterId}:${timeline.content}`;
@@ -511,6 +597,10 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
             segments: timeline.segments,
             totalDuration: timeline.totalDuration,
           });
+        }
+        // Store text for TTS - this enables voice-driven text sync
+        if (timeline.content && timeline.content.trim()) {
+          pendingTTSTextRef.current.set(timeline.characterId, timeline.content);
         }
       }
 
@@ -1025,10 +1115,24 @@ Each silence, a cathedral where you still reside.`;
       ...timelines.map(t => t.startDelay + t.totalDuration)
     );
 
-    // Create the test scene
+    // Estimate TTS duration and adjust animation speed to match (if TTS is enabled)
+    let adjustedTimelines = timelines;
+    if (ttsEnabled && isTTSSupported) {
+      const ttsDuration = estimateTTSDuration(testText, 1.0); // normal TTS rate
+      adjustedTimelines = timelines.map(timeline =>
+        adjustTimelineToTargetDuration(timeline, ttsDuration)
+      );
+    }
+
+    // Recalculate scene duration with adjusted timelines
+    const adjustedMaxEndTime = Math.max(
+      ...adjustedTimelines.map(t => t.startDelay + t.totalDuration)
+    );
+
+    // Create the test scene with adjusted timelines
     const testScene: OrchestrationScene = {
-      timelines,
-      sceneDuration: maxEndTime,
+      timelines: adjustedTimelines,
+      sceneDuration: adjustedMaxEndTime,
       nonSpeakerBehavior: {},
     };
 
@@ -1036,12 +1140,17 @@ Each silence, a cathedral where you still reside.`;
     const voiceProfiles = buildVoiceProfilesMap();
     playbackEngineRef.current.setCharacterVoiceProfiles(voiceProfiles);
 
-    // Start playback
+    // Store poem text for TTS BEFORE playing (TTS starts when playback begins)
+    pendingTTSTextRef.current.clear();
+    selectedCharacters.forEach(characterId => {
+      pendingTTSTextRef.current.set(characterId, testText);
+    });
+
+    // Start playback (TTS will start simultaneously via useEffect)
     playbackEngineRef.current.play(testScene);
   };
 
-  // Replay function - CUMULATIVE: each press adds 5 more messages to replay
-  // Pressing during playback extends the replay (5 → 10 → 15...)
+  // Replay function - replays all character messages from the conversation
   // Uses stored animation data when available for authentic playback
   const handleReplay = () => {
     // Get only character messages (not user messages)
@@ -1052,17 +1161,8 @@ Each silence, a cathedral where you still reside.`;
       return;
     }
 
-    // Calculate new cumulative count (adds 5 more each press)
-    const batchSize = 5;
-    const newTotalCount = replayOffset + batchSize;
-
-    // Get messages to replay (most recent `newTotalCount` messages)
-    const startIndex = Math.max(0, characterMessages.length - newTotalCount);
-    const messagesToReplay = characterMessages.slice(startIndex);
-
-    if (messagesToReplay.length === 0) {
-      return;
-    }
+    // Replay all character messages
+    const messagesToReplay = characterMessages;
 
     // Build timelines - USE STORED ANIMATION DATA if available
     const msPerChar = DEFAULT_TALKING_SPEED;
@@ -1136,26 +1236,23 @@ Each silence, a cathedral where you still reside.`;
     const voiceProfiles = buildVoiceProfilesMap();
     playbackEngineRef.current.setCharacterVoiceProfiles(voiceProfiles);
 
-    // Start playback (this will restart with the new extended scene)
-    playbackEngineRef.current.play(replayScene);
-
-    // Update cumulative count
-    setReplayOffset(newTotalCount);
-  };
-
-  // Reset replay offset when playback stops
-  useEffect(() => {
-    if (!playbackState.isPlaying && replayOffset > 0) {
-      // Don't reset immediately - allow user to continue pressing replay
-      // Reset after 5 seconds of no playback
-      const timeout = setTimeout(() => {
-        if (!playbackState.isPlaying) {
-          setReplayOffset(0);
+    // Store text for TTS - concatenate all messages per character for replay
+    pendingTTSTextRef.current.clear();
+    for (const timeline of timelines) {
+      if (timeline.content && timeline.content.trim()) {
+        const existing = pendingTTSTextRef.current.get(timeline.characterId);
+        if (existing) {
+          // Concatenate multiple messages from same character
+          pendingTTSTextRef.current.set(timeline.characterId, existing + ' ' + timeline.content);
+        } else {
+          pendingTTSTextRef.current.set(timeline.characterId, timeline.content);
         }
-      }, 5000);
-      return () => clearTimeout(timeout);
+      }
     }
-  }, [playbackState.isPlaying, replayOffset]);
+
+    // Start playback
+    playbackEngineRef.current.play(replayScene);
+  };
 
   return (
     <>
@@ -1185,20 +1282,13 @@ Each silence, a cathedral where you still reside.`;
       ]}>
         {/* Playback Control Buttons - Flex container for Replay and Stop/Play */}
         <View style={styles.playbackButtonsContainer}>
-          {/* Replay Button - CUMULATIVE: adds 5 more messages each press */}
+          {/* Replay Button - replays all messages */}
           {(() => {
-            const hasCount = replayOffset > 0;
-            const btnPadH = hasCount
-              ? Math.max(8, 8 + ((screenWidth - 280) / (768 - 280)) * 6)
-              : Math.max(6, 6 + ((screenWidth - 280) / (768 - 280)) * 4);
+            const btnPadH = Math.max(6, 6 + ((screenWidth - 280) / (768 - 280)) * 4);
             const btnPadV = Math.max(4, 4 + ((screenWidth - 280) / (768 - 280)) * 2);
             const btnGap = Math.max(4, 4 + ((screenWidth - 280) / (768 - 280)) * 2);
             const iconSize = Math.max(14, 14 + ((screenWidth - 280) / (768 - 280)) * 4);
             const fontSize = Math.max(11, 11 + ((screenWidth - 280) / (768 - 280)) * 2);
-
-            const buttonText = replayOffset > 0
-              ? `Replay (${replayOffset}${playbackState.isPlaying ? '' : ' +5'})`
-              : 'Replay';
 
             return (
               <TouchableOpacity
@@ -1210,7 +1300,7 @@ Each silence, a cathedral where you still reside.`;
               >
                 <Ionicons name="refresh" size={iconSize} color="#3b82f6" />
                 <Text style={[styles.playbackButtonText, { fontSize, color: '#3b82f6' }]}>
-                  {buttonText}
+                  Replay
                 </Text>
               </TouchableOpacity>
             );
@@ -1270,21 +1360,25 @@ Each silence, a cathedral where you still reside.`;
               const character = availableCharacters.find(c => c.id === characterId) || getCharacter(characterId);
               const charPlaybackState = playbackState.characterStates.get(characterId);
               const usePlayback = playbackState.isPlaying && charPlaybackState;
-              const revealedText = usePlayback ? playbackEngineRef.current.getRevealedText(characterId) : '';
-              const fullTextContent = usePlayback ? playbackEngineRef.current.getFullText(characterId) : '';
+
+              // Get current text from playback, or fall back to last saved text for fade-out
+              const lastSavedText = lastCharacterTextRef.current.get(characterId);
+              const revealedText = usePlayback ? playbackEngineRef.current.getRevealedText(characterId) : (lastSavedText?.text || '');
+              const fullTextContent = usePlayback ? playbackEngineRef.current.getFullText(characterId) : (lastSavedText?.fullText || '');
               const isSpeakingNow = usePlayback && charPlaybackState?.isTalking;
               const isTypingNow = usePlayback && revealedText && revealedText.length > 0;
 
-              // Only render bubble if character is speaking
-              if (!isSpeakingNow && !isTypingNow) return null;
-
-              // Get bubbles from queue
+              // Get bubbles from queue (persists after playback ends)
               const characterBubbles = getBubblesForCharacter(characterId);
+
+              // Render bubble if speaking OR if there are bubbles in queue (for fade-out)
+              const hasBubbles = characterBubbles.length > 0;
+              if (!isSpeakingNow && !isTypingNow && !hasBubbles) return null;
 
               return (
                 <MemoizedCharacterSpeechBubble
                   key={`mobile-bubble-${characterId}`}
-                  bubbles={characterBubbles.length > 0 ? characterBubbles : undefined}
+                  bubbles={hasBubbles ? characterBubbles : undefined}
                   text={revealedText || ''}
                   fullText={fullTextContent}
                   characterName={character.name}
@@ -1370,14 +1464,16 @@ Each silence, a cathedral where you still reside.`;
               // Characters on the left side of center get bubbles on their right, and vice versa
               const bubblePosition = horizontalOffset < 0 ? 'right' : horizontalOffset > 0 ? 'left' : (index % 2 === 0 ? 'right' : 'left');
               
-              // For 5 characters, the center character should have bubble above (like single character)
-              const isCenterCharacter = total === 5 && horizontalOffset === 0;
+              // Center character (odd number of characters: 3 or 5) should have bubble above (like single character)
+              const isCenterCharacter = horizontalOffset === 0 && total > 1;
               
               // Get revealed text for this character's speech bubble
               const charPlaybackState = playbackState.characterStates.get(characterId);
               const usePlayback = playbackState.isPlaying && charPlaybackState;
-              const revealedText = usePlayback ? playbackEngineRef.current.getRevealedText(characterId) : '';
-              const fullTextContent = usePlayback ? playbackEngineRef.current.getFullText(characterId) : '';
+              // Get current text from playback, or fall back to last saved text for fade-out
+              const lastSavedText = lastCharacterTextRef.current.get(characterId);
+              const revealedText = usePlayback ? playbackEngineRef.current.getRevealedText(characterId) : (lastSavedText?.text || '');
+              const fullTextContent = usePlayback ? playbackEngineRef.current.getFullText(characterId) : (lastSavedText?.fullText || '');
               const isSpeaking = usePlayback && charPlaybackState?.isTalking;
               const isTyping = usePlayback && revealedText && revealedText.length > 0;
 
@@ -1400,6 +1496,7 @@ Each silence, a cathedral where you still reside.`;
                   isLeftSide={horizontalOffset < 0}
                   lastMessage={lastCharacterMessage}
                   entranceConfig={charEntranceConfig}
+                  actionText={usePlayback ? playbackEngineRef.current.getActionText(characterId) : undefined}
                   onHoverChange={(isHovered) => setHoveredCharacterId(isHovered ? characterId : null)}
                   onClickBubbleChange={(isVisible) => {
                     if (isVisible) {
@@ -1557,19 +1654,35 @@ Each silence, a cathedral where you still reside.`;
 
       {/* Fullscreen Toggle Button (web only) */}
       {Platform.OS === 'web' && (
-        <TouchableOpacity
-          onPress={toggleFullscreen}
+        <View
           style={[
             styles.fullscreenButton,
             isFullscreen && styles.fullscreenButtonActive,
           ]}
+          // @ts-ignore - onMouseEnter/Leave work on web
+          onMouseEnter={() => setIsFullscreenHovered(true)}
+          onMouseLeave={() => setIsFullscreenHovered(false)}
         >
-          <Ionicons 
-            name={isFullscreen ? "contract" : "expand"} 
-            size={20} 
-            color="#ffffff" 
-          />
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={toggleFullscreen}
+            style={styles.fullscreenButtonInner}
+            accessibilityLabel={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+          >
+            <Ionicons
+              name={isFullscreen ? "contract" : "expand"}
+              size={20}
+              color="#ffffff"
+            />
+          </TouchableOpacity>
+          {/* Tooltip */}
+          {isFullscreenHovered && (
+            <View style={styles.fullscreenTooltip}>
+              <Text style={styles.fullscreenTooltipText}>
+                {isFullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
+              </Text>
+            </View>
+          )}
+        </View>
       )}
 
 
@@ -1803,6 +1916,34 @@ Each silence, a cathedral where you still reside.`;
                   >
                     {isRecording ? <MaterialCommunityIcons name="microphone-off" size={iconSize} color="white" /> : <MaterialCommunityIcons name="microphone" size={iconSize} color="#a1a1aa" />}
                   </TouchableOpacity>
+                  {/* TTS Toggle Button */}
+                  {isTTSSupported && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (isSpeaking) {
+                          stopTTS();
+                        } else {
+                          setTtsEnabled(!ttsEnabled);
+                        }
+                      }}
+                      style={[
+                        styles.iconButton,
+                        ttsEnabled ? styles.ttsButtonActive : styles.ttsButtonInactive,
+                        isSpeaking && styles.ttsButtonSpeaking,
+                        { width: buttonSize, height: buttonSize, minWidth: buttonSize, minHeight: buttonSize }
+                      ]}
+                    >
+                      {isSpeaking ? (
+                        <MaterialCommunityIcons name="stop" size={iconSize} color="white" />
+                      ) : (
+                        <MaterialCommunityIcons
+                          name={ttsEnabled ? "volume-high" : "volume-off"}
+                          size={iconSize}
+                          color={ttsEnabled ? "white" : "#a1a1aa"}
+                        />
+                      )}
+                    </TouchableOpacity>
+                  )}
                   <TouchableOpacity
                     onPress={handleSendMessagePress}
                     disabled={!input.trim() || isLoading}
@@ -1946,6 +2087,27 @@ const styles = StyleSheet.create({
   fullscreenButtonActive: {
     backgroundColor: '#5398BE',
     borderColor: '#5399beff',
+  },
+  fullscreenButtonInner: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fullscreenTooltip: {
+    position: 'absolute',
+    top: 44,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    zIndex: 101,
+  },
+  fullscreenTooltipText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '500',
   },
   dividerMessageBadge: {
     backgroundColor: '#5398BE',
@@ -2125,6 +2287,15 @@ const styles = StyleSheet.create({
   },
   recordButtonInactive: {
     backgroundColor: 'transparent',
+  },
+  ttsButtonActive: {
+    backgroundColor: '#22c55e',
+  },
+  ttsButtonInactive: {
+    backgroundColor: 'transparent',
+  },
+  ttsButtonSpeaking: {
+    backgroundColor: '#3b82f6',
   },
   sendButton: {
     backgroundColor: '#5398BE',

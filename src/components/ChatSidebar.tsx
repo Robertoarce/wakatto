@@ -297,22 +297,7 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
   return (
     <>
       <AlertComponent />
-      {!isOpen && (
-        <TouchableOpacity
-          onPress={onToggleSidebar}
-          style={[
-            styles.burgerButton,
-            { 
-              minWidth: layout.minTouchTarget, 
-              minHeight: layout.minTouchTarget,
-              padding: spacing.sm,
-            }
-          ]}
-          accessibilityLabel="Open sidebar"
-        >
-          <MaterialCommunityIcons name="menu" size={isMobile ? 22 : 24} color="white" />
-        </TouchableOpacity>
-      )}
+      {/* Burger button moved to Header component */}
 
       {/* Edge gesture zone for opening sidebar when closed */}
       {!isOpen && (

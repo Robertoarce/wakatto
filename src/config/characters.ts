@@ -10,7 +10,7 @@ export type ClothingType = 'suit' | 'tshirt' | 'dress' | 'casual' | 'jacket' | '
 export type HairType = 'short' | 'long' | 'none' | 'medium';
 export type AccessoryType =
   // Head accessories
-  | 'glasses' | 'hat' | 'crown' | 'headphones' | 'top_hat' | 'monocle' | 'ranger_hat' | 'bat_mask'
+  | 'glasses' | 'hat' | 'crown' | 'headphones' | 'top_hat' | 'monocle' | 'ranger_hat' | 'bat_mask' | 'vader_mask'
   | 'sunglasses' | 'goggles' | 'turban' | 'beret' | 'bandana' | 'helmet' | 'tiara' | 'halo' | 'horns'
   // Facial accessories
   | 'beard' | 'moustache' | 'eye_patch' | 'scar' | 'pipe' | 'cigar'
@@ -35,7 +35,9 @@ export interface CharacterCustomization {
   bodyColor: string;
   pantsColor?: string;  // Separate pants/legs color (defaults to bodyColor if not set)
   accessoryColor: string;
+  capeColor?: string;   // Optional cape color (defaults to accessoryColor if not set)
   hairColor: string;
+  hasUnibrow?: boolean;  // Renders single connected eyebrow spanning both eyes
 }
 
 export interface CharacterBehavior {

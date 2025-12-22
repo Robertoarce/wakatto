@@ -290,6 +290,7 @@ export function generateProcessingScene(
   timelines: Array<{
     characterId: string;
     content: string;
+    totalDuration: number;
     startDelay: number;
     segments: AnimationSegment[];
   }>;
@@ -297,12 +298,17 @@ export function generateProcessingScene(
 } {
   return {
     sceneDuration: estimatedDuration,
-    timelines: allCharacters.map((charId, index) => ({
-      characterId: charId,
-      content: '', // No text during processing
-      startDelay: index * 150, // Slight stagger for natural feel
-      segments: generateProcessingSegments(charId, allCharacters, estimatedDuration),
-    })),
+    timelines: allCharacters.map((charId, index) => {
+      const segments = generateProcessingSegments(charId, allCharacters, estimatedDuration);
+      const totalDuration = segments.reduce((sum, seg) => sum + seg.duration, 0);
+      return {
+        characterId: charId,
+        content: '', // No text during processing
+        totalDuration,
+        startDelay: index * 150, // Slight stagger for natural feel
+        segments,
+      };
+    }),
     nonSpeakerBehavior: {},
   };
 }

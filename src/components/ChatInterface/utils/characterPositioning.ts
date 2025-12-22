@@ -80,8 +80,8 @@ export function calculateCharacterPosition(
   const bubblePosition: 'left' | 'right' =
     horizontalOffset < 0 ? 'right' : horizontalOffset > 0 ? 'left' : (index % 2 === 0 ? 'right' : 'left');
 
-  // For 5 characters, the center character should have bubble above (like single character)
-  const isCenterCharacter = total === 5 && horizontalOffset === 0;
+  // Center character (odd number: 3 or 5) should have bubble above (like single character)
+  const isCenterCharacter = horizontalOffset === 0 && total > 1;
 
   return {
     angle,

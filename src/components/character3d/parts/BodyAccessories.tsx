@@ -412,16 +412,7 @@ export function BodyAccessories({
             <boxGeometry args={[0.12, 0.15, 0.03]} />
             <meshStandardMaterial color="#f5f5f5" roughness={0.8} />
           </mesh>
-          {/* Left sleeve extension */}
-          <mesh position={[-body.armX - 0.08, body.armY - 0.1, 0]} castShadow>
-            <boxGeometry args={[0.22, 0.35, 0.28]} />
-            <meshStandardMaterial color="#f5f5f5" roughness={0.8} />
-          </mesh>
-          {/* Right sleeve extension */}
-          <mesh position={[body.armX + 0.08, body.armY - 0.1, 0]} castShadow>
-            <boxGeometry args={[0.22, 0.35, 0.28]} />
-            <meshStandardMaterial color="#f5f5f5" roughness={0.8} />
-          </mesh>
+          {/* Sleeves are now rendered inside arm groups in CharacterDisplay3D.tsx */}
           {/* Pocket - left */}
           <mesh position={[-body.torso.width * 0.25, body.torso.y - 0.15, body.frontZ + 0.04]} castShadow>
             <boxGeometry args={[0.12, 0.1, 0.02]} />

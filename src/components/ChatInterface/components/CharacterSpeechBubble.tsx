@@ -201,7 +201,25 @@ export function CharacterSpeechBubble({
     // Container styles for horizontal bubble layout
     const getContainerStyles = () => {
       if (isSingleCharacter) {
-        // Center the bubble container above character
+        // Check if this is a center character in a multi-character layout
+        const isCenterInGroup = characterCount > 1;
+
+        if (isCenterInGroup) {
+          // Center within parent wrapper (not screen)
+          return {
+            position: 'absolute' as const,
+            top: topOffset || -60,
+            left: 0,
+            right: 0,
+            flexDirection: 'column' as const,
+            alignItems: 'center' as const,
+            gap: 10,
+            zIndex: 500,
+            pointerEvents: 'none' as const,
+          };
+        }
+
+        // True single character - center on screen
         const totalWidth = bubbleCount === 1
           ? dimensions.maxWidth
           : (dimensions.maxWidth * 2 + 8); // 2 bubbles + gap
@@ -334,6 +352,23 @@ export function CharacterSpeechBubble({
     const effectiveScreenWidth = bubbleScreenWidth || viewportWidth || 400;
     const padding = 16;
     const bubbleWidth = Math.min(safeBubbleWidth, effectiveScreenWidth - padding * 2);
+
+    // Check if this is a center character in a multi-character layout
+    const isCenterInGroup = characterCount > 1;
+
+    if (isCenterInGroup) {
+      // Center within parent wrapper (not screen)
+      return {
+        top: topOffset || -60,
+        left: 0,
+        right: 0,
+        alignSelf: 'center' as const,
+        maxWidth: bubbleWidth,
+        maxHeight: safeBubbleHeight,
+      };
+    }
+
+    // True single character - center on screen
     const leftPosition = Math.max(padding, (effectiveScreenWidth - bubbleWidth) / 2);
 
     return {

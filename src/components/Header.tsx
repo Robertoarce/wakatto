@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
 import { logout } from '../store/actions/authActions';
+import { toggleSidebar } from '../store/actions/uiActions';
 import { useCustomAlert } from './CustomAlert';
 import { useResponsive } from '../constants/Layout';
 
@@ -13,7 +14,12 @@ export function Header() {
   const dispatch = useDispatch();
   const { showAlert, AlertComponent } = useCustomAlert();
   const { user } = useSelector((state: RootState) => state.auth);
+  const { showSidebar } = useSelector((state: RootState) => state.ui);
   const { isMobile, isTablet, fonts, spacing, layout } = useResponsive();
+
+  const handleToggleSidebar = () => {
+    dispatch(toggleSidebar());
+  };
 
   const handleLogout = () => {
     showAlert(
@@ -34,7 +40,7 @@ export function Header() {
   };
 
   // Responsive sizes
-  const logoSize = isMobile ? 28 : 32;
+  const logoSize = isMobile ? 36 : 40;
   const titleSize = isMobile ? fonts.lg : fonts.xl;
   const iconSize = isMobile ? 18 : 20;
 
@@ -49,7 +55,27 @@ export function Header() {
           minHeight: layout.headerHeight,
         }
       ]}>
-        <View style={[styles.leftContainer, { gap: spacing.sm }]}>
+        {/* Left: Hamburger menu (only show when sidebar is closed) */}
+        <View style={[styles.leftContainer, { minWidth: 60 }]}>
+          {!showSidebar && (
+            <TouchableOpacity
+              onPress={handleToggleSidebar}
+              style={[
+                styles.hamburgerButton,
+                {
+                  minWidth: layout.minTouchTarget,
+                  minHeight: layout.minTouchTarget,
+                }
+              ]}
+              accessibilityLabel="Open sidebar"
+            >
+              <Ionicons name="time-outline" size={isMobile ? 22 : 24} color="#ffffff" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Center: Logo + Wakatto */}
+        <View style={[styles.centerContainer, { gap: spacing.sm }]}>
           <View style={[
             styles.logoContainer,
             {
@@ -60,14 +86,15 @@ export function Header() {
           ]}>
             <Image
               source={require('../assets/images/logo.svg')}
-              style={styles.logoImage}
+              style={{ width: logoSize, height: logoSize, borderRadius: 6 }}
               resizeMode="contain"
             />
           </View>
           <Text style={[styles.title, { fontSize: titleSize }]}>Wakatto</Text>
         </View>
 
-        <View style={[styles.rightContainer, { gap: spacing.md }]}>
+        {/* Right: User info + logout */}
+        <View style={[styles.rightContainer, { gap: spacing.md, minWidth: 60 }]}>
           {user && (
             <>
               {/* Hide email on mobile, show on tablet+ */}
@@ -128,16 +155,34 @@ const styles = StyleSheet.create({
   leftContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-start',
+    zIndex: 1,
   },
-  logoContainer: {
-    backgroundColor: '#ffffff',
+  centerContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 4,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    pointerEvents: 'none',
+  },
+  hamburgerButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 6,
+    backgroundColor: '#f92a82',
+    padding: 8,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   logoImage: {
     width: '100%',
     height: '100%',
+    borderRadius: 6,
   },
   title: {
     color: 'white',
@@ -146,6 +191,8 @@ const styles = StyleSheet.create({
   rightContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
+    zIndex: 1,
   },
   userInfo: {
     backgroundColor: '#27272a',

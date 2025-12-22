@@ -266,6 +266,23 @@ export default function CharacterSelectionScreen({ onStartConversation, onCancel
     });
   }, [showAlert]);
 
+  // Random selection - picks 2-5 characters randomly
+  const selectRandom = useCallback(() => {
+    const availableChars = filtered.length > 0 ? filtered : characters;
+    if (availableChars.length === 0) return;
+
+    // Random count between 2 and 5 (or max available)
+    const maxCount = Math.min(MAX_CHARACTERS, availableChars.length);
+    const minCount = Math.min(2, maxCount);
+    const count = Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount;
+
+    // Shuffle and pick
+    const shuffled = [...availableChars].sort(() => Math.random() - 0.5);
+    const randomIds = shuffled.slice(0, count).map(c => c.id);
+
+    setSelectedIds(randomIds);
+  }, [filtered, characters]);
+
   const start = () => {
     if (selectedIds.length === 0) {
       showAlert('Select Characters', 'Please select at least one character.');
@@ -365,6 +382,24 @@ export default function CharacterSelectionScreen({ onStartConversation, onCancel
           showsHorizontalScrollIndicator={true}
           contentContainerStyle={[styles.filterScroll, { paddingHorizontal: spacing.sm, gap: spacing.sm }]}
         >
+          {/* Random Selection Button */}
+          <TouchableOpacity
+            style={[dynamicStyles.filterChip, styles.randomChip]}
+            onPress={selectRandom}
+          >
+            <Ionicons
+              name="dice"
+              size={Math.round(fonts.lg)}
+              color="#fbbf24"
+            />
+            <Text style={[dynamicStyles.filterChipText, styles.randomChipText]}>
+              Random
+            </Text>
+          </TouchableOpacity>
+
+          {/* Divider */}
+          <View style={styles.filterDivider} />
+
           {PROFESSIONS.map(prof => (
             <TouchableOpacity
               key={prof.id}
@@ -514,6 +549,20 @@ const styles = StyleSheet.create({
   },
   filterChipTextActive: {
     color: '#fff',
+  },
+  randomChip: {
+    backgroundColor: '#422006',
+    borderWidth: 1,
+    borderColor: '#fbbf24',
+  },
+  randomChipText: {
+    color: '#fbbf24',
+  },
+  filterDivider: {
+    width: 1,
+    height: '60%',
+    backgroundColor: '#3f3f46',
+    alignSelf: 'center',
   },
   searchBox: {
     flexDirection: 'row',

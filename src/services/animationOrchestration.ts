@@ -50,6 +50,7 @@ export interface AnimationSegment {
     endIndex: number;
   };
   voice?: SegmentVoice; // Voice characteristics for this segment (pitch, tone, volume, pace, mood, intent)
+  actionText?: string; // Comic-style action text like "slams hand on table" (extracted from *asterisks*)
 }
 
 /**
@@ -354,6 +355,21 @@ export function stripAsteriskActions(text: string): string {
   cleaned = cleaned.replace(/\s+([.,!?])/g, '$1'); // Space before punctuation
 
   return cleaned;
+}
+
+/**
+ * Extract asterisk action text from content for comic-style display
+ * Returns array of actions like ["slams hand on table", "burp"]
+ * @example extractAsteriskActions("*slams hand* Hello *waves*") → ["slams hand", "waves"]
+ */
+export function extractAsteriskActions(text: string): string[] {
+  if (!text) return [];
+
+  const matches = text.match(/\*([^*]+)\*/g);
+  if (!matches) return [];
+
+  // Remove the asterisks and return just the action text
+  return matches.map(m => m.slice(1, -1).trim());
 }
 
 // ============================================
@@ -876,11 +892,67 @@ function convertSimplifiedScene(
   let previousEndTime = 0;
 
   for (const char of sorted) {
+    // Extract action text BEFORE stripping (for comic-style display)
+    const actionTexts = extractAsteriskActions(char.t);
+    if (actionTexts.length > 0) {
+      console.log(`[AnimOrch] Extracted action text from ${char.c}:`, actionTexts);
+    }
+
     // Clean content: strip asterisk actions like *smiles* or *raises eyebrow*
     const cleanedContent = stripAsteriskActions(char.t);
     if (cleanedContent !== char.t) {
       console.log(`[AnimOrch] Stripped asterisk actions from ${char.c}: "${char.t}" → "${cleanedContent}"`);
     }
+
+    // Check if this contains combined [Character]: responses that need splitting
+    const splitResponses = splitCombinedContent(cleanedContent, selectedCharacters);
+    if (splitResponses && splitResponses.length > 1) {
+      console.log(`[AnimOrch] Split combined content into ${splitResponses.length} character responses`);
+
+      // Process each split response as a separate timeline
+      for (let splitIndex = 0; splitIndex < splitResponses.length; splitIndex++) {
+        const split = splitResponses[splitIndex];
+        // Extract action text from this split's content (may have its own *actions*)
+        const splitActionTexts = extractAsteriskActions(split.content);
+        const splitCleanContent = stripAsteriskActions(split.content);
+        const splitContentLength = splitCleanContent.length;
+
+        // Create default talking segment for this split
+        const splitDuration = Math.round(splitContentLength * DEFAULT_TALKING_SPEED);
+        const splitSegments: AnimationSegment[] = [{
+          animation: 'talking' as AnimationState,
+          duration: splitDuration,
+          isTalking: true,
+          textReveal: {
+            startIndex: 0,
+            endIndex: splitContentLength
+          },
+          // Add action text if present
+          actionText: splitActionTexts.length > 0 ? splitActionTexts.join(' ') : undefined
+        }];
+
+        // Calculate start delay - first split continues from previous, rest are sequential
+        let splitStartDelay: number;
+        if (timelines.length === 0 && splitIndex === 0) {
+          splitStartDelay = 0;
+        } else {
+          splitStartDelay = previousEndTime + CHARACTER_TURN_GAP;
+        }
+
+        timelines.push({
+          characterId: split.characterId,
+          content: splitCleanContent,
+          totalDuration: splitDuration,
+          segments: splitSegments,
+          startDelay: splitStartDelay,
+          isInterruption: false
+        });
+
+        previousEndTime = splitStartDelay + splitDuration;
+      }
+      continue; // Skip normal processing since we handled it
+    }
+
     const contentLength = cleanedContent.length;
 
     // Count talking segments to distribute text
@@ -909,6 +981,11 @@ function convertSimplifiedScene(
       }
 
       segments.push(segment);
+    }
+
+    // Add action text to the first segment (if any extracted)
+    if (actionTexts.length > 0 && segments.length > 0) {
+      segments[0].actionText = actionTexts.join(' ');
     }
 
     const totalDuration = segments.reduce((sum, s) => sum + s.duration, 0);
@@ -1710,5 +1787,72 @@ export function getTimingGuidelines(): string {
 - Default thinking duration: ${DEFAULT_THINKING_DURATION}ms
 - Add 500-1000ms gaps between character responses for natural pacing
 `;
+}
+
+/**
+ * Adjust a timeline's duration to match a target duration (e.g., TTS duration)
+ * Scales all segment durations proportionally
+ *
+ * @param timeline - The timeline to adjust
+ * @param targetDuration - Target total duration in milliseconds
+ * @returns New timeline with adjusted durations
+ */
+export function adjustTimelineToTargetDuration(
+  timeline: CharacterTimeline,
+  targetDuration: number
+): CharacterTimeline {
+  // Don't adjust if current duration is 0 or very small
+  if (timeline.totalDuration <= 0) {
+    return timeline;
+  }
+
+  // Calculate scale factor
+  const scaleFactor = targetDuration / timeline.totalDuration;
+
+  // Scale all segment durations
+  const adjustedSegments = timeline.segments.map((segment) => ({
+    ...segment,
+    duration: Math.max(MIN_SEGMENT_DURATION, Math.round(segment.duration * scaleFactor)),
+  }));
+
+  // Calculate actual new duration (sum of adjusted segments)
+  const actualDuration = adjustedSegments.reduce((sum, seg) => sum + seg.duration, 0);
+
+  return {
+    ...timeline,
+    totalDuration: actualDuration,
+    segments: adjustedSegments,
+  };
+}
+
+/**
+ * Adjust an entire scene's timelines to match TTS durations
+ *
+ * @param scene - The scene to adjust
+ * @param ttsDurations - Map of characterId to target TTS duration in ms
+ * @returns New scene with adjusted timeline durations
+ */
+export function adjustSceneForTTS(
+  scene: OrchestrationScene,
+  ttsDurations: Map<string, number>
+): OrchestrationScene {
+  const adjustedTimelines = scene.timelines.map((timeline) => {
+    const targetDuration = ttsDurations.get(timeline.characterId);
+    if (targetDuration && targetDuration > 0) {
+      return adjustTimelineToTargetDuration(timeline, targetDuration);
+    }
+    return timeline;
+  });
+
+  // Recalculate scene duration
+  const maxEndTime = Math.max(
+    ...adjustedTimelines.map((t) => t.startDelay + t.totalDuration)
+  );
+
+  return {
+    ...scene,
+    timelines: adjustedTimelines,
+    sceneDuration: maxEndTime,
+  };
 }
 

@@ -21,6 +21,7 @@ interface FloatingCharacterWrapperProps {
   entranceConfig?: EntranceConfig;
   onHoverChange?: (isHovered: boolean) => void;
   onClickBubbleChange?: (isVisible: boolean) => void; // Notify when click bubble visibility changes
+  actionText?: string; // Comic-style action text like "slams hand on table"
 }
 
 export function FloatingCharacterWrapper({
@@ -36,6 +37,7 @@ export function FloatingCharacterWrapper({
   entranceConfig,
   onHoverChange,
   onClickBubbleChange,
+  actionText,
 }: FloatingCharacterWrapperProps) {
   const floatAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -363,6 +365,37 @@ export function FloatingCharacterWrapper({
           </View>
         </Animated.View>
       )}
+
+      {/* Comic-style action text overlay */}
+      {actionText && (
+        <View style={styles.actionTextContainer}>
+          <Text style={[styles.actionText, { color: characterColor }]}>
+            *{actionText}*
+          </Text>
+        </View>
+      )}
+
+      {/* Character name label on hover */}
+      {isHovered && (
+        <Animated.View
+          style={[
+            styles.nameTagContainer,
+            {
+              opacity: hoverAnim,
+              transform: [
+                { translateY: hoverAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [10, 0],
+                }) },
+              ],
+            }
+          ]}
+        >
+          <View style={[styles.nameTag, { borderLeftColor: characterColor }]}>
+            <Text style={styles.nameTagText}>{characterName}</Text>
+          </View>
+        </Animated.View>
+      )}
     </Animated.View>
   );
 }
@@ -423,6 +456,50 @@ const styles = StyleSheet.create({
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
     // borderTopColor set dynamically via style prop
+  },
+  actionTextContainer: {
+    position: 'absolute',
+    top: -30,
+    left: '50%',
+    transform: [{ translateX: -60 }],
+    alignItems: 'center',
+    zIndex: 700,
+    pointerEvents: 'none',
+  },
+  actionText: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 16,
+    fontStyle: 'italic',
+    textShadowColor: 'rgba(0, 0, 0, 0.9)',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 4,
+    maxWidth: 150,
+    textAlign: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  nameTagContainer: {
+    position: 'absolute',
+    top: 10,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 800,
+    pointerEvents: 'none',
+  },
+  nameTag: {
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+  },
+  nameTagText: {
+    color: '#ffffff',
+    fontSize: 24,
+    fontWeight: '600',
   },
 });
 

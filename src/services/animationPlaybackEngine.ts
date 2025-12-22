@@ -101,6 +101,10 @@ export class AnimationPlaybackEngine {
   private lastCachedElapsed: number = -1;
   private lastCachedStatus: PlaybackStatus = 'idle';
 
+  // TTS-driven mode: character positions driven by voice feedback
+  private ttsCharPositions: Map<string, number> = new Map();
+  private ttsDrivenMode: boolean = false;
+
   // ============================================
   // PUBLIC METHODS
   // ============================================
@@ -111,6 +115,52 @@ export class AnimationPlaybackEngine {
    */
   setCharacterVoiceProfiles(profiles: Map<string, CharacterVoiceProfile>): void {
     this.characterVoiceProfiles = new Map(profiles);
+  }
+
+  /**
+   * Enable or disable TTS-driven mode
+   * When enabled, text reveal is controlled by setTTSCharPosition instead of time
+   */
+  setTTSDrivenMode(enabled: boolean): void {
+    this.ttsDrivenMode = enabled;
+    if (!enabled) {
+      this.ttsCharPositions.clear();
+    }
+  }
+
+  /**
+   * Check if TTS-driven mode is enabled
+   */
+  isTTSDrivenMode(): boolean {
+    return this.ttsDrivenMode;
+  }
+
+  /**
+   * Set character text position from TTS boundary event
+   * This drives the text reveal when in TTS-driven mode
+   * @param characterId - The character whose text position to set
+   * @param charIndex - The character index in the text (from TTS onboundary event)
+   */
+  setTTSCharPosition(characterId: string, charIndex: number): void {
+    this.ttsCharPositions.set(characterId, charIndex);
+    // Force a state update to reflect the new position
+    if (this.status === 'playing') {
+      this.notifyCallbacks();
+    }
+  }
+
+  /**
+   * Get current TTS character position for a character
+   */
+  getTTSCharPosition(characterId: string): number {
+    return this.ttsCharPositions.get(characterId) ?? 0;
+  }
+
+  /**
+   * Clear TTS positions (call when TTS ends or stops)
+   */
+  clearTTSPositions(): void {
+    this.ttsCharPositions.clear();
   }
 
   /**
@@ -174,6 +224,8 @@ export class AnimationPlaybackEngine {
     this.cachedStates.clear();
     this.lastCachedElapsed = -1;
     this.lastCachedStatus = 'idle';
+    // Clear TTS-driven positions
+    this.ttsCharPositions.clear();
 
     // Notify subscribers that playback has stopped
     this.notifyCallbacks();
@@ -300,6 +352,7 @@ export class AnimationPlaybackEngine {
    * Get revealed text for a specific character at current time
    * Handles multiple timelines per character (finds the currently active one)
    * Applies voice pace multipliers for variable speech speed
+   * In TTS-driven mode, uses character position from TTS instead of time-based calculation
    */
   getRevealedText(characterId: string): string {
     if (!this.scene) return '';
@@ -312,6 +365,14 @@ export class AnimationPlaybackEngine {
 
     const timeline = this.findActiveTimeline(characterTimelines, elapsed);
     if (!timeline) return '';
+
+    // TTS-driven mode: use character position from TTS boundary events
+    if (this.ttsDrivenMode && this.ttsCharPositions.has(characterId)) {
+      const ttsPos = this.ttsCharPositions.get(characterId)!;
+      // Add a small buffer (next word) for smoother sync
+      const bufferPos = Math.min(ttsPos + 10, timeline.content.length);
+      return timeline.content.substring(0, bufferPos);
+    }
 
     const characterElapsed = elapsed - timeline.startDelay;
 
@@ -381,6 +442,36 @@ export class AnimationPlaybackEngine {
     if (!timeline) return '';
 
     return timeline.content;
+  }
+
+  /**
+   * Get the current action text for a character (comic-style overlay)
+   * Returns action text from current segment's actionText field
+   */
+  getActionText(characterId: string): string {
+    if (!this.scene) return '';
+
+    const elapsed = this.getElapsedTime();
+    const characterTimelines = this.scene.timelines.filter(t => t.characterId === characterId);
+    if (characterTimelines.length === 0) return '';
+
+    const timeline = this.findActiveTimeline(characterTimelines, elapsed);
+    if (!timeline) return '';
+
+    const characterElapsed = elapsed - timeline.startDelay;
+    if (characterElapsed < 0) return '';
+
+    // Find current segment and return its action text
+    let segmentStartTime = 0;
+    for (const segment of timeline.segments) {
+      const segmentEndTime = segmentStartTime + segment.duration;
+      if (characterElapsed < segmentEndTime) {
+        return segment.actionText || '';
+      }
+      segmentStartTime = segmentEndTime;
+    }
+
+    return '';
   }
 
   /**
