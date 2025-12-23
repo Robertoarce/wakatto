@@ -104,6 +104,9 @@ export class AnimationPlaybackEngine {
   // TTS-driven mode: character positions driven by voice feedback
   private ttsCharPositions: Map<string, number> = new Map();
   private ttsDrivenMode: boolean = false;
+  // Throttle TTS updates to prevent excessive re-renders
+  private lastTTSUpdateTime: number = 0;
+  private ttsUpdateThrottleMs: number = 50; // Max 20 updates per second
 
   // ============================================
   // PUBLIC METHODS
@@ -143,8 +146,10 @@ export class AnimationPlaybackEngine {
    */
   setTTSCharPosition(characterId: string, charIndex: number): void {
     this.ttsCharPositions.set(characterId, charIndex);
-    // Force a state update to reflect the new position
-    if (this.status === 'playing') {
+    // Throttle state updates to prevent excessive re-renders
+    const now = performance.now();
+    if (this.status === 'playing' && (now - this.lastTTSUpdateTime) >= this.ttsUpdateThrottleMs) {
+      this.lastTTSUpdateTime = now;
       this.notifyCallbacks();
     }
   }
@@ -224,8 +229,9 @@ export class AnimationPlaybackEngine {
     this.cachedStates.clear();
     this.lastCachedElapsed = -1;
     this.lastCachedStatus = 'idle';
-    // Clear TTS-driven positions
+    // Clear TTS-driven positions and reset throttle
     this.ttsCharPositions.clear();
+    this.lastTTSUpdateTime = 0;
 
     // Notify subscribers that playback has stopped
     this.notifyCallbacks();

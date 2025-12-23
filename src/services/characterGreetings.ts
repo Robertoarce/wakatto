@@ -178,7 +178,7 @@ export function getGreetingByResponseStyle(
  * This is a fixed greeting for the tutorial character
  */
 export function getBobGreeting(): string {
-  return `yo! i'm Bob, your guide to this place.
+  return `Yooo! i'm Bob, your guide to Wakatto!.
 
 so here's the deal—you're basically in a chat app where you can talk to different AI characters. each one has their own vibe and expertise.
 

@@ -140,13 +140,24 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
   // Transition speed (higher = faster transitions)
   const transitionSpeed = LERP_SPEED.slow;
 
-  // Animation system
+  // Animation system with frame throttling for performance
   React.useEffect(() => {
     if (!meshRef.current || !headRef.current) return;
 
     let animationId: number;
+    let lastFrameTime = 0;
+    const targetFPS = 30; // Throttle to 30fps for better performance
+    const frameInterval = 1000 / targetFPS;
 
-    const animate = () => {
+    const animate = (frameTime: number = 0) => {
+      // Throttle animation to target FPS
+      const deltaTime = frameTime - lastFrameTime;
+      if (deltaTime < frameInterval) {
+        animationId = requestAnimationFrame(animate);
+        return;
+      }
+      lastFrameTime = frameTime - (deltaTime % frameInterval);
+
       const time = Date.now() * 0.001 * animSpeed;
 
       // Target values - we'll lerp towards these
@@ -2604,19 +2615,32 @@ export function CharacterDisplay3D({
     return () => subscription?.remove();
   }, []);
 
+  // Store GL context for disposal
+  const glRef = useRef<THREE.WebGLRenderer | null>(null);
+
   // Cleanup WebGL resources on unmount
   useEffect(() => {
     return () => {
-      // React-three-fiber automatically disposes geometries and materials
+      // Explicitly dispose WebGL renderer to free GPU memory
+      if (glRef.current) {
+        glRef.current.dispose();
+        glRef.current = null;
+      }
     };
-  }, [character.name]);
+  }, []);
+
+  // Handle Canvas creation - store GL reference
+  const handleCreated = ({ gl }: { gl: THREE.WebGLRenderer }) => {
+    glRef.current = gl;
+  };
 
   return (
     <View style={styles.container}>
       <Canvas
         camera={{ position: [cameraX, cameraY, cameraDistance], fov }}
-        gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
+        gl={{ alpha: true, antialias: true, preserveDrawingBuffer: false, powerPreference: 'low-power' }}
         style={{ background: 'transparent' }}
+        onCreated={handleCreated}
       >
         <ambientLight intensity={0.3} />
         <spotLight position={[5, 10, 5]} angle={0.3} penumbra={1} intensity={0.5} castShadow />

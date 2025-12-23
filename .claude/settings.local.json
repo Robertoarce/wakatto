@@ -110,7 +110,10 @@
       "Bash(npm audit:*)",
       "Bash(jq:*)",
       "Bash(grep:*)",
-      "Bash(start http://localhost:8080)"
+      "Bash(start http://localhost:8080)",
+      "Bash(git -C \"C:/00 ALL/00 Projects/07 wakatto\" log --oneline -15)",
+      "Bash(git -C \"C:/00 ALL/00 Projects/07 wakatto\" status --short)",
+      "Bash(git -C \"C:/00 ALL/00 Projects/07 wakatto\" diff --stat)"
     ],
     "deny": [],
     "ask": []

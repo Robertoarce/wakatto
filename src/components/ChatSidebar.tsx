@@ -20,11 +20,12 @@ interface ChatSidebarProps {
   onToggleSidebar: () => void;
   isOpen: boolean;
   onNewConversation?: () => void;
+  onTutorial?: () => void;
   onRenameConversation?: (conversationId: string, newTitle: string) => void;
   onDeleteConversation?: (conversationId: string) => void;
 }
 
-export function ChatSidebar({ conversations, currentConversation, onSelectConversation, onToggleSidebar, isOpen, onNewConversation, onRenameConversation, onDeleteConversation }: ChatSidebarProps) {
+export function ChatSidebar({ conversations, currentConversation, onSelectConversation, onToggleSidebar, isOpen, onNewConversation, onTutorial, onRenameConversation, onDeleteConversation }: ChatSidebarProps) {
   const { showAlert, AlertComponent } = useCustomAlert();
   const { fonts, spacing, layout, isMobile, width: screenWidth } = useResponsive();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -334,10 +335,10 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
           <View style={styles.dragHandleIndicator} />
         </View>
         <View style={[styles.sidebarHeader, { padding: spacing.lg, gap: spacing.sm }]}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
               styles.newConversationButton,
-              { 
+              {
                 minHeight: layout.minTouchTarget,
                 paddingVertical: spacing.md,
               }
@@ -347,7 +348,20 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
             <Ionicons name="add" size={20} color="white" />
             <Text style={[styles.newConversationButtonText, { fontSize: fonts.sm }]}>New Conversation</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
+            style={[
+              styles.tutorialButton,
+              {
+                minHeight: layout.minTouchTarget,
+                paddingVertical: spacing.md,
+              }
+            ]}
+            onPress={onTutorial}
+          >
+            <Ionicons name="school-outline" size={20} color="#f59e0b" />
+            <Text style={[styles.tutorialButtonText, { fontSize: fonts.sm }]}>Tutorial</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={onToggleSidebar}
             style={[
               styles.toggleButton,
@@ -605,6 +619,19 @@ const styles = StyleSheet.create({
   },
   newConversationButtonText: {
     color: 'white',
+  },
+  tutorialButton: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  tutorialButtonText: {
+    color: '#f59e0b',
   },
   toggleButton: {
     paddingVertical: 8,

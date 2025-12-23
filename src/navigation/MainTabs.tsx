@@ -154,6 +154,16 @@ export default function MainTabs() {
     setShowCharacterSelection(true);
   };
 
+  // Start tutorial conversation with Bob
+  const onTutorial = async () => {
+    try {
+      console.log('[MainTabs] Creating tutorial conversation with Bob');
+      await dispatch(createConversation('Tutorial', ['bob-tutorial']) as any);
+    } catch (error: any) {
+      showAlert('Error', 'Failed to create tutorial: ' + error.message);
+    }
+  };
+
   // Handle starting conversation with selected characters
   const onStartConversationWithCharacters = async (selectedCharacterIds: string[]) => {
     try {
@@ -689,6 +699,7 @@ The text behaves as it should be.`;
             onToggleSidebar={onToggleSidebar}
             isOpen={showSidebar}
             onNewConversation={onNewConversation}
+            onTutorial={onTutorial}
             onRenameConversation={onRenameConversation}
             onDeleteConversation={onDeleteConversation}
           />
