@@ -155,6 +155,13 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   // Upgrade prompt modal state
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { fonts, spacing, layout, isMobile, isTablet, isDesktop, isMobileLandscape, width: screenWidth, height: screenHeight } = useResponsive();
+
+  // Helper for ultrawide-aware scaling (280px baseline, continues to 1920px)
+  const scaleValue = (min: number, max: number) => {
+    const range = 1920 - 280;
+    return Math.min(max, min + ((screenWidth - 280) / range) * (max - min));
+  };
+
   const [input, setInput] = useState('');
   const scrollViewRef = useRef<ScrollView>(null);
   // Track user's preferred character display height percentage (for resize persistence)
@@ -1316,11 +1323,11 @@ Each silence, a cathedral where you still reside.`;
         <View style={styles.playbackButtonsContainer}>
           {/* Replay Button - replays all messages */}
           {(() => {
-            const btnPadH = Math.max(6, 6 + ((screenWidth - 280) / (768 - 280)) * 4);
-            const btnPadV = Math.max(4, 4 + ((screenWidth - 280) / (768 - 280)) * 2);
-            const btnGap = Math.max(4, 4 + ((screenWidth - 280) / (768 - 280)) * 2);
-            const iconSize = Math.max(14, 14 + ((screenWidth - 280) / (768 - 280)) * 4);
-            const fontSize = Math.max(11, 11 + ((screenWidth - 280) / (768 - 280)) * 2);
+            const btnPadH = scaleValue(6, 14);
+            const btnPadV = scaleValue(4, 10);
+            const btnGap = scaleValue(4, 10);
+            const iconSize = scaleValue(14, 24);
+            const fontSize = scaleValue(11, 16);
 
             return (
               <TouchableOpacity
@@ -1340,11 +1347,11 @@ Each silence, a cathedral where you still reside.`;
 
           {/* Stop / Play Button */}
           {(() => {
-            const btnPadH = Math.max(6, 6 + ((screenWidth - 280) / (768 - 280)) * 4);
-            const btnPadV = Math.max(4, 4 + ((screenWidth - 280) / (768 - 280)) * 2);
-            const btnGap = Math.max(4, 4 + ((screenWidth - 280) / (768 - 280)) * 2);
-            const iconSize = Math.max(14, 14 + ((screenWidth - 280) / (768 - 280)) * 4);
-            const fontSize = Math.max(11, 11 + ((screenWidth - 280) / (768 - 280)) * 2);
+            const btnPadH = scaleValue(6, 14);
+            const btnPadV = scaleValue(4, 10);
+            const btnGap = scaleValue(4, 10);
+            const iconSize = scaleValue(14, 24);
+            const fontSize = scaleValue(11, 16);
 
             const isPlaying = playbackState.isPlaying;
 
@@ -1634,20 +1641,35 @@ Each silence, a cathedral where you still reside.`;
           style={[
             styles.dividerToggleButton,
             showChatHistory && styles.dividerToggleButtonActive,
+            {
+              paddingHorizontal: scaleValue(12, 24),
+              paddingVertical: scaleValue(6, 12),
+              gap: scaleValue(3, 6),
+              borderRadius: scaleValue(16, 28),
+            }
           ]}
         >
-          <Ionicons 
-            name={showChatHistory ? "chevron-down" : "chevron-up"} 
-            size={16} 
-            color={showChatHistory ? "#ffffff" : "#a1a1aa"} 
+          <Ionicons
+            name={showChatHistory ? "chevron-down" : "chevron-up"}
+            size={scaleValue(12, 22)}
+            color={showChatHistory ? "#ffffff" : "#a1a1aa"}
           />
-          <Ionicons 
-            name={showChatHistory ? "chatbubbles" : "chatbubbles-outline"} 
-            size={18} 
-            color={showChatHistory ? "#ffffff" : "#a1a1aa"} 
+          <Ionicons
+            name={showChatHistory ? "chatbubbles" : "chatbubbles-outline"}
+            size={scaleValue(14, 24)}
+            color={showChatHistory ? "#ffffff" : "#a1a1aa"}
           />
           {messages.length > 0 && (
-            <View style={[styles.dividerMessageBadge, showChatHistory && styles.dividerMessageBadgeActive]}>
+            <View style={[
+              styles.dividerMessageBadge,
+              showChatHistory && styles.dividerMessageBadgeActive,
+              {
+                minWidth: scaleValue(16, 26),
+                height: scaleValue(16, 26),
+                borderRadius: scaleValue(8, 13),
+                paddingHorizontal: scaleValue(4, 8),
+              }
+            ]}>
               <Text style={[styles.dividerMessageBadgeText, showChatHistory && { color: '#5398BE' }, { fontSize: fonts.xs }]}>
                 {messages.length > 99 ? '99+' : messages.length}
               </Text>
@@ -1664,18 +1686,32 @@ Each silence, a cathedral where you still reside.`;
           style={[
             styles.landscapeToggleButton,
             showChatHistory && styles.landscapeToggleButtonActive,
+            {
+              paddingHorizontal: scaleValue(12, 24),
+              paddingVertical: scaleValue(8, 16),
+              gap: scaleValue(6, 12),
+              borderRadius: scaleValue(18, 32),
+            }
           ]}
         >
-          <Ionicons 
-            name={showChatHistory ? "people" : "chatbubbles"} 
-            size={24} 
-            color="#ffffff" 
+          <Ionicons
+            name={showChatHistory ? "people" : "chatbubbles"}
+            size={scaleValue(18, 32)}
+            color="#ffffff"
           />
           <Text style={[styles.landscapeToggleText, { fontSize: fonts.sm }]}>
             {showChatHistory ? 'Characters' : 'Chat'}
           </Text>
           {!showChatHistory && messages.length > 0 && (
-            <View style={styles.landscapeToggleBadge}>
+            <View style={[
+              styles.landscapeToggleBadge,
+              {
+                minWidth: scaleValue(18, 28),
+                height: scaleValue(18, 28),
+                borderRadius: scaleValue(9, 14),
+                paddingHorizontal: scaleValue(5, 9),
+              }
+            ]}>
               <Text style={[styles.landscapeToggleBadgeText, { fontSize: fonts.xs }]}>
                 {messages.length > 99 ? '99+' : messages.length}
               </Text>
@@ -1904,14 +1940,14 @@ Each silence, a cathedral where you still reside.`;
         <View style={[
           styles.inputWrapper,
           {
-            // Narrower input: 70% at 320px, 55% at 768px, 45% at 1200px+ (25% more margin on sides)
-            width: `${Math.max(45, 70 - ((screenWidth - 280) / (1200 - 280)) * 25)}%`,
+            // Narrower input: 70% at 280px, scales down to 40% at 1920px (ultrawide)
+            width: `${Math.max(40, 70 - ((screenWidth - 280) / (1920 - 280)) * 30)}%`,
             minWidth: Math.min(240, screenWidth - 24),
-            maxWidth: 650,
-            // Compact single-line padding
-            paddingVertical: Math.max(4, 4 + ((screenWidth - 280) / (768 - 280)) * 2), // 4-6px
-            paddingHorizontal: Math.max(10, 10 + ((screenWidth - 280) / (768 - 280)) * 6), // 10-16px
-            gap: Math.max(6, 6 + ((screenWidth - 280) / (768 - 280)) * 4),
+            maxWidth: scaleValue(650, 850),
+            // Compact single-line padding (scales to ultrawide)
+            paddingVertical: scaleValue(4, 8),
+            paddingHorizontal: scaleValue(10, 20),
+            gap: scaleValue(6, 12),
           }
         ]}>
           <TextInput
@@ -1923,20 +1959,20 @@ Each silence, a cathedral where you still reside.`;
               styles.textInput,
               {
                 fontSize: fonts.md,
-                height: 32, // Fixed single-line height
-                minHeight: 32,
-                maxHeight: 32,
+                height: scaleValue(32, 44), // Responsive single-line height
+                minHeight: scaleValue(32, 44),
+                maxHeight: scaleValue(32, 44),
                 paddingVertical: 0,
               }
             ]}
             onFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
             onKeyPress={handleKeyPress}
           />
-          <View style={[styles.actionButtons, { gap: Math.max(3, 3 + ((screenWidth - 280) / (768 - 280)) * 3) }]}>
-            {/* Proportional button size: 28px at 320px, 34px at 768px+ (smaller for golden ratio) */}
+          <View style={[styles.actionButtons, { gap: scaleValue(3, 8) }]}>
+            {/* Proportional button size: 28px at 280px, 44px at 1920px (ultrawide) */}
             {(() => {
-              const buttonSize = Math.min(34, 28 + ((screenWidth - 280) / (768 - 280)) * 6);
-              const iconSize = Math.min(18, 14 + ((screenWidth - 280) / (768 - 280)) * 4);
+              const buttonSize = scaleValue(28, 44);
+              const iconSize = scaleValue(14, 24);
               return (
                 <>
                   <TouchableOpacity
