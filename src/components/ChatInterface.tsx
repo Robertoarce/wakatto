@@ -1390,11 +1390,16 @@ Each silence, a cathedral where you still reside.`;
           </View>
         )}
 
-        {/* Mobile Speech Bubble Stack - Renders all active bubbles in a single container to avoid overlap */}
-        {/* Protected from overflowing into input area via dynamic maxHeight */}
+        {/* Mobile Speech Bubble Stack - Renders all active bubbles in a scrollable container */}
+        {/* Protected from overflowing into input area via dynamic maxHeight with scroll */}
         {/* In mobile landscape, use side positioning instead of stacked */}
         {isMobile && selectedCharacters.length > 1 && !isMobileLandscape && (
-          <View style={[styles.mobileBubbleStack, { maxHeight: Math.floor(characterHeight * 0.6) }]}>
+          <ScrollView
+            style={[styles.mobileBubbleStack, { maxHeight: Math.floor(characterHeight * 0.6) }]}
+            contentContainerStyle={styles.mobileBubbleStackContent}
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled={true}
+          >
             {Array.from(new Set(selectedCharacters)).slice(0, 5).map((characterId, index) => {
               const character = availableCharacters.find(c => c.id === characterId) || getCharacter(characterId);
               const charPlaybackState = playbackState.characterStates.get(characterId);
@@ -1439,7 +1444,7 @@ Each silence, a cathedral where you still reside.`;
                 />
               );
             })}
-          </View>
+          </ScrollView>
         )}
 
         {/* Multiple Character Display - Semi-circle arrangement (table view) */}
@@ -2893,10 +2898,13 @@ const styles = StyleSheet.create({
     left: 8,
     right: 8,
     zIndex: 300,
+  },
+  // Content container for scrollable bubble stack
+  mobileBubbleStackContent: {
     flexDirection: 'column',
     gap: 6,
     alignItems: 'flex-start',
-    overflow: 'hidden', // Prevent bubbles from overflowing
+    paddingBottom: 4,
   },
   // Mobile stacked bubble style - full width, compact
   speechBubbleMobileStacked: {
