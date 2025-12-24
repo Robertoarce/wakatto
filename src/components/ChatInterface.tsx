@@ -27,7 +27,7 @@ import { EntranceConfig, generateEntranceSequence, getTotalEntranceDuration } fr
 import { generateConversationStarter } from '../services/conversationStarterPrompts';
 import { getRandomStory, Story } from '../services/storyLibrary';
 import { setStoryContext, clearStoryContext } from '../store/actions/conversationActions';
-import { useResponsive, BREAKPOINTS } from '../constants/Layout';
+import { useResponsive, BREAKPOINTS, CHARACTER_HEIGHT } from '../constants/Layout';
 import { Toast } from './ui/Toast';
 import {
   IdleConversationManager,
@@ -157,6 +157,8 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const { fonts, spacing, layout, isMobile, isTablet, isDesktop, isMobileLandscape, width: screenWidth, height: screenHeight } = useResponsive();
   const [input, setInput] = useState('');
   const scrollViewRef = useRef<ScrollView>(null);
+  // Track user's preferred character display height percentage (for resize persistence)
+  const userPreferredPercentRef = useRef<number>(CHARACTER_HEIGHT.DEFAULT_PERCENT);
   // Store animation data for replay (keyed by message content hash to match messages)
   const animationDataCacheRef = useRef<Map<string, { segments: AnimationSegment[]; totalDuration: number }>>(new Map());
 
@@ -210,17 +212,11 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   } = useTextToSpeech({
     enabled: true, // Default on for voice-synced experience
   });
-  // Set initial height based on screen size - now using responsive values
+  // Set initial height based on screen size - using constants for consistency
   const [characterHeight, setCharacterHeight] = useState(() => {
-    const { height, width } = Dimensions.get('window');
-    // Mobile: smaller height, Desktop: larger height
-    if (width < BREAKPOINTS.tablet) {
-      return Math.floor(height * 0.25); // 25% on mobile
-    } else if (width < BREAKPOINTS.desktop) {
-      return Math.floor(height * 0.3); // 30% on tablet
-    } else {
-      return Math.floor(height * 0.35); // 35% on desktop
-    }
+    const { height } = Dimensions.get('window');
+    const calculatedHeight = Math.floor(height * CHARACTER_HEIGHT.DEFAULT_PERCENT);
+    return Math.max(calculatedHeight, CHARACTER_HEIGHT.ABSOLUTE_MIN_PX);
   });
   const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]); // Fixed characters from conversation creation
   const [isMobileView, setIsMobileView] = useState(isMobile);
@@ -669,16 +665,18 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       const isMobileDevice = width < BREAKPOINTS.tablet;
       setIsMobileView(isMobileDevice);
 
-      // Update character height based on screen size and chat history visibility
-      // When chat history is OPEN, characters get only 10% (chat gets 90%)
-      // When chat history is CLOSED, characters fill the space
-      let heightPercentage = showChatHistory ? 0.10 : 0.60; // Default desktop
-      if (width < BREAKPOINTS.tablet) {
-        heightPercentage = showChatHistory ? 0.10 : 0.50; // Mobile
-      } else if (width < BREAKPOINTS.desktop) {
-        heightPercentage = showChatHistory ? 0.10 : 0.55; // Tablet
-      }
-      const newHeight = Math.floor(height * heightPercentage);
+      // Calculate character height using constants and user preference
+      // When chat history is shown, use minimum (25%)
+      // Otherwise, use user's preferred percentage (clamped to 25-35% range)
+      const targetPercent = showChatHistory
+        ? CHARACTER_HEIGHT.MIN_PERCENT
+        : Math.max(
+            CHARACTER_HEIGHT.MIN_PERCENT,
+            Math.min(CHARACTER_HEIGHT.MAX_PERCENT, userPreferredPercentRef.current)
+          );
+
+      const calculatedHeight = Math.floor(height * targetPercent);
+      const newHeight = Math.max(calculatedHeight, CHARACTER_HEIGHT.ABSOLUTE_MIN_PX);
       setCharacterHeight(newHeight);
     };
 
@@ -950,38 +948,30 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     }
   }, [showEntranceAnimation, entranceSequence]);
 
-  // Pan responder for resizable divider
+  // Pan responder for resizable divider - fixed 25-35% height constraints
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderMove: (_, gestureState) => {
         const newHeight = characterHeight + gestureState.dy;
-        const { height: windowHeight, width: windowWidth } = Dimensions.get('window');
-        // Responsive min/max constraints based on screen size
-        let minPercent = 0.15;
-        let maxPercent = 0.5;
-        if (windowWidth < 768) {
-          // Mobile: smaller range
-          minPercent = 0.15;
-          maxPercent = 0.4;
-        } else if (windowWidth < 1024) {
-          // Tablet
-          minPercent = 0.2;
-          maxPercent = 0.5;
-        } else {
-          // Desktop
-          minPercent = 0.2;
-          maxPercent = 0.6;
-        }
-        const minHeight = Math.floor(windowHeight * minPercent);
-        const maxHeight = Math.floor(windowHeight * maxPercent);
-        if (newHeight >= minHeight && newHeight <= maxHeight) {
-          setCharacterHeight(newHeight);
-        }
+        const { height: windowHeight } = Dimensions.get('window');
+
+        // Fixed 25-35% constraints (height-based, consistent across all screen sizes)
+        const minHeight = Math.max(
+          Math.floor(windowHeight * CHARACTER_HEIGHT.MIN_PERCENT),
+          CHARACTER_HEIGHT.ABSOLUTE_MIN_PX
+        );
+        const maxHeight = Math.floor(windowHeight * CHARACTER_HEIGHT.MAX_PERCENT);
+
+        // Clamp to constraints
+        const clampedHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
+        setCharacterHeight(clampedHeight);
       },
       onPanResponderRelease: () => {
-        // Optionally save to localStorage/AsyncStorage here
+        // Save user's preferred percentage for resize persistence
+        const { height: windowHeight } = Dimensions.get('window');
+        userPreferredPercentRef.current = characterHeight / windowHeight;
       },
     })
   ).current;
@@ -1316,8 +1306,11 @@ Each silence, a cathedral where you still reside.`;
       {!(isMobileLandscape && showChatHistory) && (
       <View style={[
         styles.characterDisplayContainer,
-        // In mobile landscape, always take full available space
-        isMobileLandscape ? { flex: 1 } : (showChatHistory ? { height: characterHeight } : { flex: 1 })
+        // In mobile landscape, take available space but cap at 35%
+        // Otherwise use characterHeight (25-35% range, user can resize)
+        isMobileLandscape
+          ? { flex: 1, maxHeight: screenHeight * CHARACTER_HEIGHT.MAX_PERCENT }
+          : { height: characterHeight }
       ]}>
         {/* Playback Control Buttons - Flex container for Replay and Stop/Play */}
         <View style={styles.playbackButtonsContainer}>
@@ -1725,18 +1718,20 @@ Each silence, a cathedral where you still reside.`;
       )}
 
 
-      {/* Chat Messages - Only show when showChatHistory is true */}
-      {showChatHistory && (
-        <ScrollView
-          ref={scrollViewRef}
-          contentContainerStyle={styles.messagesContainer}
-          style={[
-            styles.chatScrollView,
-            // In mobile landscape, chat takes full available height
-            isMobileLandscape && { flex: 1 }
-          ]}
-          onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
-        >
+      {/* Content area - always takes remaining space (eliminates need for spacer) */}
+      <View style={{ flex: 1 }}>
+        {/* Chat Messages - Only show when showChatHistory is true */}
+        {showChatHistory && (
+          <ScrollView
+            ref={scrollViewRef}
+            contentContainerStyle={styles.messagesContainer}
+            style={[
+              styles.chatScrollView,
+              // In mobile landscape, chat takes full available height
+              isMobileLandscape && { flex: 1 }
+            ]}
+            onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+          >
           <View style={styles.messagesContent}>
             {messages.map((message, index) => {
               const character = message.characterId ? getCharacter(message.characterId) : null;
@@ -1840,7 +1835,8 @@ Each silence, a cathedral where you still reside.`;
             })}
           </View>
         </ScrollView>
-      )}
+        )}
+      </View>
 
       {/* Token Usage Warning Banner - shown at 90%+ usage */}
       {currentUsage &&

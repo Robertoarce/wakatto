@@ -84,6 +84,11 @@ export const FadingLine = memo(function FadingLine({
     };
   }, [animatedOpacity]);
 
+  // Responsive line height: roughly 1.5x font size
+  const lineHeight = Math.round(fonts.md * 1.5);
+  // Responsive margin between lines
+  const marginBottom = Math.round(fonts.md * 0.2);
+
   return (
     <Animated.Text
       style={[
@@ -91,6 +96,8 @@ export const FadingLine = memo(function FadingLine({
         {
           opacity: animatedOpacity,
           fontSize: fonts.md,
+          lineHeight,
+          marginBottom,
         }
       ]}
     >
@@ -104,9 +111,8 @@ const styles = StyleSheet.create({
   speechBubbleText: {
     fontFamily: 'Inter-Regular',
     color: 'white',
-    lineHeight: 26,
     letterSpacing: 0.2,
-    marginBottom: 4,
+    // lineHeight and marginBottom are now set dynamically based on font size
   },
   speechBubbleCursor: {
     fontWeight: 'bold',

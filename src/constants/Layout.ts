@@ -8,7 +8,8 @@ const { width: initialWidth, height: initialHeight } = Dimensions.get('window');
 // BREAKPOINTS
 // ============================================
 export const BREAKPOINTS = {
-  mobile: 480,    // < 480px
+  narrow: 360,    // < 360px (very narrow phones, speech bubbles need smaller text)
+  mobile: 480,    // 360px - 480px
   tablet: 768,    // 480px - 768px
   desktop: 1024,  // 768px - 1024px
   large: 1200,    // 1024px - 1920px
@@ -16,11 +17,24 @@ export const BREAKPOINTS = {
 } as const;
 
 // ============================================
+// CHARACTER DISPLAY HEIGHT CONSTRAINTS
+// ============================================
+// Divider position: 15-20% from bottom (like a battery indicator)
+// This means character display takes 80-85% of screen height
+export const CHARACTER_HEIGHT = {
+  MIN_PERCENT: 0.85,       // Minimum 80% of screen (divider at 20% from bottom)
+  MAX_PERCENT: 0.95,       // Maximum 85% of screen (divider at 15% from bottom)
+  DEFAULT_PERCENT: 0.9,   // Default 82% of screen (divider at 18% from bottom)
+  ABSOLUTE_MIN_PX: 200,    // Never go below 200px regardless of screen size
+} as const;
+
+// ============================================
 // DEVICE TYPE DETECTION
 // ============================================
-export type DeviceType = 'mobile' | 'tablet' | 'desktop' | 'large' | 'ultrawide';
+export type DeviceType = 'narrow' | 'mobile' | 'tablet' | 'desktop' | 'large' | 'ultrawide';
 
 export function getDeviceType(width: number): DeviceType {
+  if (width < BREAKPOINTS.narrow) return 'narrow';
   if (width < BREAKPOINTS.mobile) return 'mobile';
   if (width < BREAKPOINTS.tablet) return 'tablet';
   if (width < BREAKPOINTS.desktop) return 'desktop';
@@ -43,21 +57,22 @@ export interface ResponsiveFonts {
 
 export function calculateFonts(width: number): ResponsiveFonts {
   // Scale factor based on screen width
-  // Mobile (<480): 0.85, Tablet (480-768): 0.92, Desktop (768-1024): 1.0, Large (1024-1920): 1.1, Ultrawide (>1920): 1.45
-  const scale = width < BREAKPOINTS.mobile ? 0.85
+  // Narrow (<360): 0.75, Mobile (360-480): 0.85, Tablet (480-768): 0.92, Desktop (768-1024): 1.0, Large (1024-1920): 1.1, Ultrawide (>1920): 1.45
+  const scale = width < BREAKPOINTS.narrow ? 0.75
+    : width < BREAKPOINTS.mobile ? 0.85
     : width < BREAKPOINTS.tablet ? 0.92
     : width < BREAKPOINTS.desktop ? 1.0
     : width < BREAKPOINTS.large ? 1.1
     : 1.45; // Ultrawide: 2560px and up
-  
+
   return {
-    xs: Math.round(11 * scale),     // 9-11px
-    sm: Math.round(12 * scale),     // 10-13px
-    md: Math.round(14 * scale),     // 12-15px
-    lg: Math.round(16 * scale),     // 14-18px
-    xl: Math.round(20 * scale),     // 17-22px
-    xxl: Math.round(24 * scale),    // 20-26px
-    xxxl: Math.round(32 * scale),   // 27-35px
+    xs: Math.round(11 * scale),     // 8-11px
+    sm: Math.round(12 * scale),     // 9-13px
+    md: Math.round(14 * scale),     // 10-15px (speech bubble text)
+    lg: Math.round(16 * scale),     // 12-18px
+    xl: Math.round(20 * scale),     // 15-22px
+    xxl: Math.round(24 * scale),    // 18-26px
+    xxxl: Math.round(32 * scale),   // 24-35px
   };
 }
 
@@ -75,13 +90,14 @@ export interface ResponsiveSpacing {
 }
 
 export function calculateSpacing(width: number): ResponsiveSpacing {
-  // Spacing scale: smaller on mobile, larger on desktop, even larger on ultrawide
-  const scale = width < BREAKPOINTS.mobile ? 0.85
+  // Spacing scale: smaller on narrow/mobile, larger on desktop, even larger on ultrawide
+  const scale = width < BREAKPOINTS.narrow ? 0.75
+    : width < BREAKPOINTS.mobile ? 0.85
     : width < BREAKPOINTS.tablet ? 0.92
     : width < BREAKPOINTS.desktop ? 1.0
     : width < BREAKPOINTS.large ? 1.1
     : 1.45; // Ultrawide: 2560px and up
-  
+
   return {
     xs: Math.round(4 * scale),
     sm: Math.round(8 * scale),
@@ -262,7 +278,7 @@ export function useResponsive(): ResponsiveValues {
       width,
       height,
       deviceType,
-      isMobile: deviceType === 'mobile',
+      isMobile: deviceType === 'narrow' || deviceType === 'mobile',
       isTablet: deviceType === 'tablet',
       isDesktop: deviceType === 'desktop' || deviceType === 'large',
       isLandscape,
@@ -290,6 +306,8 @@ export function responsive<T>(
   ultrawide?: T
 ): T {
   switch (deviceType) {
+    case 'narrow':
+      return mobile;
     case 'mobile':
       return mobile;
     case 'tablet':

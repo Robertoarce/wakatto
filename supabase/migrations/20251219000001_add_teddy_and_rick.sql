@@ -23,7 +23,7 @@ BEGIN
   (v_user_id, 'teddy_roosevelt', 'Theodore Roosevelt', 'Bull Moose President, Rough Rider, conservationist, adventurer', '#10b981', 'President', 'positive', 'vigorous',
    '{"empathy":7,"directness":10,"formality":6,"humor":8,"creativity":7,"patience":6,"wisdom":8,"energy":10}'::jsonb,
    '{"gender":"male","skinTone":"light","clothing":"suit","hair":"short","accessories":["glasses","moustache","hat","medal"],"bodyColor":"#10b981","accessoryColor":"#059669","hairColor":"#78350f"}'::jsonb,
-   '{"bodyColor":"#10b981","accessoryColor":"#059669","position":[0,0,0]}'::jsonb,
+   '{"bodyColor":"#c4a977","accessoryColor":"#059669","position":[0,0,0]}'::jsonb,
    true)
   ON CONFLICT (character_id) DO UPDATE SET
     name = EXCLUDED.name,
