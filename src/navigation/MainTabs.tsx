@@ -51,7 +51,11 @@ export default function MainTabs() {
   const { showAlert, AlertComponent } = useCustomAlert();
   const { conversations, currentConversation, messages } = useSelector((state: RootState) => state.conversations);
   const { showSidebar, isFullscreen } = useSelector((state: RootState) => state.ui);
+  const { currentUsage } = useSelector((state: RootState) => state.usage);
   const { fonts, layout, isMobile, isMobileLandscape, spacing } = useResponsive();
+
+  // Check if user is admin (for restricted features)
+  const isAdmin = currentUsage?.tier === 'admin';
   
   // Ref to prevent duplicate greeting processing
   const isProcessingGreeting = useRef(false);
@@ -779,15 +783,17 @@ The text behaves as it should be.`;
               ),
             }}
           />
-          <Tab.Screen
-            name="Animations"
-            component={AnimationsScreen}
-            options={{
-              tabBarIcon: ({ color, size }) => (
-                <MaterialCommunityIcons name="animation-play-outline" color={color} size={size} />
-              ),
-            }}
-          />
+          {isAdmin && (
+            <Tab.Screen
+              name="Animations"
+              component={AnimationsScreen}
+              options={{
+                tabBarIcon: ({ color, size }) => (
+                  <MaterialCommunityIcons name="animation-play-outline" color={color} size={size} />
+                ),
+              }}
+            />
+          )}
           <Tab.Screen 
             name="Settings"
             component={SettingsScreen}
