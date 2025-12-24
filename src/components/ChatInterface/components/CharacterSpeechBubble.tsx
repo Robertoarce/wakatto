@@ -68,6 +68,9 @@ export function CharacterSpeechBubble({
   const lastTextRef = useRef('');
   const { fonts, isMobile, isMobileLandscape, width: viewportWidth, height: viewportHeight } = useResponsive();
 
+  // Scale character name font size based on screen
+  const nameFontSize = isMobile ? fonts.md : fonts.lg;
+
   // Check if we have bubbles to display
   const hasBubbles = bubbles && bubbles.length > 0;
   const hasText = text && text.length > 0;
@@ -136,20 +139,20 @@ export function CharacterSpeechBubble({
   const dimensions = getDynamicBubbleDimensions(
     characterCount,
     bubbleCount,
-    viewportWidth || 400,
+    viewportWidth || 340,
     viewportHeight || 600,
     isMobile,
     isMobileLandscape
   );
 
   // Container width for animations (used for slide calculations)
-  const containerWidth = viewportWidth || 400;
+  const containerWidth = viewportWidth || 340;
 
   // ====================
   // MOBILE STACKED LAYOUT
   // ====================
   if (isMobileStacked) {
-    const stackedMaxWidth = Math.min(dimensions.maxWidth, (viewportWidth || 400) - 24);
+    const stackedMaxWidth = Math.min(dimensions.maxWidth, (viewportWidth || 340) - 24);
     const stackedMaxHeight = Math.min(120, (viewportHeight || 600) * 0.2);
 
     // For stacked layout - use pre-calculated wrapping
@@ -172,7 +175,7 @@ export function CharacterSpeechBubble({
           }
         ]}
       >
-        <Text style={[styles.speechBubbleName, { color: characterColor, fontSize: fonts.md }]}>
+        <Text style={[styles.speechBubbleName, { color: characterColor, fontSize: nameFontSize }]}>
           {characterName}
         </Text>
         <View style={styles.speechBubbleLinesContainer}>
@@ -195,7 +198,7 @@ export function CharacterSpeechBubble({
   // ====================
   if (hasBubbles && bubbles.length > 0) {
     // Calculate container positioning
-    const effectiveScreenWidth = bubbleScreenWidth || viewportWidth || 400;
+    const effectiveScreenWidth = bubbleScreenWidth || viewportWidth || 340;
     const padding = 16;
 
     // Container styles for horizontal bubble layout
@@ -299,7 +302,7 @@ export function CharacterSpeechBubble({
   // Calculate responsive position offsets
   const getPositionStyles = () => {
     const padding = 16;
-    const effectiveScreenWidth = bubbleScreenWidth || viewportWidth || 400;
+    const effectiveScreenWidth = bubbleScreenWidth || viewportWidth || 340;
     const effectiveScreenHeight = viewportHeight || 600;
 
     const safeMaxWidth = Math.min(maxWidth, effectiveScreenWidth - padding * 2);
@@ -343,13 +346,13 @@ export function CharacterSpeechBubble({
     };
   };
 
-  const safeBubbleWidth = Math.min(maxWidth, (viewportWidth || 400) - 16);
+  const safeBubbleWidth = Math.min(maxWidth, (viewportWidth || 340) - 16);
   const safeBubbleHeight = isMobileLandscape
     ? Math.min(maxHeight || 150, (viewportHeight || 300) * 0.45)
     : (maxHeight || (viewportHeight || 600) * 0.4);
 
   const getSingleCharacterStyles = () => {
-    const effectiveScreenWidth = bubbleScreenWidth || viewportWidth || 400;
+    const effectiveScreenWidth = bubbleScreenWidth || viewportWidth || 340;
     const padding = 16;
     const bubbleWidth = Math.min(safeBubbleWidth, effectiveScreenWidth - padding * 2);
 
@@ -418,7 +421,7 @@ export function CharacterSpeechBubble({
         </View>
       )}
 
-      <Text style={[styles.speechBubbleName, { color: characterColor, fontSize: fonts.lg }]}>
+      <Text style={[styles.speechBubbleName, { color: characterColor, fontSize: nameFontSize }]}>
         {characterName}
       </Text>
 

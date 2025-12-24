@@ -622,6 +622,8 @@ const AnimationsScreen = (): JSX.Element => {
                       key={anim.name}
                       style={[
                         styles.animationCard,
+                        // Responsive: single column on very narrow screens (< 380px)
+                        { flexBasis: screenWidth < 380 ? '100%' : '48%' },
                         currentAnimation === anim.name && styles.animationCardActive
                       ]}
                       onPress={() => setCurrentAnimation(anim.name)}

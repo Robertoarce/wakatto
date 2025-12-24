@@ -22,9 +22,9 @@ export const BREAKPOINTS = {
 // Divider position: 15-20% from bottom (like a battery indicator)
 // This means character display takes 80-85% of screen height
 export const CHARACTER_HEIGHT = {
-  MIN_PERCENT: 0.85,       // Minimum 80% of screen (divider at 20% from bottom)
-  MAX_PERCENT: 0.90,       // Maximum 85% of screen (divider at 15% from bottom)
-  DEFAULT_PERCENT: 0.9,   // Default 82% of screen (divider at 18% from bottom)
+  MIN_PERCENT: 0.2,       // Minimum 80% of screen (divider at 20% from bottom)
+  MAX_PERCENT: 0.9,       // Maximum 85% of screen (divider at 15% from bottom)
+  DEFAULT_PERCENT: 0.85,   // Default 82% of screen (divider at 18% from bottom)
   ABSOLUTE_MIN_PX: 200,    // Never go below 200px regardless of screen size
 } as const;
 

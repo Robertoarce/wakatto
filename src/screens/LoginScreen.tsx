@@ -14,18 +14,25 @@ export default function LoginScreen() {
   const navigation = useNavigation();
   const dispatch = useDispatch();
   const { showAlert, AlertComponent } = useCustomAlert();
-  const { fonts, spacing, isMobile, width } = useResponsive();
+  const { fonts, spacing, layout, isMobile, isTablet, isDesktop, deviceType, width } = useResponsive();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'signIn' | 'signUp'>('signIn');
 
-  // Responsive calculations for small screens
-  const isSmallScreen = width < 360;
-  const cardPadding = isSmallScreen ? spacing.md : isMobile ? spacing.lg : spacing.xl;
-  const logoSize = isSmallScreen ? 60 : isMobile ? 70 : 80;
-  const iconSize = isSmallScreen ? 30 : isMobile ? 35 : 40;
-  const cardMaxWidth = isMobile ? 440 : width < 1024 ? 520 : 600;
+  // Responsive calculations based on device type
+  const isNarrow = deviceType === 'narrow';
+  const isUltrawide = deviceType === 'ultrawide' || deviceType === 'large';
+
+  // Card sizing - uses layout system
+  const cardPadding = isNarrow ? spacing.sm : isMobile ? spacing.md : isTablet ? spacing.lg : spacing.xl;
+  const cardMargin = isNarrow ? spacing.xs : isMobile ? spacing.sm : spacing.md;
+  const cardMaxWidth = layout.formContainerMaxWidth;
+  const cardBorderRadius = isNarrow ? layout.borderRadiusMd : layout.borderRadiusLg + 4;
+
+  // Logo sizing - scales with screen
+  const logoSize = isNarrow ? 50 : isMobile ? 60 : isTablet ? 70 : isUltrawide ? 100 : 80;
+  const iconSize = isNarrow ? 24 : isMobile ? 30 : isTablet ? 35 : isUltrawide ? 50 : 40;
 
   async function signInWithEmail() {
     // Validation
@@ -112,25 +119,41 @@ export default function LoginScreen() {
 
       {/* Login Card */}
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { padding: spacing.md }]}
+        contentContainerStyle={[styles.scrollContent, { padding: cardMargin }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.card, { padding: cardPadding, maxWidth: cardMaxWidth }]}>
+        <View style={[
+          styles.card,
+          {
+            padding: cardPadding,
+            maxWidth: cardMaxWidth,
+            borderRadius: cardBorderRadius,
+            marginHorizontal: cardMargin,
+          }
+        ]}>
           {/* Logo Icon */}
-          <View style={[styles.logoContainer, { marginBottom: spacing.lg }]}>
+          <View style={[styles.logoContainer, { marginBottom: isNarrow ? spacing.md : spacing.lg }]}>
             <View style={[styles.logoBackground, { width: logoSize, height: logoSize, borderRadius: logoSize * 0.25 }]}>
               <Ionicons name="chatbubbles" size={iconSize} color="white" />
             </View>
           </View>
 
           {/* Welcome Text */}
-          <Text style={[styles.title, { fontSize: fonts.xl, marginBottom: spacing.xs }]}>Welcome to Wakatto</Text>
-          <Text style={[styles.subtitle, { fontSize: fonts.sm, marginBottom: spacing.lg }]}>Organize social events with friends effortlessly</Text>
+          <Text style={[styles.title, { fontSize: isUltrawide ? fonts.xxl : fonts.xl, marginBottom: spacing.xs }]}>
+            Welcome to Wakatto
+          </Text>
+          <Text style={[styles.subtitle, { fontSize: fonts.sm, marginBottom: isNarrow ? spacing.md : spacing.lg }]}>
+            Organize social events with friends effortlessly
+          </Text>
 
           {/* Tabs */}
-          <View style={[styles.tabContainer, { marginBottom: spacing.lg }]}>
+          <View style={[styles.tabContainer, { marginBottom: isNarrow ? spacing.md : spacing.lg, borderRadius: layout.borderRadiusMd }]}>
             <TouchableOpacity
-              style={[styles.tab, { paddingVertical: spacing.sm }, activeTab === 'signIn' && styles.activeTab]}
+              style={[
+                styles.tab,
+                { paddingVertical: isNarrow ? spacing.xs : spacing.sm, borderRadius: layout.borderRadiusSm },
+                activeTab === 'signIn' && styles.activeTab
+              ]}
               onPress={() => handleTabSwitch('signIn')}
             >
               <Text style={[styles.tabText, { fontSize: fonts.md }, activeTab === 'signIn' && styles.activeTabText]}>
@@ -138,7 +161,11 @@ export default function LoginScreen() {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.tab, { paddingVertical: spacing.sm }, activeTab === 'signUp' && styles.activeTab]}
+              style={[
+                styles.tab,
+                { paddingVertical: isNarrow ? spacing.xs : spacing.sm, borderRadius: layout.borderRadiusSm },
+                activeTab === 'signUp' && styles.activeTab
+              ]}
               onPress={() => handleTabSwitch('signUp')}
             >
               <Text style={[styles.tabText, { fontSize: fonts.md }, activeTab === 'signUp' && styles.activeTabText]}>
@@ -175,8 +202,8 @@ export default function LoginScreen() {
               disabled={loading}
               loading={loading}
               fullWidth
-              size="lg"
-              style={{ marginTop: 8 }}
+              size={isNarrow ? 'md' : 'lg'}
+              style={{ marginTop: spacing.sm }}
             />
           </View>
         </View>
@@ -198,9 +225,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
-    maxWidth: 440,
     backgroundColor: '#2a2a2a',
-    borderRadius: 20,
     borderWidth: 1,
     borderColor: '#3a3a3a',
     ...Platform.select({
@@ -238,12 +263,10 @@ const styles = StyleSheet.create({
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: '#1f1f1f',
-    borderRadius: 12,
     padding: 4,
   },
   tab: {
     flex: 1,
-    borderRadius: 8,
     alignItems: 'center',
   },
   activeTab: {

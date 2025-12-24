@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, useWindowDimensions } from 'react-native';
 import {
   UsageInfo,
   AccountTier,
@@ -55,7 +55,11 @@ export const UpgradePromptModal: React.FC<UpgradePromptModalProps> = ({
   onUpgrade,
   onDismiss,
 }) => {
+  const { width: viewportWidth } = useWindowDimensions();
   const daysUntilReset = getDaysUntilReset(usage.periodEnd);
+
+  // Responsive maxWidth - 90% of viewport, capped at 500px
+  const modalMaxWidth = Math.min(500, viewportWidth * 0.9);
 
   const getNextTierOptions = (): TierOption[] => {
     switch (usage.tier) {
@@ -82,7 +86,7 @@ export const UpgradePromptModal: React.FC<UpgradePromptModalProps> = ({
       onRequestClose={onDismiss}
     >
       <View style={styles.overlay}>
-        <View style={styles.modal}>
+        <View style={[styles.modal, { maxWidth: modalMaxWidth }]}>
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>Running Low on Tokens</Text>
@@ -183,7 +187,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1F2937',
     borderRadius: 16,
     padding: 24,
-    maxWidth: 500,
+    // maxWidth applied dynamically for responsive sizing
     width: '100%',
   },
   header: {

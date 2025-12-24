@@ -46,7 +46,10 @@ export const AnimatedBubble = memo(function AnimatedBubble({
   onAnimationComplete,
   containerWidth,
 }: AnimatedBubbleProps) {
-  const { fonts } = useResponsive();
+  const { fonts, isMobile } = useResponsive();
+
+  // Scale character name font size based on screen
+  const nameFontSize = isMobile ? fonts.md : fonts.lg;
 
   // Animation values
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -151,7 +154,7 @@ export const AnimatedBubble = memo(function AnimatedBubble({
       ]}
     >
       {/* Character name */}
-      <Text style={[styles.bubbleName, { color: characterColor, fontSize: fonts.lg }]}>
+      <Text style={[styles.bubbleName, { color: characterColor, fontSize: nameFontSize }]}>
         {characterName}
       </Text>
 

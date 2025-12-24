@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import {
   UsageInfo,
   formatTokens,
@@ -25,8 +25,12 @@ export const BlockedStateOverlay: React.FC<BlockedStateOverlayProps> = ({
   onUpgrade,
   onDismiss,
 }) => {
+  const { width: viewportWidth } = useWindowDimensions();
   const daysUntilReset = getDaysUntilReset(usage.periodEnd);
   const resetDate = formatPeriodEnd(usage.periodEnd);
+
+  // Responsive maxWidth - 90% of viewport, capped at 400px
+  const contentMaxWidth = Math.min(400, viewportWidth * 0.9);
 
   // Check if blocked due to daily message limit (free tier only)
   const isBlockedByDailyLimit = usage.tier === 'free' &&
@@ -45,7 +49,7 @@ export const BlockedStateOverlay: React.FC<BlockedStateOverlayProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
+      <View style={[styles.content, { maxWidth: contentMaxWidth }]}>
         {/* Icon */}
         <View style={styles.iconContainer}>
           <Text style={styles.icon}>!</Text>
@@ -156,7 +160,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1F2937',
     borderRadius: 16,
     padding: 24,
-    maxWidth: 400,
+    // maxWidth applied dynamically for responsive sizing
     width: '100%',
     alignItems: 'center',
   },

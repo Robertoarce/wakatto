@@ -219,11 +219,21 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   } = useTextToSpeech({
     enabled: true, // Default on for voice-synced experience
   });
-  // Set initial height based on screen size - using constants for consistency
-  const [characterHeight, setCharacterHeight] = useState(() => {
-    const { height } = Dimensions.get('window');
-    const calculatedHeight = Math.floor(height * CHARACTER_HEIGHT.DEFAULT_PERCENT);
-    return Math.max(calculatedHeight, CHARACTER_HEIGHT.ABSOLUTE_MIN_PX);
+  // Track actual available height from container layout (excludes header/tab bar)
+  const [availableHeight, setAvailableHeight] = useState(0);
+  const availableHeightRef = useRef(0); // Ref for panResponder to access latest value
+
+  // Handle layout to get actual available height
+  const handleContainerLayout = useCallback((event: { nativeEvent: { layout: { height: number } } }) => {
+    const { height } = event.nativeEvent.layout;
+    setAvailableHeight(height);
+    availableHeightRef.current = height;
+  }, []);
+
+  // Set initial height based on available container height - using constants for consistency
+  const [characterHeight, setCharacterHeight] = useState<number>(() => {
+    // Start with a reasonable default, will be recalculated after layout
+    return CHARACTER_HEIGHT.ABSOLUTE_MIN_PX as number;
   });
   const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]); // Fixed characters from conversation creation
   const [isMobileView, setIsMobileView] = useState(isMobile);
@@ -663,34 +673,40 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   //   }
   // }, [isLoadingCharacters, availableCharacters, selectedCharacters.length]);
 
-  // Update character height and mobile view on window resize
+  // Update mobile view on window resize
   useEffect(() => {
     const updateResponsiveSettings = () => {
-      const { width, height } = Dimensions.get('window');
+      const { width } = Dimensions.get('window');
 
       // Update mobile view state using centralized breakpoints
       const isMobileDevice = width < BREAKPOINTS.tablet;
       setIsMobileView(isMobileDevice);
-
-      // Calculate character height using constants and user preference
-      // When chat history is shown, use minimum (25%)
-      // Otherwise, use user's preferred percentage (clamped to 25-35% range)
-      const targetPercent = showChatHistory
-        ? CHARACTER_HEIGHT.MIN_PERCENT
-        : Math.max(
-            CHARACTER_HEIGHT.MIN_PERCENT,
-            Math.min(CHARACTER_HEIGHT.MAX_PERCENT, userPreferredPercentRef.current)
-          );
-
-      const calculatedHeight = Math.floor(height * targetPercent);
-      const newHeight = Math.max(calculatedHeight, CHARACTER_HEIGHT.ABSOLUTE_MIN_PX);
-      setCharacterHeight(newHeight);
     };
 
     updateResponsiveSettings();
     const subscription = Dimensions.addEventListener('change', updateResponsiveSettings);
     return () => subscription?.remove();
-  }, [showChatHistory]);
+  }, []);
+
+  // Calculate character height based on AVAILABLE container height (not window height)
+  // This ensures content doesn't overflow under the tab bar
+  useEffect(() => {
+    if (availableHeight <= 0) return; // Wait for layout
+
+    // Calculate character height using constants and user preference
+    // When chat history is shown, use minimum (85%)
+    // Otherwise, use user's preferred percentage (clamped to 85-90% range)
+    const targetPercent = showChatHistory
+      ? CHARACTER_HEIGHT.MIN_PERCENT
+      : Math.max(
+          CHARACTER_HEIGHT.MIN_PERCENT,
+          Math.min(CHARACTER_HEIGHT.MAX_PERCENT, userPreferredPercentRef.current)
+        );
+
+    const calculatedHeight = Math.floor(availableHeight * targetPercent);
+    const newHeight = Math.max(calculatedHeight, CHARACTER_HEIGHT.ABSOLUTE_MIN_PX);
+    setCharacterHeight(newHeight);
+  }, [availableHeight, showChatHistory]);
 
   // Characters are now fixed at conversation creation - no dynamic selector
 
@@ -932,6 +948,118 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     return () => clearTimeout(timer);
   }, [messages.length, selectedCharacters.length, availableCharacters, onGreeting, isLoadingCharacters, savedCharacters, conversationId]);
 
+  // Handle NEW conversations with PRE-SELECTED characters (from CharacterSelectionScreen)
+  // These have savedCharacters populated but no messages yet
+  // This is separate from the above useEffect which handles auto-selecting Bob for truly empty conversations
+  useEffect(() => {
+    // Skip during active playback
+    if (isPlayingRef.current) {
+      return;
+    }
+
+    // Don't run while characters are still loading
+    if (isLoadingCharacters) {
+      return;
+    }
+
+    // Use a delay to ensure messages have had time to load from database
+    const timer = setTimeout(() => {
+      const isNewWithPreselected =
+        messages.length === 0 &&
+        savedCharacters &&
+        savedCharacters.length > 0 &&
+        !hasTriggeredGreeting.current &&
+        !conversationStarterInProgressRef.current;
+
+      // Skip if Bob is the only selected character (handled by useBobSales hook)
+      const isBobOnly = savedCharacters?.length === 1 && savedCharacters[0] === 'bob-tutorial';
+
+      if (isNewWithPreselected && onGreeting && !isBobOnly) {
+        hasTriggeredGreeting.current = true;
+        conversationStarterInProgressRef.current = true;
+
+        // Use saved characters (user's selection from CharacterSelectionScreen)
+        const selectedIds = savedCharacters;
+        setSelectedCharacters(selectedIds);
+
+        // Generate entrance animation
+        const sequence = generateEntranceSequence(selectedIds);
+        setEntranceSequence(sequence);
+        const totalEntranceDuration = getTotalEntranceDuration(sequence);
+        entranceAnimationKey.current += 1;
+        setShowEntranceAnimation(true);
+
+        const entranceStartTime = Date.now();
+
+        // Pick random story and show toast
+        const story = getRandomStory(selectedIds);
+        setCurrentStory(story);
+        storyInterruptedRef.current = false;
+        setStoryToastVisible(true);
+
+        // Generate AI greeting (same as existing logic for non-Bob conversations)
+        generateConversationStarter(selectedIds, undefined, story)
+          .then(({ scene, responses, storyContext }) => {
+            const elapsed = Date.now() - entranceStartTime;
+            const remainingEntranceTime = Math.max(0, totalEntranceDuration - elapsed);
+
+            // Wait for entrance to complete if API was faster
+            setTimeout(() => {
+              // Clear entrance animation
+              setShowEntranceAnimation(false);
+              setEntranceSequence(new Map());
+              conversationStarterInProgressRef.current = false;
+
+              // Hide story toast as characters start talking
+              setStoryToastVisible(false);
+
+              // Store story context in Redux for later reference
+              if (storyContext) {
+                dispatch(setStoryContext(storyContext));
+              }
+
+              // Play conversation starter scene (if not interrupted by user)
+              if (scene && responses.length > 0 && !storyInterruptedRef.current) {
+                // Set animation scene for playback
+                playbackEngineRef.current.play(scene);
+
+                // Save all messages to database
+                responses.forEach(r => {
+                  onGreeting(r.characterId, r.content);
+                });
+              }
+            }, remainingEntranceTime);
+          })
+          .catch((error) => {
+            console.error('[NewConversation] Pre-selected starter generation failed:', error);
+            conversationStarterInProgressRef.current = false;
+
+            // Hide story toast on error
+            setStoryToastVisible(false);
+            setCurrentStory(null);
+
+            // Fallback to static greeting after entrance completes
+            const elapsed = Date.now() - entranceStartTime;
+            const remainingTime = Math.max(0, totalEntranceDuration - elapsed);
+
+            setTimeout(() => {
+              setShowEntranceAnimation(false);
+              setEntranceSequence(new Map());
+              // Get first character for fallback greeting
+              const firstCharId = selectedIds[0];
+              const firstChar = availableCharacters.find(c => c.id === firstCharId);
+              if (firstChar) {
+                const greeting = getRandomGreeting(firstChar.id, firstChar.name);
+                onGreeting(firstChar.id, greeting);
+              }
+            }, remainingTime);
+          });
+      }
+    }, 500); // Wait 500ms to allow messages to load from database
+
+    return () => clearTimeout(timer);
+  }, [messages.length, savedCharacters, availableCharacters, onGreeting, isLoadingCharacters, dispatch]);
+
   // Update name key when characters change (for animation reset)
   useEffect(() => {
     setNameKey(prev => prev + 1);
@@ -955,21 +1083,23 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     }
   }, [showEntranceAnimation, entranceSequence]);
 
-  // Pan responder for resizable divider - fixed 25-35% height constraints
+  // Pan responder for resizable divider - fixed 85-90% height constraints
+  // Uses availableHeightRef to get the actual container height (excludes header/tab bar)
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderMove: (_, gestureState) => {
         const newHeight = characterHeight + gestureState.dy;
-        const { height: windowHeight } = Dimensions.get('window');
+        // Use available container height, not window height
+        const containerHeight = availableHeightRef.current || Dimensions.get('window').height;
 
-        // Fixed 25-35% constraints (height-based, consistent across all screen sizes)
+        // Fixed 85-90% constraints based on available container height
         const minHeight = Math.max(
-          Math.floor(windowHeight * CHARACTER_HEIGHT.MIN_PERCENT),
+          Math.floor(containerHeight * CHARACTER_HEIGHT.MIN_PERCENT),
           CHARACTER_HEIGHT.ABSOLUTE_MIN_PX
         );
-        const maxHeight = Math.floor(windowHeight * CHARACTER_HEIGHT.MAX_PERCENT);
+        const maxHeight = Math.floor(containerHeight * CHARACTER_HEIGHT.MAX_PERCENT);
 
         // Clamp to constraints
         const clampedHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
@@ -977,8 +1107,8 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       },
       onPanResponderRelease: () => {
         // Save user's preferred percentage for resize persistence
-        const { height: windowHeight } = Dimensions.get('window');
-        userPreferredPercentRef.current = characterHeight / windowHeight;
+        const containerHeight = availableHeightRef.current || Dimensions.get('window').height;
+        userPreferredPercentRef.current = characterHeight / containerHeight;
       },
     })
   ).current;
@@ -1308,6 +1438,7 @@ Each silence, a cathedral where you still reside.`;
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+        onLayout={handleContainerLayout}
       >
       {/* 3D Character Display - Hidden in landscape when chat history is shown */}
       {!(isMobileLandscape && showChatHistory) && (

@@ -21,7 +21,7 @@ const FADE_OUT_DURATION = 1500;  // Slow 1.5s fade out
 
 export function CharacterNameLabel({ name, color, visible }: CharacterNameLabelProps) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const { fonts } = useResponsive();
+  const { fonts, spacing, isMobile } = useResponsive();
 
   useEffect(() => {
     // Stop any running animation
@@ -34,9 +34,23 @@ export function CharacterNameLabel({ name, color, visible }: CharacterNameLabelP
     }).start();
   }, [visible]);
 
+  // Scale padding and border radius with screen size
+  const paddingH = isMobile ? spacing.md : spacing.lg;
+  const paddingV = isMobile ? spacing.xs : spacing.sm;
+  const borderRadius = isMobile ? 8 : 12;
+
   return (
     <Animated.View style={[styles.characterNameLabel, { opacity: fadeAnim }]}>
-      <Text style={[styles.characterNameText, { color, fontSize: fonts.xxxl || 24 }]}>
+      <Text style={[
+        styles.characterNameText,
+        {
+          color,
+          fontSize: fonts.xxxl || 24,
+          paddingHorizontal: paddingH,
+          paddingVertical: paddingV,
+          borderRadius,
+        }
+      ]}>
         {name}
       </Text>
     </Animated.View>
@@ -65,10 +79,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Bold',
     textAlign: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.06)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 10,
     overflow: 'hidden',
+    // paddingHorizontal, paddingVertical, borderRadius applied dynamically
     ...Platform.select({
       web: {
         textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)',
