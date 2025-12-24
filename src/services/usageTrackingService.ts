@@ -6,7 +6,7 @@
 import { supabase } from '../lib/supabase';
 
 // Account tier types
-export type AccountTier = 'free' | 'premium' | 'gold' | 'admin';
+export type AccountTier = 'trial' | 'free' | 'premium' | 'gold' | 'admin';
 export type WarningLevel = 'warning' | 'critical' | 'blocked' | null;
 
 // Usage information returned from the server
@@ -21,6 +21,11 @@ export interface UsageInfo {
   resetPeriodDays?: number;
   promptTokens?: number;
   completionTokens?: number;
+  // Daily message limits (free tier)
+  dailyMessagesUsed?: number;
+  dailyMessagesLimit?: number;
+  // Trial tier
+  trialDaysRemaining?: number;
 }
 
 // User profile with tier information
@@ -31,6 +36,7 @@ export interface UserProfile {
   tierUpdatedAt: string;
   createdAt: string;
   updatedAt: string;
+  trialStartedAt?: string;
 }
 
 // Tier configuration from database
@@ -43,14 +49,28 @@ export interface TierConfig {
 
 // Token limits for each tier (fallback values)
 export const TIER_LIMITS: Record<AccountTier, number> = {
+  trial: 15000,
   free: 5000,
   premium: 25000,
   gold: 100000,
   admin: 0, // Unlimited
 };
 
+// Daily message limits (only free tier has limit)
+export const DAILY_MESSAGE_LIMITS: Record<AccountTier, number> = {
+  trial: 999999, // No daily limit
+  free: 5, // 5 messages per day
+  premium: 999999, // No daily limit
+  gold: 999999, // No daily limit
+  admin: 999999, // No daily limit
+};
+
+// Trial duration in days
+export const TRIAL_DURATION_DAYS = 15;
+
 // Tier display names
 export const TIER_NAMES: Record<AccountTier, string> = {
+  trial: 'Trial',
   free: 'Free',
   premium: 'Premium',
   gold: 'Gold',
@@ -59,6 +79,7 @@ export const TIER_NAMES: Record<AccountTier, string> = {
 
 // Tier colors for UI
 export const TIER_COLORS: Record<AccountTier, string> = {
+  trial: '#3B82F6',   // Blue (trial)
   free: '#6B7280',    // Gray
   premium: '#8B5CF6', // Purple
   gold: '#F59E0B',    // Amber/Gold
@@ -100,6 +121,9 @@ export async function getCurrentUsage(): Promise<UsageInfo | null> {
       periodEnd: row.period_end,
       warningLevel: row.warning_level,
       resetPeriodDays: row.reset_period_days,
+      dailyMessagesUsed: row.daily_messages_used,
+      dailyMessagesLimit: row.daily_messages_limit,
+      trialDaysRemaining: row.trial_days_remaining,
     };
   } catch (error) {
     console.error('[Usage] Error getting current usage:', error);
@@ -133,6 +157,7 @@ export async function getUserProfile(): Promise<UserProfile | null> {
       tierUpdatedAt: data.tier_updated_at,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
+      trialStartedAt: data.trial_started_at,
     };
   } catch (error) {
     console.error('[Usage] Error getting user profile:', error);
@@ -218,11 +243,23 @@ export function getUsageColor(percentage: number): string {
 /**
  * Get warning message based on usage level
  */
-export function getWarningMessage(warningLevel: WarningLevel, remainingTokens: number, periodEnd: string): string | null {
+export function getWarningMessage(
+  warningLevel: WarningLevel,
+  remainingTokens: number,
+  periodEnd: string,
+  usage?: UsageInfo | null
+): string | null {
   const daysUntilReset = getDaysUntilReset(periodEnd);
   const resetText = daysUntilReset === 0 ? 'today' :
                     daysUntilReset === 1 ? 'tomorrow' :
                     `in ${daysUntilReset} days`;
+
+  // Check if blocked due to daily message limit (free tier)
+  if (usage?.tier === 'free' && usage.dailyMessagesUsed !== undefined && usage.dailyMessagesLimit !== undefined) {
+    if (usage.dailyMessagesUsed >= usage.dailyMessagesLimit) {
+      return `You've reached your daily message limit (${usage.dailyMessagesLimit}/day). Come back tomorrow or upgrade to remove this limit.`;
+    }
+  }
 
   switch (warningLevel) {
     case 'blocked':
@@ -237,11 +274,51 @@ export function getWarningMessage(warningLevel: WarningLevel, remainingTokens: n
 }
 
 /**
+ * Get trial status message
+ */
+export function getTrialMessage(usage: UsageInfo | null): string | null {
+  if (!usage || usage.tier !== 'trial') return null;
+
+  const daysRemaining = usage.trialDaysRemaining ?? 0;
+
+  if (daysRemaining <= 0) {
+    return 'Your trial has ended. Upgrade to continue with full access.';
+  }
+
+  if (daysRemaining <= 3) {
+    return `Trial ends in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}. Upgrade to keep premium features.`;
+  }
+
+  return `${daysRemaining} days left in your free trial.`;
+}
+
+/**
+ * Get daily message status for free tier
+ */
+export function getDailyMessageStatus(usage: UsageInfo | null): { used: number; limit: number; remaining: number } | null {
+  if (!usage || usage.tier !== 'free') return null;
+
+  const used = usage.dailyMessagesUsed ?? 0;
+  const limit = usage.dailyMessagesLimit ?? DAILY_MESSAGE_LIMITS.free;
+  const remaining = Math.max(0, limit - used);
+
+  return { used, limit, remaining };
+}
+
+/**
  * Check if user can send a message (not blocked)
  */
 export function canSendMessage(usage: UsageInfo | null): boolean {
   if (!usage) return true; // Allow if we can't check
   if (usage.tier === 'admin') return true; // Admin always allowed
+
+  // Check daily message limit for free tier
+  if (usage.tier === 'free') {
+    const dailyUsed = usage.dailyMessagesUsed ?? 0;
+    const dailyLimit = usage.dailyMessagesLimit ?? DAILY_MESSAGE_LIMITS.free;
+    if (dailyUsed >= dailyLimit) return false;
+  }
+
   return usage.warningLevel !== 'blocked';
 }
 
@@ -262,6 +339,9 @@ export function parseUsageFromResponse(responseData: any): Partial<UsageInfo> | 
     warningLevel: u.warning_level,
     promptTokens: u.prompt_tokens,
     completionTokens: u.completion_tokens,
+    dailyMessagesUsed: u.daily_messages_used,
+    dailyMessagesLimit: u.daily_messages_limit,
+    trialDaysRemaining: u.trial_days_remaining,
   };
 }
 
@@ -287,5 +367,8 @@ export function getUsageFromLimitError(error: any): UsageInfo | null {
     usagePercentage: u.usage_percentage || 100,
     periodEnd: u.period_end,
     warningLevel: 'blocked',
+    dailyMessagesUsed: u.daily_messages_used,
+    dailyMessagesLimit: u.daily_messages_limit,
+    trialDaysRemaining: u.trial_days_remaining,
   };
 }

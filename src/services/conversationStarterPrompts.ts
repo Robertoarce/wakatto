@@ -11,6 +11,7 @@ import { OrchestrationScene, CharacterTimeline, AnimationSegment, parseOrchestra
 import { AnimationState, LookDirection } from '../components/CharacterDisplay3D';
 import { generateAIResponseStreaming, isStreamingSupported } from './aiService';
 import { getVoiceOptionsForPrompt } from '../config/voiceConfig';
+import { Story } from './storyLibrary';
 
 // ============================================
 // STARTER THEMES
@@ -25,6 +26,7 @@ const STARTER_THEMES = [
   'curious_about_user',    // Characters wonder about the user
   'debating_topic',        // Characters are debating something
   'sharing_observation',   // One character shares something interesting
+  'story_discussion',      // Characters discuss a specific story/topic (from story library)
 ] as const;
 
 type StarterTheme = typeof STARTER_THEMES[number];
@@ -78,9 +80,11 @@ Generate the greeting now.`;
 /**
  * Build prompt for multi-character conversation starter
  * Creates 5-8 exchanges (~30-45 seconds) ending with user invitation
+ * If a story is provided, characters will discuss that topic instead of random themes
  */
-function buildMultiCharacterStarterPrompt(characterIds: string[]): string {
-  const theme = getRandomStarterTheme();
+function buildMultiCharacterStarterPrompt(characterIds: string[], story?: Story): string {
+  // If story is provided, use 'story_discussion' theme instead of random
+  const theme = story ? 'story_discussion' as StarterTheme : getRandomStarterTheme();
 
   // Build character profiles with positions
   const characterProfiles = characterIds.map((charId, index) => {
@@ -123,7 +127,32 @@ Role: ${character.role}`;
 - Other(s) react with interest or questions
 - They notice the user arriving
 - Welcome user and include them in the discussion`,
+
+    story_discussion: story
+      ? `The characters are engaged in a discussion about: "${story.toastText}"
+
+STORY CONTEXT: ${story.fullContext}
+
+Instructions:
+- One character brings up this topic with genuine interest
+- The other(s) respond with their perspective on the matter
+- They have a brief but engaging exchange about the topic (2-4 exchanges)
+- Then they notice the user has arrived
+- They welcome the user warmly and invite them to share their thoughts
+- The conversation should feel natural, as if the user caught them mid-discussion`
+      : `Default conversation starter`,
   };
+
+  // Build story context section if provided
+  const storySection = story ? `
+## Story Context
+The characters should be discussing this topic when the user arrives:
+- Toast shown to user: "${story.toastText}"
+- Full context: ${story.fullContext}
+- Story type: ${story.type}
+
+Characters should naturally weave this topic into their conversation, showing genuine interest and their unique perspectives.
+` : '';
 
   return `# Conversation Starter - Multi-Character Welcome Scene
 
@@ -134,7 +163,7 @@ ${themeInstructions[theme]}
 
 ## Characters
 ${characterProfiles}
-
+${storySection}
 ## CRITICAL RULES
 1. **GENERATE 5-8 EXCHANGES** (30-45 seconds total)
 2. Characters start by talking TO EACH OTHER
@@ -187,6 +216,7 @@ Generate the conversation starter now (5-8 exchanges, 30-45 seconds total).`;
 export interface ConversationStarterResult {
   scene: OrchestrationScene;
   responses: Array<{ characterId: string; content: string }>;
+  storyContext?: string; // The story context if a story was used, for later reference
 }
 
 /**
@@ -194,17 +224,19 @@ export interface ConversationStarterResult {
  *
  * @param characterIds - Array of character IDs to generate starter for
  * @param onProgress - Optional callback for streaming progress (0-100)
+ * @param story - Optional story to use as conversation topic
  * @returns Promise with scene and character responses
  */
 export async function generateConversationStarter(
   characterIds: string[],
-  onProgress?: (percentage: number) => void
+  onProgress?: (percentage: number) => void,
+  story?: Story
 ): Promise<ConversationStarterResult> {
   const isSingleCharacter = characterIds.length === 1;
 
   const prompt = isSingleCharacter
     ? buildSingleCharacterStarterPrompt(characterIds[0])
-    : buildMultiCharacterStarterPrompt(characterIds);
+    : buildMultiCharacterStarterPrompt(characterIds, story);
 
   // Anthropic API requires at least one user message
   const conversationMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
@@ -239,11 +271,19 @@ export async function generateConversationStarter(
   }
 
   // Parse response based on character count
+  let result: ConversationStarterResult;
   if (isSingleCharacter) {
-    return parseSingleCharacterResponse(rawResponse, characterIds[0]);
+    result = parseSingleCharacterResponse(rawResponse, characterIds[0]);
   } else {
-    return parseMultiCharacterResponse(rawResponse, characterIds);
+    result = parseMultiCharacterResponse(rawResponse, characterIds);
   }
+
+  // Add story context if a story was used
+  if (story) {
+    result.storyContext = story.fullContext;
+  }
+
+  return result;
 }
 
 /**

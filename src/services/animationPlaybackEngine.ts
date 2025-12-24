@@ -24,6 +24,7 @@ import {
   getPaceMultiplier,
   mergeVoiceWithDefaults
 } from '../config/voiceConfig';
+import { performanceLogger } from './performanceLogger';
 
 // ============================================
 // POST-SPEAKING EXPRESSIONS
@@ -100,6 +101,10 @@ export class AnimationPlaybackEngine {
   private cachedStates: Map<string, CharacterAnimationState> = new Map();
   private lastCachedElapsed: number = -1;
   private lastCachedStatus: PlaybackStatus = 'idle';
+  // Cache for character timelines grouping - built once when scene starts, not every frame
+  private characterTimelinesCache: Map<string, CharacterTimeline[]> = new Map();
+  // Flag to track if cache needs rebuild (only on scene change)
+  private timelinesCacheValid: boolean = false;
 
   // TTS-driven mode: character positions driven by voice feedback
   private ttsCharPositions: Map<string, number> = new Map();
@@ -107,6 +112,10 @@ export class AnimationPlaybackEngine {
   // Throttle TTS updates to prevent excessive re-renders
   private lastTTSUpdateTime: number = 0;
   private ttsUpdateThrottleMs: number = 50; // Max 20 updates per second
+
+  // Graceful stop: wait for current speaker to finish before stopping
+  private gracefulStopRequested: boolean = false;
+  private gracefulStopCallback: (() => void) | null = null;
 
   // ============================================
   // PUBLIC METHODS
@@ -181,7 +190,38 @@ export class AnimationPlaybackEngine {
     // Clear cached expressions for new scene
     this.postSpeakingExpressionCache.clear();
 
+    // Build timeline cache once at start (not every frame)
+    this.buildTimelinesCache();
+
     this.tick();
+  }
+
+  /**
+   * Build the character timelines cache once when scene starts
+   * Pre-sorts timelines to avoid sorting every frame
+   */
+  private buildTimelinesCache(): void {
+    this.characterTimelinesCache.clear();
+    this.timelinesCacheValid = false;
+
+    if (!this.scene) return;
+
+    // Group timelines by character
+    for (const timeline of this.scene.timelines) {
+      const existing = this.characterTimelinesCache.get(timeline.characterId);
+      if (existing) {
+        existing.push(timeline);
+      } else {
+        this.characterTimelinesCache.set(timeline.characterId, [timeline]);
+      }
+    }
+
+    // Pre-sort each character's timelines by startDelay
+    for (const [, timelines] of this.characterTimelinesCache) {
+      timelines.sort((a, b) => a.startDelay - b.startDelay);
+    }
+
+    this.timelinesCacheValid = true;
   }
 
   /**
@@ -227,14 +267,60 @@ export class AnimationPlaybackEngine {
     // Clear caches to prevent memory accumulation
     this.postSpeakingExpressionCache.clear();
     this.cachedStates.clear();
+    this.characterTimelinesCache.clear();
+    this.timelinesCacheValid = false;
     this.lastCachedElapsed = -1;
     this.lastCachedStatus = 'idle';
     // Clear TTS-driven positions and reset throttle
     this.ttsCharPositions.clear();
     this.lastTTSUpdateTime = 0;
+    // Reset graceful stop flag
+    this.gracefulStopRequested = false;
+    this.gracefulStopCallback = null;
 
     // Notify subscribers that playback has stopped
     this.notifyCallbacks();
+  }
+
+  /**
+   * Gracefully stop playback - waits for current speaker to finish their segment
+   * @param callback Optional callback to invoke when graceful stop completes
+   */
+  gracefulStop(callback?: () => void): void {
+    if (this.status !== 'playing') {
+      // If not playing, just stop immediately
+      this.stop();
+      callback?.();
+      return;
+    }
+
+    this.gracefulStopRequested = true;
+    this.gracefulStopCallback = callback || null;
+
+    // Check immediately if we can stop (no one is talking)
+    const states = this.getCurrentStates();
+    let anyoneTalking = false;
+    for (const state of states.values()) {
+      if (state.isTalking) {
+        anyoneTalking = true;
+        break;
+      }
+    }
+
+    if (!anyoneTalking) {
+      // No one is talking, stop immediately
+      const cb = this.gracefulStopCallback;
+      this.stop();
+      cb?.();
+    }
+    // Otherwise, tick() will check and stop when the current speaker finishes
+  }
+
+  /**
+   * Check if graceful stop has been requested
+   */
+  isGracefulStopRequested(): boolean {
+    return this.gracefulStopRequested;
   }
 
   /**
@@ -277,19 +363,17 @@ export class AnimationPlaybackEngine {
     this.lastCachedElapsed = elapsed;
     this.lastCachedStatus = this.status;
 
-    // Clear cache and rebuild - reusing the same Map object
+    // Clear cached states and rebuild
     this.cachedStates.clear();
 
-    // Group timelines by character and find the currently active one for each
-    const characterTimelines = new Map<string, CharacterTimeline[]>();
-    for (const timeline of this.scene.timelines) {
-      const existing = characterTimelines.get(timeline.characterId) || [];
-      existing.push(timeline);
-      characterTimelines.set(timeline.characterId, existing);
+    // Rebuild timeline cache if invalidated (scene changed)
+    if (!this.timelinesCacheValid) {
+      this.buildTimelinesCache();
     }
 
     // For each character, find their currently active timeline
-    for (const [characterId, timelines] of characterTimelines) {
+    // (timelines are pre-sorted in buildTimelinesCache)
+    for (const [characterId, timelines] of this.characterTimelinesCache) {
       const activeTimeline = this.findActiveTimeline(timelines, elapsed);
       if (activeTimeline) {
         this.cachedStates.set(characterId, this.getCharacterState(activeTimeline, elapsed));
@@ -318,13 +402,12 @@ export class AnimationPlaybackEngine {
   /**
    * Find the currently active timeline for a character based on elapsed time
    * Returns the timeline that is currently playing (between startDelay and startDelay + totalDuration)
+   * Note: timelines are pre-sorted by startDelay in buildTimelinesCache()
    */
   private findActiveTimeline(timelines: CharacterTimeline[], elapsed: number): CharacterTimeline | null {
-    // Sort by startDelay to process in order
-    const sorted = [...timelines].sort((a, b) => a.startDelay - b.startDelay);
-
+    // Timelines are already sorted by startDelay (done once in buildTimelinesCache)
     // Find the timeline that is currently active
-    for (const timeline of sorted) {
+    for (const timeline of timelines) {
       const timelineStart = timeline.startDelay;
       const timelineEnd = timeline.startDelay + timeline.totalDuration;
 
@@ -335,8 +418,8 @@ export class AnimationPlaybackEngine {
 
     // If no timeline is currently active, check if we're past all timelines
     // Return the last completed timeline so we can show its final state
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      const timeline = sorted[i];
+    for (let i = timelines.length - 1; i >= 0; i--) {
+      const timeline = timelines[i];
       if (elapsed >= timeline.startDelay + timeline.totalDuration) {
         return timeline; // Return last completed timeline
       }
@@ -562,6 +645,7 @@ export class AnimationPlaybackEngine {
   private tick = (): void => {
     if (this.status !== 'playing' || !this.scene) return;
 
+    const perfStart = performanceLogger.frameStart();
     const now = performance.now();
     const elapsed = now - this.startTime;
 
@@ -571,17 +655,46 @@ export class AnimationPlaybackEngine {
       return;
     }
     this.lastUpdateTime = now;
-    
+
+    // Track cache sizes for debugging
+    performanceLogger.trackMapSize('cachedStates', this.cachedStates.size);
+    performanceLogger.trackMapSize('characterTimelinesCache', this.characterTimelinesCache.size);
+    performanceLogger.trackMapSize('postSpeakingCache', this.postSpeakingExpressionCache.size);
+    performanceLogger.setRAFCallbacks(this.callbacks.size);
+
     // Check if scene is complete
     if (elapsed >= this.scene.sceneDuration) {
       this.status = 'complete';
       this.notifyCallbacks();
+      performanceLogger.frameEnd(perfStart, 'PlaybackEngine:complete');
       return;
     }
-    
+
+    // Check for graceful stop request
+    if (this.gracefulStopRequested) {
+      const states = this.getCurrentStates();
+      let anyoneTalking = false;
+      for (const state of states.values()) {
+        if (state.isTalking) {
+          anyoneTalking = true;
+          break;
+        }
+      }
+
+      if (!anyoneTalking) {
+        // No one is talking, complete the graceful stop
+        const cb = this.gracefulStopCallback;
+        performanceLogger.frameEnd(perfStart, 'PlaybackEngine:gracefulStop');
+        this.stop();
+        cb?.();
+        return;
+      }
+    }
+
     // Notify callbacks with current state
     this.notifyCallbacks();
-    
+
+    performanceLogger.frameEnd(perfStart, 'PlaybackEngine:tick');
     // Schedule next frame
     this.animationFrameId = requestAnimationFrame(this.tick);
   };

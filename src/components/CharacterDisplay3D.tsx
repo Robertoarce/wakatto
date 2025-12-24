@@ -1,9 +1,51 @@
 import React, { useRef, useMemo, useState, useEffect } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { View, StyleSheet, Dimensions, Platform } from 'react-native';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { getCharacter, CharacterBehavior } from '../config/characters';
+import { performanceLogger } from '../services/performanceLogger';
+import { fpsMonitor } from '../services/fpsMonitor';
+
+// Component to monitor actual Three.js render FPS (using circular buffer for O(1) operations)
+function ThreeJSPerformanceMonitor() {
+  const lastTime = useRef(performance.now());
+  const lastLogTime = useRef(performance.now());
+  const frameCount = useRef(0);
+  // Use circular buffer instead of array shift (O(1) vs O(n))
+  const fpsBuffer = useRef(new Float32Array(300)); // 5 seconds worth at 60fps
+  const bufferIndex = useRef(0);
+  const bufferCount = useRef(0);
+
+  useFrame(() => {
+    const now = performance.now();
+    const delta = now - lastTime.current;
+    lastTime.current = now;
+    frameCount.current++;
+
+    // Calculate instantaneous FPS and store in circular buffer
+    const fps = delta > 0 ? 1000 / delta : 60;
+    fpsBuffer.current[bufferIndex.current] = fps;
+    bufferIndex.current = (bufferIndex.current + 1) % 300;
+    if (bufferCount.current < 300) bufferCount.current++;
+
+    // Log every 5 seconds
+    if (now - lastLogTime.current >= 15000 && bufferCount.current > 0) {
+      lastLogTime.current = now;
+      let sum = 0;
+      let minFps = Infinity;
+      for (let i = 0; i < bufferCount.current; i++) {
+        const val = fpsBuffer.current[i];
+        sum += val;
+        if (val < minFps) minFps = val;
+      }
+      const avgFps = sum / bufferCount.current;
+      console.log(`[Three.js] Render FPS: ${avgFps.toFixed(1)} (min: ${minFps.toFixed(1)}, frames: ${frameCount.current})`);
+    }
+  });
+
+  return null;
+}
 
 // Import from character3d modules
 import {
@@ -83,8 +125,11 @@ interface CharacterProps {
   onAnimationComplete?: () => void;
 }
 
-// Character component with switchable 3D style
-function Character({ character, isActive, animation = 'idle', isTalking = false, scale = 1, complementary, modelStyle = 'blocky', positionX = 0, positionY = 0, positionZ = 0, onAnimationComplete }: CharacterProps) {
+// Character component with switchable 3D style - memoized to prevent unnecessary re-renders
+const Character = React.memo(function Character({ character, isActive, animation = 'idle', isTalking = false, scale = 1, complementary, modelStyle = 'blocky', positionX = 0, positionY = 0, positionZ = 0, onAnimationComplete }: CharacterProps) {
+  // Get invalidate function to trigger render on demand
+  const { invalidate } = useThree();
+
   const meshRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Group>(null);
   // Limbs as groups (for articulated joints)
@@ -120,7 +165,30 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
   const animationStartTime = useRef<number>(0);
   const animationCompleted = useRef<boolean>(false);
   const lastAnimation = useRef<AnimationState>(animation);
-  
+
+  // Store props in refs to avoid restarting animation loop on every prop change
+  const complementaryRef = useRef(complementary);
+  const isTalkingRef = useRef(isTalking);
+  const animSpeedRef = useRef(complementary?.speed ?? 1.0);
+  const positionYRef = useRef(positionY);
+  const onAnimationCompleteRef = useRef(onAnimationComplete);
+  const animationRef = useRef(animation);
+  const isActiveRef = useRef(isActive);
+
+  // Track if component is mounted to prevent RAF scheduling after unmount
+  const isMountedRef = useRef(true);
+
+  // Sync refs when props change (doesn't restart animation loop)
+  useEffect(() => {
+    complementaryRef.current = complementary;
+    isTalkingRef.current = isTalking;
+    animSpeedRef.current = complementary?.speed ?? 1.0;
+    positionYRef.current = positionY;
+    onAnimationCompleteRef.current = onAnimationComplete;
+    animationRef.current = animation;
+    isActiveRef.current = isActive;
+  }, [complementary, isTalking, positionY, onAnimationComplete, animation, isActive]);
+
   // Automatic blink timing
   const nextBlinkTime = useRef<number>(Date.now() / 1000 + AUTO_BLINK.minInterval + Math.random() * (AUTO_BLINK.maxInterval - AUTO_BLINK.minInterval));
   const blinkStartTime = useRef<number | null>(null);
@@ -133,10 +201,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       lastAnimation.current = animation;
     }
   }, [animation]);
-  
-  // Animation speed from complementary settings
-  const animSpeed = complementary?.speed ?? 1.0;
-  
+
   // Transition speed (higher = faster transitions)
   const transitionSpeed = LERP_SPEED.slow;
 
@@ -144,12 +209,22 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
   React.useEffect(() => {
     if (!meshRef.current || !headRef.current) return;
 
+    const charId = character?.id || 'unknown';
+
+    // Reset mounted flag when effect runs
+    isMountedRef.current = true;
+    performanceLogger.registerAnimationLoop();
+    console.log(`[Character:${charId}] Animation loop STARTED`);
+
     let animationId: number;
     let lastFrameTime = 0;
     const targetFPS = 30; // Throttle to 30fps for better performance
     const frameInterval = 1000 / targetFPS;
 
     const animate = (frameTime: number = 0) => {
+      // Don't schedule if component unmounted (prevents orphaned frames)
+      if (!isMountedRef.current) return;
+
       // Throttle animation to target FPS
       const deltaTime = frameTime - lastFrameTime;
       if (deltaTime < frameInterval) {
@@ -158,7 +233,8 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       }
       lastFrameTime = frameTime - (deltaTime % frameInterval);
 
-      const time = Date.now() * 0.001 * animSpeed;
+      const perfStart = performanceLogger.frameStart();
+      const time = Date.now() * 0.001 * animSpeedRef.current;
 
       // Target values - we'll lerp towards these
       let targetMeshY = 0;
@@ -205,12 +281,9 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       let targetJawPosZ = 0;
 
       // Head style calculations for eyebrow positioning
-      const headStyleVal = complementary?.headStyle || 'bigger';
-      const headHeights: Record<HeadStyle, number> = {
-        default: 0.55,
-        bigger: 0.70,
-      };
-      const headH = headHeights[headStyleVal];
+      const headStyleVal = complementaryRef.current?.headStyle || 'bigger';
+      // Use imported constant instead of creating object per frame
+      const headH = HEAD_HEIGHTS[headStyleVal] || 0.70;
       const faceYOffsetAnim = (0.5 - headH) / 2;
       const eyebrowBaseY = 0.14 + faceYOffsetAnim;
 
@@ -220,7 +293,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       let lookYOffset = 0;    // Head Y rotation offset
       let lookXOffset = 0;    // Head X rotation offset
 
-      switch (complementary?.lookDirection) {
+      switch (complementaryRef.current?.lookDirection) {
         case 'left':
           lookYOffset = -0.5; //<<< DONT TOUCH THIS! es NEgativo 
           break;
@@ -272,7 +345,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
         }
       };
       
-      switch (complementary?.eyeState) {
+      switch (complementaryRef.current?.eyeState) {
         case 'closed':
           targetLeftEyeScaleY = 0.1;
           targetRightEyeScaleY = 0.1;
@@ -289,8 +362,8 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
           // Natural blink: eyes open most of the time, quick close-open blink
           // LLM can override blinkPeriod (time between blinks) and blinkDuration (how long each blink takes)
           {
-            const blinkPeriod = complementary?.blinkPeriod ?? 2.5; // seconds between blinks (default 2.5)
-            const blinkDuration = complementary?.blinkDuration ?? 0.3; // how long the blink takes (default 0.3)
+            const blinkPeriod = complementaryRef.current?.blinkPeriod ?? 2.5; // seconds between blinks (default 2.5)
+            const blinkDuration = complementaryRef.current?.blinkDuration ?? 0.3; // how long the blink takes (default 0.3)
             const timeInCycle = time % blinkPeriod;
             
             let eyeOpenness = 1.0; // fully open by default
@@ -390,7 +463,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       // =========================================
       // COMPLEMENTARY: Eyebrow State
       // =========================================
-      switch (complementary?.eyebrowState) {
+      switch (complementaryRef.current?.eyebrowState) {
         case 'raised':
           // Surprised, interested - eyebrows move up and rotate slightly inward
           targetLeftEyebrowPosY = 0.03;
@@ -480,7 +553,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       // =========================================
       // COMPLEMENTARY: Nose State (NEW)
       // =========================================
-      switch (complementary?.noseState) {
+      switch (complementaryRef.current?.noseState) {
         case 'wrinkled':
           targetNoseScaleY = 0.7;
           break;
@@ -501,7 +574,7 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       // =========================================
       // COMPLEMENTARY: Jaw State (NEW)
       // =========================================
-      switch (complementary?.jawState) {
+      switch (complementaryRef.current?.jawState) {
         case 'clenched':
           targetHeadScaleY = 1.97;
           break;
@@ -521,8 +594,8 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       // =========================================
       // COMPLEMENTARY: Mouth State (when not talking)
       // =========================================
-      if (!isTalking && mouthRef.current) {
-        switch (complementary?.mouthState) {
+      if (!isTalkingRef.current && mouthRef.current) {
+        switch (complementaryRef.current?.mouthState) {
           case 'open':
             // Small circle - equal scales for circular shape
             mouthRef.current.scale.y = 0.8;
@@ -549,17 +622,19 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       }
 
       // Independent mouth animation when talking (overrides mouthState)
-      if (mouthRef.current && isTalking) {
+      if (mouthRef.current && isTalkingRef.current) {
         const mouthCycle = Math.sin(time * 6 * Math.PI);
         const mouthScale = 0.3 + (mouthCycle * 0.5 + 0.5) * 0.7;
         mouthRef.current.scale.y = mouthScale;
       }
 
       // Calculate target values based on animation state (with complementary look direction applied)
-      switch (animation) {
+      // Use ref to avoid restarting animation loop on every idle animation change
+      const currentAnimation = animationRef.current;
+      switch (currentAnimation) {
         case 'idle':
           targetMeshY = Math.sin(time * 0.5) * 0.05;
-          targetHeadRotY = (isActive ? Math.sin(time * 1.5) * 0.15 : 0) + lookYOffset;
+          targetHeadRotY = (isActiveRef.current ? Math.sin(time * 1.5) * 0.15 : 0) + lookYOffset;
           targetHeadRotX = lookXOffset;
           break;
 
@@ -1145,15 +1220,15 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       }
       if (leftEyeRef.current) {
         // Use faster lerp for blinks (explicit or automatic) vs normal transitions
-        const isBlinking = complementary?.eyeState === 'blink' || 
-                          complementary?.eyeState === 'surprised_blink' || 
+        const isBlinking = complementaryRef.current?.eyeState === 'blink' ||
+                          complementaryRef.current?.eyeState === 'surprised_blink' ||
                           blinkStartTime.current !== null;
         const eyeLerpSpeed = isBlinking ? LERP_SPEED.veryFast : transitionSpeed;
         leftEyeRef.current.scale.y = lerp(leftEyeRef.current.scale.y, targetLeftEyeScaleY, eyeLerpSpeed);
       }
       if (rightEyeRef.current) {
-        const isBlinking = complementary?.eyeState === 'blink' || 
-                          complementary?.eyeState === 'surprised_blink' || 
+        const isBlinking = complementaryRef.current?.eyeState === 'blink' ||
+                          complementaryRef.current?.eyeState === 'surprised_blink' ||
                           blinkStartTime.current !== null;
         const eyeLerpSpeed = isBlinking ? LERP_SPEED.veryFast : transitionSpeed;
         rightEyeRef.current.scale.y = lerp(rightEyeRef.current.scale.y, targetRightEyeScaleY, eyeLerpSpeed);
@@ -1195,23 +1270,35 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       }
 
       // Check for one-shot animation completion
-      const duration = ONE_SHOT_ANIMATIONS[animation];
-      if (duration && !animationCompleted.current && onAnimationComplete) {
+      const duration = ONE_SHOT_ANIMATIONS[currentAnimation];
+      if (duration && !animationCompleted.current && onAnimationCompleteRef.current) {
         const elapsed = (Date.now() / 1000) - animationStartTime.current;
         if (elapsed >= duration) {
           animationCompleted.current = true;
-          onAnimationComplete();
+          onAnimationCompleteRef.current();
         }
       }
+
+      performanceLogger.frameEnd(perfStart, `Character:${charId}`);
+
+      // Trigger render (for frameloop="demand" mode)
+      invalidate();
 
       animationId = requestAnimationFrame(animate);
     };
     animate();
 
     return () => {
+      // Mark as unmounted first to prevent any in-flight RAF from scheduling more
+      isMountedRef.current = false;
+      performanceLogger.unregisterAnimationLoop();
+      console.log(`[Character:${charId}] Animation loop STOPPED`);
       if (animationId) cancelAnimationFrame(animationId);
     };
-  }, [isActive, animation, isTalking, animSpeed, complementary?.lookDirection, complementary?.eyeState, complementary?.eyebrowState, complementary?.headStyle, complementary?.mouthState, complementary?.noseState, complementary?.cheekState, complementary?.foreheadState, complementary?.jawState, onAnimationComplete, positionY]);
+    // Only restart animation loop when character changes
+    // All other props (animation, isActive, complementary, isTalking, etc.) are read from refs
+    // This prevents loop restarts when idle animation system cycles through animations
+  }, [character?.id, invalidate]);
 
   // Get customization from character config
   const customization = character.customization;
@@ -2540,7 +2627,21 @@ function Character({ character, isActive, animation = 'idle', isTalking = false,
       )}
     </group>
   );
-}
+}, (prev, next) => {
+  // Custom comparison to prevent unnecessary re-renders
+  // Only re-render when essential visual properties change
+  return (
+    prev.character?.id === next.character?.id &&
+    prev.isActive === next.isActive &&
+    prev.animation === next.animation &&
+    prev.isTalking === next.isTalking &&
+    prev.scale === next.scale &&
+    prev.positionX === next.positionX &&
+    prev.positionY === next.positionY &&
+    prev.positionZ === next.positionZ
+    // complementary changes are handled via refs, no need to compare
+  );
+});
 
 export function CharacterDisplay3D({
   characterId,
@@ -2618,6 +2719,16 @@ export function CharacterDisplay3D({
   // Store GL context for disposal
   const glRef = useRef<THREE.WebGLRenderer | null>(null);
 
+  // Mobile-specific rendering optimizations
+  const isMobile = Platform.OS === 'ios' || Platform.OS === 'android';
+  const glConfig = useMemo(() => ({
+    alpha: true,
+    antialias: !isMobile, // Disable antialias on mobile for better performance
+    preserveDrawingBuffer: false,
+    powerPreference: isMobile ? 'low-power' : 'default' as const,
+    precision: isMobile ? 'mediump' : 'highp' as const,
+  }), [isMobile]);
+
   // Cleanup WebGL resources on unmount
   useEffect(() => {
     return () => {
@@ -2638,19 +2749,28 @@ export function CharacterDisplay3D({
     <View style={styles.container}>
       <Canvas
         camera={{ position: [cameraX, cameraY, cameraDistance], fov }}
-        gl={{ alpha: true, antialias: true, preserveDrawingBuffer: false, powerPreference: 'low-power' }}
+        gl={glConfig}
+        dpr={isMobile ? [1, 1.5] : [1, 2]} // Lower pixel ratio on mobile
         style={{ background: 'transparent' }}
         onCreated={handleCreated}
+        frameloop="demand" // Only render when invalidate() is called - reduces renders from 360fps to 30fps
       >
-        <ambientLight intensity={0.3} />
-        <spotLight position={[5, 10, 5]} angle={0.3} penumbra={1} intensity={0.5} castShadow />
-        <directionalLight position={[-5, 5, 5]} intensity={0.3} />
+        {/* Simplified lighting for mobile, full lighting for web */}
+        <ambientLight intensity={isMobile ? 0.5 : 0.3} />
+        {!isMobile && (
+          <spotLight position={[5, 10, 5]} angle={0.3} penumbra={1} intensity={0.5} castShadow />
+        )}
+        {!isMobile && (
+          <directionalLight position={[-5, 5, 5]} intensity={0.3} />
+        )}
         {/* Top light for better character illumination */}
-        <directionalLight position={[0, 10, 0]} intensity={0.4} color="#ffffff" />
+        <directionalLight position={[0, 10, 0]} intensity={isMobile ? 0.6 : 0.4} color="#ffffff" />
         {/* Frontal light for face illumination */}
-        <directionalLight position={[0, 2, 5]} intensity={0.6} color="#ffffff" />
-        {/* Frontal light for body illumination */}
-        <directionalLight position={[0, -2, 5]} intensity={0.5} color="#ffffff" />
+        <directionalLight position={[0, 2, 5]} intensity={isMobile ? 0.8 : 0.6} color="#ffffff" />
+        {/* Frontal light for body illumination - only on desktop */}
+        {!isMobile && (
+          <directionalLight position={[0, -2, 5]} intensity={0.5} color="#ffffff" />
+        )}
 
         <Character
           character={character}
@@ -2686,6 +2806,9 @@ export function CharacterDisplay3D({
           minPolarAngle={Math.PI / 3}
           maxPolarAngle={Math.PI / 2}
         />
+
+        {/* Performance monitoring - logs actual Three.js render FPS */}
+        <ThreeJSPerformanceMonitor />
       </Canvas>
     </View>
   );

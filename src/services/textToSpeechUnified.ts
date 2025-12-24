@@ -1,15 +1,23 @@
 /**
  * Unified Text-to-Speech Service
  *
- * Platform-agnostic wrapper that automatically uses:
- * - Web: Web Speech Synthesis API (textToSpeech.ts)
- * - Mobile: expo-speech (textToSpeechMobile.ts)
+ * Platform-agnostic wrapper that supports:
+ * - Cloud: Google Cloud TTS (high quality, all platforms)
+ * - Web: Web Speech Synthesis API (free, browser only)
+ * - Mobile: expo-speech (free, device voices)
  */
 
 import { Platform } from 'react-native';
 import { TextToSpeech, TTSState, TTSOptions, getTextToSpeech, isTTSSupported as isWebTTSSupported } from './textToSpeech';
 import { MobileTextToSpeech, MobileTTSState, MobileTTSOptions, getMobileTextToSpeech } from './textToSpeechMobile';
+import { CloudTextToSpeech, CloudTTSOptions, getCloudTextToSpeech, isCloudTTSAvailable } from './textToSpeechCloud';
 import { CharacterVoiceProfile, SegmentVoice } from '../config/voiceConfig';
+
+// TTS Engine type
+export type TTSEngine = 'cloud' | 'device';
+
+// Global TTS engine preference (can be changed at runtime)
+let preferredEngine: TTSEngine = 'cloud';
 
 export interface UnifiedTTSState {
   isSpeaking: boolean;
@@ -22,6 +30,10 @@ export interface UnifiedTTSOptions {
   segmentVoice?: SegmentVoice;
   voiceName?: string; // Web only
   language?: string; // Mobile preference
+  characterId?: string; // Cloud TTS character voice
+  engine?: TTSEngine; // Force specific engine
+  speakingRate?: number; // Cloud TTS speed (0.25-4.0)
+  pitch?: number; // Cloud TTS pitch (-20.0 to 20.0)
   onStart?: () => void;
   onEnd?: () => void;
   onError?: (error: Error) => void;
@@ -33,6 +45,7 @@ export interface UnifiedTTSOptions {
 export class UnifiedTextToSpeech {
   private webTTS: TextToSpeech | null = null;
   private mobileTTS: MobileTextToSpeech | null = null;
+  private cloudTTS: CloudTextToSpeech | null = null;
   private isWeb: boolean;
   private onStateChange?: (state: UnifiedTTSState) => void;
   private currentState: UnifiedTTSState = {
@@ -44,12 +57,32 @@ export class UnifiedTextToSpeech {
   constructor() {
     this.isWeb = Platform.OS === 'web';
 
+    // Initialize cloud TTS (works on all platforms)
+    this.cloudTTS = getCloudTextToSpeech();
+    this.setupCloudListener();
+
+    // Initialize device TTS as fallback
     if (this.isWeb) {
       this.webTTS = getTextToSpeech();
       this.setupWebListener();
     } else {
       this.mobileTTS = getMobileTextToSpeech();
       this.setupMobileListener();
+    }
+  }
+
+  /**
+   * Setup cloud TTS state listener
+   */
+  private setupCloudListener(): void {
+    if (this.cloudTTS) {
+      this.cloudTTS.setOnStateChange((state) => {
+        this.updateState({
+          isSpeaking: state.isSpeaking,
+          isPaused: false,
+          currentText: state.currentText,
+        });
+      });
     }
   }
 
@@ -121,6 +154,30 @@ export class UnifiedTextToSpeech {
    * Speak text with optional voice profile
    */
   async speak(text: string, options: UnifiedTTSOptions = {}): Promise<void> {
+    const engine = options.engine || preferredEngine;
+
+    // Try cloud TTS first if preferred
+    if (engine === 'cloud' && this.cloudTTS) {
+      try {
+        const cloudAvailable = await this.cloudTTS.isAvailable();
+        if (cloudAvailable) {
+          await this.cloudTTS.speak(text, {
+            characterId: options.characterId,
+            speakingRate: options.speakingRate,
+            pitch: options.pitch,
+            onStart: options.onStart,
+            onEnd: options.onEnd,
+            onError: options.onError,
+          });
+          return;
+        }
+      } catch (error) {
+        console.warn('[UnifiedTTS] Cloud TTS failed, falling back to device TTS:', error);
+        // Fall through to device TTS
+      }
+    }
+
+    // Fallback to device TTS
     if (this.isWeb && this.webTTS) {
       await this.webTTS.speak(text, {
         voiceProfile: options.voiceProfile,
@@ -147,7 +204,12 @@ export class UnifiedTextToSpeech {
   /**
    * Stop speaking
    */
-  stop(): void {
+  async stop(): Promise<void> {
+    // Stop cloud TTS
+    if (this.cloudTTS) {
+      await this.cloudTTS.stop();
+    }
+    // Stop device TTS
     if (this.isWeb && this.webTTS) {
       this.webTTS.stop();
     } else if (this.mobileTTS) {
@@ -213,4 +275,26 @@ export function isUnifiedTTSSupported(): boolean {
     return isWebTTSSupported();
   }
   return Platform.OS === 'ios' || Platform.OS === 'android';
+}
+
+/**
+ * Set the preferred TTS engine globally
+ */
+export function setPreferredTTSEngine(engine: TTSEngine): void {
+  preferredEngine = engine;
+  console.log(`[UnifiedTTS] Preferred engine set to: ${engine}`);
+}
+
+/**
+ * Get the current preferred TTS engine
+ */
+export function getPreferredTTSEngine(): TTSEngine {
+  return preferredEngine;
+}
+
+/**
+ * Check if cloud TTS is available (requires authentication)
+ */
+export async function checkCloudTTSAvailable(): Promise<boolean> {
+  return isCloudTTSAvailable();
 }

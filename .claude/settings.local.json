@@ -113,7 +113,12 @@
       "Bash(start http://localhost:8080)",
       "Bash(git -C \"C:/00 ALL/00 Projects/07 wakatto\" log --oneline -15)",
       "Bash(git -C \"C:/00 ALL/00 Projects/07 wakatto\" status --short)",
-      "Bash(git -C \"C:/00 ALL/00 Projects/07 wakatto\" diff --stat)"
+      "Bash(git -C \"C:/00 ALL/00 Projects/07 wakatto\" diff --stat)",
+      "Bash(npx expo install:*)",
+      "Bash(git -C \"C:/00 ALL/00 Projects/07 wakatto\" diff src/components/CharacterDisplay3D.tsx)",
+      "WebFetch(domain:groq.com)",
+      "WebFetch(domain:cartesia.ai)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

@@ -36,7 +36,7 @@ export const LimitWarningBanner: React.FC<LimitWarningBannerProps> = ({
   const textColor = isCritical ? '#991B1B' : '#92400E';
   const iconColor = isCritical ? '#EF4444' : '#F59E0B';
 
-  const message = getWarningMessage(usage.warningLevel, usage.remainingTokens, usage.periodEnd);
+  const message = getWarningMessage(usage.warningLevel, usage.remainingTokens, usage.periodEnd, usage);
   const daysUntilReset = getDaysUntilReset(usage.periodEnd);
 
   return (

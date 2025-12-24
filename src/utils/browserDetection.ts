@@ -2,19 +2,38 @@
  * Browser Detection Utility
  *
  * Detects browser type and version for feature compatibility checks
+ * On mobile (iOS/Android), returns mobile-specific info
  */
+
+import { Platform } from 'react-native';
 
 export interface BrowserInfo {
   name: string;
   version: string;
   supportsWebSpeech: boolean;
   supportsMediaRecorder: boolean;
+  isMobile: boolean;
 }
 
 /**
- * Check if browser is Brave (async)
+ * Get default mobile browser info
+ */
+function getMobileBrowserInfo(): BrowserInfo {
+  return {
+    name: Platform.OS === 'ios' ? 'iOS App' : 'Android App',
+    version: Platform.Version?.toString() || 'Unknown',
+    supportsWebSpeech: false, // Web Speech API not available on mobile
+    supportsMediaRecorder: true, // expo-av provides recording
+    isMobile: true,
+  };
+}
+
+/**
+ * Check if browser is Brave (async) - web only
  */
 export async function isBraveBrowser(): Promise<boolean> {
+  if (Platform.OS !== 'web') return false;
+
   if ((navigator as any).brave && typeof (navigator as any).brave.isBrave === 'function') {
     try {
       return await (navigator as any).brave.isBrave();
@@ -30,6 +49,11 @@ export async function isBraveBrowser(): Promise<boolean> {
  * Use detectBrowserAsync() for accurate Brave detection
  */
 export function detectBrowser(): BrowserInfo {
+  // Return mobile-specific info for non-web platforms
+  if (Platform.OS !== 'web') {
+    return getMobileBrowserInfo();
+  }
+
   const ua = navigator.userAgent;
   let name = 'Unknown';
   let version = 'Unknown';
@@ -76,6 +100,7 @@ export function detectBrowser(): BrowserInfo {
     version,
     supportsWebSpeech,
     supportsMediaRecorder,
+    isMobile: false,
   };
 }
 
@@ -83,6 +108,11 @@ export function detectBrowser(): BrowserInfo {
  * Detect current browser (async - accurate Brave detection)
  */
 export async function detectBrowserAsync(): Promise<BrowserInfo> {
+  // Return mobile-specific info for non-web platforms
+  if (Platform.OS !== 'web') {
+    return getMobileBrowserInfo();
+  }
+
   const ua = navigator.userAgent;
   let name = 'Unknown';
   let version = 'Unknown';
@@ -129,6 +159,7 @@ export async function detectBrowserAsync(): Promise<BrowserInfo> {
     version,
     supportsWebSpeech,
     supportsMediaRecorder,
+    isMobile: false,
   };
 }
 
@@ -137,6 +168,19 @@ export async function detectBrowserAsync(): Promise<BrowserInfo> {
  */
 export function getBrowserGuidance(feature: 'microphone' | 'webspeech'): string {
   const browser = detectBrowser();
+
+  // Mobile-specific guidance
+  if (browser.isMobile) {
+    if (feature === 'microphone') {
+      return Platform.OS === 'ios'
+        ? 'Tap "Allow" when prompted to enable microphone access for voice recording.'
+        : 'Tap "Allow" in the permission dialog to enable microphone access.';
+    }
+    if (feature === 'webspeech') {
+      return 'Voice recording is available using the device microphone.';
+    }
+    return '';
+  }
 
   if (feature === 'microphone') {
     switch (browser.name) {
@@ -174,6 +218,15 @@ export function isVoiceSupported(): {
   browser: BrowserInfo;
 } {
   const browser = detectBrowser();
+
+  // Mobile always supports voice via expo-av
+  if (browser.isMobile) {
+    return {
+      supported: true,
+      message: `Voice recording is available on ${browser.name}.`,
+      browser,
+    };
+  }
 
   if (!browser.supportsMediaRecorder) {
     return {

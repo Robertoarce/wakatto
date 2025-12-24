@@ -2,7 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated, ViewStyle, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-type ToastVariant = 'success' | 'error' | 'warning' | 'info';
+type ToastVariant = 'success' | 'error' | 'warning' | 'info' | 'story';
 
 interface ToastProps {
   message: string;
@@ -107,6 +107,12 @@ export function Toast({
         iconName: 'information-circle' as keyof typeof Ionicons.glyphMap,
         iconColor: '#ffffff',
       },
+      story: {
+        backgroundColor: 'rgba(30, 20, 50, 0.97)',
+        borderColor: '#8b5cf6',
+        iconName: 'book-outline' as keyof typeof Ionicons.glyphMap,
+        iconColor: '#c4b5fd',
+      },
     };
     return variants[variant];
   };
@@ -119,10 +125,13 @@ export function Toast({
   const backgroundColor = customColor ? hexToRgba(customColor, 0.95) : variantStyles.backgroundColor;
   const borderColor = customColor || variantStyles.borderColor;
 
+  const isStory = variant === 'story';
+
   return (
     <Animated.View
       style={[
         styles.container,
+        isStory && styles.storyContainer,
         {
           backgroundColor,
           borderColor,
@@ -131,8 +140,18 @@ export function Toast({
         },
       ]}
     >
-      <Ionicons name={variantStyles.iconName} size={24} color={variantStyles.iconColor} />
-      <Text style={[styles.message, variant === 'warning' && { color: '#000000' }]}>
+      <Ionicons
+        name={variantStyles.iconName}
+        size={isStory ? 28 : 24}
+        color={isStory ? '#c4b5fd' : variantStyles.iconColor}
+      />
+      <Text
+        style={[
+          styles.message,
+          variant === 'warning' && { color: '#000000' },
+          isStory && styles.storyMessage,
+        ]}
+      >
         {message}
       </Text>
     </Animated.View>
@@ -173,5 +192,32 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  storyContainer: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    borderWidth: 2,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 8px 32px rgba(139, 92, 246, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4)',
+      },
+      ios: {
+        shadowColor: '#8b5cf6',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.4,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 12,
+      },
+    }),
+  },
+  storyMessage: {
+    fontSize: 16,
+    fontStyle: 'italic',
+    fontWeight: '500',
+    color: '#e9d5ff',
+    letterSpacing: 0.5,
   },
 });

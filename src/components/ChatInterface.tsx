@@ -25,6 +25,8 @@ import { generateProcessingScene } from '../services/processingAnimations';
 import { getRandomGreeting } from '../services/characterGreetings';
 import { EntranceConfig, generateEntranceSequence, getTotalEntranceDuration } from '../services/entranceAnimations';
 import { generateConversationStarter } from '../services/conversationStarterPrompts';
+import { getRandomStory, Story } from '../services/storyLibrary';
+import { setStoryContext, clearStoryContext } from '../store/actions/conversationActions';
 import { useResponsive, BREAKPOINTS } from '../constants/Layout';
 import { Toast } from './ui/Toast';
 import {
@@ -236,6 +238,11 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [toastMessage, setToastMessage] = useState('');
   const [toastColor, setToastColor] = useState<string | undefined>();
 
+  // Story toast state (for conversation starters)
+  const [storyToastVisible, setStoryToastVisible] = useState(false);
+  const [currentStory, setCurrentStory] = useState<Story | null>(null);
+  const storyInterruptedRef = useRef(false);
+
   // Pending user message (shown while waiting for wakattors to respond)
   const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null);
   const [typedUserMessage, setTypedUserMessage] = useState<string>(''); // Animated typing effect
@@ -398,12 +405,24 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     hasUserMessages,
   });
 
-  // Handle user input change with idle conversation and Bob sales detection
+  // Handle user input change with idle conversation, Bob sales, and story interruption
   const handleInputChange = useCallback((text: string) => {
     setInput(text);
     handleUserTyping();
     notifyUserResponse(); // Let Bob know user is typing
-  }, [handleUserTyping, notifyUserResponse]);
+
+    // If user starts typing during story conversation, trigger graceful stop
+    if (text.length > 0 && currentStory && playbackEngineRef.current.getStatus() === 'playing') {
+      storyInterruptedRef.current = true;
+      setStoryToastVisible(false); // Hide toast immediately
+
+      // Graceful stop - let current speaker finish their sentence
+      playbackEngineRef.current.gracefulStop(() => {
+        // Story conversation gracefully stopped
+        console.log('[Story] User interrupted, graceful stop complete');
+      });
+    }
+  }, [handleUserTyping, notifyUserResponse, currentStory]);
 
   // Responsive calculations for bubbles & characters (hook handles all calculations)
   const {
@@ -832,9 +851,17 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
           conversationStarterInProgressRef.current = true;
           const entranceStartTime = Date.now();
 
+          // Pick a random story for the conversation starter
+          const story = getRandomStory(selectedIds);
+          setCurrentStory(story);
+          storyInterruptedRef.current = false;
+
+          // Show the story toast
+          setStoryToastVisible(true);
+
           // Fire API request immediately (parallel with animation)
-          generateConversationStarter(selectedIds)
-            .then(({ scene, responses }) => {
+          generateConversationStarter(selectedIds, undefined, story)
+            .then(({ scene, responses, storyContext }) => {
               const elapsed = Date.now() - entranceStartTime;
               const remainingEntranceTime = Math.max(0, totalEntranceDuration - elapsed);
 
@@ -845,8 +872,16 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
                 setEntranceSequence(new Map());
                 conversationStarterInProgressRef.current = false;
 
-                // Play conversation starter scene
-                if (scene && responses.length > 0) {
+                // Hide story toast as characters start talking
+                setStoryToastVisible(false);
+
+                // Store story context in Redux for later reference
+                if (storyContext) {
+                  dispatch(setStoryContext(storyContext));
+                }
+
+                // Play conversation starter scene (if not interrupted by user)
+                if (scene && responses.length > 0 && !storyInterruptedRef.current) {
                   // Set animation scene for playback
                   playbackEngineRef.current.play(scene);
 
@@ -860,6 +895,10 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
             .catch((error) => {
               console.error('[NewConversation] Starter generation failed:', error);
               conversationStarterInProgressRef.current = false;
+
+              // Hide story toast on error
+              setStoryToastVisible(false);
+              setCurrentStory(null);
 
               // Fallback to static greeting after entrance completes
               const elapsed = Date.now() - entranceStartTime;
@@ -1011,7 +1050,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       return;
     }
 
-    const testText = `To the One Beyond the Horizon
+    const testText = `To the One Beyond the Horizon..
 Where goes the wind when day departs?
 It carries, perhaps, our vanished dreams—
 The faint perfume of your forgotten laughter,
@@ -1974,6 +2013,14 @@ Each silence, a cathedral where you still reside.`;
         onDismiss={() => setToastVisible(false)}
         duration={2000}
       />
+      {/* Story Toast - shown at start of new conversations */}
+      <Toast
+        message={currentStory?.toastText || ''}
+        visible={storyToastVisible}
+        variant="story"
+        onDismiss={() => setStoryToastVisible(false)}
+        duration={5000}
+      />
     </>
   );
 }
@@ -1982,6 +2029,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f0f0f',
+    overflow: 'visible',
   },
   characterDisplayContainer: {
     borderBottomWidth: 0,

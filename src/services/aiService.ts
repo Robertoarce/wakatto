@@ -8,7 +8,9 @@
  * For production, use Supabase Edge Functions or a backend server as a proxy.
  */
 
+import { Platform } from 'react-native';
 import { setSecureItem, getSecureItem, deleteSecureItem } from './secureStorage';
+import { setItem as setStorageItem, getItem as getStorageItem } from './platformStorage';
 import { supabase, supabaseUrl } from '../lib/supabase';
 import { getCharacterParameters, getModelParameters, ModelParameters } from '../config/llmConfig';
 import { getProfiler, PROFILE_OPS } from './profilingService';
@@ -167,10 +169,10 @@ export async function configureAI(newConfig: Partial<AIConfig>) {
 
   // Store provider and model in regular storage (non-sensitive)
   if (newConfig.provider) {
-    localStorage.setItem('ai_provider', newConfig.provider);
+    await setStorageItem('ai_provider', newConfig.provider);
   }
   if (newConfig.model) {
-    localStorage.setItem('ai_model', newConfig.model);
+    await setStorageItem('ai_model', newConfig.model);
   }
 }
 
@@ -191,8 +193,8 @@ export async function getAIConfig(): Promise<Omit<AIConfig, 'apiKey'> & { apiKey
  * Initialize AI service (load config from storage or environment)
  */
 export async function initializeAI() {
-  const provider = localStorage.getItem('ai_provider') as AIConfig['provider'] | null;
-  const model = localStorage.getItem('ai_model');
+  const provider = await getStorageItem('ai_provider') as AIConfig['provider'] | null;
+  const model = await getStorageItem('ai_model');
   const apiKey = await loadAPIKey();
 
   // Use stored preferences, or defaults if none exist
@@ -306,8 +308,8 @@ export async function generateAIResponse(
     const usage = parseUsageFromResponse(data);
     if (usage) {
       console.log('[AI] Usage update:', usage);
-      // Dispatch a custom event for usage updates
-      if (typeof window !== 'undefined') {
+      // Dispatch a custom event for usage updates (web only)
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('ai:usage-update', { detail: usage }));
 
         // Dispatch warning event if needed
@@ -500,8 +502,8 @@ export async function generateAIResponseStreaming(
                   callbacks?.onLimitWarning?.(usage.warningLevel as WarningLevel, usage);
                 }
 
-                // Also dispatch global events for Redux integration
-                if (typeof window !== 'undefined') {
+                // Also dispatch global events for Redux integration (web only)
+                if (Platform.OS === 'web' && typeof window !== 'undefined') {
                   window.dispatchEvent(new CustomEvent('ai:usage-update', { detail: usage }));
                   if (usage.warningLevel) {
                     window.dispatchEvent(new CustomEvent('ai:limit-warning', {

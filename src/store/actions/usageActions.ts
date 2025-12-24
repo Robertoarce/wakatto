@@ -3,6 +3,7 @@
  * Actions for managing token usage and tier state
  */
 
+import { Platform } from 'react-native';
 import { Dispatch } from 'redux';
 import { getCurrentUsage, UsageInfo } from '../../services/usageTrackingService';
 import { USAGE_ACTIONS } from '../reducers/usageReducer';
@@ -68,10 +69,11 @@ export const updateUsageFromResponse = (usage: Partial<UsageInfo>) => (dispatch:
 
 /**
  * Setup event listeners for usage updates from aiService
- * Call this on app startup
+ * Call this on app startup (web only - mobile uses callbacks directly)
  */
 export const setupUsageListeners = () => (dispatch: Dispatch) => {
-  if (typeof window === 'undefined') return;
+  // Only setup window event listeners on web platform
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return;
 
   // Listen for usage updates
   const handleUsageUpdate = (event: CustomEvent) => {

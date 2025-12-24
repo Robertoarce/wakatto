@@ -1,13 +1,17 @@
 import React, { useRef, useMemo, useEffect } from 'react';
+import { Platform } from 'react-native';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { VisualEffect } from './types';
+
+// Mobile performance optimization - reduce particle counts
+const isMobile = Platform.OS === 'ios' || Platform.OS === 'android';
 
 // Confetti particle effect
 export function ConfettiEffect({ color = '#8b5cf6', speed = 1 }: { color?: string; speed?: number }) {
   const particlesRef = useRef<THREE.Points>(null);
   const timeRef = useRef(0);
-  const particleCount = 100;
+  const particleCount = isMobile ? 40 : 100; // Reduced for mobile
 
   const positions = useMemo(() => {
     const pos = new Float32Array(particleCount * 3);
@@ -122,7 +126,7 @@ export function SpotlightEffect({ color = '#ffd700', speed = 1 }: { color?: stri
 export function SparklesEffect({ color = '#ffd700', speed = 1 }: { color?: string; speed?: number }) {
   const particlesRef = useRef<THREE.Points>(null);
   const timeRef = useRef(0);
-  const particleCount = 50;
+  const particleCount = isMobile ? 25 : 50; // Reduced for mobile
 
   const positions = useMemo(() => {
     const pos = new Float32Array(particleCount * 3);
@@ -176,7 +180,7 @@ export function SparklesEffect({ color = '#ffd700', speed = 1 }: { color?: strin
 export function HeartsEffect({ color = '#ff6b6b', speed = 1 }: { color?: string; speed?: number }) {
   const groupRef = useRef<THREE.Group>(null);
   const timeRef = useRef(0);
-  const heartCount = 8;
+  const heartCount = isMobile ? 5 : 8; // Reduced for mobile
 
   const heartPositions = useMemo(() => {
     return Array.from({ length: heartCount }, () => ({

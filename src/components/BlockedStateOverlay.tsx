@@ -11,6 +11,7 @@ import {
   getDaysUntilReset,
   formatPeriodEnd,
   TIER_NAMES,
+  DAILY_MESSAGE_LIMITS,
 } from '../services/usageTrackingService';
 
 interface BlockedStateOverlayProps {
@@ -27,6 +28,21 @@ export const BlockedStateOverlay: React.FC<BlockedStateOverlayProps> = ({
   const daysUntilReset = getDaysUntilReset(usage.periodEnd);
   const resetDate = formatPeriodEnd(usage.periodEnd);
 
+  // Check if blocked due to daily message limit (free tier only)
+  const isBlockedByDailyLimit = usage.tier === 'free' &&
+    usage.dailyMessagesUsed !== undefined &&
+    usage.dailyMessagesLimit !== undefined &&
+    usage.dailyMessagesUsed >= usage.dailyMessagesLimit;
+
+  const title = isBlockedByDailyLimit ? 'Daily Message Limit Reached' : 'Token Limit Reached';
+  const message = isBlockedByDailyLimit
+    ? `You've sent ${usage.dailyMessagesLimit} messages today, which is the daily limit for the ${TIER_NAMES[usage.tier]} plan.`
+    : `You've used all ${formatTokens(usage.tokenLimit)} tokens included in your ${TIER_NAMES[usage.tier]} plan this period.`;
+  const resetInfo = isBlockedByDailyLimit
+    ? 'Your daily limit resets at midnight.'
+    : `Resets on ${resetDate} (${daysUntilReset} ${daysUntilReset === 1 ? 'day' : 'days'} remaining)`;
+  const dismissText = isBlockedByDailyLimit ? "I'll come back tomorrow" : "I'll wait for reset";
+
   return (
     <View style={styles.container}>
       <View style={styles.content}>
@@ -36,21 +52,28 @@ export const BlockedStateOverlay: React.FC<BlockedStateOverlayProps> = ({
         </View>
 
         {/* Title */}
-        <Text style={styles.title}>Token Limit Reached</Text>
+        <Text style={styles.title}>{title}</Text>
 
         {/* Message */}
-        <Text style={styles.message}>
-          You've used all {formatTokens(usage.tokenLimit)} tokens included in your{' '}
-          <Text style={styles.tierHighlight}>{TIER_NAMES[usage.tier]}</Text> plan this period.
-        </Text>
+        <Text style={styles.message}>{message}</Text>
 
         {/* Reset countdown */}
         <View style={styles.resetContainer}>
-          <Text style={styles.resetLabel}>Resets on</Text>
-          <Text style={styles.resetDate}>{resetDate}</Text>
-          <Text style={styles.resetDays}>
-            ({daysUntilReset} {daysUntilReset === 1 ? 'day' : 'days'} remaining)
-          </Text>
+          {isBlockedByDailyLimit ? (
+            <>
+              <Text style={styles.resetLabel}>Daily limit</Text>
+              <Text style={styles.resetDate}>{usage.dailyMessagesLimit} messages</Text>
+              <Text style={styles.resetDays}>{resetInfo}</Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.resetLabel}>Resets on</Text>
+              <Text style={styles.resetDate}>{resetDate}</Text>
+              <Text style={styles.resetDays}>
+                ({daysUntilReset} {daysUntilReset === 1 ? 'day' : 'days'} remaining)
+              </Text>
+            </>
+          )}
         </View>
 
         {/* Actions */}
@@ -62,14 +85,16 @@ export const BlockedStateOverlay: React.FC<BlockedStateOverlayProps> = ({
           )}
           {onDismiss && (
             <TouchableOpacity style={styles.dismissButton} onPress={onDismiss}>
-              <Text style={styles.dismissText}>I'll wait for reset</Text>
+              <Text style={styles.dismissText}>{dismissText}</Text>
             </TouchableOpacity>
           )}
         </View>
 
         {/* Tier comparison hint */}
         <Text style={styles.hint}>
-          Upgrade to get more tokens and unlock additional features
+          {isBlockedByDailyLimit
+            ? 'Upgrade to remove daily message limits'
+            : 'Upgrade to get more tokens and unlock additional features'}
         </Text>
       </View>
     </View>
@@ -85,15 +110,24 @@ export const BlockedInputIndicator: React.FC<{
 }> = ({ usage, onUpgrade }) => {
   const daysUntilReset = getDaysUntilReset(usage.periodEnd);
 
+  // Check if blocked due to daily message limit (free tier only)
+  const isBlockedByDailyLimit = usage.tier === 'free' &&
+    usage.dailyMessagesUsed !== undefined &&
+    usage.dailyMessagesLimit !== undefined &&
+    usage.dailyMessagesUsed >= usage.dailyMessagesLimit;
+
+  const title = isBlockedByDailyLimit ? 'Daily limit reached' : 'Token limit reached';
+  const message = isBlockedByDailyLimit
+    ? 'Come back tomorrow'
+    : `Resets in ${daysUntilReset} ${daysUntilReset === 1 ? 'day' : 'days'}`;
+
   return (
     <View style={styles.inlineContainer}>
       <View style={styles.inlineContent}>
         <Text style={styles.inlineIcon}>!</Text>
         <View style={styles.inlineTextContainer}>
-          <Text style={styles.inlineTitle}>Token limit reached</Text>
-          <Text style={styles.inlineMessage}>
-            Resets in {daysUntilReset} {daysUntilReset === 1 ? 'day' : 'days'}
-          </Text>
+          <Text style={styles.inlineTitle}>{title}</Text>
+          <Text style={styles.inlineMessage}>{message}</Text>
         </View>
         {onUpgrade && (
           <TouchableOpacity style={styles.inlineUpgrade} onPress={onUpgrade}>

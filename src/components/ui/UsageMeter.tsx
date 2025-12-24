@@ -12,6 +12,8 @@ import {
   getUsageColor,
   TIER_NAMES,
   TIER_COLORS,
+  getTrialMessage,
+  getDailyMessageStatus,
 } from '../../services/usageTrackingService';
 
 interface UsageMeterProps {
@@ -46,6 +48,8 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
   const percentage = Math.min(100, usage.usagePercentage);
   const barColor = getUsageColor(percentage);
   const daysUntilReset = getDaysUntilReset(usage.periodEnd);
+  const trialMessage = getTrialMessage(usage);
+  const dailyStatus = getDailyMessageStatus(usage);
 
   if (compact) {
     return (
@@ -83,9 +87,18 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
           </Text>
         </View>
         <Text style={styles.resetText}>
-          Resets in {daysUntilReset} {daysUntilReset === 1 ? 'day' : 'days'}
+          {usage.tier === 'trial' && usage.trialDaysRemaining !== undefined
+            ? `${usage.trialDaysRemaining} days left in trial`
+            : `Resets in ${daysUntilReset} ${daysUntilReset === 1 ? 'day' : 'days'}`}
         </Text>
       </View>
+
+      {/* Trial warning message */}
+      {trialMessage && usage.trialDaysRemaining !== undefined && usage.trialDaysRemaining <= 3 && (
+        <View style={styles.trialWarning}>
+          <Text style={styles.trialWarningText}>{trialMessage}</Text>
+        </View>
+      )}
 
       {/* Progress bar */}
       <View style={styles.progressContainer}>
@@ -116,6 +129,26 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
       <Text style={styles.remainingText}>
         {formatTokens(usage.remainingTokens)} tokens remaining
       </Text>
+
+      {/* Daily message limit for free tier */}
+      {dailyStatus && (
+        <View style={styles.dailyLimitContainer}>
+          <Text style={styles.dailyLimitText}>
+            Daily messages: {dailyStatus.used}/{dailyStatus.limit}
+          </Text>
+          <View style={styles.dailyLimitBar}>
+            <View
+              style={[
+                styles.dailyLimitFill,
+                {
+                  width: `${Math.min(100, (dailyStatus.used / dailyStatus.limit) * 100)}%`,
+                  backgroundColor: dailyStatus.remaining === 0 ? '#EF4444' : '#3B82F6',
+                },
+              ]}
+            />
+          </View>
+        </View>
+      )}
     </TouchableOpacity>
   );
 };
@@ -191,6 +224,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9CA3AF',
     marginTop: 4,
+  },
+  // Trial warning styles
+  trialWarning: {
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    borderRadius: 6,
+    padding: 8,
+    marginBottom: 12,
+  },
+  trialWarningText: {
+    fontSize: 12,
+    color: '#93C5FD',
+    textAlign: 'center',
+  },
+  // Daily limit styles
+  dailyLimitContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#374151',
+  },
+  dailyLimitText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginBottom: 4,
+  },
+  dailyLimitBar: {
+    height: 4,
+    backgroundColor: '#374151',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  dailyLimitFill: {
+    height: '100%',
+    borderRadius: 2,
   },
   // Compact styles
   compactContainer: {

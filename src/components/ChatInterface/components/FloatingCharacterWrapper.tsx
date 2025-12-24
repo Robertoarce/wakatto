@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
   },
   nameTagContainer: {
     position: 'absolute',
-    top: 10,
+    top: '55%', // Chest level
     left: 0,
     right: 0,
     alignItems: 'center',

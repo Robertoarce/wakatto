@@ -17,11 +17,18 @@ export interface FPSMetrics {
 class FPSMonitor {
   private isEnabled = false;
   private frameCount = 0;
-  private frameTimes: number[] = [];
+  // Use circular buffer instead of array shift (O(1) vs O(n))
+  private frameTimes: Float32Array;
+  private frameTimesIndex = 0;
+  private frameTimesCount = 0;
   private lastTime = performance.now();
   private maxFrameHistory = 300; // Keep last 300 frames (~5 seconds at 60 FPS)
   private metricsCallback: ((metrics: FPSMetrics) => void) | null = null;
   private animationFrameId: number | null = null;
+
+  constructor() {
+    this.frameTimes = new Float32Array(this.maxFrameHistory);
+  }
 
   /**
    * Start monitoring FPS
@@ -30,9 +37,10 @@ class FPSMonitor {
     if (this.isEnabled) return;
     this.isEnabled = true;
     this.frameCount = 0;
-    this.frameTimes = [];
+    this.frameTimesIndex = 0;
+    this.frameTimesCount = 0;
+    this.frameTimes.fill(0);
     this.lastTime = performance.now();
-    console.log('[FPSMonitor] Enabled - monitoring frame rate');
     this.tick();
   }
 
@@ -46,7 +54,6 @@ class FPSMonitor {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
-    console.log('[FPSMonitor] Disabled');
   }
 
   /**
@@ -77,32 +84,19 @@ class FPSMonitor {
     // Calculate FPS from delta time (avoid division by zero)
     const fps = deltaTime > 0 ? 1000 / deltaTime : 60;
 
-    this.frameTimes.push(fps);
-
-    // Keep only recent frame times
-    if (this.frameTimes.length > this.maxFrameHistory) {
-      this.frameTimes.shift();
+    // Use circular buffer (O(1) instead of O(n) shift)
+    this.frameTimes[this.frameTimesIndex] = fps;
+    this.frameTimesIndex = (this.frameTimesIndex + 1) % this.maxFrameHistory;
+    if (this.frameTimesCount < this.maxFrameHistory) {
+      this.frameTimesCount++;
     }
 
     this.frameCount++;
 
     // Update metrics every 30 frames (~0.5 seconds at 60 FPS)
-    if (this.frameCount % 30 === 0) {
+    if (this.frameCount % 30 === 0 && this.metricsCallback) {
       const metrics = this.calculateMetrics();
-      if (this.metricsCallback) {
-        this.metricsCallback(metrics);
-      }
-
-      // Log to console every 300 frames (~5 seconds at 60 FPS)
-      if (this.frameCount % 300 === 0) {
-        console.log(
-          `[FPSMonitor] Current: ${metrics.currentFPS.toFixed(1)} FPS | ` +
-          `Avg: ${metrics.averageFPS.toFixed(1)} | ` +
-          `Min: ${metrics.minFPS.toFixed(1)} | ` +
-          `Max: ${metrics.maxFPS.toFixed(1)} | ` +
-          `Dropped: ${metrics.droppedFrames}`
-        );
-      }
+      this.metricsCallback(metrics);
     }
 
     this.animationFrameId = requestAnimationFrame(this.tick);
@@ -110,25 +104,39 @@ class FPSMonitor {
 
   /**
    * Calculate FPS metrics from collected frame times
+   * Uses circular buffer for O(1) insertion
    */
   private calculateMetrics(): FPSMetrics {
-    const currentFPS = this.frameTimes.length > 0
-      ? this.frameTimes[this.frameTimes.length - 1]
-      : 0;
+    if (this.frameTimesCount === 0) {
+      return {
+        currentFPS: 0,
+        averageFPS: 0,
+        maxFPS: 0,
+        minFPS: 0,
+        frameCount: this.frameCount,
+        droppedFrames: 0,
+      };
+    }
 
-    const averageFPS = this.frameTimes.length > 0
-      ? this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length
-      : 0;
+    // Get most recent FPS (previous index in circular buffer)
+    const prevIndex = (this.frameTimesIndex - 1 + this.maxFrameHistory) % this.maxFrameHistory;
+    const currentFPS = this.frameTimes[prevIndex];
 
-    const maxFPS = this.frameTimes.length > 0
-      ? Math.max(...this.frameTimes)
-      : 0;
+    // Calculate stats over the circular buffer
+    let sum = 0;
+    let maxFPS = -Infinity;
+    let minFPS = Infinity;
+    let droppedFrames = 0;
 
-    const minFPS = this.frameTimes.length > 0
-      ? Math.min(...this.frameTimes)
-      : 0;
+    for (let i = 0; i < this.frameTimesCount; i++) {
+      const fps = this.frameTimes[i];
+      sum += fps;
+      if (fps > maxFPS) maxFPS = fps;
+      if (fps < minFPS) minFPS = fps;
+      if (fps < 30) droppedFrames++;
+    }
 
-    const droppedFrames = this.frameTimes.filter(fps => fps < 30).length;
+    const averageFPS = sum / this.frameTimesCount;
 
     return {
       currentFPS,

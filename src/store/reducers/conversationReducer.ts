@@ -3,6 +3,7 @@ interface ConversationState {
   currentConversation: any | null;
   messages: any[];
   selectedCharacters: string[]; // Currently selected wakattors for the conversation
+  storyContext: string | null; // Story context from conversation starter, for later reference
 }
 
 const initialState: ConversationState = {
@@ -10,6 +11,7 @@ const initialState: ConversationState = {
   currentConversation: null,
   messages: [],
   selectedCharacters: [],
+  storyContext: null,
 };
 
 export const conversationReducer = (state = initialState, action: any): ConversationState => {
@@ -38,6 +40,10 @@ export const conversationReducer = (state = initialState, action: any): Conversa
         return { ...state, selectedCharacters: [...state.selectedCharacters, characterId] };
       }
       return state;
+    case 'SET_STORY_CONTEXT':
+      return { ...state, storyContext: action.payload };
+    case 'CLEAR_STORY_CONTEXT':
+      return { ...state, storyContext: null };
     default:
       return state;
   }

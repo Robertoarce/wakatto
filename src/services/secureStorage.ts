@@ -3,13 +3,14 @@
  *
  * Provides a secure way to store sensitive data like API keys.
  * For web: Uses sessionStorage (cleared on browser close) with basic obfuscation
- * For mobile: Would use expo-secure-store (requires native modules)
+ * For mobile: Uses expo-secure-store (encrypted device keychain)
  *
  * IMPORTANT: This is still client-side storage. For production, move API keys
  * to backend/Supabase Edge Functions.
  */
 
 import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 
 // Simple XOR encryption for basic obfuscation (NOT cryptographically secure)
 // This is just to prevent casual inspection in DevTools
@@ -51,10 +52,14 @@ export async function setSecureItem(key: string, value: string): Promise<void> {
       throw new Error('Failed to securely store data');
     }
   } else {
-    // For mobile, would use expo-secure-store
-    // For now, fall back to in-memory storage
-    console.warn('[SecureStorage] Mobile secure storage not implemented, using in-memory');
-    // TODO: Implement expo-secure-store for production mobile apps
+    // Use expo-secure-store for iOS/Android
+    // Data is encrypted using device keychain (iOS) or KeyStore (Android)
+    try {
+      await SecureStore.setItemAsync(`secure_${key}`, value);
+    } catch (error) {
+      console.error('[SecureStorage] Failed to store item on mobile:', error);
+      throw new Error('Failed to securely store data');
+    }
   }
 }
 
@@ -72,9 +77,14 @@ export async function getSecureItem(key: string): Promise<string | null> {
       return null;
     }
   } else {
-    // For mobile, would use expo-secure-store
-    console.warn('[SecureStorage] Mobile secure storage not implemented');
-    return null;
+    // Use expo-secure-store for iOS/Android
+    try {
+      const value = await SecureStore.getItemAsync(`secure_${key}`);
+      return value;
+    } catch (error) {
+      console.error('[SecureStorage] Failed to retrieve item on mobile:', error);
+      return null;
+    }
   }
 }
 
@@ -89,8 +99,12 @@ export async function deleteSecureItem(key: string): Promise<void> {
       console.error('[SecureStorage] Failed to delete item:', error);
     }
   } else {
-    // For mobile, would use expo-secure-store
-    console.warn('[SecureStorage] Mobile secure storage not implemented');
+    // Use expo-secure-store for iOS/Android
+    try {
+      await SecureStore.deleteItemAsync(`secure_${key}`);
+    } catch (error) {
+      console.error('[SecureStorage] Failed to delete item on mobile:', error);
+    }
   }
 }
 
@@ -119,6 +133,15 @@ export async function clearSecureStorage(): Promise<void> {
       console.error('[SecureStorage] Failed to clear storage:', error);
     }
   } else {
-    console.warn('[SecureStorage] Mobile secure storage not implemented');
+    // expo-secure-store doesn't have a clearAll, so we need to track known keys
+    // For now, just delete the known keys we use
+    const knownKeys = ['ai_api_key'];
+    for (const key of knownKeys) {
+      try {
+        await SecureStore.deleteItemAsync(`secure_${key}`);
+      } catch (error) {
+        // Ignore errors for keys that don't exist
+      }
+    }
   }
 }

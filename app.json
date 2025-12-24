@@ -24,14 +24,22 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.aidiary"
+      "bundleIdentifier": "com.wakatto.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Wakatto needs microphone access for voice conversations with your characters.",
+        "NSSpeechRecognitionUsageDescription": "Wakatto uses speech recognition to transcribe your voice messages."
+      }
     },
     "android": {
-      "package": "com.yourcompany.aidiary",
+      "package": "com.wakatto.app",
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/images/icon.png",
         "backgroundColor": "#0f0f0f"
-      }
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "favicon": "./src/assets/images/icon.png"

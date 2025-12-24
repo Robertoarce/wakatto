@@ -134,6 +134,9 @@ export class TextToSpeech {
   private onStateChange?: (state: TTSState) => void;
   private speechQueue: Array<{ text: string; options: TTSOptions }> = [];
   private isProcessingQueue: boolean = false;
+  // Throttle progress updates to reduce re-renders (update max every 100ms)
+  private lastProgressUpdateTime: number = 0;
+  private progressUpdateThrottleMs: number = 100;
 
   constructor() {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -399,8 +402,15 @@ export class TextToSpeech {
       };
 
       utterance.onboundary = (event) => {
+        const now = performance.now();
         const progress = event.charIndex / cleanedText.length;
-        this.updateState({ progress });
+
+        // Throttle state updates to reduce re-renders (max every 100ms)
+        if (now - this.lastProgressUpdateTime >= this.progressUpdateThrottleMs) {
+          this.lastProgressUpdateTime = now;
+          this.updateState({ progress });
+        }
+
         // Scale charIndex from cleaned text to original text position
         // This ensures text reveal syncs even when markdown was removed
         const scaledCharIndex = Math.round((event.charIndex / cleanedText.length) * text.length);
