@@ -2817,7 +2817,8 @@ export function CharacterDisplay3D({
 const styles = StyleSheet.create({
   container: {
     height: '100%',
-    width: '100%',
+    width: '200%', // Extend beyond parent to allow character overflow
+    marginLeft: '-25%', // Center the extended container
     backgroundColor: 'transparent',
     overflow: 'visible',
   },

@@ -1394,7 +1394,7 @@ Each silence, a cathedral where you still reside.`;
         {/* Protected from overflowing into input area via dynamic maxHeight */}
         {/* In mobile landscape, use side positioning instead of stacked */}
         {isMobile && selectedCharacters.length > 1 && !isMobileLandscape && (
-          <View style={[styles.mobileBubbleStack, { maxHeight: Math.floor(characterHeight * 0.5) }]}>
+          <View style={[styles.mobileBubbleStack, { maxHeight: Math.floor(characterHeight * 0.6) }]}>
             {Array.from(new Set(selectedCharacters)).slice(0, 5).map((characterId, index) => {
               const character = availableCharacters.find(c => c.id === characterId) || getCharacter(characterId);
               const charPlaybackState = playbackState.characterStates.get(characterId);

@@ -325,6 +325,7 @@ export function FloatingCharacterWrapper({
           ],
           // Disable pointer events on outer wrapper - use inner hitbox instead
           pointerEvents: 'box-none',
+          overflow: 'visible', // Allow character to overflow wrapper bounds
         },
       ]}
     >
@@ -409,6 +410,7 @@ const styles = StyleSheet.create({
     // Limit width to prevent overlap - characters should have their own hover zones
     width: '70%',
     alignSelf: 'center',
+    overflow: 'visible', // Allow character to overflow hitbox bounds
     ...Platform.select({
       web: {
         cursor: 'pointer',
