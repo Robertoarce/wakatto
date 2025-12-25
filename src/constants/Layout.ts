@@ -244,6 +244,12 @@ export interface ResponsiveValues {
   fonts: ResponsiveFonts;
   spacing: ResponsiveSpacing;
   layout: ResponsiveLayout;
+  borderRadius: ResponsiveBorderRadius;
+  components: ComponentSizing;
+  // Helper functions bound to current dimensions
+  vw: (percent: number) => number;
+  vh: (percent: number) => number;
+  scalePx: (basePx: number, minPx?: number, maxPx?: number) => number;
 }
 
 export function useResponsive(): ResponsiveValues {
@@ -273,7 +279,7 @@ export function useResponsive(): ResponsiveValues {
     const orientation = getOrientation(width, height);
     const isLandscape = orientation === 'landscape';
     const mobileLandscape = isMobileLandscapeMode(width, height);
-    
+
     return {
       width,
       height,
@@ -287,8 +293,180 @@ export function useResponsive(): ResponsiveValues {
       fonts: calculateFonts(width),
       spacing: calculateSpacing(width),
       layout: calculateLayout(width),
+      borderRadius: calculateBorderRadius(width),
+      components: calculateComponentSizing(width, height),
+      // Helper functions bound to current dimensions
+      vw: (percent: number) => vw(percent, width),
+      vh: (percent: number) => vh(percent, height),
+      scalePx: (basePx: number, minPx?: number, maxPx?: number) =>
+        scalePx(basePx, width, minPx, maxPx),
     };
   }, [dimensions]);
+}
+
+// ============================================
+// VIEWPORT-RELATIVE SIZING HELPERS
+// ============================================
+
+/**
+ * Convert percentage to viewport width pixels
+ */
+export function vw(percent: number, screenWidth: number): number {
+  return Math.round((percent / 100) * screenWidth);
+}
+
+/**
+ * Convert percentage to viewport height pixels
+ */
+export function vh(percent: number, screenHeight: number): number {
+  return Math.round((percent / 100) * screenHeight);
+}
+
+/**
+ * Scale a base pixel value proportionally to screen size
+ * Uses 375px as the base width (iPhone SE reference)
+ * @param basePx - Base pixel value at 375px width
+ * @param screenWidth - Current screen width
+ * @param minPx - Optional minimum value
+ * @param maxPx - Optional maximum value
+ */
+export function scalePx(
+  basePx: number,
+  screenWidth: number,
+  minPx?: number,
+  maxPx?: number
+): number {
+  const BASE_WIDTH = 375;
+  const scaled = Math.round(basePx * (screenWidth / BASE_WIDTH));
+  if (minPx !== undefined && maxPx !== undefined) {
+    return clamp(scaled, minPx, maxPx);
+  }
+  if (minPx !== undefined) return Math.max(scaled, minPx);
+  if (maxPx !== undefined) return Math.min(scaled, maxPx);
+  return scaled;
+}
+
+/**
+ * Scale for both width and height (for square elements)
+ * Uses the smaller scale factor to maintain proportions
+ */
+export function scalePxBoth(
+  basePx: number,
+  screenWidth: number,
+  screenHeight: number,
+  minPx?: number,
+  maxPx?: number
+): number {
+  const BASE_WIDTH = 375;
+  const BASE_HEIGHT = 667;
+  const scaleW = screenWidth / BASE_WIDTH;
+  const scaleH = screenHeight / BASE_HEIGHT;
+  const scale = Math.min(scaleW, scaleH);
+  const scaled = Math.round(basePx * scale);
+  return clamp(scaled, minPx ?? Math.round(scaled * 0.5), maxPx ?? Math.round(scaled * 2));
+}
+
+// ============================================
+// RESPONSIVE BORDER RADIUS
+// ============================================
+export interface ResponsiveBorderRadius {
+  xs: number;   // 3px base (tiny elements)
+  sm: number;   // 6px base (inputs, small buttons)
+  md: number;   // 10px base (cards, modals)
+  lg: number;   // 14px base (large cards)
+  xl: number;   // 20px base (hero sections)
+  xxl: number;  // 24px base (large rounded)
+  full: number; // 9999 (circles)
+}
+
+export function calculateBorderRadius(width: number): ResponsiveBorderRadius {
+  const scale = width < BREAKPOINTS.narrow ? 0.75
+    : width < BREAKPOINTS.mobile ? 0.85
+    : width < BREAKPOINTS.tablet ? 0.92
+    : width < BREAKPOINTS.desktop ? 1.0
+    : width < BREAKPOINTS.large ? 1.1
+    : 1.45;
+
+  return {
+    xs: Math.round(3 * scale),
+    sm: Math.round(6 * scale),
+    md: Math.round(10 * scale),
+    lg: Math.round(14 * scale),
+    xl: Math.round(20 * scale),
+    xxl: Math.round(24 * scale),
+    full: 9999,
+  };
+}
+
+// ============================================
+// COMPONENT-SPECIFIC RESPONSIVE SIZING
+// ============================================
+export interface ComponentSizing {
+  speechBubble: {
+    minWidth: number;
+    maxWidth: number;
+    padding: number;
+    borderWidth: number;
+    tailSize: number;
+  };
+  iconSizes: {
+    xs: number;  // 14px base
+    sm: number;  // 18px base
+    md: number;  // 22px base
+    lg: number;  // 30px base
+    xl: number;  // 42px base
+    xxl: number; // 64px base
+  };
+  buttonSizes: {
+    sm: number;  // 32px base
+    md: number;  // 40px base
+    lg: number;  // 48px base
+  };
+  animationOffsets: {
+    float: number;     // 8px base - Floating animation amplitude
+    bounce: number;    // 16px base - Bounce animation amplitude
+    slide: number;     // Slide-in distance (scaled to screen)
+  };
+}
+
+export function calculateComponentSizing(
+  width: number,
+  height: number
+): ComponentSizing {
+  const scale = width < BREAKPOINTS.narrow ? 0.75
+    : width < BREAKPOINTS.mobile ? 0.85
+    : width < BREAKPOINTS.tablet ? 0.92
+    : width < BREAKPOINTS.desktop ? 1.0
+    : width < BREAKPOINTS.large ? 1.1
+    : 1.45;
+
+  return {
+    speechBubble: {
+      minWidth: Math.round(100 * scale),
+      maxWidth: Math.min(Math.round(380 * scale), width * 0.85),
+      padding: Math.round(14 * scale),
+      borderWidth: Math.round(3 * scale),
+      tailSize: Math.round(10 * scale),
+    },
+    iconSizes: {
+      xs: Math.round(14 * scale),
+      sm: Math.round(18 * scale),
+      md: Math.round(22 * scale),
+      lg: Math.round(30 * scale),
+      xl: Math.round(42 * scale),
+      xxl: Math.round(64 * scale),
+    },
+    buttonSizes: {
+      sm: Math.round(32 * scale),
+      md: Math.round(40 * scale),
+      lg: Math.round(48 * scale),
+    },
+    animationOffsets: {
+      float: Math.round(8 * scale),
+      bounce: Math.round(16 * scale),
+      slide: Math.round(300 * (width / 375)),
+    },
+  };
 }
 
 // ============================================

@@ -25,7 +25,7 @@ export function Input({
   ...props
 }: InputProps) {
   const [showPassword, setShowPassword] = useState(false);
-  const { fonts, spacing, layout, isMobile } = useResponsive();
+  const { fonts, spacing, layout, borderRadius, components, isMobile } = useResponsive();
 
   const isSecure = showPasswordToggle ? !showPassword : secureTextEntry;
 
@@ -38,19 +38,20 @@ export function Input({
       )}
 
       <View style={[
-        styles.inputWrapper, 
-        { 
-          paddingHorizontal: spacing.md, 
+        styles.inputWrapper,
+        {
+          paddingHorizontal: spacing.md,
           minHeight: layout.inputMinHeight,
+          borderRadius: borderRadius.md,
         },
         error ? styles.inputWrapperError : null
       ]}>
         {icon && iconPosition === 'left' && (
-          <Ionicons 
-            name={icon} 
-            size={isMobile ? 18 : 20} 
-            color="#71717a" 
-            style={{ marginRight: spacing.xs }} 
+          <Ionicons
+            name={icon}
+            size={components.iconSizes.sm}
+            color="#71717a"
+            style={{ marginRight: spacing.xs }}
           />
         )}
 
@@ -85,18 +86,18 @@ export function Input({
           >
             <Ionicons
               name={showPassword ? "eye-off-outline" : "eye-outline"}
-              size={isMobile ? 18 : 20}
+              size={components.iconSizes.sm}
               color="#71717a"
             />
           </TouchableOpacity>
         )}
 
         {icon && iconPosition === 'right' && !showPasswordToggle && (
-          <Ionicons 
-            name={icon} 
-            size={isMobile ? 18 : 20} 
-            color="#71717a" 
-            style={{ marginLeft: spacing.xs }} 
+          <Ionicons
+            name={icon}
+            size={components.iconSizes.sm}
+            color="#71717a"
+            style={{ marginLeft: spacing.xs }}
           />
         )}
       </View>
@@ -126,7 +127,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1f1f1f',
-    borderRadius: 12,
+    // borderRadius applied dynamically via borderRadius.md
     borderWidth: 2,
     borderColor: '#3a3a3a',
   },

@@ -7,24 +7,26 @@
  * Toggle via keyboard shortcut (Ctrl/Cmd + Shift + P) or Settings screen.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
   ScrollView,
   Animated,
   Platform,
-  Dimensions
+  Dimensions,
+  useWindowDimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { 
-  getProfiler, 
-  ProfileSession, 
+import {
+  getProfiler,
+  ProfileSession,
   ProfileSummary,
-  PROFILE_OPS 
+  PROFILE_OPS
 } from '../services/profilingService';
+import { useResponsive } from '../constants/Layout';
 
 interface ProfilingDashboardProps {
   visible: boolean;
@@ -139,15 +141,121 @@ function SessionHistoryItem({
   );
 }
 
-export function ProfilingDashboard({ 
-  visible, 
+export function ProfilingDashboard({
+  visible,
   onClose,
-  session: externalSession 
+  session: externalSession
 }: ProfilingDashboardProps) {
   const [selectedSession, setSelectedSession] = useState<ProfileSession | null>(null);
   const [history, setHistory] = useState<ProfileSession[]>([]);
   const [isExpanded, setIsExpanded] = useState(true);
   const slideAnim = React.useRef(new Animated.Value(0)).current;
+  const { fonts, spacing, borderRadius, scalePx, components } = useResponsive();
+  const { width: screenWidth } = useWindowDimensions();
+  const dashboardWidth = Math.min(scalePx(400), screenWidth - scalePx(32));
+
+  const dynamicStyles = useMemo(() => ({
+    container: {
+      bottom: spacing.lg,
+      right: spacing.lg,
+      width: dashboardWidth,
+      borderRadius: borderRadius.md,
+    },
+    header: {
+      padding: spacing.md,
+    },
+    expandButton: {
+      padding: spacing.xs,
+      marginRight: spacing.sm,
+    },
+    headerTitle: {
+      fontSize: fonts.sm,
+      marginLeft: spacing.sm,
+    },
+    totalDuration: {
+      fontSize: fonts.lg,
+      marginRight: spacing.md,
+    },
+    closeButton: {
+      padding: spacing.xs,
+    },
+    iconSize: components.iconSizes.md,
+    iconSizeSmall: components.iconSizes.sm,
+    content: {
+      maxHeight: scalePx(350),
+    },
+    metricsScroll: {
+      maxHeight: scalePx(250),
+    },
+    metricsContainer: {
+      padding: spacing.md,
+    },
+    progressBarContainer: {
+      marginBottom: spacing.md,
+    },
+    progressLabelRow: {
+      marginBottom: spacing.xs,
+    },
+    progressLabel: {
+      fontSize: scalePx(11),
+    },
+    progressValue: {
+      fontSize: scalePx(11),
+    },
+    progressBarTrack: {
+      height: scalePx(6),
+      borderRadius: borderRadius.xs,
+    },
+    progressPercentage: {
+      fontSize: scalePx(9),
+      marginTop: spacing.xs / 2,
+    },
+    tokenSection: {
+      padding: spacing.md,
+      paddingTop: 0,
+    },
+    sectionTitle: {
+      fontSize: scalePx(10),
+      marginBottom: spacing.sm,
+    },
+    tokenRow: {
+      marginBottom: spacing.xs,
+    },
+    tokenLabel: {
+      fontSize: scalePx(11),
+    },
+    tokenValue: {
+      fontSize: scalePx(11),
+    },
+    historySection: {
+      padding: spacing.md,
+    },
+    historyItem: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: borderRadius.xs,
+      marginRight: spacing.sm,
+    },
+    historyTime: {
+      fontSize: scalePx(10),
+    },
+    historyDuration: {
+      fontSize: fonts.xs,
+      marginTop: spacing.xs / 2,
+    },
+    emptyState: {
+      padding: spacing.xxl,
+    },
+    emptyIconSize: scalePx(40),
+    emptyText: {
+      fontSize: fonts.sm,
+      marginTop: spacing.md,
+    },
+    emptyHint: {
+      fontSize: fonts.xs,
+      marginTop: spacing.xs,
+    },
+  }), [fonts, spacing, borderRadius, scalePx, components, dashboardWidth]);
   
   // Update history when sessions complete
   useEffect(() => {
@@ -209,9 +317,10 @@ export function ProfilingDashboard({
     : 0;
   
   return (
-    <Animated.View 
+    <Animated.View
       style={[
         styles.container,
+        dynamicStyles.container,
         {
           transform: [{
             translateY: slideAnim.interpolate({
@@ -224,40 +333,40 @@ export function ProfilingDashboard({
       ]}
     >
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.expandButton}
+      <View style={[styles.header, dynamicStyles.header]}>
+        <TouchableOpacity
+          style={[styles.expandButton, dynamicStyles.expandButton]}
           onPress={() => setIsExpanded(!isExpanded)}
         >
-          <Ionicons 
-            name={isExpanded ? 'chevron-down' : 'chevron-up'} 
-            size={20} 
-            color="#fff" 
+          <Ionicons
+            name={isExpanded ? 'chevron-down' : 'chevron-up'}
+            size={dynamicStyles.iconSize}
+            color="#fff"
           />
         </TouchableOpacity>
-        
+
         <View style={styles.headerTitleContainer}>
-          <Ionicons name="speedometer-outline" size={18} color="#4ECDC4" />
-          <Text style={styles.headerTitle}>Profiling</Text>
+          <Ionicons name="speedometer-outline" size={dynamicStyles.iconSizeSmall} color="#4ECDC4" />
+          <Text style={[styles.headerTitle, dynamicStyles.headerTitle]}>Profiling</Text>
         </View>
-        
+
         {summary && (
-          <Text style={styles.totalDuration}>
+          <Text style={[styles.totalDuration, dynamicStyles.totalDuration]}>
             {formatDuration(summary.totalMs)}
           </Text>
         )}
-        
-        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-          <Ionicons name="close" size={20} color="#888" />
+
+        <TouchableOpacity style={[styles.closeButton, dynamicStyles.closeButton]} onPress={onClose}>
+          <Ionicons name="close" size={dynamicStyles.iconSize} color="#888" />
         </TouchableOpacity>
       </View>
-      
+
       {isExpanded && (
-        <View style={styles.content}>
+        <View style={[styles.content, dynamicStyles.content]}>
           {/* Main metrics */}
           {summary ? (
-            <ScrollView style={styles.metricsScroll}>
-              <View style={styles.metricsContainer}>
+            <ScrollView style={[styles.metricsScroll, dynamicStyles.metricsScroll]}>
+              <View style={[styles.metricsContainer, dynamicStyles.metricsContainer]}>
                 {summary.breakdown
                   .filter(b => b.operation !== PROFILE_OPS.FULL_MESSAGE_FLOW)
                   .map((item, index) => (
@@ -272,19 +381,19 @@ export function ProfilingDashboard({
                   ))
                 }
               </View>
-              
+
               {/* Token estimates */}
               {displaySession && (
-                <View style={styles.tokenSection}>
-                  <Text style={styles.sectionTitle}>Token Estimates</Text>
+                <View style={[styles.tokenSection, dynamicStyles.tokenSection]}>
+                  <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>Token Estimates</Text>
                   {displaySession.results
                     .filter(r => r.metadata?.promptTokens)
                     .map((r, i) => (
-                      <View key={i} style={styles.tokenRow}>
-                        <Text style={styles.tokenLabel}>
+                      <View key={i} style={[styles.tokenRow, dynamicStyles.tokenRow]}>
+                        <Text style={[styles.tokenLabel, dynamicStyles.tokenLabel]}>
                           {getOperationName(r.operation)}
                         </Text>
-                        <Text style={styles.tokenValue}>
+                        <Text style={[styles.tokenValue, dynamicStyles.tokenValue]}>
                           ~{r.metadata?.promptTokens} prompt / ~{r.metadata?.responseTokens} response
                         </Text>
                       </View>
@@ -294,17 +403,17 @@ export function ProfilingDashboard({
               )}
             </ScrollView>
           ) : (
-            <View style={styles.emptyState}>
-              <Ionicons name="analytics-outline" size={40} color="#444" />
-              <Text style={styles.emptyText}>No profiling data yet</Text>
-              <Text style={styles.emptyHint}>Send a message to see metrics</Text>
+            <View style={[styles.emptyState, dynamicStyles.emptyState]}>
+              <Ionicons name="analytics-outline" size={dynamicStyles.emptyIconSize} color="#444" />
+              <Text style={[styles.emptyText, dynamicStyles.emptyText]}>No profiling data yet</Text>
+              <Text style={[styles.emptyHint, dynamicStyles.emptyHint]}>Send a message to see metrics</Text>
             </View>
           )}
-          
+
           {/* History */}
           {history.length > 1 && (
-            <View style={styles.historySection}>
-              <Text style={styles.sectionTitle}>History</Text>
+            <View style={[styles.historySection, dynamicStyles.historySection]}>
+              <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>History</Text>
               <ScrollView horizontal style={styles.historyScroll}>
                 {history.slice(-10).map((session, index) => (
                   <SessionHistoryItem
@@ -366,17 +475,10 @@ export function useProfilingDashboard() {
   };
 }
 
-const { width: screenWidth } = Dimensions.get('window');
-const dashboardWidth = Math.min(400, screenWidth - 32);
-
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 16,
-    right: 16,
-    width: dashboardWidth,
     backgroundColor: 'rgba(20, 20, 25, 0.95)',
-    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
     ...Platform.select({
@@ -399,15 +501,11 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
     backgroundColor: 'rgba(30, 30, 35, 0.9)',
   },
-  expandButton: {
-    padding: 4,
-    marginRight: 8,
-  },
+  expandButton: {},
   headerTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -415,90 +513,60 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: '#fff',
-    fontSize: 14,
     fontWeight: '600',
-    marginLeft: 6,
   },
   totalDuration: {
     color: '#4ECDC4',
-    fontSize: 16,
     fontWeight: 'bold',
-    marginRight: 12,
   },
-  closeButton: {
-    padding: 4,
-  },
-  content: {
-    maxHeight: 350,
-  },
-  metricsScroll: {
-    maxHeight: 250,
-  },
-  metricsContainer: {
-    padding: 12,
-  },
-  progressBarContainer: {
-    marginBottom: 10,
-  },
+  closeButton: {},
+  content: {},
+  metricsScroll: {},
+  metricsContainer: {},
+  progressBarContainer: {},
   progressLabelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 4,
   },
   progressLabel: {
     color: '#aaa',
-    fontSize: 11,
     textTransform: 'capitalize',
   },
   progressValue: {
     color: '#fff',
-    fontSize: 11,
     fontWeight: '600',
   },
   progressBarTrack: {
-    height: 6,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 3,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    borderRadius: 3,
   },
   progressPercentage: {
     color: '#666',
-    fontSize: 9,
-    marginTop: 2,
     textAlign: 'right',
   },
   tokenSection: {
-    padding: 12,
-    paddingTop: 0,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.05)',
   },
   sectionTitle: {
     color: '#888',
-    fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 8,
   },
   tokenRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 4,
   },
   tokenLabel: {
     color: '#aaa',
-    fontSize: 11,
   },
   tokenValue: {
     color: '#888',
-    fontSize: 11,
   },
   historySection: {
-    padding: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
@@ -507,10 +575,6 @@ const styles = StyleSheet.create({
   },
   historyItem: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-    marginRight: 8,
     alignItems: 'center',
   },
   historyItemSelected: {
@@ -520,27 +584,19 @@ const styles = StyleSheet.create({
   },
   historyTime: {
     color: '#888',
-    fontSize: 10,
   },
   historyDuration: {
     color: '#fff',
-    fontSize: 12,
     fontWeight: '600',
-    marginTop: 2,
   },
   emptyState: {
-    padding: 32,
     alignItems: 'center',
   },
   emptyText: {
     color: '#888',
-    fontSize: 14,
-    marginTop: 12,
   },
   emptyHint: {
     color: '#555',
-    fontSize: 12,
-    marginTop: 4,
   },
 });
 

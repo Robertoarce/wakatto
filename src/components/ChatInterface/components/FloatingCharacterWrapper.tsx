@@ -3,7 +3,7 @@
  * Handles multiple entrance animation types (drop_from_sky, slide_in, bounce_in, etc.)
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Animated, Platform, View, Text, StyleSheet, Easing } from 'react-native';
 import { useResponsive } from '../../../constants/Layout';
 import { EntranceConfig } from '../../../services/entranceAnimations';
@@ -51,11 +51,82 @@ export function FloatingCharacterWrapper({
   const opacityAnim = useRef(new Animated.Value(1)).current;   // For teleport_in
   const [isHovered, setIsHovered] = useState(false);
   const [isClicked, setIsClicked] = useState(false); // Track click state for message bubble
-  const { fonts, isMobile } = useResponsive();
+  const { fonts, spacing, borderRadius, components, scalePx, isMobile } = useResponsive();
 
   // Responsive click bubble positioning (percentage-based to stay within screen)
   const clickBubbleTop = isMobile ? '-35%' : '-45%';
   const clickBubbleHorizontal = isMobile ? '-15%' : '-25%';
+
+  // Dynamic styles based on responsive values
+  const dynamicStyles = useMemo(() => ({
+    speechBubble: {
+      backgroundColor: 'rgba(30, 30, 40, 0.95)',
+      borderRadius: borderRadius.lg,
+      padding: components.speechBubble.padding,
+      borderWidth: components.speechBubble.borderWidth,
+      maxWidth: components.speechBubble.maxWidth,
+      minWidth: components.speechBubble.minWidth,
+    },
+    speechBubbleName: {
+      fontFamily: 'Inter-Bold',
+      marginBottom: spacing.xs,
+      letterSpacing: 0.5,
+    },
+    speechBubbleText: {
+      fontFamily: 'Inter-Regular',
+      color: 'white',
+      lineHeight: scalePx(22),
+      letterSpacing: 0.2,
+    },
+    speechBubbleTail: {
+      position: 'absolute' as const,
+      bottom: -components.speechBubble.tailSize,
+      left: '50%' as any, // Percentage positioning
+      marginLeft: -components.speechBubble.tailSize,
+      width: 0,
+      height: 0,
+      borderLeftWidth: components.speechBubble.tailSize,
+      borderRightWidth: components.speechBubble.tailSize,
+      borderTopWidth: components.speechBubble.tailSize,
+      borderLeftColor: 'transparent',
+      borderRightColor: 'transparent',
+    },
+    actionTextContainer: {
+      position: 'absolute' as const,
+      top: scalePx(-30),
+      left: '50%' as any, // Percentage positioning
+      transform: [{ translateX: scalePx(-60) }],
+      alignItems: 'center' as const,
+      zIndex: 700,
+      pointerEvents: 'none' as const,
+    },
+    actionText: {
+      fontFamily: 'Inter-Bold',
+      fontSize: fonts.md,
+      fontStyle: 'italic' as const,
+      textShadowColor: 'rgba(0, 0, 0, 0.9)',
+      textShadowOffset: { width: 2, height: 2 },
+      textShadowRadius: scalePx(4),
+      maxWidth: scalePx(150),
+      textAlign: 'center' as const,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: borderRadius.sm,
+    },
+    nameTag: {
+      backgroundColor: 'rgba(0, 0, 0, 0.05)',
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+      borderRadius: borderRadius.sm,
+      borderLeftWidth: components.speechBubble.borderWidth,
+    },
+    nameTagText: {
+      color: '#ffffff',
+      fontSize: fonts.xxl,
+      fontWeight: '600' as const,
+    },
+  }), [fonts, spacing, borderRadius, components, scalePx]);
 
   useEffect(() => {
     // Different durations for different rhythms (2.5s to 4s based on index)
@@ -277,10 +348,10 @@ export function FloatingCharacterWrapper({
     }
   }, [entranceKey, entranceAnimation, isLeftSide, entranceConfig]);
 
-  // Interpolate values
+  // Interpolate values using responsive animation offsets
   const floatTranslateY = floatAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -8], // Float up 8 pixels
+    outputRange: [0, -components.animationOffsets.float], // Float up (responsive)
   });
 
   const rotateZ = rotateAnim.interpolate({
@@ -302,7 +373,7 @@ export function FloatingCharacterWrapper({
 
   const messageTranslateY = clickAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [-10, 0], // Slide down from above
+    outputRange: [-components.speechBubble.tailSize, 0], // Slide down from above (responsive)
   });
 
   const messageScale = clickAnim.interpolate({
@@ -361,23 +432,23 @@ export function FloatingCharacterWrapper({
             }
           ]}
         >
-          <View style={[styles.speechBubble, { borderColor: characterColor }]}>
-            <Text style={[styles.speechBubbleName, { color: characterColor, fontSize: fonts.lg }]}>
+          <View style={[dynamicStyles.speechBubble, { borderColor: characterColor }]}>
+            <Text style={[dynamicStyles.speechBubbleName, { color: characterColor, fontSize: fonts.lg }]}>
               {characterName}
             </Text>
-            <Text style={[styles.speechBubbleText, { fontSize: fonts.md }]} numberOfLines={6}>
+            <Text style={[dynamicStyles.speechBubbleText, { fontSize: fonts.md }]} numberOfLines={6}>
               {lastMessage}
             </Text>
             {/* Speech bubble tail */}
-            <View style={[styles.speechBubbleTail, { borderTopColor: characterColor }]} />
+            <View style={[dynamicStyles.speechBubbleTail, { borderTopColor: characterColor }]} />
           </View>
         </Animated.View>
       )}
 
       {/* Comic-style action text overlay */}
       {actionText && (
-        <View style={styles.actionTextContainer}>
-          <Text style={[styles.actionText, { color: characterColor }]}>
+        <View style={dynamicStyles.actionTextContainer}>
+          <Text style={[dynamicStyles.actionText, { color: characterColor }]}>
             *{actionText}*
           </Text>
         </View>
@@ -393,14 +464,14 @@ export function FloatingCharacterWrapper({
               transform: [
                 { translateY: hoverAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [10, 0],
+                  outputRange: [components.speechBubble.tailSize, 0],
                 }) },
               ],
             }
           ]}
         >
-          <View style={[styles.nameTag, { borderLeftColor: characterColor }]}>
-            <Text style={styles.nameTagText}>{characterName}</Text>
+          <View style={[dynamicStyles.nameTag, { borderLeftColor: characterColor }]}>
+            <Text style={dynamicStyles.nameTagText}>{characterName}</Text>
           </View>
         </Animated.View>
       )}
@@ -431,82 +502,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 600, // Higher z-index to appear above speech bubbles
   },
-  speechBubble: {
-    backgroundColor: 'rgba(30, 30, 40, 0.95)', // Match regular bubble
-    borderRadius: 16,
-    padding: 14, // Match regular bubble padding
-    borderWidth: 3, // Match regular bubble border
-    maxWidth: 380,
-    minWidth: 120,
-  },
-  speechBubbleName: {
-    fontFamily: 'Inter-Bold',
-    marginBottom: 6,
-    letterSpacing: 0.5,
-  },
-  speechBubbleText: {
-    fontFamily: 'Inter-Regular',
-    color: 'white',
-    lineHeight: 22,
-    letterSpacing: 0.2,
-  },
-  speechBubbleTail: {
-    position: 'absolute',
-    bottom: -10,
-    left: '50%',
-    marginLeft: -10,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 10,
-    borderRightWidth: 10,
-    borderTopWidth: 10,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    // borderTopColor set dynamically via style prop
-  },
-  actionTextContainer: {
-    position: 'absolute',
-    top: -30,
-    left: '50%',
-    transform: [{ translateX: -60 }],
-    alignItems: 'center',
-    zIndex: 700,
-    pointerEvents: 'none',
-  },
-  actionText: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 16,
-    fontStyle: 'italic',
-    textShadowColor: 'rgba(0, 0, 0, 0.9)',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 4,
-    maxWidth: 150,
-    textAlign: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
   nameTagContainer: {
     position: 'absolute',
-    top: '55%', // Chest level
+    top: '55%', // Chest level (percentage-based)
     left: 0,
     right: 0,
     alignItems: 'center',
     zIndex: 800,
     pointerEvents: 'none',
-  },
-  nameTag: {
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderLeftWidth: 3,
-  },
-  nameTagText: {
-    color: '#ffffff',
-    fontSize: 24,
-    fontWeight: '600',
   },
 });
 

@@ -330,6 +330,49 @@ const AnimationsScreen = (): JSX.Element => {
       color: '#a1a1aa',
       textAlign: 'center' as const,
     },
+    // Extended responsive styles
+    testButtonText: {
+      fontSize: fonts.sm,
+      fontWeight: '600' as const,
+      color: '#ffffff',
+    },
+    styleIcon: {
+      fontSize: fonts.md,
+    },
+    controlGroupTitle: {
+      fontSize: fonts.md,
+      fontWeight: '700' as const,
+      color: '#e4e4e7',
+      marginBottom: spacing.sm,
+    },
+    controlGroupSubtitle: {
+      fontSize: fonts.sm,
+      color: '#71717a',
+      marginBottom: spacing.md,
+    },
+    optionIcon: {
+      fontSize: fonts.lg,
+      marginBottom: spacing.xs / 2,
+    },
+    optionButtonText: {
+      fontSize: fonts.xs,
+      fontWeight: '600' as const,
+      color: '#a1a1aa',
+    },
+    optionDescription: {
+      fontSize: fonts.xs * 0.82,
+      color: '#71717a',
+      marginTop: spacing.xs / 2,
+    },
+    presetIcon: {
+      fontSize: fonts.xxl,
+      marginBottom: spacing.xs,
+    },
+    testPoemButtonText: {
+      fontSize: fonts.md,
+      fontWeight: '600' as const,
+      color: '#ffffff',
+    },
   }), [fonts, spacing, layout, isSmallScreen, screenHeight]);
 
   // Base animation state
@@ -450,7 +493,7 @@ const AnimationsScreen = (): JSX.Element => {
                 <Badge label={currentAnimation} variant="primary" size="md" />
               </View>
               <View style={styles.stateRow}>
-                <Text style={styles.stateLabel}>Speed:</Text>
+                <Text style={dynamicStyles.stateLabel}>Speed:</Text>
                 <Badge label={`${speed}x`} variant="secondary" size="sm" />
               </View>
               {isTalking && (
@@ -472,7 +515,7 @@ const AnimationsScreen = (): JSX.Element => {
 
             {/* Character selector */}
             <View style={styles.characterSelector}>
-              <Text style={styles.selectorLabel}>Character:</Text>
+              <Text style={dynamicStyles.selectorLabel}>Character:</Text>
               <View style={styles.characterButtons}>
                 {TEST_CHARACTERS.map((charId) => {
                   const char = getCharacter(charId);
@@ -487,7 +530,7 @@ const AnimationsScreen = (): JSX.Element => {
                       onPress={() => setSelectedCharacter(charId)}
                     >
                       <Text style={[
-                        styles.characterButtonText,
+                        dynamicStyles.characterButtonText,
                         selectedCharacter === charId && { color: char.color }
                       ]}>
                         {char.name}
@@ -500,7 +543,7 @@ const AnimationsScreen = (): JSX.Element => {
 
             {/* Test Idle Conversation Button */}
             <View style={styles.characterSelector}>
-              <Text style={styles.selectorLabel}>Idle Chat:</Text>
+              <Text style={dynamicStyles.selectorLabel}>Idle Chat:</Text>
               <View style={styles.characterButtons}>
                 <TouchableOpacity
                   style={[
@@ -523,8 +566,8 @@ const AnimationsScreen = (): JSX.Element => {
                     }
                   }}
                 >
-                  <Text style={styles.styleIcon}>🗣️</Text>
-                  <Text style={styles.characterButtonText}>Test Idle Chat</Text>
+                  <Text style={dynamicStyles.styleIcon}>🗣️</Text>
+                  <Text style={dynamicStyles.characterButtonText}>Test Idle Chat</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -535,12 +578,12 @@ const AnimationsScreen = (): JSX.Element => {
                 style={[styles.quickButton, isTalking && styles.quickButtonActive]}
                 onPress={() => setIsTalking(!isTalking)}
               >
-                <Ionicons 
-                  name={isTalking ? "mic" : "mic-off"} 
-                  size={18} 
-                  color={isTalking ? "#10b981" : "#71717a"} 
+                <Ionicons
+                  name={isTalking ? "mic" : "mic-off"}
+                  size={18}
+                  color={isTalking ? "#10b981" : "#71717a"}
                 />
-                <Text style={[styles.quickButtonText, isTalking && styles.quickButtonTextActive]}>
+                <Text style={[dynamicStyles.quickButtonText, isTalking && styles.quickButtonTextActive]}>
                   Talk
                 </Text>
               </TouchableOpacity>
@@ -550,7 +593,7 @@ const AnimationsScreen = (): JSX.Element => {
                 onPress={resetComplementary}
               >
                 <Ionicons name="refresh" size={18} color="#71717a" />
-                <Text style={styles.quickButtonText}>Reset</Text>
+                <Text style={dynamicStyles.quickButtonText}>Reset</Text>
               </TouchableOpacity>
             </View>
           </Card>
@@ -564,7 +607,7 @@ const AnimationsScreen = (): JSX.Element => {
               style={[styles.tab, activeTab === 'base' && styles.tabActive]}
               onPress={() => setActiveTab('base')}
             >
-              <Text style={[styles.tabText, activeTab === 'base' && styles.tabTextActive]}>
+              <Text style={[dynamicStyles.tabText, activeTab === 'base' && styles.tabTextActive]}>
                 Base Animations
               </Text>
             </TouchableOpacity>
@@ -572,7 +615,7 @@ const AnimationsScreen = (): JSX.Element => {
               style={[styles.tab, activeTab === 'complementary' && styles.tabActive]}
               onPress={() => setActiveTab('complementary')}
             >
-              <Text style={[styles.tabText, activeTab === 'complementary' && styles.tabTextActive]}>
+              <Text style={[dynamicStyles.tabText, activeTab === 'complementary' && styles.tabTextActive]}>
                 Complementary
               </Text>
             </TouchableOpacity>
@@ -595,7 +638,7 @@ const AnimationsScreen = (): JSX.Element => {
                     style={[styles.categoryChip, !selectedCategory && styles.categoryChipActive]}
                     onPress={() => setSelectedCategory(null)}
                   >
-                    <Text style={[styles.categoryChipText, !selectedCategory && styles.categoryChipTextActive]}>
+                    <Text style={[dynamicStyles.categoryChipText, !selectedCategory && styles.categoryChipTextActive]}>
                       All ({ALL_ANIMATIONS.length})
                     </Text>
                   </TouchableOpacity>
@@ -607,7 +650,7 @@ const AnimationsScreen = (): JSX.Element => {
                         style={[styles.categoryChip, selectedCategory === category && styles.categoryChipActive]}
                         onPress={() => setSelectedCategory(category)}
                       >
-                        <Text style={[styles.categoryChipText, selectedCategory === category && styles.categoryChipTextActive]}>
+                        <Text style={[dynamicStyles.categoryChipText, selectedCategory === category && styles.categoryChipTextActive]}>
                           {category} ({count})
                         </Text>
                       </TouchableOpacity>
@@ -630,7 +673,7 @@ const AnimationsScreen = (): JSX.Element => {
                     >
                       <View style={styles.animationCardHeader}>
                         <Text style={[
-                          styles.animationName,
+                          dynamicStyles.animationName,
                           currentAnimation === anim.name && styles.animationNameActive
                         ]}>
                           {anim.name}
@@ -639,7 +682,7 @@ const AnimationsScreen = (): JSX.Element => {
                           <Ionicons name="checkmark-circle" size={16} color="#8b5cf6" />
                         )}
                       </View>
-                      <Text style={styles.animationDescription} numberOfLines={2}>
+                      <Text style={dynamicStyles.animationDescription} numberOfLines={2}>
                         {anim.description}
                       </Text>
                     </TouchableOpacity>
@@ -650,8 +693,8 @@ const AnimationsScreen = (): JSX.Element => {
               <>
                 {/* Test Speech Bubbles */}
                 <View style={styles.controlGroup}>
-                  <Text style={styles.controlGroupTitle}>💬 Test Speech Bubbles</Text>
-                  <Text style={styles.controlGroupSubtitle}>
+                  <Text style={dynamicStyles.controlGroupTitle}>💬 Test Speech Bubbles</Text>
+                  <Text style={dynamicStyles.controlGroupSubtitle}>
                     Test the speech bubble text wrapping with a poem
                   </Text>
 
@@ -660,13 +703,13 @@ const AnimationsScreen = (): JSX.Element => {
                     onPress={() => navigation.navigate('Chat', { triggerTestPoem: true })}
                   >
                     <Ionicons name="play" size={20} color="#ffffff" />
-                    <Text style={styles.testPoemButtonText}>Play Test Poem</Text>
+                    <Text style={dynamicStyles.testPoemButtonText}>Play Test Poem</Text>
                   </TouchableOpacity>
                 </View>
 
                 {/* Speed Control */}
                 <View style={styles.controlGroup}>
-                  <Text style={styles.controlGroupTitle}>⏱️ Animation Speed</Text>
+                  <Text style={dynamicStyles.controlGroupTitle}>⏱️ Animation Speed</Text>
                   <View style={styles.optionGrid}>
                     {SPEED_PRESETS.map((preset) => (
                       <TouchableOpacity
@@ -678,7 +721,7 @@ const AnimationsScreen = (): JSX.Element => {
                         onPress={() => setSpeed(preset.value)}
                       >
                         <Text style={[
-                          styles.optionButtonText,
+                          dynamicStyles.optionButtonText,
                           speed === preset.value && styles.optionButtonTextActive
                         ]}>
                           {preset.label}
@@ -690,7 +733,7 @@ const AnimationsScreen = (): JSX.Element => {
 
                 {/* Look Direction */}
                 <View style={styles.controlGroup}>
-                  <Text style={styles.controlGroupTitle}>👁️ Look Direction</Text>
+                  <Text style={dynamicStyles.controlGroupTitle}>👁️ Look Direction</Text>
                   <View style={styles.optionGrid}>
                     {LOOK_DIRECTIONS.map((dir) => (
                       <TouchableOpacity
@@ -701,9 +744,9 @@ const AnimationsScreen = (): JSX.Element => {
                         ]}
                         onPress={() => setLookDirection(dir.value)}
                       >
-                        <Text style={styles.optionIcon}>{dir.icon}</Text>
+                        <Text style={dynamicStyles.optionIcon}>{dir.icon}</Text>
                         <Text style={[
-                          styles.optionButtonText,
+                          dynamicStyles.optionButtonText,
                           lookDirection === dir.value && styles.optionButtonTextActive
                         ]}>
                           {dir.label}
@@ -715,7 +758,7 @@ const AnimationsScreen = (): JSX.Element => {
 
                 {/* Eye State */}
                 <View style={styles.controlGroup}>
-                  <Text style={styles.controlGroupTitle}>👀 Eye State</Text>
+                  <Text style={dynamicStyles.controlGroupTitle}>👀 Eye State</Text>
                   <View style={styles.optionGrid}>
                     {EYE_STATES.map((eye) => (
                       <TouchableOpacity
@@ -726,9 +769,9 @@ const AnimationsScreen = (): JSX.Element => {
                         ]}
                         onPress={() => setEyeState(eye.value)}
                       >
-                        <Text style={styles.optionIcon}>{eye.icon}</Text>
+                        <Text style={dynamicStyles.optionIcon}>{eye.icon}</Text>
                         <Text style={[
-                          styles.optionButtonText,
+                          dynamicStyles.optionButtonText,
                           eyeState === eye.value && styles.optionButtonTextActive
                         ]}>
                           {eye.label}
@@ -740,7 +783,7 @@ const AnimationsScreen = (): JSX.Element => {
 
                 {/* Mouth State */}
                 <View style={styles.controlGroup}>
-                  <Text style={styles.controlGroupTitle}>👄 Mouth State</Text>
+                  <Text style={dynamicStyles.controlGroupTitle}>👄 Mouth State</Text>
                   <View style={styles.optionGrid}>
                     {MOUTH_STATES.map((mouth) => (
                       <TouchableOpacity
@@ -751,9 +794,9 @@ const AnimationsScreen = (): JSX.Element => {
                         ]}
                         onPress={() => setMouthState(mouth.value)}
                       >
-                        <Text style={styles.optionIcon}>{mouth.icon}</Text>
+                        <Text style={dynamicStyles.optionIcon}>{mouth.icon}</Text>
                         <Text style={[
-                          styles.optionButtonText,
+                          dynamicStyles.optionButtonText,
                           mouthState === mouth.value && styles.optionButtonTextActive
                         ]}>
                           {mouth.label}
@@ -765,7 +808,7 @@ const AnimationsScreen = (): JSX.Element => {
 
                 {/* Eyebrow State (Anime) */}
                 <View style={styles.controlGroup}>
-                  <Text style={styles.controlGroupTitle}>🎭 Eyebrow State</Text>
+                  <Text style={dynamicStyles.controlGroupTitle}>🎭 Eyebrow State</Text>
                   <View style={styles.optionGrid}>
                     {EYEBROW_STATES.map((brow) => (
                       <TouchableOpacity
@@ -776,9 +819,9 @@ const AnimationsScreen = (): JSX.Element => {
                         ]}
                         onPress={() => setEyebrowState(brow.value)}
                       >
-                        <Text style={styles.optionIcon}>{brow.icon}</Text>
+                        <Text style={dynamicStyles.optionIcon}>{brow.icon}</Text>
                         <Text style={[
-                          styles.optionButtonText,
+                          dynamicStyles.optionButtonText,
                           eyebrowState === brow.value && styles.optionButtonTextActive
                         ]}>
                           {brow.label}
@@ -790,7 +833,7 @@ const AnimationsScreen = (): JSX.Element => {
 
                 {/* Head Style */}
                 <View style={styles.controlGroup}>
-                  <Text style={styles.controlGroupTitle}>🗿 Head Style</Text>
+                  <Text style={dynamicStyles.controlGroupTitle}>🗿 Head Style</Text>
                   <View style={styles.optionGrid}>
                     {HEAD_STYLES.map((style) => (
                       <TouchableOpacity
@@ -801,14 +844,14 @@ const AnimationsScreen = (): JSX.Element => {
                         ]}
                         onPress={() => setHeadStyle(style.value)}
                       >
-                        <Text style={styles.optionIcon}>{style.icon}</Text>
+                        <Text style={dynamicStyles.optionIcon}>{style.icon}</Text>
                         <Text style={[
-                          styles.optionButtonText,
+                          dynamicStyles.optionButtonText,
                           headStyle === style.value && styles.optionButtonTextActive
                         ]}>
                           {style.label}
                         </Text>
-                        <Text style={styles.optionDescription}>{style.description}</Text>
+                        <Text style={dynamicStyles.optionDescription}>{style.description}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -816,7 +859,7 @@ const AnimationsScreen = (): JSX.Element => {
 
                 {/* Face State (Anime) */}
                 <View style={styles.controlGroup}>
-                  <Text style={styles.controlGroupTitle}>✨ Face State (Anime)</Text>
+                  <Text style={dynamicStyles.controlGroupTitle}>✨ Face State (Anime)</Text>
                   <View style={styles.optionGrid}>
                     {FACE_STATES.map((face) => (
                       <TouchableOpacity
@@ -827,9 +870,9 @@ const AnimationsScreen = (): JSX.Element => {
                         ]}
                         onPress={() => setFaceState(face.value)}
                       >
-                        <Text style={styles.optionIcon}>{face.icon}</Text>
+                        <Text style={dynamicStyles.optionIcon}>{face.icon}</Text>
                         <Text style={[
-                          styles.optionButtonText,
+                          dynamicStyles.optionButtonText,
                           faceState === face.value && styles.optionButtonTextActive
                         ]}>
                           {face.label}
@@ -841,7 +884,7 @@ const AnimationsScreen = (): JSX.Element => {
 
                 {/* Nose State */}
                 <View style={styles.controlGroup}>
-                  <Text style={styles.controlGroupTitle}>👃 Nose State</Text>
+                  <Text style={dynamicStyles.controlGroupTitle}>👃 Nose State</Text>
                   <View style={styles.optionGrid}>
                     {NOSE_STATES.map((nose) => (
                       <TouchableOpacity
@@ -852,9 +895,9 @@ const AnimationsScreen = (): JSX.Element => {
                         ]}
                         onPress={() => setNoseState(nose.value)}
                       >
-                        <Text style={styles.optionIcon}>{nose.icon}</Text>
+                        <Text style={dynamicStyles.optionIcon}>{nose.icon}</Text>
                         <Text style={[
-                          styles.optionButtonText,
+                          dynamicStyles.optionButtonText,
                           noseState === nose.value && styles.optionButtonTextActive
                         ]}>
                           {nose.label}
@@ -866,7 +909,7 @@ const AnimationsScreen = (): JSX.Element => {
 
                 {/* Cheek State */}
                 <View style={styles.controlGroup}>
-                  <Text style={styles.controlGroupTitle}>😊 Cheek State (blush migrated)</Text>
+                  <Text style={dynamicStyles.controlGroupTitle}>😊 Cheek State (blush migrated)</Text>
                   <View style={styles.optionGrid}>
                     {CHEEK_STATES.map((cheek) => (
                       <TouchableOpacity
@@ -877,9 +920,9 @@ const AnimationsScreen = (): JSX.Element => {
                         ]}
                         onPress={() => setCheekState(cheek.value)}
                       >
-                        <Text style={styles.optionIcon}>{cheek.icon}</Text>
+                        <Text style={dynamicStyles.optionIcon}>{cheek.icon}</Text>
                         <Text style={[
-                          styles.optionButtonText,
+                          dynamicStyles.optionButtonText,
                           cheekState === cheek.value && styles.optionButtonTextActive
                         ]}>
                           {cheek.label}
@@ -891,7 +934,7 @@ const AnimationsScreen = (): JSX.Element => {
 
                 {/* Forehead State */}
                 <View style={styles.controlGroup}>
-                  <Text style={styles.controlGroupTitle}>😟 Forehead State</Text>
+                  <Text style={dynamicStyles.controlGroupTitle}>😟 Forehead State</Text>
                   <View style={styles.optionGrid}>
                     {FOREHEAD_STATES.map((forehead) => (
                       <TouchableOpacity
@@ -902,9 +945,9 @@ const AnimationsScreen = (): JSX.Element => {
                         ]}
                         onPress={() => setForeheadState(forehead.value)}
                       >
-                        <Text style={styles.optionIcon}>{forehead.icon}</Text>
+                        <Text style={dynamicStyles.optionIcon}>{forehead.icon}</Text>
                         <Text style={[
-                          styles.optionButtonText,
+                          dynamicStyles.optionButtonText,
                           foreheadState === forehead.value && styles.optionButtonTextActive
                         ]}>
                           {forehead.label}
@@ -916,7 +959,7 @@ const AnimationsScreen = (): JSX.Element => {
 
                 {/* Jaw State */}
                 <View style={styles.controlGroup}>
-                  <Text style={styles.controlGroupTitle}>😬 Jaw State</Text>
+                  <Text style={dynamicStyles.controlGroupTitle}>😬 Jaw State</Text>
                   <View style={styles.optionGrid}>
                     {JAW_STATES.map((jaw) => (
                       <TouchableOpacity
@@ -927,9 +970,9 @@ const AnimationsScreen = (): JSX.Element => {
                         ]}
                         onPress={() => setJawState(jaw.value)}
                       >
-                        <Text style={styles.optionIcon}>{jaw.icon}</Text>
+                        <Text style={dynamicStyles.optionIcon}>{jaw.icon}</Text>
                         <Text style={[
-                          styles.optionButtonText,
+                          dynamicStyles.optionButtonText,
                           jawState === jaw.value && styles.optionButtonTextActive
                         ]}>
                           {jaw.label}
@@ -941,7 +984,7 @@ const AnimationsScreen = (): JSX.Element => {
 
                 {/* Visual Effects */}
                 <View style={styles.controlGroup}>
-                  <Text style={styles.controlGroupTitle}>✨ Visual Effects</Text>
+                  <Text style={dynamicStyles.controlGroupTitle}>✨ Visual Effects</Text>
                   <View style={styles.optionGrid}>
                     {VISUAL_EFFECTS.map((fx) => (
                       <TouchableOpacity
@@ -952,9 +995,9 @@ const AnimationsScreen = (): JSX.Element => {
                         ]}
                         onPress={() => setEffect(fx.value)}
                       >
-                        <Text style={styles.optionIcon}>{fx.icon}</Text>
+                        <Text style={dynamicStyles.optionIcon}>{fx.icon}</Text>
                         <Text style={[
-                          styles.optionButtonText,
+                          dynamicStyles.optionButtonText,
                           effect === fx.value && styles.optionButtonTextActive
                         ]}>
                           {fx.label}
@@ -967,7 +1010,7 @@ const AnimationsScreen = (): JSX.Element => {
                 {/* Effect Color */}
                 {effect !== 'none' && (
                   <View style={styles.controlGroup}>
-                    <Text style={styles.controlGroupTitle}>🎨 Effect Color</Text>
+                    <Text style={dynamicStyles.controlGroupTitle}>🎨 Effect Color</Text>
                     <View style={styles.colorGrid}>
                       {effectColors.map((color) => (
                         <TouchableOpacity
@@ -990,7 +1033,7 @@ const AnimationsScreen = (): JSX.Element => {
 
                 {/* Quick Presets */}
                 <View style={styles.controlGroup}>
-                  <Text style={styles.controlGroupTitle}>⚡ Quick Presets</Text>
+                  <Text style={dynamicStyles.controlGroupTitle}>⚡ Quick Presets</Text>
                   <View style={styles.presetGrid}>
                     <TouchableOpacity
                       style={styles.presetButton}
@@ -1001,10 +1044,10 @@ const AnimationsScreen = (): JSX.Element => {
                         setSpeed(1.5);
                       }}
                     >
-                      <Text style={styles.presetIcon}>🎉</Text>
-                      <Text style={styles.presetText}>Celebration</Text>
+                      <Text style={dynamicStyles.presetIcon}>🎉</Text>
+                      <Text style={dynamicStyles.presetText}>Celebration</Text>
                     </TouchableOpacity>
-                    
+
                     <TouchableOpacity
                       style={styles.presetButton}
                       onPress={() => {
@@ -1015,10 +1058,10 @@ const AnimationsScreen = (): JSX.Element => {
                         setSpeed(0.5);
                       }}
                     >
-                      <Text style={styles.presetIcon}>🤔</Text>
-                      <Text style={styles.presetText}>Deep Thought</Text>
+                      <Text style={dynamicStyles.presetIcon}>🤔</Text>
+                      <Text style={dynamicStyles.presetText}>Deep Thought</Text>
                     </TouchableOpacity>
-                    
+
                     <TouchableOpacity
                       style={styles.presetButton}
                       onPress={() => {
@@ -1029,10 +1072,10 @@ const AnimationsScreen = (): JSX.Element => {
                         setSpeed(1.0);
                       }}
                     >
-                      <Text style={styles.presetIcon}>🎤</Text>
-                      <Text style={styles.presetText}>Presenting</Text>
+                      <Text style={dynamicStyles.presetIcon}>🎤</Text>
+                      <Text style={dynamicStyles.presetText}>Presenting</Text>
                     </TouchableOpacity>
-                    
+
                     <TouchableOpacity
                       style={styles.presetButton}
                       onPress={() => {
@@ -1043,10 +1086,10 @@ const AnimationsScreen = (): JSX.Element => {
                         setSpeed(1.5);
                       }}
                     >
-                      <Text style={styles.presetIcon}>😍</Text>
-                      <Text style={styles.presetText}>Love</Text>
+                      <Text style={dynamicStyles.presetIcon}>😍</Text>
+                      <Text style={dynamicStyles.presetText}>Love</Text>
                     </TouchableOpacity>
-                    
+
                     <TouchableOpacity
                       style={styles.presetButton}
                       onPress={() => {
@@ -1057,10 +1100,10 @@ const AnimationsScreen = (): JSX.Element => {
                         setSpeed(0.75);
                       }}
                     >
-                      <Text style={styles.presetIcon}>🤨</Text>
-                      <Text style={styles.presetText}>Skeptical</Text>
+                      <Text style={dynamicStyles.presetIcon}>🤨</Text>
+                      <Text style={dynamicStyles.presetText}>Skeptical</Text>
                     </TouchableOpacity>
-                    
+
                     <TouchableOpacity
                       style={styles.presetButton}
                       onPress={() => {
@@ -1071,10 +1114,10 @@ const AnimationsScreen = (): JSX.Element => {
                         setSpeed(1.2);
                       }}
                     >
-                      <Text style={styles.presetIcon}>🏆</Text>
-                      <Text style={styles.presetText}>Victory</Text>
+                      <Text style={dynamicStyles.presetIcon}>🏆</Text>
+                      <Text style={dynamicStyles.presetText}>Victory</Text>
                     </TouchableOpacity>
-                    
+
                     <TouchableOpacity
                       style={styles.presetButton}
                       onPress={() => {
@@ -1085,8 +1128,8 @@ const AnimationsScreen = (): JSX.Element => {
                         setSpeed(1.0);
                       }}
                     >
-                      <Text style={styles.presetIcon}>😱</Text>
-                      <Text style={styles.presetText}>Shocked</Text>
+                      <Text style={dynamicStyles.presetIcon}>😱</Text>
+                      <Text style={dynamicStyles.presetText}>Shocked</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -1122,7 +1165,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#6366f1',
   },
   testButtonText: {
-    fontSize: 13,
     fontWeight: '600',
     color: '#ffffff',
   },
@@ -1141,7 +1183,6 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   stateLabel: {
-    fontSize: 11,
     color: '#71717a',
     textTransform: 'uppercase',
   },
@@ -1149,7 +1190,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   selectorLabel: {
-    fontSize: 11,
     color: '#71717a',
     marginBottom: 6,
     textTransform: 'uppercase',
@@ -1172,7 +1212,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e1b4b',
   },
   characterButtonText: {
-    fontSize: 12,
     fontWeight: '600',
     color: '#a1a1aa',
   },
@@ -1197,7 +1236,6 @@ const styles = StyleSheet.create({
     color: '#c4b5fd',
   },
   styleIcon: {
-    fontSize: 14,
   },
   idleConversationButton: {
     backgroundColor: '#1a2e1a',
@@ -1224,7 +1262,6 @@ const styles = StyleSheet.create({
     borderColor: '#10b981',
   },
   quickButtonText: {
-    fontSize: 12,
     fontWeight: '600',
     color: '#71717a',
   },
@@ -1248,7 +1285,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#8b5cf6',
   },
   tabText: {
-    fontSize: 13,
     fontWeight: '600',
     color: '#71717a',
   },
@@ -1279,7 +1315,6 @@ const styles = StyleSheet.create({
     borderColor: '#8b5cf6',
   },
   categoryChipText: {
-    fontSize: 12,
     fontWeight: '600',
     color: '#a1a1aa',
   },
@@ -1312,7 +1347,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   animationName: {
-    fontSize: 14,
     fontWeight: '700',
     color: '#e4e4e7',
     fontFamily: 'monospace',
@@ -1321,7 +1355,6 @@ const styles = StyleSheet.create({
     color: '#c4b5fd',
   },
   animationDescription: {
-    fontSize: 11,
     color: '#71717a',
     lineHeight: 15,
   },
@@ -1329,7 +1362,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   controlGroupTitle: {
-    fontSize: 14,
     fontWeight: '700',
     color: '#e4e4e7',
     marginBottom: 10,
@@ -1354,11 +1386,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e1b4b',
   },
   optionIcon: {
-    fontSize: 16,
     marginBottom: 2,
   },
   optionButtonText: {
-    fontSize: 11,
     fontWeight: '600',
     color: '#a1a1aa',
   },
@@ -1366,7 +1396,6 @@ const styles = StyleSheet.create({
     color: '#c4b5fd',
   },
   optionDescription: {
-    fontSize: 9,
     color: '#71717a',
     marginTop: 2,
   },
@@ -1403,18 +1432,15 @@ const styles = StyleSheet.create({
     borderColor: '#3f3f46',
   },
   presetIcon: {
-    fontSize: 24,
     marginBottom: 6,
   },
   presetText: {
-    fontSize: 11,
     fontWeight: '600',
     color: '#a1a1aa',
     textAlign: 'center',
   },
   // Speech bubble speed demo styles
   controlGroupSubtitle: {
-    fontSize: 12,
     color: '#71717a',
     marginBottom: 12,
   },
@@ -1429,7 +1455,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#7c3aed',
   },
   testPoemButtonText: {
-    fontSize: 14,
     fontWeight: '600',
     color: '#ffffff',
   },

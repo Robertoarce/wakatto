@@ -1,6 +1,7 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, Animated, ViewStyle, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useResponsive } from '../../constants/Layout';
 
 type ToastVariant = 'success' | 'error' | 'warning' | 'info' | 'story';
 
@@ -31,8 +32,34 @@ export function Toast({
   duration = 3000,
   customColor,
 }: ToastProps) {
+  const { fonts, spacing, borderRadius, components, scalePx } = useResponsive();
   const translateY = useRef(new Animated.Value(-100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+
+  const dynamicStyles = useMemo(() => ({
+    container: {
+      top: scalePx(50),
+      left: spacing.lg,
+      right: spacing.lg,
+      gap: spacing.md,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderRadius: borderRadius.md,
+    },
+    storyContainer: {
+      paddingVertical: spacing.lg,
+      paddingHorizontal: spacing.xl,
+      borderRadius: borderRadius.lg,
+    },
+    message: {
+      fontSize: fonts.sm,
+    },
+    storyMessage: {
+      fontSize: fonts.md,
+    },
+    iconSize: components.iconSizes.md,
+    storyIconSize: scalePx(28),
+  }), [fonts, spacing, borderRadius, components, scalePx]);
 
   useEffect(() => {
     if (visible) {
@@ -131,7 +158,8 @@ export function Toast({
     <Animated.View
       style={[
         styles.container,
-        isStory && styles.storyContainer,
+        dynamicStyles.container,
+        isStory && [styles.storyContainer, dynamicStyles.storyContainer],
         {
           backgroundColor,
           borderColor,
@@ -142,14 +170,15 @@ export function Toast({
     >
       <Ionicons
         name={variantStyles.iconName}
-        size={isStory ? 28 : 24}
+        size={isStory ? dynamicStyles.storyIconSize : dynamicStyles.iconSize}
         color={isStory ? '#c4b5fd' : variantStyles.iconColor}
       />
       <Text
         style={[
           styles.message,
+          dynamicStyles.message,
           variant === 'warning' && { color: '#000000' },
-          isStory && styles.storyMessage,
+          isStory && [styles.storyMessage, dynamicStyles.storyMessage],
         ]}
       >
         {message}
@@ -161,15 +190,8 @@ export function Toast({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 50,
-    left: 16,
-    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
     borderWidth: 2,
     ...Platform.select({
       web: {
@@ -190,13 +212,9 @@ const styles = StyleSheet.create({
   message: {
     flex: 1,
     color: '#ffffff',
-    fontSize: 14,
     fontWeight: '600',
   },
   storyContainer: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 16,
     borderWidth: 2,
     ...Platform.select({
       web: {
@@ -214,7 +232,6 @@ const styles = StyleSheet.create({
     }),
   },
   storyMessage: {
-    fontSize: 16,
     fontStyle: 'italic',
     fontWeight: '500',
     color: '#e9d5ff',

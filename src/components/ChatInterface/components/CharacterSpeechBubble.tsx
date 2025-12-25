@@ -3,7 +3,7 @@
  * Displays 1-2 bubbles per character with animated transitions
  */
 
-import React, { useState, useRef, useEffect, memo, useCallback } from 'react';
+import React, { useState, useRef, useEffect, memo, useCallback, useMemo } from 'react';
 import { Animated, Platform, View, Text, StyleSheet } from 'react-native';
 import { useResponsive } from '../../../constants/Layout';
 import { wrapTextWithReveal, getLineOpacity } from '../utils/speechBubbleHelpers';
@@ -66,10 +66,82 @@ export function CharacterSpeechBubble({
   const fadeOutTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasStartedFadeOut = useRef(false);
   const lastTextRef = useRef('');
-  const { fonts, isMobile, isMobileLandscape, width: viewportWidth, height: viewportHeight } = useResponsive();
+  const { fonts, spacing, borderRadius, components, scalePx, isMobile, isMobileLandscape, width: viewportWidth, height: viewportHeight } = useResponsive();
 
   // Scale character name font size based on screen
   const nameFontSize = isMobile ? fonts.md : fonts.lg;
+
+  // Dynamic styles based on responsive values
+  const dynamicStyles = useMemo(() => ({
+    speechBubble: {
+      position: 'absolute' as const,
+      backgroundColor: 'rgba(30, 30, 40, 0.95)',
+      borderRadius: borderRadius.lg,
+      padding: components.speechBubble.padding,
+      borderWidth: components.speechBubble.borderWidth,
+      minWidth: components.speechBubble.minWidth,
+      zIndex: 100,
+    },
+    speechBubbleCompact: {
+      padding: scalePx(10),
+      borderWidth: scalePx(2),
+      borderRadius: borderRadius.md,
+    },
+    speechBubbleMobileStacked: {
+      position: 'relative' as const,
+      backgroundColor: 'rgba(30, 30, 40, 0.95)',
+      borderRadius: borderRadius.md,
+      padding: scalePx(10),
+      borderWidth: scalePx(2),
+      marginBottom: spacing.xs,
+      alignSelf: 'stretch' as const,
+      width: '100%' as const,
+    },
+    speechBubbleName: {
+      fontFamily: 'Inter-Bold',
+      marginBottom: spacing.xs,
+      letterSpacing: 0.5,
+    },
+    speechBubbleTail: {
+      position: 'absolute' as const,
+      bottom: -components.speechBubble.tailSize,
+      width: 0,
+      height: 0,
+    },
+    speechBubbleTailLeft: {
+      right: scalePx(20),
+    },
+    speechBubbleTailRight: {
+      left: scalePx(20),
+    },
+    speechBubbleTailInner: {
+      width: 0,
+      height: 0,
+      borderTopWidth: components.speechBubble.tailSize,
+      borderTopColor: 'transparent',
+      borderBottomWidth: 0,
+      borderLeftWidth: components.speechBubble.tailSize,
+      borderRightWidth: components.speechBubble.tailSize,
+    },
+    speechBubbleTailBottom: {
+      position: 'absolute' as const,
+      bottom: -components.speechBubble.tailSize,
+      left: '50%' as any, // Percentage positioning
+      marginLeft: -components.speechBubble.tailSize,
+      width: 0,
+      height: 0,
+    },
+    speechBubbleTailBottomInner: {
+      width: 0,
+      height: 0,
+      borderLeftWidth: components.speechBubble.tailSize,
+      borderLeftColor: 'transparent',
+      borderRightWidth: components.speechBubble.tailSize,
+      borderRightColor: 'transparent',
+      borderTopWidth: components.speechBubble.tailSize,
+    },
+    containerGap: scalePx(10),
+  }), [borderRadius, components, spacing, scalePx]);
 
   // Check if we have bubbles to display
   const hasBubbles = bubbles && bubbles.length > 0;
@@ -162,11 +234,11 @@ export function CharacterSpeechBubble({
     return (
       <Animated.View
         style={[
-          styles.speechBubbleMobileStacked,
+          dynamicStyles.speechBubbleMobileStacked,
           {
             opacity: fadeAnim,
             borderColor: characterColor,
-            top: stackIndex * 4,
+            top: stackIndex * spacing.xs,
             zIndex: 200 - stackIndex,
             pointerEvents: 'none',
             maxWidth: stackedMaxWidth,
@@ -175,7 +247,7 @@ export function CharacterSpeechBubble({
           }
         ]}
       >
-        <Text style={[styles.speechBubbleName, { color: characterColor, fontSize: nameFontSize }]}>
+        <Text style={[dynamicStyles.speechBubbleName, { color: characterColor, fontSize: nameFontSize }]}>
           {characterName}
         </Text>
         <View style={styles.speechBubbleLinesContainer}>
@@ -216,7 +288,7 @@ export function CharacterSpeechBubble({
             right: 0,
             flexDirection: 'column' as const,
             alignItems: 'center' as const,
-            gap: 10,
+            gap: dynamicStyles.containerGap,
             zIndex: 500,
             pointerEvents: 'none' as const,
           };
@@ -225,7 +297,7 @@ export function CharacterSpeechBubble({
         // True single character - center on screen
         const totalWidth = bubbleCount === 1
           ? dimensions.maxWidth
-          : (dimensions.maxWidth * 2 + 8); // 2 bubbles + gap
+          : (dimensions.maxWidth * 2 + spacing.sm); // 2 bubbles + gap
         const leftPosition = Math.max(padding, (effectiveScreenWidth - totalWidth) / 2);
 
         return {
@@ -234,14 +306,14 @@ export function CharacterSpeechBubble({
           left: leftPosition,
           flexDirection: 'column' as const,
           alignItems: 'center' as const,
-          gap: 10,
+          gap: dynamicStyles.containerGap,
           zIndex: 500,
           pointerEvents: 'none' as const,
         };
       }
 
       // Multi-character positioning
-      const responsiveOffset = Math.max(padding, Math.min(80, effectiveScreenWidth * 0.15));
+      const responsiveOffset = Math.max(padding, Math.min(scalePx(80), effectiveScreenWidth * 0.15));
 
       if (position === 'left') {
         return {
@@ -250,7 +322,7 @@ export function CharacterSpeechBubble({
           right: responsiveOffset,
           flexDirection: 'column' as const,
           alignItems: 'center' as const,
-          gap: 10,
+          gap: dynamicStyles.containerGap,
           zIndex: 500,
           pointerEvents: 'none' as const,
         };
@@ -261,7 +333,7 @@ export function CharacterSpeechBubble({
           left: responsiveOffset,
           flexDirection: 'column' as const,
           alignItems: 'center' as const,
-          gap: 10,
+          gap: dynamicStyles.containerGap,
           zIndex: 500,
           pointerEvents: 'none' as const,
         };
@@ -385,7 +457,7 @@ export function CharacterSpeechBubble({
   return (
     <Animated.View
       style={[
-        styles.speechBubble,
+        dynamicStyles.speechBubble,
         isSingleCharacter ? getSingleCharacterStyles() : getPositionStyles(),
         {
           opacity: fadeAnim,
@@ -394,19 +466,19 @@ export function CharacterSpeechBubble({
           zIndex: 500,
           pointerEvents: 'none',
         },
-        isMobileLandscape && styles.speechBubbleCompact,
+        isMobileLandscape && dynamicStyles.speechBubbleCompact,
       ]}
     >
       {/* Speech bubble tail */}
       {!isSingleCharacter && (
         <View
           style={[
-            styles.speechBubbleTail,
-            position === 'left' ? styles.speechBubbleTailLeft : styles.speechBubbleTailRight,
+            dynamicStyles.speechBubbleTail,
+            position === 'left' ? dynamicStyles.speechBubbleTailLeft : dynamicStyles.speechBubbleTailRight,
           ]}
         >
           <View style={[
-            styles.speechBubbleTailInner,
+            dynamicStyles.speechBubbleTailInner,
             {
               borderLeftColor: position === 'right' ? characterColor : 'transparent',
               borderRightColor: position === 'left' ? characterColor : 'transparent'
@@ -416,12 +488,12 @@ export function CharacterSpeechBubble({
       )}
       {/* Bottom tail for single character */}
       {isSingleCharacter && (
-        <View style={styles.speechBubbleTailBottom}>
-          <View style={[styles.speechBubbleTailBottomInner, { borderTopColor: characterColor }]} />
+        <View style={dynamicStyles.speechBubbleTailBottom}>
+          <View style={[dynamicStyles.speechBubbleTailBottomInner, { borderTopColor: characterColor }]} />
         </View>
       )}
 
-      <Text style={[styles.speechBubbleName, { color: characterColor, fontSize: nameFontSize }]}>
+      <Text style={[dynamicStyles.speechBubbleName, { color: characterColor, fontSize: nameFontSize }]}>
         {characterName}
       </Text>
 
@@ -444,75 +516,8 @@ export function CharacterSpeechBubble({
 export const MemoizedCharacterSpeechBubble = memo(CharacterSpeechBubble);
 
 const styles = StyleSheet.create({
-  speechBubble: {
-    position: 'absolute',
-    backgroundColor: 'rgba(30, 30, 40, 0.95)',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 3,
-    minWidth: 120,
-    zIndex: 100,
-  },
-  speechBubbleCompact: {
-    padding: 10,
-    borderWidth: 2,
-    borderRadius: 12,
-  },
-  speechBubbleMobileStacked: {
-    position: 'relative',
-    backgroundColor: 'rgba(30, 30, 40, 0.95)',
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 2,
-    marginBottom: 4,
-    alignSelf: 'stretch',
-    width: '100%',
-  },
-  speechBubbleName: {
-    fontFamily: 'Inter-Bold',
-    marginBottom: 6,
-    letterSpacing: 0.5,
-  },
   speechBubbleLinesContainer: {
     flexDirection: 'column',
-  },
-  speechBubbleTail: {
-    position: 'absolute',
-    bottom: -10,
-    width: 0,
-    height: 0,
-  },
-  speechBubbleTailLeft: {
-    right: 20,
-  },
-  speechBubbleTailRight: {
-    left: 20,
-  },
-  speechBubbleTailInner: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 10,
-    borderTopColor: 'transparent',
-    borderBottomWidth: 0,
-    borderLeftWidth: 10,
-    borderRightWidth: 10,
-  },
-  speechBubbleTailBottom: {
-    position: 'absolute',
-    bottom: -10,
-    left: '50%',
-    marginLeft: -10,
-    width: 0,
-    height: 0,
-  },
-  speechBubbleTailBottomInner: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 10,
-    borderLeftColor: 'transparent',
-    borderRightWidth: 10,
-    borderRightColor: 'transparent',
-    borderTopWidth: 10,
   },
 });
 

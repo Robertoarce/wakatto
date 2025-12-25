@@ -33,7 +33,7 @@ export function Button({
   style,
   textStyle,
 }: ButtonProps) {
-  const { fonts, spacing, layout, isMobile } = useResponsive();
+  const { fonts, spacing, layout, borderRadius, components, isMobile } = useResponsive();
 
   const getVariantStyles = (): ViewStyle => {
     const variants: Record<ButtonVariant, ViewStyle> = {
@@ -68,25 +68,25 @@ export function Button({
   const getSizeStyles = (): ViewStyle & { fontSize: number } => {
     // Ensure minimum touch target on mobile (44px)
     const minHeight = layout.minTouchTarget;
-    
+
     const sizes: Record<ButtonSize, ViewStyle & { fontSize: number }> = {
       sm: {
         paddingVertical: isMobile ? spacing.md : spacing.sm,
         paddingHorizontal: spacing.md,
         fontSize: fonts.sm,
-        minHeight: minHeight,
+        minHeight: components.buttonSizes.sm,
       },
       md: {
         paddingVertical: isMobile ? spacing.lg : spacing.md,
         paddingHorizontal: spacing.lg,
         fontSize: fonts.md,
-        minHeight: minHeight,
+        minHeight: components.buttonSizes.md,
       },
       lg: {
         paddingVertical: isMobile ? spacing.xl : spacing.lg,
         paddingHorizontal: spacing.xl,
         fontSize: fonts.lg,
-        minHeight: minHeight + 8,
+        minHeight: components.buttonSizes.lg,
       },
     };
     return sizes[size];
@@ -103,7 +103,8 @@ export function Button({
   const sizeStyles = getSizeStyles();
   const textColor = getTextColor();
 
-  const iconSize = size === 'sm' ? (isMobile ? 14 : 16) : size === 'md' ? (isMobile ? 18 : 20) : (isMobile ? 22 : 24);
+  // Responsive icon sizes based on button size
+  const iconSize = size === 'sm' ? components.iconSizes.xs : size === 'md' ? components.iconSizes.sm : components.iconSizes.md;
 
   return (
     <TouchableOpacity
@@ -112,6 +113,7 @@ export function Button({
       activeOpacity={0.7}
       style={[
         styles.button,
+        { borderRadius: borderRadius.md },
         variantStyles,
         sizeStyles,
         fullWidth && styles.fullWidth,
@@ -140,7 +142,7 @@ export function Button({
 
 const styles = StyleSheet.create({
   button: {
-    borderRadius: 12,
+    // borderRadius applied dynamically via borderRadius.md
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',

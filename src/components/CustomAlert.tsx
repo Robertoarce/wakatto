@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useResponsive } from '../constants/Layout';
 
 interface AlertButton {
   text: string;
@@ -17,9 +18,52 @@ interface CustomAlertProps {
 }
 
 export function CustomAlert({ visible, title, message, buttons, onClose }: CustomAlertProps) {
+  const { fonts, spacing, borderRadius, scalePx, components } = useResponsive();
+
   // Default buttons if none provided
   const defaultButtons: AlertButton[] = [{ text: 'OK', onPress: onClose }];
   const displayButtons = buttons || defaultButtons;
+
+  const dynamicStyles = useMemo(() => ({
+    container: {
+      maxWidth: scalePx(400),
+      paddingHorizontal: spacing.xl,
+    },
+    alertBox: {
+      borderRadius: borderRadius.md,
+      padding: spacing.xl,
+    },
+    header: {
+      marginBottom: spacing.md,
+      gap: spacing.md,
+    },
+    iconContainer: {
+      width: scalePx(40),
+      height: scalePx(40),
+      borderRadius: scalePx(20),
+    },
+    iconSize: components.iconSizes.md,
+    title: {
+      fontSize: fonts.lg,
+    },
+    message: {
+      fontSize: fonts.sm,
+      lineHeight: scalePx(20),
+      marginBottom: spacing.xl,
+    },
+    buttonContainer: {
+      gap: spacing.sm,
+    },
+    button: {
+      paddingHorizontal: spacing.xl,
+      paddingVertical: spacing.md,
+      borderRadius: borderRadius.sm,
+      minWidth: scalePx(80),
+    },
+    buttonText: {
+      fontSize: fonts.sm,
+    },
+  }), [fonts, spacing, borderRadius, scalePx, components]);
 
   const handleButtonPress = (button: AlertButton) => {
     if (button.onPress) {
@@ -40,27 +84,28 @@ export function CustomAlert({ visible, title, message, buttons, onClose }: Custo
         activeOpacity={1}
         onPress={onClose}
       >
-        <View style={styles.container}>
-          <TouchableOpacity activeOpacity={1} style={styles.alertBox}>
-            <View style={styles.header}>
-              <View style={styles.iconContainer}>
+        <View style={[styles.container, dynamicStyles.container]}>
+          <TouchableOpacity activeOpacity={1} style={[styles.alertBox, dynamicStyles.alertBox]}>
+            <View style={[styles.header, dynamicStyles.header]}>
+              <View style={[styles.iconContainer, dynamicStyles.iconContainer]}>
                 <Ionicons
                   name={buttons?.some(b => b.style === 'destructive') ? 'warning' : 'information-circle'}
-                  size={24}
+                  size={dynamicStyles.iconSize}
                   color={buttons?.some(b => b.style === 'destructive') ? '#ef4444' : '#8b5cf6'}
                 />
               </View>
-              <Text style={styles.title}>{title}</Text>
+              <Text style={[styles.title, dynamicStyles.title]}>{title}</Text>
             </View>
 
-            <Text style={styles.message}>{message}</Text>
+            <Text style={[styles.message, dynamicStyles.message]}>{message}</Text>
 
-            <View style={styles.buttonContainer}>
+            <View style={[styles.buttonContainer, dynamicStyles.buttonContainer]}>
               {displayButtons.map((button, index) => (
                 <TouchableOpacity
                   key={index}
                   style={[
                     styles.button,
+                    dynamicStyles.button,
                     button.style === 'cancel' && styles.buttonCancel,
                     button.style === 'destructive' && styles.buttonDestructive,
                     displayButtons.length === 1 && styles.buttonSingle,
@@ -70,6 +115,7 @@ export function CustomAlert({ visible, title, message, buttons, onClose }: Custo
                   <Text
                     style={[
                       styles.buttonText,
+                      dynamicStyles.buttonText,
                       button.style === 'cancel' && styles.buttonTextCancel,
                       button.style === 'destructive' && styles.buttonTextDestructive,
                     ]}
@@ -137,15 +183,11 @@ const styles = StyleSheet.create({
   },
   container: {
     width: '100%',
-    maxWidth: 400,
-    paddingHorizontal: 20,
   },
   alertBox: {
     backgroundColor: '#1e1e1e',
-    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#27272a',
-    padding: 20,
     ...Platform.select({
       web: {
         boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
@@ -164,40 +206,26 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 12,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
     backgroundColor: '#27272a',
     justifyContent: 'center',
     alignItems: 'center',
   },
   title: {
     flex: 1,
-    fontSize: 18,
     fontWeight: 'bold',
     color: 'white',
   },
   message: {
-    fontSize: 14,
     color: '#a1a1aa',
-    lineHeight: 20,
-    marginBottom: 20,
   },
   buttonContainer: {
     flexDirection: 'row',
-    gap: 8,
     justifyContent: 'flex-end',
   },
   button: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
     backgroundColor: '#8b5cf6',
-    minWidth: 80,
     alignItems: 'center',
   },
   buttonSingle: {
@@ -211,7 +239,6 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: 'white',
-    fontSize: 14,
     fontWeight: '600',
   },
   buttonTextCancel: {

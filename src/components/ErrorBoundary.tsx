@@ -1,6 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+
+// Responsive font scaling for class components (can't use hooks)
+const { width: screenWidth } = Dimensions.get('window');
+const BASE_WIDTH = 375;
+const scaleFactor = Math.min(Math.max(screenWidth / BASE_WIDTH, 0.8), 1.4);
+const scalePx = (px: number) => Math.round(px * scaleFactor);
 
 interface Props {
   children: React.ReactNode;
@@ -140,7 +146,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    fontSize: 24,
+    fontSize: scalePx(24),
     color: '#ef4444',
     marginBottom: 20,
     fontWeight: 'bold',
@@ -156,24 +162,24 @@ const styles = StyleSheet.create({
     borderColor: '#ef4444',
   },
   infoLabel: {
-    fontSize: 14,
+    fontSize: scalePx(14),
     color: '#a1a1aa',
     marginBottom: 8,
     fontWeight: '600',
   },
   error: {
-    fontSize: 16,
+    fontSize: scalePx(16),
     color: 'white',
     marginBottom: 8,
   },
   warningText: {
-    fontSize: 14,
+    fontSize: scalePx(14),
     color: '#f59e0b',
     marginTop: 8,
     fontWeight: '600',
   },
   timestamp: {
-    fontSize: 12,
+    fontSize: scalePx(12),
     color: '#71717a',
     marginTop: 4,
   },
@@ -186,13 +192,13 @@ const styles = StyleSheet.create({
     maxHeight: 200,
   },
   stackTitle: {
-    fontSize: 12,
+    fontSize: scalePx(12),
     color: '#a1a1aa',
     marginBottom: 8,
     fontWeight: '600',
   },
   stack: {
-    fontSize: 11,
+    fontSize: scalePx(11),
     color: '#71717a',
     fontFamily: 'monospace',
   },
@@ -225,11 +231,11 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: scalePx(16),
     fontWeight: '600',
   },
   helpText: {
-    fontSize: 12,
+    fontSize: scalePx(12),
     color: '#71717a',
     textAlign: 'center',
     marginTop: 12,

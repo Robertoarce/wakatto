@@ -1,5 +1,6 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, Animated, ViewStyle, TouchableOpacity, Platform } from 'react-native';
+import { useResponsive } from '../../constants/Layout';
 
 interface MessageBubbleProps {
   content: string;
@@ -20,9 +21,34 @@ export function MessageBubble({
   onLongPress,
   position = 'center',
 }: MessageBubbleProps) {
+  const { fonts, spacing, borderRadius, scalePx } = useResponsive();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
+
+  const dynamicStyles = useMemo(() => ({
+    container: {
+      marginBottom: spacing.md,
+      paddingHorizontal: spacing.sm,
+    },
+    bubble: {
+      borderRadius: borderRadius.xl,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+    },
+    characterName: {
+      fontSize: fonts.sm,
+      marginBottom: spacing.sm,
+    },
+    content: {
+      fontSize: fonts.md,
+      lineHeight: scalePx(22),
+    },
+    timestamp: {
+      fontSize: fonts.xs,
+      marginTop: spacing.sm,
+    },
+  }), [fonts, spacing, borderRadius, scalePx]);
 
   useEffect(() => {
     // Entrance animation
@@ -110,6 +136,7 @@ export function MessageBubble({
     <Animated.View
       style={[
         styles.container,
+        dynamicStyles.container,
         getPositionStyle(),
         {
           opacity: fadeAnim,
@@ -123,15 +150,15 @@ export function MessageBubble({
       <TouchableOpacity
         onLongPress={onLongPress}
         activeOpacity={role === 'user' ? 0.7 : 1}
-        style={[styles.bubble, getBubbleStyle()]}
+        style={[styles.bubble, dynamicStyles.bubble, getBubbleStyle()]}
       >
         {characterName && (
-          <Text style={[styles.characterName, { color: characterColor || '#8b5cf6' }]}>
+          <Text style={[styles.characterName, dynamicStyles.characterName, { color: characterColor || '#8b5cf6' }]}>
             {characterName}
           </Text>
         )}
-        <Text style={styles.content}>{content}</Text>
-        {timestamp && <Text style={styles.timestamp}>{timestamp}</Text>}
+        <Text style={[styles.content, dynamicStyles.content]}>{content}</Text>
+        {timestamp && <Text style={[styles.timestamp, dynamicStyles.timestamp]}>{timestamp}</Text>}
       </TouchableOpacity>
     </Animated.View>
   );
@@ -140,30 +167,19 @@ export function MessageBubble({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    marginBottom: 12,
-    paddingHorizontal: 8,
   },
   bubble: {
     maxWidth: '85%',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
   },
   characterName: {
-    fontSize: 14,
     fontWeight: '700',
-    marginBottom: 6,
     textTransform: 'capitalize',
   },
   content: {
     color: '#ffffff',
-    fontSize: 16,
-    lineHeight: 22,
   },
   timestamp: {
     color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 11,
-    marginTop: 6,
     alignSelf: 'flex-end',
   },
 });

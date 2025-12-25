@@ -14,23 +14,29 @@ export default function RegisterScreen() {
   const navigation = useNavigation();
   const dispatch = useDispatch();
   const { showAlert, AlertComponent } = useCustomAlert();
-  const { fonts, spacing, isMobile, isTablet } = useResponsive();
+  const { fonts, spacing, borderRadius, scalePx, isMobile, isTablet } = useResponsive();
 
   // Responsive styles
   const dynamicStyles = useMemo(() => ({
+    scrollContent: {
+      padding: spacing.xl,
+    },
     card: {
       width: '100%' as const,
-      maxWidth: isMobile ? 440 : isTablet ? 520 : 600,
+      maxWidth: isMobile ? scalePx(440) : isTablet ? scalePx(520) : scalePx(600),
       backgroundColor: '#2a2a2a',
-      borderRadius: spacing.xl,
+      borderRadius: borderRadius.xl,
       padding: isMobile ? spacing.xl : spacing.xxl,
       borderWidth: 1,
       borderColor: '#3a3a3a',
     },
+    logoContainer: {
+      marginBottom: spacing.xl,
+    },
     logoBackground: {
-      width: isMobile ? 70 : 90,
-      height: isMobile ? 70 : 90,
-      borderRadius: spacing.xl,
+      width: isMobile ? scalePx(70) : scalePx(90),
+      height: isMobile ? scalePx(70) : scalePx(90),
+      borderRadius: borderRadius.xl,
       backgroundColor: '#5b7ef6',
       justifyContent: 'center' as const,
       alignItems: 'center' as const,
@@ -48,12 +54,20 @@ export default function RegisterScreen() {
       textAlign: 'center' as const,
       marginBottom: spacing.xl,
     },
+    tabContainer: {
+      borderRadius: borderRadius.md,
+      padding: spacing.xs,
+    },
+    tab: {
+      paddingVertical: spacing.md,
+      borderRadius: borderRadius.sm,
+    },
     tabText: {
       fontSize: fonts.md,
       fontWeight: '500' as const,
       color: '#9ca3af',
     },
-  }), [fonts, spacing, isMobile, isTablet]);
+  }), [fonts, spacing, borderRadius, scalePx, isMobile, isTablet]);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -152,14 +166,14 @@ export default function RegisterScreen() {
 
       {/* Register Card */}
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, dynamicStyles.scrollContent]}
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.card, dynamicStyles.card]}>
           {/* Logo Icon */}
-          <View style={styles.logoContainer}>
+          <View style={[styles.logoContainer, dynamicStyles.logoContainer]}>
             <View style={dynamicStyles.logoBackground}>
-              <Ionicons name="chatbubbles" size={isMobile ? 35 : 45} color="white" />
+              <Ionicons name="chatbubbles" size={isMobile ? scalePx(35) : scalePx(45)} color="white" />
             </View>
           </View>
 
@@ -168,9 +182,9 @@ export default function RegisterScreen() {
           <Text style={dynamicStyles.subtitle}>Organize social events with friends effortlessly</Text>
 
           {/* Tabs */}
-          <View style={[styles.tabContainer, { marginBottom: spacing.xl }]}>
+          <View style={[styles.tabContainer, dynamicStyles.tabContainer, { marginBottom: spacing.xl }]}>
             <TouchableOpacity
-              style={[styles.tab, activeTab === 'signIn' && styles.activeTab]}
+              style={[styles.tab, dynamicStyles.tab, activeTab === 'signIn' && styles.activeTab]}
               onPress={() => handleTabSwitch('signIn')}
             >
               <Text style={[dynamicStyles.tabText, activeTab === 'signIn' && styles.activeTabText]}>
@@ -178,7 +192,7 @@ export default function RegisterScreen() {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.tab, activeTab === 'signUp' && styles.activeTab]}
+              style={[styles.tab, dynamicStyles.tab, activeTab === 'signUp' && styles.activeTab]}
               onPress={() => handleTabSwitch('signUp')}
             >
               <Text style={[dynamicStyles.tabText, activeTab === 'signUp' && styles.activeTabText]}>
@@ -235,7 +249,7 @@ export default function RegisterScreen() {
               loading={loading}
               fullWidth
               size="lg"
-              style={{ marginTop: 8 }}
+              style={{ marginTop: spacing.sm }}
             />
 
             {/* Skip Login Button */}
@@ -247,7 +261,7 @@ export default function RegisterScreen() {
               fullWidth
               size="md"
               icon="play-circle-outline"
-              style={{ marginTop: 12 }}
+              style={{ marginTop: spacing.md }}
             />
           </View>
         </View>
@@ -265,17 +279,10 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
     minHeight: '100%',
   },
   card: {
     width: '100%',
-    maxWidth: 440,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 24,
-    padding: 32,
-    borderWidth: 1,
-    borderColor: '#3a3a3a',
     ...Platform.select({
       web: {
         boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
@@ -293,123 +300,22 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 24,
-  },
-  logoBackground: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    backgroundColor: '#5b7ef6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#ffffff',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#9ca3af',
-    textAlign: 'center',
-    marginBottom: 24,
   },
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: '#1f1f1f',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 24,
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
     alignItems: 'center',
   },
   activeTab: {
     backgroundColor: '#5b7ef6',
-  },
-  tabText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#9ca3af',
   },
   activeTabText: {
     color: '#ffffff',
   },
   form: {
     width: '100%',
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#d1d5db',
-    marginBottom: 8,
-    marginTop: 4,
-  },
-  input: {
-    width: '100%',
-    height: 48,
-    backgroundColor: '#1f1f1f',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    color: '#ffffff',
-    fontSize: 15,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#3a3a3a',
-  },
-  signUpButton: {
-    width: '100%',
-    height: 48,
-    backgroundColor: '#5b7ef6',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  signUpButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  devButton: {
-    width: '100%',
-    height: 48,
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#f59e0b',
-  },
-  devButtonText: {
-    color: '#f59e0b',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  demoButton: {
-    width: '100%',
-    height: 48,
-    backgroundColor: 'rgba(249, 115, 22, 0.1)',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#f97316',
-    flexDirection: 'row',
-  },
-  demoButtonText: {
-    color: '#f97316',
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  demoIcon: {
-    marginRight: 8,
   },
 });

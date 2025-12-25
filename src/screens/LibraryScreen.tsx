@@ -45,7 +45,7 @@ const getRandomAnimation = (): AnimationState => {
 export default function LibraryScreen() {
   const navigation = useNavigation();
   const { showAlert, AlertComponent } = useCustomAlert();
-  const { fonts, spacing, layout, isMobile, isTablet } = useResponsive();
+  const { fonts, spacing, layout, isMobile, isTablet, borderRadius, scalePx } = useResponsive();
   const [characters, setCharacters] = useState<CharacterBehavior[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,6 +53,91 @@ export default function LibraryScreen() {
   const [selectedCharacter, setSelectedCharacter] = useState<CharacterBehavior | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [currentAnimation, setCurrentAnimation] = useState<AnimationState>('idle');
+
+  // Dynamic styles based on responsive values
+  const dynamicStyles = useMemo(() => ({
+    loadingText: {
+      fontSize: fonts.md,
+      color: '#a1a1aa',
+      marginTop: spacing.lg,
+    },
+    title: {
+      fontSize: isMobile ? fonts.lg : fonts.xxl,
+      fontWeight: '700' as const,
+      color: 'white',
+    },
+    subtitle: {
+      fontSize: fonts.xs,
+      color: '#71717a',
+      marginTop: spacing.xs / 2,
+    },
+    searchInput: {
+      fontSize: fonts.md,
+      color: 'white',
+    },
+    filterLabel: {
+      fontSize: fonts.sm,
+      color: '#a1a1aa',
+      fontWeight: '600' as const,
+      marginBottom: spacing.sm,
+    },
+    roleChipText: {
+      fontSize: fonts.md,
+      color: '#a1a1aa',
+      fontWeight: '600' as const,
+    },
+    characterName: {
+      fontSize: fonts.md,
+      fontWeight: '700' as const,
+      marginBottom: spacing.sm,
+      textAlign: 'center' as const,
+    },
+    characterRole: {
+      fontSize: fonts.sm,
+      color: '#a1a1aa',
+      marginTop: spacing.xs,
+    },
+    characterDescription: {
+      fontSize: fonts.sm,
+      color: '#d4d4d8',
+      lineHeight: scalePx(20),
+      marginBottom: spacing.md,
+    },
+    viewDetailsText: {
+      fontSize: fonts.sm,
+      color: '#8b5cf6',
+      fontWeight: '600' as const,
+    },
+    emptyTitle: {
+      fontSize: fonts.lg,
+      fontWeight: '700' as const,
+      color: 'white',
+      marginTop: spacing.lg,
+      textAlign: 'center' as const,
+    },
+    emptySubtext: {
+      fontSize: fonts.md,
+      color: '#71717a',
+      marginTop: spacing.sm,
+      textAlign: 'center' as const,
+    },
+    modalTitle: {
+      fontSize: isMobile ? fonts.lg : fonts.xl,
+      fontWeight: '700' as const,
+      marginBottom: spacing.xs,
+    },
+    modalSubtitle: {
+      fontSize: fonts.sm,
+      color: '#a1a1aa',
+      marginTop: spacing.xs / 2,
+    },
+    characterInfoDescription: {
+      fontSize: fonts.md,
+      color: '#d4d4d8',
+      lineHeight: scalePx(24),
+      textAlign: 'center' as const,
+    },
+  }), [fonts, spacing, borderRadius, scalePx, isMobile]);
 
   // Responsive card width
   const cardWidth = isMobile ? '100%' : '48%';
@@ -160,18 +245,18 @@ export default function LibraryScreen() {
         ]}
         onPress={() => handleCharacterPress(character)}
       >
-        <Text style={[styles.characterName, { color: character.color, fontSize: fonts.md }]} numberOfLines={1}>
+        <Text style={[dynamicStyles.characterName, { color: character.color }]} numberOfLines={1}>
           {character.name}
         </Text>
 
         <Badge label={character.role || 'Character'} variant="primary" size="sm" style={styles.roleBadge} />
 
-        <Text style={[styles.characterDescription, { fontSize: fonts.sm }]} numberOfLines={3}>
+        <Text style={dynamicStyles.characterDescription} numberOfLines={3}>
           {character.description}
         </Text>
 
         <View style={[styles.cardFooter, { marginTop: spacing.sm, paddingTop: spacing.md }]}>
-          <Text style={[styles.viewDetailsText, { fontSize: fonts.sm }]}>Tap to view in 3D</Text>
+          <Text style={dynamicStyles.viewDetailsText}>Tap to view in 3D</Text>
           <Ionicons name="cube-outline" size={isMobile ? 18 : 20} color="#8b5cf6" />
         </View>
       </TouchableOpacity>
@@ -182,7 +267,7 @@ export default function LibraryScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#8b5cf6" />
-        <Text style={[styles.loadingText, { fontSize: fonts.md }]}>Loading library...</Text>
+        <Text style={dynamicStyles.loadingText}>Loading library...</Text>
       </View>
     );
   }
@@ -195,8 +280,8 @@ export default function LibraryScreen() {
         <View style={[styles.headerLeft, { gap: spacing.md }]}>
           <MaterialCommunityIcons name="emoticon-happy-outline" size={isMobile ? 24 : 28} color="#8b5cf6" />
           <View>
-            <Text style={[styles.title, { fontSize: isMobile ? fonts.lg : fonts.xxl }]}>All Wakattors</Text>
-            <Text style={styles.subtitle}>{filteredCharacters.length} of {characters.length} Characters</Text>
+            <Text style={dynamicStyles.title}>All Wakattors</Text>
+            <Text style={dynamicStyles.subtitle}>{filteredCharacters.length} of {characters.length} Characters</Text>
           </View>
         </View>
         <TouchableOpacity onPress={loadCharacters} style={styles.refreshButton}>
@@ -208,7 +293,7 @@ export default function LibraryScreen() {
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color="#71717a" style={styles.searchIcon} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, dynamicStyles.searchInput]}
           placeholder="Search by name, role, style, or traits..."
           placeholderTextColor="#71717a"
           value={searchQuery}
@@ -223,7 +308,7 @@ export default function LibraryScreen() {
 
       {/* Role/Profession Filter */}
       <View style={styles.filterContainer}>
-        <Text style={styles.filterLabel}>
+        <Text style={dynamicStyles.filterLabel}>
           <Ionicons name="briefcase-outline" size={16} color="#a1a1aa" /> Profession:
         </Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -233,7 +318,7 @@ export default function LibraryScreen() {
               style={[styles.roleChip, selectedRole === role && styles.roleChipActive]}
               onPress={() => setSelectedRole(role)}
             >
-              <Text style={[styles.roleChipText, selectedRole === role && styles.roleChipTextActive]}>
+              <Text style={[dynamicStyles.roleChipText, selectedRole === role && styles.roleChipTextActive]}>
                 {role}
               </Text>
             </TouchableOpacity>
@@ -246,8 +331,8 @@ export default function LibraryScreen() {
         {filteredCharacters.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="search-outline" size={64} color="#52525b" />
-            <Text style={styles.emptyTitle}>No characters found</Text>
-            <Text style={styles.emptySubtext}>
+            <Text style={dynamicStyles.emptyTitle}>No characters found</Text>
+            <Text style={dynamicStyles.emptySubtext}>
               {searchQuery
                 ? `No results for "${searchQuery}"`
                 : 'Try adjusting your filters or search terms'}
@@ -281,14 +366,14 @@ export default function LibraryScreen() {
               <View style={[styles.modalHeader, { padding: spacing.lg }]}>
                 <View style={styles.modalHeaderLeft}>
                   <View>
-                    <Text style={[styles.modalTitle, { color: selectedCharacter.color, fontSize: isMobile ? fonts.lg : fonts.xl }]}>
+                    <Text style={[dynamicStyles.modalTitle, { color: selectedCharacter.color }]}>
                       {selectedCharacter.name}
                     </Text>
-                    <Text style={[styles.modalSubtitle, { fontSize: fonts.sm }]}>{selectedCharacter.role}</Text>
+                    <Text style={dynamicStyles.modalSubtitle}>{selectedCharacter.role}</Text>
                   </View>
                 </View>
-                <TouchableOpacity 
-                  onPress={handleCloseDetail} 
+                <TouchableOpacity
+                  onPress={handleCloseDetail}
                   style={[styles.closeButton, { minWidth: layout.minTouchTarget, minHeight: layout.minTouchTarget }]}
                 >
                   <Ionicons name="close" size={isMobile ? 24 : 28} color="#a1a1aa" />
@@ -305,7 +390,7 @@ export default function LibraryScreen() {
 
               {/* Character Info */}
               <View style={[styles.modalInfo, { padding: spacing.lg }]}>
-                <Text style={[styles.characterInfoDescription, { fontSize: fonts.md }]}>
+                <Text style={dynamicStyles.characterInfoDescription}>
                   {selectedCharacter.description}
                 </Text>
               </View>
@@ -331,7 +416,6 @@ const styles = StyleSheet.create({
   loadingText: {
     color: '#a1a1aa',
     marginTop: 16,
-    fontSize: 16,
   },
   header: {
     flexDirection: 'row',
@@ -348,12 +432,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: {
-    fontSize: 24,
     fontWeight: '700',
     color: 'white',
   },
   subtitle: {
-    fontSize: 12,
     color: '#71717a',
     marginTop: 2,
   },
@@ -378,7 +460,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     color: 'white',
-    fontSize: 15,
   },
   clearButton: {
     padding: 4,
@@ -390,7 +471,6 @@ const styles = StyleSheet.create({
     borderBottomColor: '#27272a',
   },
   filterLabel: {
-    fontSize: 13,
     color: '#a1a1aa',
     fontWeight: '600',
     marginBottom: 10,
@@ -412,7 +492,6 @@ const styles = StyleSheet.create({
   },
   roleChipText: {
     color: '#a1a1aa',
-    fontSize: 14,
     fontWeight: '600',
   },
   roleChipTextActive: {
@@ -438,7 +517,6 @@ const styles = StyleSheet.create({
     // width, minWidth, maxWidth, padding are set dynamically in component
   },
   characterName: {
-    fontSize: 17,
     fontWeight: '700',
     marginBottom: 8,
     textAlign: 'center',
@@ -448,12 +526,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   characterRole: {
-    fontSize: 13,
     color: '#a1a1aa',
     marginTop: 4,
   },
   characterDescription: {
-    fontSize: 14,
     color: '#d4d4d8',
     lineHeight: 20,
     marginBottom: 12,
@@ -468,7 +544,6 @@ const styles = StyleSheet.create({
     borderTopColor: '#27272a',
   },
   viewDetailsText: {
-    fontSize: 13,
     color: '#8b5cf6',
     fontWeight: '600',
   },
@@ -480,14 +555,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyTitle: {
-    fontSize: 18,
     fontWeight: '700',
     color: 'white',
     marginTop: 16,
     textAlign: 'center',
   },
   emptySubtext: {
-    fontSize: 14,
     color: '#71717a',
     marginTop: 8,
     textAlign: 'center',
@@ -532,12 +605,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalTitle: {
-    fontSize: 22,
     fontWeight: '700',
     marginBottom: 4,
   },
   modalSubtitle: {
-    fontSize: 14,
     color: '#a1a1aa',
     marginTop: 2,
   },
@@ -555,7 +626,6 @@ const styles = StyleSheet.create({
     borderTopColor: '#27272a',
   },
   characterInfoDescription: {
-    fontSize: 15,
     color: '#d4d4d8',
     lineHeight: 24,
     textAlign: 'center',

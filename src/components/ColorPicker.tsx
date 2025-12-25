@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useResponsive } from '../constants/Layout';
 
 interface ColorPickerProps {
   label: string;
@@ -9,23 +10,50 @@ interface ColorPickerProps {
 }
 
 export function ColorPicker({ label, selectedColor, onColorSelect, colors }: ColorPickerProps) {
+  const { fonts, spacing, borderRadius, scalePx } = useResponsive();
+
+  const dynamicStyles = useMemo(() => ({
+    container: {
+      marginBottom: spacing.lg,
+    },
+    label: {
+      fontSize: fonts.sm,
+      marginBottom: spacing.sm,
+    },
+    colorGrid: {
+      gap: spacing.sm,
+    },
+    colorSwatch: {
+      width: scalePx(44),
+      height: scalePx(44),
+      borderRadius: borderRadius.sm,
+    },
+    checkmark: {
+      borderRadius: borderRadius.xs,
+    },
+    checkmarkText: {
+      fontSize: scalePx(20),
+    },
+  }), [fonts, spacing, borderRadius, scalePx]);
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={styles.colorGrid}>
+    <View style={[styles.container, dynamicStyles.container]}>
+      <Text style={[styles.label, dynamicStyles.label]}>{label}</Text>
+      <View style={[styles.colorGrid, dynamicStyles.colorGrid]}>
         {colors.map((color) => (
           <TouchableOpacity
             key={color}
             style={[
               styles.colorSwatch,
+              dynamicStyles.colorSwatch,
               { backgroundColor: color },
               selectedColor === color && styles.colorSwatchSelected,
             ]}
             onPress={() => onColorSelect(color)}
           >
             {selectedColor === color && (
-              <View style={styles.checkmark}>
-                <Text style={styles.checkmarkText}>✓</Text>
+              <View style={[styles.checkmark, dynamicStyles.checkmark]}>
+                <Text style={[styles.checkmarkText, dynamicStyles.checkmarkText]}>✓</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -36,24 +64,16 @@ export function ColorPicker({ label, selectedColor, onColorSelect, colors }: Col
 }
 
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: 16,
-  },
+  container: {},
   label: {
     color: '#d1d5db',
-    fontSize: 14,
     fontWeight: '500',
-    marginBottom: 8,
   },
   colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
   },
   colorSwatch: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
     borderWidth: 2,
     borderColor: '#3a3a3a',
     justifyContent: 'center',
@@ -69,11 +89,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 6,
   },
   checkmarkText: {
     color: 'white',
-    fontSize: 20,
     fontWeight: 'bold',
   },
 });

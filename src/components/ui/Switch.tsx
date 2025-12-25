@@ -1,5 +1,6 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import { View, TouchableOpacity, StyleSheet, Animated, ViewStyle, Platform } from 'react-native';
+import { useResponsive } from '../../constants/Layout';
 
 interface SwitchProps {
   value: boolean;
@@ -20,6 +21,7 @@ export function Switch({
   size = 'md',
   style,
 }: SwitchProps) {
+  const { scalePx, borderRadius } = useResponsive();
   const translateX = useRef(new Animated.Value(value ? 1 : 0)).current;
 
   useEffect(() => {
@@ -31,16 +33,16 @@ export function Switch({
     }).start();
   }, [value]);
 
-  const getSizeStyles = () => {
+  const getSizeStyles = useMemo(() => {
     const sizes = {
-      sm: { width: 36, height: 20, thumbSize: 16, translateDistance: 16 },
-      md: { width: 44, height: 24, thumbSize: 20, translateDistance: 20 },
-      lg: { width: 52, height: 28, thumbSize: 24, translateDistance: 24 },
+      sm: { width: scalePx(36), height: scalePx(20), thumbSize: scalePx(16), translateDistance: scalePx(16) },
+      md: { width: scalePx(44), height: scalePx(24), thumbSize: scalePx(20), translateDistance: scalePx(20) },
+      lg: { width: scalePx(52), height: scalePx(28), thumbSize: scalePx(24), translateDistance: scalePx(24) },
     };
     return sizes[size];
-  };
+  }, [scalePx, size]);
 
-  const sizeStyles = getSizeStyles();
+  const sizeStyles = getSizeStyles;
   const thumbTranslateX = translateX.interpolate({
     inputRange: [0, 1],
     outputRange: [2, sizeStyles.translateDistance],
@@ -57,6 +59,7 @@ export function Switch({
           width: sizeStyles.width,
           height: sizeStyles.height,
           backgroundColor: value ? activeColor : inactiveColor,
+          borderRadius: borderRadius.full,
         },
         disabled && styles.disabled,
         style,
@@ -68,6 +71,7 @@ export function Switch({
           {
             width: sizeStyles.thumbSize,
             height: sizeStyles.thumbSize,
+            borderRadius: borderRadius.full,
             transform: [{ translateX: thumbTranslateX }],
           },
         ]}
@@ -78,12 +82,10 @@ export function Switch({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 9999,
     justifyContent: 'center',
   },
   thumb: {
     backgroundColor: '#ffffff',
-    borderRadius: 9999,
     ...Platform.select({
       web: {
         boxShadow: '0 2px 3px rgba(0, 0, 0, 0.2)',

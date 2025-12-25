@@ -154,7 +154,44 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
   // Upgrade prompt modal state
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const { fonts, spacing, layout, isMobile, isTablet, isDesktop, isMobileLandscape, width: screenWidth, height: screenHeight } = useResponsive();
+  const { fonts, spacing, layout, borderRadius, scalePx, isMobile, isTablet, isDesktop, isMobileLandscape, width: screenWidth, height: screenHeight } = useResponsive();
+
+  // Responsive dynamic styles for text and spacing
+  const dynamicStyles = useMemo(() => ({
+    // Typography
+    fullscreenTooltipText: { fontSize: fonts.xs },
+    dividerMessageBadgeText: { fontSize: scalePx(10) },
+    userSpeechText: { fontSize: fonts.xl, lineHeight: fonts.xl },
+    characterName: { fontSize: fonts.lg },
+    messageText: { fontSize: fonts.md },
+    messageTimestamp: { fontSize: fonts.xs },
+    loadingText: { fontSize: fonts.sm },
+    textInput: { fontSize: fonts.md },
+    editMessageInput: { fontSize: fonts.md, borderRadius: borderRadius.sm },
+    cancelText: { fontSize: fonts.sm },
+    saveText: { fontSize: fonts.sm },
+    characterNameText: { fontSize: fonts.lg },
+    hoverNameText: { fontSize: fonts.xl },
+    characterSelectorText: { fontSize: fonts.sm },
+    characterSelectorTitle: { fontSize: fonts.sm },
+    characterSelectorName: { fontSize: fonts.sm },
+    characterSearchInput: { fontSize: fonts.sm },
+    roleFilterText: { fontSize: fonts.xs },
+    characterSectionLabel: { fontSize: fonts.xs },
+    selectedCharacterName: { fontSize: fonts.sm },
+    recordingText: { fontSize: fonts.sm },
+    transcribingText: { fontSize: fonts.sm },
+    liveTranscriptLabel: { fontSize: fonts.xs },
+    liveTranscriptText: { fontSize: fonts.sm },
+    emptyCharacterText: { fontSize: fonts.md },
+    speechBubbleName: { fontSize: fonts.sm },
+    // Spacing & Layout
+    messagesContainer: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+    messageBubble: { borderRadius: borderRadius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+    inputContainer: { padding: spacing.md, marginTop: spacing.sm },
+    inputWrapper: { borderRadius: borderRadius.xl },
+    iconButton: { width: scalePx(40), height: scalePx(40) },
+  }), [fonts, spacing, borderRadius, scalePx]);
 
   // Helper for ultrawide-aware scaling (280px baseline, continues to 1920px)
   const scaleValue = (min: number, max: number) => {
@@ -2322,7 +2359,6 @@ const styles = StyleSheet.create({
   },
   fullscreenTooltipText: {
     color: '#ffffff',
-    fontSize: 12,
     fontWeight: '500',
   },
   dividerMessageBadge: {
@@ -2340,7 +2376,6 @@ const styles = StyleSheet.create({
   },
   dividerMessageBadgeText: {
     color: 'white',
-    fontSize: 10,
     fontWeight: '700',
   },
   userSpeechBubbleContainer: {
@@ -2376,8 +2411,6 @@ const styles = StyleSheet.create({
   userSpeechText: {
     fontFamily: 'Inter-Medium',
     color: '#ffffff',
-    fontSize: 20,
-    lineHeight: 20,
   },
   typingCursor: {
     color: '#ffffff',
@@ -2421,7 +2454,6 @@ const styles = StyleSheet.create({
   },
   characterName: {
     fontFamily: 'Poppins-Bold',
-    fontSize: 18,
     marginBottom: 4,
   },
   messageBubble: {
@@ -2439,7 +2471,6 @@ const styles = StyleSheet.create({
   messageText: {
     fontFamily: 'Inter-Regular',
     color: 'white',
-    fontSize: 16,
     marginBottom: 4,
   },
   messageTypingCursor: {
@@ -2449,7 +2480,6 @@ const styles = StyleSheet.create({
   },
   messageTimestamp: {
     color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 11,
     marginTop: 2,
     alignSelf: 'flex-end',
   },
@@ -2460,7 +2490,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     color: '#a1a1aa',
-    fontSize: 14,
     fontStyle: 'italic',
   },
   inputContainer: {
@@ -2483,7 +2512,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     fontFamily: 'Inter-Regular',
     color: 'white',
-    fontSize: 15,
     paddingHorizontal: 4,
   },
   actionButtons: {
@@ -2525,7 +2553,6 @@ const styles = StyleSheet.create({
   editMessageInput: {
     backgroundColor: '#18181b',
     color: 'white',
-    fontSize: 16,
     padding: 8,
     borderRadius: 8,
     borderWidth: 1,
@@ -2548,11 +2575,9 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     color: '#a1a1aa',
-    fontSize: 14,
   },
   saveText: {
     color: 'white',
-    fontSize: 14,
     fontWeight: '600',
   },
   charactersRow: {
@@ -2577,7 +2602,6 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   characterNameText: {
-    fontSize: 18,
     fontWeight: '700',
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     paddingHorizontal: 12,
@@ -2623,7 +2647,6 @@ const styles = StyleSheet.create({
   hoverNameText: {
     fontFamily: 'Poppins-SemiBold',
     color: 'white',
-    fontSize: 22,
     textAlign: 'center',
     paddingVertical: 6,
     borderRadius: 8,
@@ -2685,7 +2708,6 @@ const styles = StyleSheet.create({
   characterSelectorText: {
     fontFamily: 'Poppins-SemiBold',
     color: '#ff6b35',
-    fontSize: 14,
   },
   // Playback buttons container (holds Replay and Stop/Play side by side)
   playbackButtonsContainer: {
@@ -2751,7 +2773,6 @@ const styles = StyleSheet.create({
   characterSelectorTitle: {
     fontFamily: 'Poppins-SemiBold',
     color: 'white',
-    fontSize: 14,
   },
   characterSelectorScroll: {
     maxHeight: 120,
@@ -2783,7 +2804,6 @@ const styles = StyleSheet.create({
   characterSelectorName: {
     fontFamily: 'Poppins-SemiBold',
     color: '#a1a1aa',
-    fontSize: 14,
   },
   characterSelectorNameActive: {
     color: 'white',
@@ -2802,7 +2822,6 @@ const styles = StyleSheet.create({
   characterSearchInput: {
     flex: 1,
     color: 'white',
-    fontSize: 14,
     paddingVertical: 4,
   },
   roleFilterScroll: {
@@ -2824,7 +2843,6 @@ const styles = StyleSheet.create({
   },
   roleFilterText: {
     color: '#a1a1aa',
-    fontSize: 12,
     fontWeight: '500',
   },
   roleFilterTextActive: {
@@ -2832,7 +2850,6 @@ const styles = StyleSheet.create({
   },
   characterSectionLabel: {
     color: '#71717a',
-    fontSize: 11,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -2862,7 +2879,6 @@ const styles = StyleSheet.create({
   selectedCharacterName: {
     color: 'white',
     fontWeight: '600',
-    fontSize: 13,
   },
   removeCharacterButton: {
     width: 20,
@@ -2913,7 +2929,6 @@ const styles = StyleSheet.create({
   },
   recordingText: {
     color: '#e5e5e5',
-    fontSize: 14,
     fontWeight: '600',
     flex: 1,
   },
@@ -2944,7 +2959,6 @@ const styles = StyleSheet.create({
   },
   transcribingText: {
     color: '#5398BE',
-    fontSize: 14,
     fontWeight: '600',
   },
   liveTranscriptContainer: {
@@ -2958,12 +2972,10 @@ const styles = StyleSheet.create({
   },
   liveTranscriptLabel: {
     color: '#5398BE',
-    fontSize: 12,
     fontWeight: '700',
   },
   liveTranscriptText: {
     color: '#a1a1aa',
-    fontSize: 14,
     flex: 1,
     fontStyle: 'italic',
   },
@@ -2978,7 +2990,6 @@ const styles = StyleSheet.create({
   },
   emptyCharacterText: {
     color: '#666',
-    fontSize: 16,
     textAlign: 'center',
   },
   // Speech bubble styles
@@ -3099,7 +3110,6 @@ const styles = StyleSheet.create({
   },
   speechBubbleName: {
     fontFamily: 'Poppins-Bold',
-    fontSize: 14,
     marginBottom: 2,
   },
   speechBubbleText: {

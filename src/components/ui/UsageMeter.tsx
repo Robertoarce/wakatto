@@ -3,8 +3,9 @@
  * Displays token usage progress bar with tier information
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useResponsive } from '../../constants/Layout';
 import {
   UsageInfo,
   formatTokens,
@@ -27,6 +28,82 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
   compact = false,
   onPress,
 }) => {
+  const { fonts, spacing, borderRadius, scalePx } = useResponsive();
+
+  const dynamicStyles = useMemo(() => ({
+    container: {
+      borderRadius: borderRadius.md,
+      padding: spacing.lg,
+      marginVertical: spacing.sm,
+    },
+    header: {
+      marginBottom: spacing.md,
+    },
+    tierBadge: {
+      borderRadius: borderRadius.xs,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs / 2,
+    },
+    tierText: {
+      fontSize: fonts.xs,
+    },
+    resetText: {
+      fontSize: fonts.xs,
+    },
+    progressContainer: {
+      marginBottom: spacing.sm,
+    },
+    progressBar: {
+      height: scalePx(8),
+      borderRadius: borderRadius.xs,
+    },
+    usageText: {
+      fontSize: fonts.sm,
+    },
+    percentageText: {
+      fontSize: fonts.sm,
+    },
+    remainingText: {
+      fontSize: fonts.xs,
+      marginTop: spacing.xs,
+    },
+    unlimitedText: {
+      fontSize: fonts.sm,
+      marginTop: spacing.xs,
+    },
+    trialWarning: {
+      borderRadius: borderRadius.sm,
+      padding: spacing.sm,
+      marginBottom: spacing.md,
+    },
+    trialWarningText: {
+      fontSize: fonts.xs,
+    },
+    dailyLimitContainer: {
+      marginTop: spacing.md,
+      paddingTop: spacing.md,
+    },
+    dailyLimitText: {
+      fontSize: fonts.xs,
+      marginBottom: spacing.xs,
+    },
+    dailyLimitBar: {
+      height: scalePx(4),
+      borderRadius: borderRadius.xs / 2,
+    },
+    compactContainer: {
+      gap: spacing.sm,
+    },
+    compactBar: {
+      height: scalePx(4),
+      borderRadius: borderRadius.xs / 2,
+    },
+    compactText: {
+      fontSize: fonts.xs,
+      minWidth: scalePx(50),
+    },
+  }), [fonts, spacing, borderRadius, scalePx]);
+
   if (!usage) {
     return null;
   }
@@ -34,13 +111,13 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
   // Admin doesn't need to see usage meter
   if (usage.tier === 'admin') {
     return compact ? null : (
-      <View style={styles.container}>
-        <View style={styles.tierBadge}>
-          <Text style={[styles.tierText, { color: TIER_COLORS.admin }]}>
+      <View style={[styles.container, dynamicStyles.container]}>
+        <View style={[styles.tierBadge, dynamicStyles.tierBadge]}>
+          <Text style={[styles.tierText, dynamicStyles.tierText, { color: TIER_COLORS.admin }]}>
             {TIER_NAMES.admin}
           </Text>
         </View>
-        <Text style={styles.unlimitedText}>Unlimited</Text>
+        <Text style={[styles.unlimitedText, dynamicStyles.unlimitedText]}>Unlimited</Text>
       </View>
     );
   }
@@ -54,19 +131,19 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
   if (compact) {
     return (
       <TouchableOpacity
-        style={styles.compactContainer}
+        style={[styles.compactContainer, dynamicStyles.compactContainer]}
         onPress={onPress}
         activeOpacity={0.7}
       >
-        <View style={styles.compactBar}>
+        <View style={[styles.compactBar, dynamicStyles.compactBar]}>
           <View
             style={[
               styles.compactProgress,
-              { width: `${percentage}%`, backgroundColor: barColor },
+              { width: `${percentage}%`, backgroundColor: barColor, borderRadius: dynamicStyles.compactBar.borderRadius },
             ]}
           />
         </View>
-        <Text style={styles.compactText}>
+        <Text style={[styles.compactText, dynamicStyles.compactText]}>
           {formatTokens(usage.remainingTokens)} left
         </Text>
       </TouchableOpacity>
@@ -75,18 +152,18 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
 
   return (
     <TouchableOpacity
-      style={styles.container}
+      style={[styles.container, dynamicStyles.container]}
       onPress={onPress}
       activeOpacity={onPress ? 0.7 : 1}
     >
       {/* Header with tier badge */}
-      <View style={styles.header}>
-        <View style={[styles.tierBadge, { borderColor: TIER_COLORS[usage.tier] }]}>
-          <Text style={[styles.tierText, { color: TIER_COLORS[usage.tier] }]}>
+      <View style={[styles.header, dynamicStyles.header]}>
+        <View style={[styles.tierBadge, dynamicStyles.tierBadge, { borderColor: TIER_COLORS[usage.tier] }]}>
+          <Text style={[styles.tierText, dynamicStyles.tierText, { color: TIER_COLORS[usage.tier] }]}>
             {TIER_NAMES[usage.tier]}
           </Text>
         </View>
-        <Text style={styles.resetText}>
+        <Text style={[styles.resetText, dynamicStyles.resetText]}>
           {usage.tier === 'trial' && usage.trialDaysRemaining !== undefined
             ? `${usage.trialDaysRemaining} days left in trial`
             : `Resets in ${daysUntilReset} ${daysUntilReset === 1 ? 'day' : 'days'}`}
@@ -95,18 +172,18 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
 
       {/* Trial warning message */}
       {trialMessage && usage.trialDaysRemaining !== undefined && usage.trialDaysRemaining <= 3 && (
-        <View style={styles.trialWarning}>
-          <Text style={styles.trialWarningText}>{trialMessage}</Text>
+        <View style={[styles.trialWarning, dynamicStyles.trialWarning]}>
+          <Text style={[styles.trialWarningText, dynamicStyles.trialWarningText]}>{trialMessage}</Text>
         </View>
       )}
 
       {/* Progress bar */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
+      <View style={[styles.progressContainer, dynamicStyles.progressContainer]}>
+        <View style={[styles.progressBar, dynamicStyles.progressBar]}>
           <View
             style={[
               styles.progressFill,
-              { width: `${percentage}%`, backgroundColor: barColor },
+              { width: `${percentage}%`, backgroundColor: barColor, borderRadius: dynamicStyles.progressBar.borderRadius },
             ]}
           />
           {/* Threshold markers */}
@@ -117,32 +194,33 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
 
       {/* Usage stats */}
       <View style={styles.statsRow}>
-        <Text style={styles.usageText}>
+        <Text style={[styles.usageText, dynamicStyles.usageText]}>
           {formatTokens(usage.tokensUsed)} / {formatTokens(usage.tokenLimit)} tokens
         </Text>
-        <Text style={[styles.percentageText, { color: barColor }]}>
+        <Text style={[styles.percentageText, dynamicStyles.percentageText, { color: barColor }]}>
           {percentage.toFixed(0)}%
         </Text>
       </View>
 
       {/* Remaining tokens */}
-      <Text style={styles.remainingText}>
+      <Text style={[styles.remainingText, dynamicStyles.remainingText]}>
         {formatTokens(usage.remainingTokens)} tokens remaining
       </Text>
 
       {/* Daily message limit for free tier */}
       {dailyStatus && (
-        <View style={styles.dailyLimitContainer}>
-          <Text style={styles.dailyLimitText}>
+        <View style={[styles.dailyLimitContainer, dynamicStyles.dailyLimitContainer]}>
+          <Text style={[styles.dailyLimitText, dynamicStyles.dailyLimitText]}>
             Daily messages: {dailyStatus.used}/{dailyStatus.limit}
           </Text>
-          <View style={styles.dailyLimitBar}>
+          <View style={[styles.dailyLimitBar, dynamicStyles.dailyLimitBar]}>
             <View
               style={[
                 styles.dailyLimitFill,
                 {
                   width: `${Math.min(100, (dailyStatus.used / dailyStatus.limit) * 100)}%`,
                   backgroundColor: dailyStatus.remaining === 0 ? '#EF4444' : '#3B82F6',
+                  borderRadius: dynamicStyles.dailyLimitBar.borderRadius,
                 },
               ]}
             />
@@ -156,44 +234,30 @@ export const UsageMeter: React.FC<UsageMeterProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#1F2937',
-    borderRadius: 12,
-    padding: 16,
-    marginVertical: 8,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
   },
   tierBadge: {
     borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
   },
   tierText: {
-    fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
   },
   resetText: {
-    fontSize: 12,
     color: '#9CA3AF',
   },
-  progressContainer: {
-    marginBottom: 8,
-  },
+  progressContainer: {},
   progressBar: {
-    height: 8,
     backgroundColor: '#374151',
-    borderRadius: 4,
     overflow: 'hidden',
     position: 'relative',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 4,
   },
   marker: {
     position: 'absolute',
@@ -208,78 +272,55 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   usageText: {
-    fontSize: 14,
     color: '#D1D5DB',
   },
   percentageText: {
-    fontSize: 14,
     fontWeight: '600',
   },
   remainingText: {
-    fontSize: 12,
     color: '#9CA3AF',
-    marginTop: 4,
   },
   unlimitedText: {
-    fontSize: 14,
     color: '#9CA3AF',
-    marginTop: 4,
   },
   // Trial warning styles
   trialWarning: {
     backgroundColor: 'rgba(59, 130, 246, 0.15)',
-    borderRadius: 6,
-    padding: 8,
-    marginBottom: 12,
   },
   trialWarningText: {
-    fontSize: 12,
     color: '#93C5FD',
     textAlign: 'center',
   },
   // Daily limit styles
   dailyLimitContainer: {
-    marginTop: 12,
-    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#374151',
   },
   dailyLimitText: {
-    fontSize: 12,
     color: '#9CA3AF',
-    marginBottom: 4,
   },
   dailyLimitBar: {
-    height: 4,
     backgroundColor: '#374151',
-    borderRadius: 2,
     overflow: 'hidden',
   },
   dailyLimitFill: {
     height: '100%',
-    borderRadius: 2,
   },
   // Compact styles
   compactContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
   compactBar: {
     flex: 1,
-    height: 4,
     backgroundColor: '#374151',
-    borderRadius: 2,
     overflow: 'hidden',
   },
   compactProgress: {
     height: '100%',
-    borderRadius: 2,
   },
   compactText: {
-    fontSize: 11,
     color: '#9CA3AF',
-    minWidth: 50,
     textAlign: 'right',
   },
 });

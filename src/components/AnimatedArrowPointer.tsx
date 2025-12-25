@@ -1,5 +1,6 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, Animated, Platform } from 'react-native';
+import { useResponsive } from '../constants/Layout';
 
 // useNativeDriver is not fully supported on web
 const useNativeDriver = Platform.OS !== 'web';
@@ -24,6 +25,38 @@ interface AnimatedArrowPointerProps {
 export function AnimatedArrowPointer({ visible, message = 'Add more characters!' }: AnimatedArrowPointerProps) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const bounceAnim = useRef(new Animated.Value(0)).current;
+  const { fonts, spacing, borderRadius, scalePx, components } = useResponsive();
+
+  const dynamicStyles = useMemo(() => ({
+    container: {
+      top: spacing.xs,
+      left: spacing.md,
+    },
+    arrowShaft: {
+      width: scalePx(4),
+      height: scalePx(40),
+      borderRadius: scalePx(2),
+    },
+    arrowHead: {
+      borderLeftWidth: scalePx(12),
+      borderRightWidth: scalePx(12),
+      borderTopWidth: scalePx(16),
+    },
+    arrowContainer: {
+      width: scalePx(40),
+      height: scalePx(60),
+    },
+    messageContainer: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: borderRadius.sm,
+      marginBottom: spacing.xs,
+    },
+    messageText: {
+      fontSize: fonts.xs,
+    },
+    bounceOffset: scalePx(8),
+  }), [fonts, spacing, borderRadius, scalePx, components]);
 
   useEffect(() => {
     if (visible) {
@@ -63,27 +96,29 @@ export function AnimatedArrowPointer({ visible, message = 'Add more characters!'
 
   const translateY = bounceAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 8],
+    outputRange: [0, dynamicStyles.bounceOffset],
   });
 
   return (
     <Animated.View
       style={[
         styles.container,
+        dynamicStyles.container,
         {
           opacity: fadeAnim,
         },
       ]}
     >
       {/* Simple 2D Text Message */}
-      <View style={styles.messageContainer}>
-        <Text style={styles.messageText}>{message}</Text>
+      <View style={[styles.messageContainer, dynamicStyles.messageContainer]}>
+        <Text style={[styles.messageText, dynamicStyles.messageText]}>{message}</Text>
       </View>
 
       {/* 2D Arrow pointing down */}
       <Animated.View
         style={[
           styles.arrowContainer,
+          dynamicStyles.arrowContainer,
           {
             transform: [{ translateY }],
           },
@@ -98,8 +133,6 @@ export function AnimatedArrowPointer({ visible, message = 'Add more characters!'
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 5,
-    left: 10,
     zIndex: 1000,
     alignItems: 'center',
     pointerEvents: 'none',
@@ -109,36 +142,24 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   arrowShaft: {
-    width: 4,
-    height: 40,
     backgroundColor: '#f97316',
-    borderRadius: 2,
   },
   arrowHead: {
     width: 0,
     height: 0,
     backgroundColor: 'transparent',
     borderStyle: 'solid',
-    borderLeftWidth: 12,
-    borderRightWidth: 12,
-    borderTopWidth: 16,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
     borderTopColor: '#f97316',
     marginTop: -1,
   },
   arrowContainer: {
-    width: 40,
-    height: 60,
     alignItems: 'center',
     justifyContent: 'center',
   },
   messageContainer: {
     backgroundColor: 'rgba(249, 115, 22, 0.95)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginBottom: 4,
     ...Platform.select({
       web: {
         boxShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
@@ -156,7 +177,6 @@ const styles = StyleSheet.create({
   },
   messageText: {
     color: '#ffffff',
-    fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
   },

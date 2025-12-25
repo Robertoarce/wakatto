@@ -3,42 +3,7 @@ import { View, StyleSheet, Text } from 'react-native';
 import DialogCloseButton from './DialogCloseButton';
 import { RoundButton } from '../atoms';
 import IconText from './IconText';
-
-const styles = StyleSheet.create({
-  modal: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  container: {
-    padding: 24,
-    borderRadius: 10,
-    backgroundColor: 'white',
-    width: '100%',
-  },
-  main: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  titleContainer: {
-    marginBottom: 16,
-  },
-  titleText: {
-    fontSize: 18,
-  },
-  bodyContainer: {
-    marginBottom: 16,
-  },
-  bodyText: {
-    fontSize: 14,
-    color: 'gray',
-  },
-  checkList: {
-    marginBottom: 16,
-  },
-});
+import { useResponsive } from '../constants/Layout';
 
 interface Props {
   title: string;
@@ -54,32 +19,85 @@ const DismissableDialog: React.FC<Props> = ({
   onPressOk,
   onRequestClose,
   buttonText = 'ok',
-}: Props): JSX.Element => (
-  <View style={styles.modal}>
-    <View style={styles.container}>
-      <DialogCloseButton onPress={onRequestClose} />
-      <View style={styles.main}>
-        <View style={styles.titleContainer}>
-          <Text style={styles.titleText}>{title}</Text>
+}: Props): JSX.Element => {
+  const { fonts, spacing, borderRadius } = useResponsive();
+
+  const dynamicStyles = React.useMemo(() => ({
+    modal: {
+      padding: spacing.xl,
+    },
+    container: {
+      padding: spacing.xl,
+      borderRadius: borderRadius.md,
+    },
+    titleContainer: {
+      marginBottom: spacing.lg,
+    },
+    titleText: {
+      fontSize: fonts.lg,
+    },
+    bodyContainer: {
+      marginBottom: spacing.lg,
+    },
+    bodyText: {
+      fontSize: fonts.sm,
+    },
+    checkList: {
+      marginBottom: spacing.lg,
+    },
+  }), [fonts, spacing, borderRadius]);
+
+  return (
+    <View style={[styles.modal, dynamicStyles.modal]}>
+      <View style={[styles.container, dynamicStyles.container]}>
+        <DialogCloseButton onPress={onRequestClose} />
+        <View style={styles.main}>
+          <View style={[styles.titleContainer, dynamicStyles.titleContainer]}>
+            <Text style={[styles.titleText, dynamicStyles.titleText]}>{title}</Text>
+          </View>
+          <View style={[styles.bodyContainer, dynamicStyles.bodyContainer]}>
+            <Text style={[styles.bodyText, dynamicStyles.bodyText]}>{body}</Text>
+          </View>
+          <View style={[styles.checkList, dynamicStyles.checkList]}>
+            <IconText icon="check" iconColor="#4080FD">
+              Check 1
+            </IconText>
+            <IconText icon="check" iconColor="#4080FD">
+              Check 2
+            </IconText>
+            <IconText icon="check" iconColor="#4080FD">
+              Check 3
+            </IconText>
+          </View>
+          <RoundButton color="#4080FD" label={buttonText} onPress={onPressOk} />
         </View>
-        <View style={styles.bodyContainer}>
-          <Text style={styles.bodyText}>{body}</Text>
-        </View>
-        <View style={styles.checkList}>
-          <IconText icon="check" iconColor="#4080FD">
-            Check 1
-          </IconText>
-          <IconText icon="check" iconColor="#4080FD">
-            Check 2
-          </IconText>
-          <IconText icon="check" iconColor="#4080FD">
-            Check 3
-          </IconText>
-        </View>
-        <RoundButton color="#4080FD" label={buttonText} onPress={onPressOk} />
       </View>
     </View>
-  </View>
-);
+  );
+};
+
+const styles = StyleSheet.create({
+  modal: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  container: {
+    backgroundColor: 'white',
+    width: '100%',
+  },
+  main: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  titleContainer: {},
+  titleText: {},
+  bodyContainer: {},
+  bodyText: {
+    color: 'gray',
+  },
+  checkList: {},
+});
 
 export default DismissableDialog;

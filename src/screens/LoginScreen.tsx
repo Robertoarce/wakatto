@@ -148,7 +148,7 @@ export default function LoginScreen() {
           </Text>
 
           {/* Tabs */}
-          <View style={[styles.tabContainer, { marginBottom: isNarrow ? spacing.md : spacing.lg, borderRadius: layout.borderRadiusMd }]}>
+          <View style={[styles.tabContainer, { marginBottom: isNarrow ? spacing.md : spacing.lg, borderRadius: layout.borderRadiusMd, padding: spacing.xs }]}>
             <TouchableOpacity
               style={[
                 styles.tab,
@@ -213,6 +213,7 @@ export default function LoginScreen() {
   );
 }
 
+// Static styles - responsive values applied inline via useResponsive
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -264,7 +265,7 @@ const styles = StyleSheet.create({
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: '#1f1f1f',
-    padding: 4,
+    // padding applied dynamically via spacing.xs
   },
   tab: {
     flex: 1,
@@ -282,58 +283,5 @@ const styles = StyleSheet.create({
   },
   form: {
     width: '100%',
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#d1d5db',
-    marginBottom: 8,
-    marginTop: 4,
-  },
-  input: {
-    width: '100%',
-    height: 48,
-    backgroundColor: '#1f1f1f',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    color: '#ffffff',
-    fontSize: 15,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#3a3a3a',
-  },
-  signInButton: {
-    width: '100%',
-    height: 48,
-    backgroundColor: '#5b7ef6',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  signInButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  demoButton: {
-    width: '100%',
-    height: 48,
-    backgroundColor: 'rgba(249, 115, 22, 0.1)',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#f97316',
-    flexDirection: 'row',
-  },
-  demoButtonText: {
-    color: '#f97316',
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  demoIcon: {
-    marginRight: 8,
   },
 });

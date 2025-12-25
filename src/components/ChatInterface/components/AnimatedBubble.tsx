@@ -3,7 +3,7 @@
  * Supports sliding in from right, sliding left, and fading out
  */
 
-import React, { useRef, useEffect, memo } from 'react';
+import React, { useRef, useEffect, memo, useMemo } from 'react';
 import { Animated, Platform, View, Text, StyleSheet, Easing } from 'react-native';
 import { useResponsive } from '../../../constants/Layout';
 import { FadingLine } from './FadingLine';
@@ -46,10 +46,29 @@ export const AnimatedBubble = memo(function AnimatedBubble({
   onAnimationComplete,
   containerWidth,
 }: AnimatedBubbleProps) {
-  const { fonts, isMobile } = useResponsive();
+  const { fonts, spacing, borderRadius, components, isMobile } = useResponsive();
 
   // Scale character name font size based on screen
   const nameFontSize = isMobile ? fonts.md : fonts.lg;
+
+  // Dynamic styles based on responsive values
+  const dynamicStyles = useMemo(() => ({
+    bubble: {
+      backgroundColor: 'rgba(30, 30, 40, 0.95)',
+      borderRadius: borderRadius.lg,
+      padding: components.speechBubble.padding,
+      borderWidth: components.speechBubble.borderWidth,
+      minWidth: components.speechBubble.minWidth,
+      overflow: 'hidden' as const,
+    },
+    bubbleName: {
+      fontFamily: 'Inter-Bold',
+      marginBottom: spacing.xs,
+      letterSpacing: 0.5,
+    },
+    // Gap value for slide animation calculation
+    bubbleGap: spacing.sm,
+  }), [borderRadius, components, spacing]);
 
   // Animation values
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -83,7 +102,7 @@ export const AnimatedBubble = memo(function AnimatedBubble({
       case 'sliding_left':
         // Slide from right position to left position
         // Calculate the distance to slide (roughly half container width + gap)
-        const slideDistance = -(maxWidth + 8); // width + gap
+        const slideDistance = -(maxWidth + dynamicStyles.bubbleGap); // width + gap
         Animated.timing(slideAnim, {
           toValue: slideDistance,
           duration: SLIDE_DURATION,
@@ -123,7 +142,7 @@ export const AnimatedBubble = memo(function AnimatedBubble({
     }
 
     prevAnimationState.current = animationState;
-  }, [animationState, slideAnim, fadeAnim, scaleAnim, containerWidth, maxWidth, bubble.id, onAnimationComplete]);
+  }, [animationState, slideAnim, fadeAnim, scaleAnim, containerWidth, maxWidth, bubble.id, onAnimationComplete, dynamicStyles.bubbleGap]);
 
   // Cleanup animations on unmount
   useEffect(() => {
@@ -140,7 +159,7 @@ export const AnimatedBubble = memo(function AnimatedBubble({
   return (
     <Animated.View
       style={[
-        styles.bubble,
+        dynamicStyles.bubble,
         {
           maxWidth,
           maxHeight,
@@ -154,7 +173,7 @@ export const AnimatedBubble = memo(function AnimatedBubble({
       ]}
     >
       {/* Character name */}
-      <Text style={[styles.bubbleName, { color: characterColor, fontSize: nameFontSize }]}>
+      <Text style={[dynamicStyles.bubbleName, { color: characterColor, fontSize: nameFontSize }]}>
         {characterName}
       </Text>
 
@@ -175,19 +194,6 @@ export const AnimatedBubble = memo(function AnimatedBubble({
 });
 
 const styles = StyleSheet.create({
-  bubble: {
-    backgroundColor: 'rgba(30, 30, 40, 0.95)',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 3,
-    minWidth: 120,
-    overflow: 'hidden',
-  },
-  bubbleName: {
-    fontFamily: 'Inter-Bold',
-    marginBottom: 6,
-    letterSpacing: 0.5,
-  },
   linesContainer: {
     flexDirection: 'column',
   },

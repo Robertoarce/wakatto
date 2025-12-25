@@ -3,7 +3,7 @@
  * 3-step LLM-assisted character creation flow
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CharacterDisplay3D } from './CharacterDisplay3D';
@@ -27,8 +27,108 @@ interface Props {
 }
 
 export function CharacterCreationWizard({ onComplete, onCancel }: Props) {
-  const { fonts, spacing, layout, isMobile } = useResponsive();
+  const { fonts, spacing, layout, borderRadius, scalePx, components, isMobile } = useResponsive();
   const [step, setStep] = useState<WizardStep>('name');
+
+  const dynamicStyles = useMemo(() => ({
+    header: {
+      padding: spacing.xl,
+    },
+    headerTitle: {
+      fontSize: fonts.xxl,
+    },
+    contentContainer: {
+      padding: spacing.xl,
+    },
+    iconContainer: {
+      marginBottom: spacing.xl,
+    },
+    stepTitle: {
+      fontSize: isMobile ? fonts.xl : fonts.xxl,
+      marginBottom: spacing.md,
+    },
+    stepDescription: {
+      fontSize: fonts.lg,
+      marginBottom: spacing.xl,
+      lineHeight: scalePx(24),
+    },
+    nameInput: {
+      fontSize: fonts.lg,
+      padding: spacing.lg,
+      borderRadius: borderRadius.md,
+      marginBottom: spacing.xl,
+    },
+    inputLabel: {
+      fontSize: fonts.lg,
+      marginTop: spacing.lg,
+      marginBottom: spacing.sm,
+    },
+    input: {
+      fontSize: fonts.lg,
+      padding: spacing.md,
+      borderRadius: borderRadius.sm,
+      marginBottom: spacing.md,
+    },
+    textArea: {
+      minHeight: scalePx(100),
+    },
+    primaryButton: {
+      gap: spacing.sm,
+      paddingVertical: spacing.lg,
+      paddingHorizontal: spacing.xxl,
+      borderRadius: borderRadius.md,
+      marginTop: spacing.lg,
+    },
+    primaryButtonText: {
+      fontSize: fonts.lg,
+    },
+    loadingText: {
+      fontSize: fonts.xl,
+      marginTop: spacing.lg,
+      marginBottom: spacing.sm,
+    },
+    errorText: {
+      fontSize: fonts.sm,
+      marginTop: spacing.md,
+    },
+    questionsContainer: {
+      padding: spacing.lg,
+      borderRadius: borderRadius.md,
+      marginBottom: spacing.xl,
+    },
+    questionsTitle: {
+      fontSize: fonts.lg,
+      marginBottom: spacing.md,
+    },
+    questionText: {
+      fontSize: fonts.sm,
+      marginBottom: spacing.sm,
+      lineHeight: scalePx(20),
+    },
+    previewContainer: {
+      height: isMobile ? scalePx(200) : scalePx(250),
+      borderRadius: borderRadius.md,
+      marginBottom: spacing.xl,
+    },
+    infoContainer: {
+      maxHeight: scalePx(300),
+      marginBottom: spacing.lg,
+    },
+    infoRow: {
+      marginBottom: spacing.md,
+    },
+    infoLabel: {
+      fontSize: fonts.sm,
+      marginRight: spacing.sm,
+      minWidth: scalePx(100),
+    },
+    infoValue: {
+      fontSize: fonts.sm,
+    },
+    iconSize: isMobile ? components.iconSizes.xl : scalePx(64),
+    iconSizeMd: components.iconSizes.lg,
+    iconSizeSm: components.iconSizes.md,
+  }), [fonts, spacing, borderRadius, scalePx, components, isMobile]);
   const [characterName, setCharacterName] = useState('');
   const [analysis, setAnalysis] = useState<CharacterAnalysis | null>(null);
   const [userTraits, setUserTraits] = useState<string[]>(['', '', '']);
@@ -123,24 +223,20 @@ export function CharacterCreationWizard({ onComplete, onCancel }: Props) {
       case 'name':
         return (
           <View style={styles.stepContent}>
-            <View style={[styles.iconContainer, { marginBottom: spacing.xl }]}>
-              <Ionicons name="person-add" size={isMobile ? 48 : 64} color="#8b5cf6" />
+            <View style={[styles.iconContainer, dynamicStyles.iconContainer]}>
+              <Ionicons name="person-add" size={dynamicStyles.iconSize} color="#8b5cf6" />
             </View>
-            <Text style={[styles.stepTitle, { fontSize: isMobile ? fonts.xl : fonts.xxl, marginBottom: spacing.md }]}>
+            <Text style={[styles.stepTitle, dynamicStyles.stepTitle]}>
               What's the character's name?
             </Text>
-            <Text style={[styles.stepDescription, { fontSize: fonts.md, marginBottom: spacing.xl }]}>
+            <Text style={[styles.stepDescription, dynamicStyles.stepDescription]}>
               Enter a known character (Einstein, Goku, Superman) or create your own fictional character
             </Text>
             <TextInput
               style={[
-                styles.nameInput, 
-                { 
-                  fontSize: fonts.lg, 
-                  padding: spacing.lg,
-                  marginBottom: spacing.xl,
-                  maxWidth: isMobile ? '100%' : 500,
-                }
+                styles.nameInput,
+                dynamicStyles.nameInput,
+                { maxWidth: isMobile ? '100%' : scalePx(500) }
               ]}
               value={characterName}
               onChangeText={setCharacterName}
@@ -149,20 +245,17 @@ export function CharacterCreationWizard({ onComplete, onCancel }: Props) {
               autoFocus
               onSubmitEditing={handleNameSubmit}
             />
-            {error && <Text style={[styles.errorText, { fontSize: fonts.sm }]}>{error}</Text>}
-            <TouchableOpacity 
+            {error && <Text style={[styles.errorText, dynamicStyles.errorText]}>{error}</Text>}
+            <TouchableOpacity
               style={[
-                styles.primaryButton, 
-                { 
-                  paddingVertical: spacing.lg, 
-                  paddingHorizontal: spacing.xxl,
-                  minHeight: layout.minTouchTarget,
-                }
-              ]} 
+                styles.primaryButton,
+                dynamicStyles.primaryButton,
+                { minHeight: layout.minTouchTarget }
+              ]}
               onPress={handleNameSubmit}
             >
-              <Text style={[styles.primaryButtonText, { fontSize: fonts.lg }]}>Analyze Character</Text>
-              <Ionicons name="arrow-forward" size={isMobile ? 18 : 20} color="white" />
+              <Text style={[styles.primaryButtonText, dynamicStyles.primaryButtonText]}>Analyze Character</Text>
+              <Ionicons name="arrow-forward" size={dynamicStyles.iconSizeSm} color="white" />
             </TouchableOpacity>
           </View>
         );
@@ -171,10 +264,10 @@ export function CharacterCreationWizard({ onComplete, onCancel }: Props) {
         return (
           <View style={styles.stepContent}>
             <ActivityIndicator size="large" color="#8b5cf6" />
-            <Text style={[styles.loadingText, { fontSize: fonts.lg, marginTop: spacing.lg }]}>
+            <Text style={[styles.loadingText, dynamicStyles.loadingText]}>
               Analyzing "{characterName}"...
             </Text>
-            <Text style={[styles.stepDescription, { fontSize: fonts.md }]}>
+            <Text style={[styles.stepDescription, dynamicStyles.stepDescription]}>
               Our AI is determining if this is a known character
             </Text>
           </View>
@@ -183,38 +276,37 @@ export function CharacterCreationWizard({ onComplete, onCancel }: Props) {
       case 'known-review':
         return (
           <View style={styles.stepContent}>
-            <Text style={[styles.stepTitle, { fontSize: isMobile ? fonts.xl : fonts.xxl }]}>Character Found!</Text>
-            <Text style={[styles.stepDescription, { fontSize: fonts.md }]}>
+            <Text style={[styles.stepTitle, dynamicStyles.stepTitle]}>Character Found!</Text>
+            <Text style={[styles.stepDescription, dynamicStyles.stepDescription]}>
               We've generated a configuration for {generatedCharacter?.name}. Review and adjust as needed.
             </Text>
             {generatedCharacter && (
               <>
-                <View style={[styles.previewContainer, { height: isMobile ? 200 : 250, marginBottom: spacing.xl }]}>
+                <View style={[styles.previewContainer, dynamicStyles.previewContainer]}>
                   <CharacterDisplay3D character={generatedCharacter} isActive={true} />
                 </View>
-                <ScrollView style={styles.infoContainer}>
-                  <View style={[styles.infoRow, { marginBottom: spacing.md }]}>
-                    <Text style={[styles.infoLabel, { fontSize: fonts.sm }]}>Name:</Text>
-                    <Text style={[styles.infoValue, { fontSize: fonts.sm }]}>{generatedCharacter.name}</Text>
+                <ScrollView style={[styles.infoContainer, dynamicStyles.infoContainer]}>
+                  <View style={[styles.infoRow, dynamicStyles.infoRow]}>
+                    <Text style={[styles.infoLabel, dynamicStyles.infoLabel]}>Name:</Text>
+                    <Text style={[styles.infoValue, dynamicStyles.infoValue]}>{generatedCharacter.name}</Text>
                   </View>
-                  <View style={[styles.infoRow, { marginBottom: spacing.md }]}>
-                    <Text style={[styles.infoLabel, { fontSize: fonts.sm }]}>Role:</Text>
-                    <Text style={styles.infoValue}>{generatedCharacter.role}</Text>
+                  <View style={[styles.infoRow, dynamicStyles.infoRow]}>
+                    <Text style={[styles.infoLabel, dynamicStyles.infoLabel]}>Role:</Text>
+                    <Text style={[styles.infoValue, dynamicStyles.infoValue]}>{generatedCharacter.role}</Text>
                   </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Description:</Text>
-                    <Text style={styles.infoValue}>{generatedCharacter.description}</Text>
+                  <View style={[styles.infoRow, dynamicStyles.infoRow]}>
+                    <Text style={[styles.infoLabel, dynamicStyles.infoLabel]}>Description:</Text>
+                    <Text style={[styles.infoValue, dynamicStyles.infoValue]}>{generatedCharacter.description}</Text>
                   </View>
-
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>System Prompt:</Text>
-                    <Text style={styles.infoValue}>{generatedCharacter.systemPrompt}</Text>
+                  <View style={[styles.infoRow, dynamicStyles.infoRow]}>
+                    <Text style={[styles.infoLabel, dynamicStyles.infoLabel]}>System Prompt:</Text>
+                    <Text style={[styles.infoValue, dynamicStyles.infoValue]}>{generatedCharacter.systemPrompt}</Text>
                   </View>
                 </ScrollView>
-                {error && <Text style={styles.errorText}>{error}</Text>}
-                <TouchableOpacity style={styles.primaryButton} onPress={handleSaveCharacter}>
-                  <Ionicons name="checkmark-circle" size={24} color="white" />
-                  <Text style={styles.primaryButtonText}>Create Character</Text>
+                {error && <Text style={[styles.errorText, dynamicStyles.errorText]}>{error}</Text>}
+                <TouchableOpacity style={[styles.primaryButton, dynamicStyles.primaryButton]} onPress={handleSaveCharacter}>
+                  <Ionicons name="checkmark-circle" size={dynamicStyles.iconSizeMd} color="white" />
+                  <Text style={[styles.primaryButtonText, dynamicStyles.primaryButtonText]}>Create Character</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -224,25 +316,25 @@ export function CharacterCreationWizard({ onComplete, onCancel }: Props) {
       case 'fictional-input':
         return (
           <View style={styles.stepContent}>
-            <Text style={styles.stepTitle}>Describe Your Character</Text>
-            <Text style={styles.stepDescription}>
+            <Text style={[styles.stepTitle, dynamicStyles.stepTitle]}>Describe Your Character</Text>
+            <Text style={[styles.stepDescription, dynamicStyles.stepDescription]}>
               Help us create "{characterName}" by providing 2-3 key traits or a description
             </Text>
 
             {analysis?.suggestedQuestions && analysis.suggestedQuestions.length > 0 && (
-              <View style={styles.questionsContainer}>
-                <Text style={styles.questionsTitle}>Consider these questions:</Text>
+              <View style={[styles.questionsContainer, dynamicStyles.questionsContainer]}>
+                <Text style={[styles.questionsTitle, dynamicStyles.questionsTitle]}>Consider these questions:</Text>
                 {analysis.suggestedQuestions.map((question, index) => (
-                  <Text key={index} style={styles.questionText}>• {question}</Text>
+                  <Text key={index} style={[styles.questionText, dynamicStyles.questionText]}>• {question}</Text>
                 ))}
               </View>
             )}
 
-            <Text style={styles.inputLabel}>Key Traits (2-3)</Text>
+            <Text style={[styles.inputLabel, dynamicStyles.inputLabel]}>Key Traits (2-3)</Text>
             {userTraits.map((trait, index) => (
               <TextInput
                 key={index}
-                style={styles.input}
+                style={[styles.input, dynamicStyles.input]}
                 value={trait}
                 onChangeText={(text) => {
                   const newTraits = [...userTraits];
@@ -254,9 +346,9 @@ export function CharacterCreationWizard({ onComplete, onCancel }: Props) {
               />
             ))}
 
-            <Text style={styles.inputLabel}>Additional Description (Optional)</Text>
+            <Text style={[styles.inputLabel, dynamicStyles.inputLabel]}>Additional Description (Optional)</Text>
             <TextInput
-              style={[styles.input, styles.textArea]}
+              style={[styles.input, dynamicStyles.input, styles.textArea, dynamicStyles.textArea]}
               value={userDescription}
               onChangeText={setUserDescription}
               placeholder="Describe your character's personality, appearance, and role..."
@@ -265,10 +357,10 @@ export function CharacterCreationWizard({ onComplete, onCancel }: Props) {
               numberOfLines={4}
             />
 
-            {error && <Text style={styles.errorText}>{error}</Text>}
-            <TouchableOpacity style={styles.primaryButton} onPress={handleFictionalSubmit}>
-              <Text style={styles.primaryButtonText}>Generate Character</Text>
-              <Ionicons name="arrow-forward" size={20} color="white" />
+            {error && <Text style={[styles.errorText, dynamicStyles.errorText]}>{error}</Text>}
+            <TouchableOpacity style={[styles.primaryButton, dynamicStyles.primaryButton]} onPress={handleFictionalSubmit}>
+              <Text style={[styles.primaryButtonText, dynamicStyles.primaryButtonText]}>Generate Character</Text>
+              <Ionicons name="arrow-forward" size={dynamicStyles.iconSizeSm} color="white" />
             </TouchableOpacity>
           </View>
         );
@@ -277,46 +369,45 @@ export function CharacterCreationWizard({ onComplete, onCancel }: Props) {
         return (
           <View style={styles.stepContent}>
             <ActivityIndicator size="large" color="#8b5cf6" />
-            <Text style={styles.loadingText}>Creating "{characterName}"...</Text>
-            <Text style={styles.stepDescription}>Our AI is generating your character's personality and appearance</Text>
+            <Text style={[styles.loadingText, dynamicStyles.loadingText]}>Creating "{characterName}"...</Text>
+            <Text style={[styles.stepDescription, dynamicStyles.stepDescription]}>Our AI is generating your character's personality and appearance</Text>
           </View>
         );
 
       case 'final-review':
         return (
           <View style={styles.stepContent}>
-            <Text style={styles.stepTitle}>Your Character is Ready!</Text>
-            <Text style={styles.stepDescription}>
+            <Text style={[styles.stepTitle, dynamicStyles.stepTitle]}>Your Character is Ready!</Text>
+            <Text style={[styles.stepDescription, dynamicStyles.stepDescription]}>
               Review your new character and adjust traits if needed
             </Text>
             {generatedCharacter && (
               <>
-                <View style={styles.previewContainer}>
+                <View style={[styles.previewContainer, dynamicStyles.previewContainer]}>
                   <CharacterDisplay3D character={generatedCharacter} isActive={true} />
                 </View>
-                <ScrollView style={styles.infoContainer}>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Name:</Text>
-                    <Text style={styles.infoValue}>{generatedCharacter.name}</Text>
+                <ScrollView style={[styles.infoContainer, dynamicStyles.infoContainer]}>
+                  <View style={[styles.infoRow, dynamicStyles.infoRow]}>
+                    <Text style={[styles.infoLabel, dynamicStyles.infoLabel]}>Name:</Text>
+                    <Text style={[styles.infoValue, dynamicStyles.infoValue]}>{generatedCharacter.name}</Text>
                   </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Role:</Text>
-                    <Text style={styles.infoValue}>{generatedCharacter.role}</Text>
+                  <View style={[styles.infoRow, dynamicStyles.infoRow]}>
+                    <Text style={[styles.infoLabel, dynamicStyles.infoLabel]}>Role:</Text>
+                    <Text style={[styles.infoValue, dynamicStyles.infoValue]}>{generatedCharacter.role}</Text>
                   </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Description:</Text>
-                    <Text style={styles.infoValue}>{generatedCharacter.description}</Text>
+                  <View style={[styles.infoRow, dynamicStyles.infoRow]}>
+                    <Text style={[styles.infoLabel, dynamicStyles.infoLabel]}>Description:</Text>
+                    <Text style={[styles.infoValue, dynamicStyles.infoValue]}>{generatedCharacter.description}</Text>
                   </View>
-
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>System Prompt:</Text>
-                    <Text style={styles.infoValue}>{generatedCharacter.systemPrompt}</Text>
+                  <View style={[styles.infoRow, dynamicStyles.infoRow]}>
+                    <Text style={[styles.infoLabel, dynamicStyles.infoLabel]}>System Prompt:</Text>
+                    <Text style={[styles.infoValue, dynamicStyles.infoValue]}>{generatedCharacter.systemPrompt}</Text>
                   </View>
                 </ScrollView>
-                {error && <Text style={styles.errorText}>{error}</Text>}
-                <TouchableOpacity style={styles.primaryButton} onPress={handleSaveCharacter}>
-                  <Ionicons name="checkmark-circle" size={24} color="white" />
-                  <Text style={styles.primaryButtonText}>Create Character</Text>
+                {error && <Text style={[styles.errorText, dynamicStyles.errorText]}>{error}</Text>}
+                <TouchableOpacity style={[styles.primaryButton, dynamicStyles.primaryButton]} onPress={handleSaveCharacter}>
+                  <Ionicons name="checkmark-circle" size={dynamicStyles.iconSizeMd} color="white" />
+                  <Text style={[styles.primaryButtonText, dynamicStyles.primaryButtonText]}>Create Character</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -327,7 +418,7 @@ export function CharacterCreationWizard({ onComplete, onCancel }: Props) {
         return (
           <View style={styles.stepContent}>
             <ActivityIndicator size="large" color="#8b5cf6" />
-            <Text style={styles.loadingText}>Saving your character...</Text>
+            <Text style={[styles.loadingText, dynamicStyles.loadingText]}>Saving your character...</Text>
           </View>
         );
 
@@ -338,13 +429,13 @@ export function CharacterCreationWizard({ onComplete, onCancel }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Create New Wakattor</Text>
+      <View style={[styles.header, dynamicStyles.header]}>
+        <Text style={[styles.headerTitle, dynamicStyles.headerTitle]}>Create New Wakattor</Text>
         <TouchableOpacity onPress={onCancel} disabled={step === 'saving'}>
-          <Ionicons name="close" size={28} color="white" />
+          <Ionicons name="close" size={dynamicStyles.iconSizeMd} color="white" />
         </TouchableOpacity>
       </View>
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+      <ScrollView style={styles.content} contentContainerStyle={dynamicStyles.contentContainer}>
         {renderStepContent()}
       </ScrollView>
     </View>
@@ -360,150 +451,96 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#27272a',
   },
   headerTitle: {
-    fontSize: 24,
     fontWeight: 'bold',
     color: 'white',
   },
   content: {
     flex: 1,
   },
-  contentContainer: {
-    padding: 24,
-  },
   stepContent: {
     alignItems: 'center',
   },
-  iconContainer: {
-    marginBottom: 24,
-  },
+  iconContainer: {},
   stepTitle: {
-    fontSize: 28,
     fontWeight: 'bold',
     color: 'white',
-    marginBottom: 12,
     textAlign: 'center',
   },
   stepDescription: {
-    fontSize: 16,
     color: '#a1a1aa',
-    marginBottom: 24,
     textAlign: 'center',
-    lineHeight: 24,
   },
   nameInput: {
     width: '100%',
-    maxWidth: 500,
     backgroundColor: '#27272a',
     color: 'white',
-    fontSize: 18,
-    padding: 16,
-    borderRadius: 12,
     borderWidth: 2,
     borderColor: '#3f3f46',
-    marginBottom: 24,
   },
   inputLabel: {
     alignSelf: 'flex-start',
-    fontSize: 16,
     fontWeight: '600',
     color: '#8b5cf6',
-    marginTop: 16,
-    marginBottom: 8,
   },
   input: {
     width: '100%',
     backgroundColor: '#27272a',
     color: 'white',
-    fontSize: 16,
-    padding: 12,
-    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#3f3f46',
-    marginBottom: 12,
   },
   textArea: {
-    minHeight: 100,
     textAlignVertical: 'top',
   },
   primaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
     backgroundColor: '#8b5cf6',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    marginTop: 16,
   },
   primaryButtonText: {
     color: 'white',
-    fontSize: 18,
     fontWeight: '600',
   },
   loadingText: {
-    fontSize: 20,
     color: 'white',
-    marginTop: 16,
-    marginBottom: 8,
   },
   errorText: {
     color: '#ef4444',
-    fontSize: 14,
-    marginTop: 12,
     textAlign: 'center',
   },
   questionsContainer: {
     width: '100%',
     backgroundColor: '#27272a',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 24,
   },
   questionsTitle: {
-    fontSize: 16,
     fontWeight: '600',
     color: '#8b5cf6',
-    marginBottom: 12,
   },
   questionText: {
-    fontSize: 14,
     color: '#d4d4d8',
-    marginBottom: 8,
-    lineHeight: 20,
   },
   previewContainer: {
-    height: 250,
     width: '100%',
     backgroundColor: '#0a0a0a',
-    borderRadius: 12,
-    marginBottom: 24,
     overflow: 'hidden',
   },
   infoContainer: {
     width: '100%',
-    maxHeight: 300,
-    marginBottom: 16,
   },
   infoRow: {
     flexDirection: 'row',
-    marginBottom: 12,
   },
   infoLabel: {
-    fontSize: 14,
     fontWeight: '600',
     color: '#8b5cf6',
-    marginRight: 8,
-    minWidth: 100,
   },
   infoValue: {
     flex: 1,
-    fontSize: 14,
     color: '#d4d4d8',
   },
 });

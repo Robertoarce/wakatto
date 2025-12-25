@@ -3,7 +3,7 @@
  * Shows warning messages at 80% and 90% token usage thresholds
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import {
   UsageInfo,
@@ -12,6 +12,7 @@ import {
   getDaysUntilReset,
   getWarningMessage,
 } from '../services/usageTrackingService';
+import { useResponsive } from '../constants/Layout';
 
 interface LimitWarningBannerProps {
   usage: UsageInfo;
@@ -24,6 +25,57 @@ export const LimitWarningBanner: React.FC<LimitWarningBannerProps> = ({
   onDismiss,
   onUpgrade,
 }) => {
+  const { fonts, spacing, borderRadius, scalePx } = useResponsive();
+
+  const dynamicStyles = useMemo(() => ({
+    container: {
+      borderRadius: borderRadius.sm,
+      marginHorizontal: spacing.lg,
+      marginVertical: spacing.sm,
+    },
+    content: {
+      padding: spacing.md,
+      gap: spacing.md,
+    },
+    iconContainer: {
+      width: scalePx(24),
+      height: scalePx(24),
+      borderRadius: scalePx(12),
+    },
+    title: {
+      fontSize: fonts.sm,
+      marginBottom: spacing.xs / 2,
+    },
+    message: {
+      fontSize: fonts.xs,
+      lineHeight: scalePx(18),
+    },
+    subtext: {
+      fontSize: scalePx(11),
+      marginTop: spacing.xs,
+    },
+    actions: {
+      gap: spacing.sm,
+    },
+    upgradeButton: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: borderRadius.xs,
+    },
+    upgradeText: {
+      fontSize: fonts.xs,
+    },
+    dismissButton: {
+      padding: spacing.xs,
+    },
+    dismissText: {
+      fontSize: fonts.lg,
+    },
+    progressBar: {
+      height: scalePx(3),
+    },
+  }), [fonts, spacing, borderRadius, scalePx]);
+
   if (!usage.warningLevel || usage.warningLevel === 'blocked') {
     return null;
   }
@@ -40,10 +92,10 @@ export const LimitWarningBanner: React.FC<LimitWarningBannerProps> = ({
   const daysUntilReset = getDaysUntilReset(usage.periodEnd);
 
   return (
-    <View style={[styles.container, { backgroundColor, borderColor }]}>
-      <View style={styles.content}>
+    <View style={[styles.container, dynamicStyles.container, { backgroundColor, borderColor }]}>
+      <View style={[styles.content, dynamicStyles.content]}>
         {/* Warning icon */}
-        <View style={styles.iconContainer}>
+        <View style={[styles.iconContainer, dynamicStyles.iconContainer]}>
           <Text style={[styles.icon, { color: iconColor }]}>
             {isCritical ? '!' : '!'}
           </Text>
@@ -51,37 +103,37 @@ export const LimitWarningBanner: React.FC<LimitWarningBannerProps> = ({
 
         {/* Message */}
         <View style={styles.messageContainer}>
-          <Text style={[styles.title, { color: textColor }]}>
+          <Text style={[styles.title, dynamicStyles.title, { color: textColor }]}>
             {isCritical ? 'Running Low on Tokens' : 'Usage Warning'}
           </Text>
-          <Text style={[styles.message, { color: textColor }]}>
+          <Text style={[styles.message, dynamicStyles.message, { color: textColor }]}>
             {message}
           </Text>
-          <Text style={[styles.subtext, { color: textColor, opacity: 0.8 }]}>
+          <Text style={[styles.subtext, dynamicStyles.subtext, { color: textColor, opacity: 0.8 }]}>
             Resets in {daysUntilReset} {daysUntilReset === 1 ? 'day' : 'days'}
           </Text>
         </View>
 
         {/* Actions */}
-        <View style={styles.actions}>
+        <View style={[styles.actions, dynamicStyles.actions]}>
           {onUpgrade && (
             <TouchableOpacity
-              style={[styles.upgradeButton, { backgroundColor: iconColor }]}
+              style={[styles.upgradeButton, dynamicStyles.upgradeButton, { backgroundColor: iconColor }]}
               onPress={onUpgrade}
             >
-              <Text style={styles.upgradeText}>Upgrade</Text>
+              <Text style={[styles.upgradeText, dynamicStyles.upgradeText]}>Upgrade</Text>
             </TouchableOpacity>
           )}
           {onDismiss && (
-            <TouchableOpacity style={styles.dismissButton} onPress={onDismiss}>
-              <Text style={[styles.dismissText, { color: textColor }]}>x</Text>
+            <TouchableOpacity style={[styles.dismissButton, dynamicStyles.dismissButton]} onPress={onDismiss}>
+              <Text style={[styles.dismissText, dynamicStyles.dismissText, { color: textColor }]}>x</Text>
             </TouchableOpacity>
           )}
         </View>
       </View>
 
       {/* Progress indicator */}
-      <View style={styles.progressBar}>
+      <View style={[styles.progressBar, dynamicStyles.progressBar]}>
         <View
           style={[
             styles.progressFill,
@@ -99,70 +151,43 @@ export const LimitWarningBanner: React.FC<LimitWarningBannerProps> = ({
 const styles = StyleSheet.create({
   container: {
     borderWidth: 1,
-    borderRadius: 8,
-    marginHorizontal: 16,
-    marginVertical: 8,
     overflow: 'hidden',
   },
   content: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    padding: 12,
-    gap: 12,
   },
   iconContainer: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
     backgroundColor: 'rgba(0, 0, 0, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   icon: {
-    fontSize: 14,
     fontWeight: 'bold',
   },
   messageContainer: {
     flex: 1,
   },
   title: {
-    fontSize: 14,
     fontWeight: '600',
-    marginBottom: 2,
   },
-  message: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  subtext: {
-    fontSize: 11,
-    marginTop: 4,
-  },
+  message: {},
+  subtext: {},
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
-  upgradeButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-  },
+  upgradeButton: {},
   upgradeText: {
     color: '#FFFFFF',
-    fontSize: 12,
     fontWeight: '600',
   },
-  dismissButton: {
-    padding: 4,
-  },
+  dismissButton: {},
   dismissText: {
-    fontSize: 18,
     fontWeight: '300',
     opacity: 0.6,
   },
   progressBar: {
-    height: 3,
     backgroundColor: 'rgba(0, 0, 0, 0.1)',
   },
   progressFill: {

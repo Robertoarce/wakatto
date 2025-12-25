@@ -12,7 +12,7 @@ interface CardProps {
 }
 
 export function Card({ children, title, description, variant = 'default', onPress, style }: CardProps) {
-  const { fonts, spacing, isMobile } = useResponsive();
+  const { fonts, spacing, borderRadius, isMobile } = useResponsive();
 
   const getVariantStyles = (): ViewStyle => {
     const shadowStyles = Platform.select({
@@ -96,7 +96,7 @@ export function Card({ children, title, description, variant = 'default', onPres
       <TouchableOpacity
         onPress={onPress}
         activeOpacity={0.7}
-        style={[styles.card, { padding: cardPadding }, getVariantStyles(), style]}
+        style={[styles.card, { padding: cardPadding, borderRadius: borderRadius.lg }, getVariantStyles(), style]}
       >
         {content}
       </TouchableOpacity>
@@ -104,7 +104,7 @@ export function Card({ children, title, description, variant = 'default', onPres
   }
 
   return (
-    <View style={[styles.card, { padding: cardPadding }, getVariantStyles(), style]}>
+    <View style={[styles.card, { padding: cardPadding, borderRadius: borderRadius.lg }, getVariantStyles(), style]}>
       {content}
     </View>
   );
@@ -112,7 +112,7 @@ export function Card({ children, title, description, variant = 'default', onPres
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
+    // borderRadius applied dynamically via borderRadius.lg
   },
   header: {
   },

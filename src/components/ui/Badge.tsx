@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useResponsive } from '../../constants/Layout';
 
 type BadgeVariant = 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'info';
 type BadgeSize = 'sm' | 'md' | 'lg';
@@ -22,6 +23,7 @@ export function Badge({
   style,
   textStyle,
 }: BadgeProps) {
+  const { fonts, spacing, borderRadius, components } = useResponsive();
   const getVariantStyles = (): ViewStyle => {
     const variants: Record<BadgeVariant, ViewStyle> = {
       default: {
@@ -59,19 +61,19 @@ export function Badge({
   const getSizeStyles = (): ViewStyle & { fontSize: number } => {
     const sizes: Record<BadgeSize, ViewStyle & { fontSize: number }> = {
       sm: {
-        paddingVertical: 2,
-        paddingHorizontal: 6,
-        fontSize: 11,
+        paddingVertical: spacing.xs / 2,
+        paddingHorizontal: spacing.sm,
+        fontSize: fonts.xs,
       },
       md: {
-        paddingVertical: 4,
-        paddingHorizontal: 10,
-        fontSize: 13,
+        paddingVertical: spacing.xs,
+        paddingHorizontal: spacing.md,
+        fontSize: fonts.sm,
       },
       lg: {
-        paddingVertical: 6,
-        paddingHorizontal: 14,
-        fontSize: 15,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.lg,
+        fontSize: fonts.md,
       },
     };
     return sizes[size];
@@ -93,12 +95,12 @@ export function Badge({
   const variantStyles = getVariantStyles();
   const sizeStyles = getSizeStyles();
   const textColor = getTextColor();
-  const iconSize = size === 'sm' ? 12 : size === 'md' ? 14 : 16;
+  const iconSize = size === 'sm' ? components.iconSizes.xs : size === 'md' ? components.iconSizes.sm : components.iconSizes.md;
 
   return (
-    <View style={[styles.badge, variantStyles, sizeStyles, style]}>
+    <View style={[styles.badge, { borderRadius: borderRadius.full }, variantStyles, sizeStyles, style]}>
       {icon && (
-        <Ionicons name={icon} size={iconSize} color={textColor} style={styles.icon} />
+        <Ionicons name={icon} size={iconSize} color={textColor} style={{ marginRight: spacing.xs }} />
       )}
       <Text style={[styles.text, { color: textColor, fontSize: sizeStyles.fontSize }, textStyle]}>
         {label}
@@ -111,14 +113,10 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 9999,
     borderWidth: 1,
     alignSelf: 'flex-start',
   },
   text: {
     fontWeight: '600',
-  },
-  icon: {
-    marginRight: 4,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector, useDispatch } from 'react-redux';
@@ -29,20 +29,51 @@ const SettingsScreen = (): JSX.Element => {
   const { showAlert, AlertComponent } = useCustomAlert();
   const { user } = useSelector((state: RootState) => state.auth);
   const { currentUsage, isLoading: usageLoading } = useSelector((state: RootState) => state.usage);
-  const { fonts, spacing, layout, isMobile } = useResponsive();
+  const { fonts, spacing, layout, borderRadius, scalePx, isMobile } = useResponsive();
 
   // Dynamic styles for responsive typography
-  const dynamicStyles = {
+  const dynamicStyles = useMemo(() => ({
     section: { padding: spacing.lg },
-    sectionTitle: { fontSize: fonts.lg, fontWeight: 'bold' as const, color: 'white', marginBottom: spacing.sm },
-    label: { color: '#d4d4d8', fontSize: fonts.md, fontWeight: '600' as const, marginBottom: spacing.sm, marginTop: spacing.sm },
-    infoText: { color: '#a1a1aa', fontSize: fonts.lg },
-    aboutText: { color: '#a1a1aa', fontSize: fonts.md },
-    helperText: { fontSize: fonts.sm, color: '#71717a' },
-    providerButtonText: { color: '#a1a1aa', fontSize: fonts.md, fontWeight: '600' as const },
-    testResultLabel: { color: '#a1a1aa', fontSize: fonts.sm },
-    testResultValue: { color: '#22c55e', fontSize: fonts.sm, fontWeight: '600' as const },
-  };
+    sectionTitle: { fontSize: fonts.lg, fontWeight: 'bold' as const, marginBottom: spacing.sm },
+    label: { fontSize: fonts.sm, fontWeight: '600' as const, marginBottom: spacing.sm, marginTop: spacing.md },
+    infoText: { fontSize: fonts.lg },
+    aboutText: { fontSize: fonts.sm, marginBottom: spacing.sm },
+    helperText: { fontSize: scalePx(11) },
+    providerButtonText: { fontSize: fonts.sm, fontWeight: '600' as const },
+    testResultLabel: { fontSize: fonts.sm, marginBottom: spacing.xs },
+    testResultValue: { fontSize: fonts.lg, fontWeight: '600' as const, marginBottom: spacing.xs / 2 },
+    infoRow: { gap: spacing.md, marginBottom: spacing.lg },
+    providerButtons: { gap: spacing.sm, marginBottom: spacing.sm },
+    providerButton: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      minHeight: layout.minTouchTarget,
+      borderRadius: borderRadius.sm,
+    },
+    input: { fontSize: fonts.sm, borderRadius: borderRadius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md },
+    infoBox: { marginTop: spacing.md, padding: spacing.md, borderRadius: borderRadius.sm, gap: spacing.sm },
+    infoBoxText: { fontSize: fonts.xs },
+    warningBox: { marginTop: spacing.md, padding: spacing.md, borderRadius: borderRadius.sm, gap: spacing.sm },
+    warningBoxText: { fontSize: fonts.xs },
+    testResultsContainer: { marginTop: spacing.lg, padding: spacing.lg, borderRadius: borderRadius.sm },
+    testResultsTitle: { fontSize: fonts.lg, marginBottom: spacing.md },
+    testResult: { marginBottom: spacing.md, paddingBottom: spacing.md },
+    testResultTime: { fontSize: fonts.xs },
+    testError: { fontSize: fonts.xs, marginTop: spacing.xs },
+    tierBadge: { borderRadius: borderRadius.xs, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs / 2 },
+    usageProgressBar: { height: scalePx(8), borderRadius: borderRadius.xs },
+    card: { borderRadius: borderRadius.md, padding: spacing.lg },
+    logoutButton: { gap: spacing.sm, paddingVertical: spacing.md, borderRadius: borderRadius.sm },
+    logoutButtonText: { fontSize: fonts.lg, fontWeight: '600' as const },
+    saveButton: { paddingVertical: spacing.lg, borderRadius: borderRadius.sm, marginTop: spacing.lg },
+    saveButtonText: { fontSize: fonts.lg },
+    testButton: { paddingVertical: spacing.lg, borderRadius: borderRadius.sm, marginTop: spacing.md, gap: spacing.sm },
+    testButtonText: { fontSize: fonts.lg, fontWeight: '600' as const },
+    versionText: { fontSize: fonts.xs },
+    temperatureLabel: { width: scalePx(50), fontSize: scalePx(11) },
+    resetTempButton: { gap: spacing.xs, marginTop: spacing.sm },
+    resetTempText: { fontSize: fonts.xs },
+  }), [fonts, spacing, layout, borderRadius, scalePx]);
 
   const [aiProvider, setAIProvider] = useState<AIProvider>('anthropic');
   const [apiKey, setApiKey] = useState('');
@@ -666,64 +697,41 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0f0f0f',
   },
-  section: {
-    padding: 16,
-  },
+  section: {},
   sectionTitle: {
-    fontSize: 18,
     fontWeight: 'bold',
     color: 'white',
-    marginBottom: 12,
   },
   card: {
     backgroundColor: '#171717',
-    borderRadius: 12,
-    padding: 16,
     borderWidth: 1,
     borderColor: '#27272a',
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
   },
   infoText: {
     color: '#a1a1aa',
-    fontSize: 16,
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#ef4444',
   },
   logoutButtonText: {
     color: '#ef4444',
-    fontSize: 16,
-    fontWeight: '600',
   },
   label: {
     color: '#d4d4d8',
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-    marginTop: 12,
   },
   providerButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 8,
   },
   providerButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
     backgroundColor: '#27272a',
     borderWidth: 2,
     borderColor: '#27272a',
@@ -734,19 +742,13 @@ const styles = StyleSheet.create({
   },
   providerButtonText: {
     color: '#a1a1aa',
-    fontSize: 14,
-    fontWeight: '600',
   },
   providerButtonTextActive: {
     color: 'white',
   },
   input: {
     backgroundColor: '#27272a',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
     color: 'white',
-    fontSize: 14,
     borderWidth: 1,
     borderColor: '#3f3f46',
   },
@@ -758,108 +760,68 @@ const styles = StyleSheet.create({
   inputWithButton: {
     flex: 1,
     backgroundColor: '#27272a',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    paddingRight: 44,
     color: 'white',
-    fontSize: 14,
     borderWidth: 1,
     borderColor: '#3f3f46',
   },
   eyeButton: {
     position: 'absolute',
-    right: 12,
-    padding: 4,
   },
   infoBox: {
     flexDirection: 'row',
-    gap: 8,
     backgroundColor: '#1e1b4b',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 12,
     borderWidth: 1,
     borderColor: '#4c1d95',
   },
   infoBoxText: {
     flex: 1,
     color: '#c4b5fd',
-    fontSize: 13,
   },
   warningBox: {
     flexDirection: 'row',
-    gap: 8,
     backgroundColor: '#422006',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 12,
     borderWidth: 1,
     borderColor: '#78350f',
   },
   warningBoxText: {
     flex: 1,
     color: '#fbbf24',
-    fontSize: 13,
   },
   saveButton: {
     backgroundColor: '#8b5cf6',
-    paddingVertical: 14,
-    borderRadius: 8,
     alignItems: 'center',
-    marginTop: 16,
   },
   saveButtonText: {
     color: 'white',
-    fontSize: 16,
     fontWeight: 'bold',
   },
   testButton: {
     backgroundColor: '#06b6d4',
-    paddingVertical: 14,
-    borderRadius: 8,
     alignItems: 'center',
-    marginTop: 12,
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 8,
   },
   testButtonDisabled: {
     opacity: 0.6,
   },
   testButtonText: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
   },
   testResultsContainer: {
-    marginTop: 16,
     backgroundColor: '#27272a',
-    borderRadius: 8,
-    padding: 16,
   },
   testResultsTitle: {
     color: 'white',
-    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 12,
   },
   testResult: {
-    marginBottom: 12,
-    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#3f3f46',
   },
   testResultLabel: {
     color: '#a1a1aa',
-    fontSize: 14,
-    marginBottom: 4,
   },
-  testResultValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
+  testResultValue: {},
   testSuccess: {
     color: '#10b981',
   },
@@ -868,48 +830,35 @@ const styles = StyleSheet.create({
   },
   testResultTime: {
     color: '#71717a',
-    fontSize: 12,
   },
   testError: {
     color: '#ef4444',
-    fontSize: 12,
-    marginTop: 4,
     fontStyle: 'italic',
   },
   aboutText: {
     color: '#a1a1aa',
-    fontSize: 14,
-    marginBottom: 8,
   },
   versionText: {
     color: '#71717a',
-    fontSize: 12,
   },
   helperText: {
     color: '#71717a',
-    fontSize: 11,
   },
   temperatureContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
   temperatureLabel: {
     color: '#71717a',
-    fontSize: 11,
-    width: 50,
     textAlign: 'center',
   },
   resetTempButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 8,
     alignSelf: 'flex-start',
   },
   resetTempText: {
     color: '#8b5cf6',
-    fontSize: 12,
   },
   // Usage section styles
   loadingContainer: {

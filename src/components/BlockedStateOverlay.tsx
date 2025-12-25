@@ -3,7 +3,7 @@
  * Shown when user has reached their token limit (100%)
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import {
   UsageInfo,
@@ -13,6 +13,7 @@ import {
   TIER_NAMES,
   DAILY_MESSAGE_LIMITS,
 } from '../services/usageTrackingService';
+import { useResponsive } from '../constants/Layout';
 
 interface BlockedStateOverlayProps {
   usage: UsageInfo;
@@ -26,11 +27,120 @@ export const BlockedStateOverlay: React.FC<BlockedStateOverlayProps> = ({
   onDismiss,
 }) => {
   const { width: viewportWidth } = useWindowDimensions();
+  const { fonts, spacing, borderRadius, components, scalePx } = useResponsive();
   const daysUntilReset = getDaysUntilReset(usage.periodEnd);
   const resetDate = formatPeriodEnd(usage.periodEnd);
 
   // Responsive maxWidth - 90% of viewport, capped at 400px
-  const contentMaxWidth = Math.min(400, viewportWidth * 0.9);
+  const contentMaxWidth = Math.min(scalePx(400), viewportWidth * 0.9);
+
+  // Dynamic styles based on responsive values
+  const dynamicStyles = useMemo(() => {
+    const iconSize = components.iconSizes.xxl;
+    return {
+      container: {
+        position: 'absolute' as const,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(17, 24, 39, 0.95)',
+        justifyContent: 'center' as const,
+        alignItems: 'center' as const,
+        padding: spacing.xl,
+        zIndex: 100,
+      },
+      content: {
+        backgroundColor: '#1F2937',
+        borderRadius: borderRadius.lg,
+        padding: spacing.xl,
+        width: '100%' as const,
+        alignItems: 'center' as const,
+      },
+      iconContainer: {
+        width: iconSize,
+        height: iconSize,
+        borderRadius: iconSize / 2,
+        backgroundColor: '#FEE2E2',
+        justifyContent: 'center' as const,
+        alignItems: 'center' as const,
+        marginBottom: spacing.lg,
+      },
+      icon: {
+        fontSize: fonts.xxxl,
+        fontWeight: 'bold' as const,
+        color: '#EF4444',
+      },
+      title: {
+        fontSize: fonts.xl,
+        fontWeight: '700' as const,
+        color: '#F9FAFB',
+        marginBottom: spacing.sm,
+        textAlign: 'center' as const,
+      },
+      message: {
+        fontSize: fonts.md,
+        color: '#D1D5DB',
+        textAlign: 'center' as const,
+        lineHeight: scalePx(20),
+        marginBottom: spacing.lg,
+      },
+      resetContainer: {
+        backgroundColor: '#374151',
+        borderRadius: borderRadius.sm,
+        padding: spacing.lg,
+        alignItems: 'center' as const,
+        marginBottom: spacing.xl,
+        width: '100%' as const,
+      },
+      resetLabel: {
+        fontSize: fonts.xs,
+        color: '#9CA3AF',
+        marginBottom: spacing.xs,
+      },
+      resetDate: {
+        fontSize: fonts.xxl,
+        fontWeight: '700' as const,
+        color: '#F9FAFB',
+      },
+      resetDays: {
+        fontSize: fonts.xs,
+        color: '#9CA3AF',
+        marginTop: spacing.xs,
+      },
+      actions: {
+        flexDirection: 'column' as const,
+        gap: spacing.md,
+        width: '100%' as const,
+        marginBottom: spacing.lg,
+      },
+      upgradeButton: {
+        backgroundColor: '#8B5CF6',
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.xl,
+        borderRadius: borderRadius.sm,
+        alignItems: 'center' as const,
+      },
+      upgradeText: {
+        color: '#FFFFFF',
+        fontSize: fonts.md,
+        fontWeight: '600' as const,
+      },
+      dismissButton: {
+        paddingVertical: spacing.sm,
+        alignItems: 'center' as const,
+      },
+      dismissText: {
+        color: '#9CA3AF',
+        fontSize: fonts.md,
+      },
+      hint: {
+        fontSize: fonts.xs,
+        color: '#6B7280',
+        textAlign: 'center' as const,
+      },
+    };
+  }, [fonts, spacing, borderRadius, components, scalePx]);
 
   // Check if blocked due to daily message limit (free tier only)
   const isBlockedByDailyLimit = usage.tier === 'free' &&
@@ -48,32 +158,32 @@ export const BlockedStateOverlay: React.FC<BlockedStateOverlayProps> = ({
   const dismissText = isBlockedByDailyLimit ? "I'll come back tomorrow" : "I'll wait for reset";
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.content, { maxWidth: contentMaxWidth }]}>
+    <View style={dynamicStyles.container}>
+      <View style={[dynamicStyles.content, { maxWidth: contentMaxWidth }]}>
         {/* Icon */}
-        <View style={styles.iconContainer}>
-          <Text style={styles.icon}>!</Text>
+        <View style={dynamicStyles.iconContainer}>
+          <Text style={dynamicStyles.icon}>!</Text>
         </View>
 
         {/* Title */}
-        <Text style={styles.title}>{title}</Text>
+        <Text style={dynamicStyles.title}>{title}</Text>
 
         {/* Message */}
-        <Text style={styles.message}>{message}</Text>
+        <Text style={dynamicStyles.message}>{message}</Text>
 
         {/* Reset countdown */}
-        <View style={styles.resetContainer}>
+        <View style={dynamicStyles.resetContainer}>
           {isBlockedByDailyLimit ? (
             <>
-              <Text style={styles.resetLabel}>Daily limit</Text>
-              <Text style={styles.resetDate}>{usage.dailyMessagesLimit} messages</Text>
-              <Text style={styles.resetDays}>{resetInfo}</Text>
+              <Text style={dynamicStyles.resetLabel}>Daily limit</Text>
+              <Text style={dynamicStyles.resetDate}>{usage.dailyMessagesLimit} messages</Text>
+              <Text style={dynamicStyles.resetDays}>{resetInfo}</Text>
             </>
           ) : (
             <>
-              <Text style={styles.resetLabel}>Resets on</Text>
-              <Text style={styles.resetDate}>{resetDate}</Text>
-              <Text style={styles.resetDays}>
+              <Text style={dynamicStyles.resetLabel}>Resets on</Text>
+              <Text style={dynamicStyles.resetDate}>{resetDate}</Text>
+              <Text style={dynamicStyles.resetDays}>
                 ({daysUntilReset} {daysUntilReset === 1 ? 'day' : 'days'} remaining)
               </Text>
             </>
@@ -81,21 +191,21 @@ export const BlockedStateOverlay: React.FC<BlockedStateOverlayProps> = ({
         </View>
 
         {/* Actions */}
-        <View style={styles.actions}>
+        <View style={dynamicStyles.actions}>
           {onUpgrade && (
-            <TouchableOpacity style={styles.upgradeButton} onPress={onUpgrade}>
-              <Text style={styles.upgradeText}>Upgrade Plan</Text>
+            <TouchableOpacity style={dynamicStyles.upgradeButton} onPress={onUpgrade}>
+              <Text style={dynamicStyles.upgradeText}>Upgrade Plan</Text>
             </TouchableOpacity>
           )}
           {onDismiss && (
-            <TouchableOpacity style={styles.dismissButton} onPress={onDismiss}>
-              <Text style={styles.dismissText}>{dismissText}</Text>
+            <TouchableOpacity style={dynamicStyles.dismissButton} onPress={onDismiss}>
+              <Text style={dynamicStyles.dismissText}>{dismissText}</Text>
             </TouchableOpacity>
           )}
         </View>
 
         {/* Tier comparison hint */}
-        <Text style={styles.hint}>
+        <Text style={dynamicStyles.hint}>
           {isBlockedByDailyLimit
             ? 'Upgrade to remove daily message limits'
             : 'Upgrade to get more tokens and unlock additional features'}
@@ -112,6 +222,7 @@ export const BlockedInputIndicator: React.FC<{
   usage: UsageInfo;
   onUpgrade?: () => void;
 }> = ({ usage, onUpgrade }) => {
+  const { fonts, spacing, borderRadius, scalePx } = useResponsive();
   const daysUntilReset = getDaysUntilReset(usage.periodEnd);
 
   // Check if blocked due to daily message limit (free tier only)
@@ -125,17 +236,70 @@ export const BlockedInputIndicator: React.FC<{
     ? 'Come back tomorrow'
     : `Resets in ${daysUntilReset} ${daysUntilReset === 1 ? 'day' : 'days'}`;
 
+  // Dynamic inline styles
+  const inlineStyles = useMemo(() => {
+    const iconSize = scalePx(24);
+    return {
+      inlineContainer: {
+        backgroundColor: '#FEF2F2',
+        borderTopWidth: scalePx(1),
+        borderTopColor: '#FCA5A5',
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.lg,
+      },
+      inlineContent: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        gap: spacing.md,
+      },
+      inlineIcon: {
+        width: iconSize,
+        height: iconSize,
+        borderRadius: iconSize / 2,
+        backgroundColor: '#FCA5A5',
+        color: '#991B1B',
+        fontSize: fonts.md,
+        fontWeight: 'bold' as const,
+        textAlign: 'center' as const,
+        lineHeight: iconSize,
+      },
+      inlineTextContainer: {
+        flex: 1,
+      },
+      inlineTitle: {
+        fontSize: fonts.sm,
+        fontWeight: '600' as const,
+        color: '#991B1B',
+      },
+      inlineMessage: {
+        fontSize: fonts.xs,
+        color: '#B91C1C',
+      },
+      inlineUpgrade: {
+        backgroundColor: '#EF4444',
+        paddingVertical: spacing.xs,
+        paddingHorizontal: spacing.md,
+        borderRadius: borderRadius.xs,
+      },
+      inlineUpgradeText: {
+        color: '#FFFFFF',
+        fontSize: fonts.xs,
+        fontWeight: '600' as const,
+      },
+    };
+  }, [fonts, spacing, borderRadius, scalePx]);
+
   return (
-    <View style={styles.inlineContainer}>
-      <View style={styles.inlineContent}>
-        <Text style={styles.inlineIcon}>!</Text>
-        <View style={styles.inlineTextContainer}>
-          <Text style={styles.inlineTitle}>{title}</Text>
-          <Text style={styles.inlineMessage}>{message}</Text>
+    <View style={inlineStyles.inlineContainer}>
+      <View style={inlineStyles.inlineContent}>
+        <Text style={inlineStyles.inlineIcon}>!</Text>
+        <View style={inlineStyles.inlineTextContainer}>
+          <Text style={inlineStyles.inlineTitle}>{title}</Text>
+          <Text style={inlineStyles.inlineMessage}>{message}</Text>
         </View>
         {onUpgrade && (
-          <TouchableOpacity style={styles.inlineUpgrade} onPress={onUpgrade}>
-            <Text style={styles.inlineUpgradeText}>Upgrade</Text>
+          <TouchableOpacity style={inlineStyles.inlineUpgrade} onPress={onUpgrade}>
+            <Text style={inlineStyles.inlineUpgradeText}>Upgrade</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -143,159 +307,11 @@ export const BlockedInputIndicator: React.FC<{
   );
 };
 
+// Static styles kept for reference - most styles are now dynamic
 const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(17, 24, 39, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-    zIndex: 100,
-  },
-  content: {
-    backgroundColor: '#1F2937',
-    borderRadius: 16,
-    padding: 24,
-    // maxWidth applied dynamically for responsive sizing
-    width: '100%',
-    alignItems: 'center',
-  },
-  iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#FEE2E2',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  icon: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#EF4444',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#F9FAFB',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  message: {
-    fontSize: 14,
-    color: '#D1D5DB',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 16,
-  },
+  // Preserved for backwards compatibility
   tierHighlight: {
     color: '#A78BFA',
-    fontWeight: '600',
-  },
-  resetContainer: {
-    backgroundColor: '#374151',
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    marginBottom: 20,
-    width: '100%',
-  },
-  resetLabel: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginBottom: 4,
-  },
-  resetDate: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#F9FAFB',
-  },
-  resetDays: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 4,
-  },
-  actions: {
-    flexDirection: 'column',
-    gap: 12,
-    width: '100%',
-    marginBottom: 16,
-  },
-  upgradeButton: {
-    backgroundColor: '#8B5CF6',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  upgradeText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  dismissButton: {
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  dismissText: {
-    color: '#9CA3AF',
-    fontSize: 14,
-  },
-  hint: {
-    fontSize: 12,
-    color: '#6B7280',
-    textAlign: 'center',
-  },
-
-  // Inline indicator styles
-  inlineContainer: {
-    backgroundColor: '#FEF2F2',
-    borderTopWidth: 1,
-    borderTopColor: '#FCA5A5',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-  },
-  inlineContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  inlineIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#FCA5A5',
-    color: '#991B1B',
-    fontSize: 14,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  inlineTextContainer: {
-    flex: 1,
-  },
-  inlineTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#991B1B',
-  },
-  inlineMessage: {
-    fontSize: 11,
-    color: '#B91C1C',
-  },
-  inlineUpgrade: {
-    backgroundColor: '#EF4444',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 4,
-  },
-  inlineUpgradeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
     fontWeight: '600',
   },
 });

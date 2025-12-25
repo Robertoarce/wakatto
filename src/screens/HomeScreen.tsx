@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Image,
   Platform,
@@ -12,6 +12,7 @@ import { WebBrowser } from 'expo';
 
 import { MonoText } from '../components/StyledText';
 import { RobotDev, RobotProd } from '../assets/images';
+import { useResponsive } from '../constants/Layout';
 
 const styles = StyleSheet.create({
   container: {
@@ -21,7 +22,6 @@ const styles = StyleSheet.create({
   developmentModeText: {
     marginBottom: 20,
     color: 'rgba(0,0,0,0.4)',
-    fontSize: 14,
     lineHeight: 19,
     textAlign: 'center',
   },
@@ -56,7 +56,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   getStartedText: {
-    fontSize: 17,
     color: 'rgba(96,100,109, 1)',
     lineHeight: 24,
     textAlign: 'center',
@@ -95,7 +94,6 @@ const styles = StyleSheet.create({
     }),
   },
   tabBarInfoText: {
-    fontSize: 17,
     color: 'rgba(96,100,109, 1)',
     textAlign: 'center',
   },
@@ -110,7 +108,6 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
   },
   helpLinkText: {
-    fontSize: 14,
     color: '#2e78b7',
   },
 });
@@ -127,88 +124,108 @@ const handleHelpPress = (): void => {
   );
 };
 
-const maybeRenderDevelopmentModeWarning = (): JSX.Element => {
-  if (__DEV__) {
-    const learnMoreButton = (
-      <Text onPress={handleLearnMorePress} style={styles.helpLinkText}>
-        Learn more
-      </Text>
-    );
+const HomeScreen = (): JSX.Element => {
+  const { fonts } = useResponsive();
 
+  // Dynamic styles based on responsive values
+  const dynamicStyles = useMemo(() => ({
+    developmentModeText: {
+      fontSize: fonts.md,
+    },
+    getStartedText: {
+      fontSize: fonts.lg,
+    },
+    tabBarInfoText: {
+      fontSize: fonts.lg,
+    },
+    helpLinkText: {
+      fontSize: fonts.md,
+    },
+  }), [fonts]);
+
+  const renderDevelopmentModeWarning = (): JSX.Element => {
+    if (__DEV__) {
+      const learnMoreButton = (
+        <Text onPress={handleLearnMorePress} style={[styles.helpLinkText, dynamicStyles.helpLinkText]}>
+          Learn more
+        </Text>
+      );
+
+      return (
+        <Text style={[styles.developmentModeText, dynamicStyles.developmentModeText]}>
+          Development mode is enabled, your app will be slower but you can use
+          useful development tools.
+          {learnMoreButton}
+        </Text>
+      );
+    }
     return (
-      <Text style={styles.developmentModeText}>
-        Development mode is enabled, your app will be slower but you can use
-        useful development tools.
-        {learnMoreButton}
+      <Text style={[styles.developmentModeText, dynamicStyles.developmentModeText]}>
+        You are not in development mode, your app will run at full speed.
       </Text>
     );
-  }
+  };
+
   return (
-    <Text style={styles.developmentModeText}>
-      You are not in development mode, your app will run at full speed.
-    </Text>
-  );
-};
-
-const HomeScreen = (): JSX.Element => (
-  <View style={styles.container}>
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-    >
-      <View style={styles.welcomeContainer}>
-        <Image
-          source={__DEV__ ? RobotDev : RobotProd}
-          style={styles.welcomeImage}
-        />
-      </View>
-
-      <View style={styles.getStartedContainer}>
-        {maybeRenderDevelopmentModeWarning()}
-
-        <Text style={styles.getStartedText}>Get started by opening</Text>
-
-        <View
-          style={[styles.codeHighlightContainer, styles.homeScreenFilename]}
-        >
-          <MonoText style={styles.codeHighlightText}>
-            screens/HomeScreen.js
-          </MonoText>
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+      >
+        <View style={styles.welcomeContainer}>
+          <Image
+            source={__DEV__ ? RobotDev : RobotProd}
+            style={styles.welcomeImage}
+          />
         </View>
 
-        <Text style={styles.getStartedText}>
-          Change this text and your app will automatically reload.
-        </Text>
-      </View>
+        <View style={styles.getStartedContainer}>
+          {renderDevelopmentModeWarning()}
 
-      <View style={styles.helpContainer}>
-        <TouchableOpacity onPress={handleHelpPress} style={styles.helpLink}>
-          <Text style={styles.helpLinkText}>
-            Help, it didn’t automatically reload!
+          <Text style={[styles.getStartedText, dynamicStyles.getStartedText]}>Get started by opening</Text>
+
+          <View
+            style={[styles.codeHighlightContainer, styles.homeScreenFilename]}
+          >
+            <MonoText style={styles.codeHighlightText}>
+              screens/HomeScreen.js
+            </MonoText>
+          </View>
+
+          <Text style={[styles.getStartedText, dynamicStyles.getStartedText]}>
+            Change this text and your app will automatically reload.
           </Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+        </View>
 
-    <View
-      style={Platform.select({
-        ios: styles.tabBarInfoContainerIos,
-        // @ts-ignore
-        android: styles.tabBarInfoContainerAndroid,
-      })}
-    >
-      <Text style={styles.tabBarInfoText}>
-        This is a tab bar. You can edit it in:
-      </Text>
+        <View style={styles.helpContainer}>
+          <TouchableOpacity onPress={handleHelpPress} style={styles.helpLink}>
+            <Text style={[styles.helpLinkText, dynamicStyles.helpLinkText]}>
+              Help, it didn't automatically reload!
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
 
-      <View style={[styles.codeHighlightContainer, styles.navigationFilename]}>
-        <MonoText style={styles.codeHighlightText}>
-          navigation/MainTabNavigator.js
-        </MonoText>
+      <View
+        style={Platform.select({
+          ios: styles.tabBarInfoContainerIos,
+          // @ts-ignore
+          android: styles.tabBarInfoContainerAndroid,
+        })}
+      >
+        <Text style={[styles.tabBarInfoText, dynamicStyles.tabBarInfoText]}>
+          This is a tab bar. You can edit it in:
+        </Text>
+
+        <View style={[styles.codeHighlightContainer, styles.navigationFilename]}>
+          <MonoText style={styles.codeHighlightText}>
+            navigation/MainTabNavigator.js
+          </MonoText>
+        </View>
       </View>
     </View>
-  </View>
-);
+  );
+};
 
 HomeScreen.navigationOptions = {
   header: null,

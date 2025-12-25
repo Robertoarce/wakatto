@@ -1,12 +1,17 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import { View, StyleSheet, Animated, Platform } from 'react-native';
+import { useResponsive } from '../../constants/Layout';
 
 interface LoadingDotsProps {
   color?: string;
   size?: number;
 }
 
-export function LoadingDots({ color = '#8b5cf6', size = 8 }: LoadingDotsProps) {
+export function LoadingDots({ color = '#8b5cf6', size }: LoadingDotsProps) {
+  const { spacing, scalePx, components } = useResponsive();
+  const dotSize = size ?? scalePx(8);
+  const bounceOffset = components.animationOffsets.float;
+
   const dot1 = useRef(new Animated.Value(0)).current;
   const dot2 = useRef(new Animated.Value(0)).current;
   const dot3 = useRef(new Animated.Value(0)).current;
@@ -48,7 +53,7 @@ export function LoadingDots({ color = '#8b5cf6', size = 8 }: LoadingDotsProps) {
       {
         translateY: animValue.interpolate({
           inputRange: [0, 1],
-          outputRange: [0, -10],
+          outputRange: [0, -bounceOffset],
         }),
       },
       {
@@ -65,25 +70,25 @@ export function LoadingDots({ color = '#8b5cf6', size = 8 }: LoadingDotsProps) {
   });
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { gap: spacing.sm }]}>
       <Animated.View
         style={[
           styles.dot,
-          { backgroundColor: color, width: size, height: size, borderRadius: size / 2 },
+          { backgroundColor: color, width: dotSize, height: dotSize, borderRadius: dotSize / 2 },
           animateDot(dot1),
         ]}
       />
       <Animated.View
         style={[
           styles.dot,
-          { backgroundColor: color, width: size, height: size, borderRadius: size / 2 },
+          { backgroundColor: color, width: dotSize, height: dotSize, borderRadius: dotSize / 2 },
           animateDot(dot2),
         ]}
       />
       <Animated.View
         style={[
           styles.dot,
-          { backgroundColor: color, width: size, height: size, borderRadius: size / 2 },
+          { backgroundColor: color, width: dotSize, height: dotSize, borderRadius: dotSize / 2 },
           animateDot(dot3),
         ]}
       />
@@ -95,7 +100,6 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
   },
   dot: {
     ...Platform.select({
