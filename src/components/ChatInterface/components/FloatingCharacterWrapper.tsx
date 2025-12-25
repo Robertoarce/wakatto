@@ -51,7 +51,11 @@ export function FloatingCharacterWrapper({
   const opacityAnim = useRef(new Animated.Value(1)).current;   // For teleport_in
   const [isHovered, setIsHovered] = useState(false);
   const [isClicked, setIsClicked] = useState(false); // Track click state for message bubble
-  const { fonts } = useResponsive();
+  const { fonts, isMobile } = useResponsive();
+
+  // Responsive click bubble positioning (percentage-based to stay within screen)
+  const clickBubbleTop = isMobile ? '-35%' : '-45%';
+  const clickBubbleHorizontal = isMobile ? '-15%' : '-25%';
 
   useEffect(() => {
     // Different durations for different rhythms (2.5s to 4s based on index)
@@ -345,6 +349,9 @@ export function FloatingCharacterWrapper({
           style={[
             styles.clickMessageContainer,
             {
+              top: clickBubbleTop,
+              left: clickBubbleHorizontal,
+              right: clickBubbleHorizontal,
               opacity: messageOpacity,
               transform: [
                 { translateY: messageTranslateY },
@@ -420,9 +427,7 @@ const styles = StyleSheet.create({
   },
   clickMessageContainer: {
     position: 'absolute',
-    top: -180, // Position higher to avoid overlapping with speech bubbles
-    left: -60,
-    right: -60,
+    // top, left, right applied dynamically based on screen size (percentage-based)
     alignItems: 'center',
     zIndex: 600, // Higher z-index to appear above speech bubbles
   },

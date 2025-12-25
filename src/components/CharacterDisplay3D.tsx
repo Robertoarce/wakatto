@@ -218,7 +218,8 @@ const Character = React.memo(function Character({ character, isActive, animation
 
     let animationId: number;
     let lastFrameTime = 0;
-    const targetFPS = 30; // Throttle to 30fps for better performance
+    // Lower FPS for inactive/background characters to save GPU resources
+    const targetFPS = isActiveRef.current ? 30 : 15;
     const frameInterval = 1000 / targetFPS;
 
     const animate = (frameTime: number = 0) => {
@@ -2729,9 +2730,31 @@ export function CharacterDisplay3D({
     precision: isMobile ? 'mediump' : 'highp' as const,
   }), [isMobile]);
 
+  const sceneRef = useRef<THREE.Scene | null>(null);
+
   // Cleanup WebGL resources on unmount
   useEffect(() => {
     return () => {
+      // Traverse scene and dispose all geometries, materials, textures
+      if (sceneRef.current) {
+        sceneRef.current.traverse((object) => {
+          if (object instanceof THREE.Mesh) {
+            if (object.geometry) {
+              object.geometry.dispose();
+            }
+            if (object.material) {
+              if (Array.isArray(object.material)) {
+                object.material.forEach((mat) => {
+                  disposeMaterial(mat);
+                });
+              } else {
+                disposeMaterial(object.material);
+              }
+            }
+          }
+        });
+        sceneRef.current = null;
+      }
       // Explicitly dispose WebGL renderer to free GPU memory
       if (glRef.current) {
         glRef.current.dispose();
@@ -2740,9 +2763,23 @@ export function CharacterDisplay3D({
     };
   }, []);
 
-  // Handle Canvas creation - store GL reference
-  const handleCreated = ({ gl }: { gl: THREE.WebGLRenderer }) => {
+  // Helper to dispose material and its textures
+  const disposeMaterial = (material: THREE.Material) => {
+    material.dispose();
+    // Dispose textures if any
+    const mat = material as THREE.MeshStandardMaterial;
+    if (mat.map) mat.map.dispose();
+    if (mat.normalMap) mat.normalMap.dispose();
+    if (mat.roughnessMap) mat.roughnessMap.dispose();
+    if (mat.metalnessMap) mat.metalnessMap.dispose();
+    if (mat.aoMap) mat.aoMap.dispose();
+    if (mat.emissiveMap) mat.emissiveMap.dispose();
+  };
+
+  // Handle Canvas creation - store GL and scene references
+  const handleCreated = ({ gl, scene }: { gl: THREE.WebGLRenderer; scene: THREE.Scene }) => {
     glRef.current = gl;
+    sceneRef.current = scene;
   };
 
   return (
@@ -2807,8 +2844,8 @@ export function CharacterDisplay3D({
           maxPolarAngle={Math.PI / 2}
         />
 
-        {/* Performance monitoring - logs actual Three.js render FPS */}
-        <ThreeJSPerformanceMonitor />
+        {/* Performance monitoring - only for active characters to avoid overhead */}
+        {isActive && <ThreeJSPerformanceMonitor />}
       </Canvas>
     </View>
   );

@@ -27,7 +27,8 @@ export default function LoginScreen() {
   // Card sizing - uses layout system
   const cardPadding = isNarrow ? spacing.sm : isMobile ? spacing.md : isTablet ? spacing.lg : spacing.xl;
   const cardMargin = isNarrow ? spacing.xs : isMobile ? spacing.sm : spacing.md;
-  const cardMaxWidth = layout.formContainerMaxWidth;
+  // Constrain card width on mobile to prevent overflow (account for scroll padding + card margins)
+  const cardMaxWidth = isMobile ? width - (cardMargin * 4) : layout.formContainerMaxWidth;
   const cardBorderRadius = isNarrow ? layout.borderRadiusMd : layout.borderRadiusLg + 4;
 
   // Logo sizing - scales with screen
