@@ -272,6 +272,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     // Start with a reasonable default, will be recalculated after layout
     return CHARACTER_HEIGHT.ABSOLUTE_MIN_PX as number;
   });
+  const characterHeightRef = useRef(characterHeight); // Ref for panResponder to access latest value
   const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]); // Fixed characters from conversation creation
   const [isMobileView, setIsMobileView] = useState(isMobile);
   const [hoveredCharacterId, setHoveredCharacterId] = useState<string | null>(null); // Track which character is hovered
@@ -745,6 +746,11 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     setCharacterHeight(newHeight);
   }, [availableHeight, showChatHistory]);
 
+  // Keep characterHeightRef in sync with state (for panResponder to access latest value)
+  useEffect(() => {
+    characterHeightRef.current = characterHeight;
+  }, [characterHeight]);
+
   // Characters are now fixed at conversation creation - no dynamic selector
 
   // Restore characters from savedCharacters when conversation is loaded
@@ -1121,13 +1127,13 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   }, [showEntranceAnimation, entranceSequence]);
 
   // Pan responder for resizable divider - fixed 85-90% height constraints
-  // Uses availableHeightRef to get the actual container height (excludes header/tab bar)
+  // Uses refs to get latest values (avoids stale closure issue)
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderMove: (_, gestureState) => {
-        const newHeight = characterHeight + gestureState.dy;
+        const newHeight = characterHeightRef.current + gestureState.dy;
         // Use available container height, not window height
         const containerHeight = availableHeightRef.current || Dimensions.get('window').height;
 
@@ -1145,7 +1151,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       onPanResponderRelease: () => {
         // Save user's preferred percentage for resize persistence
         const containerHeight = availableHeightRef.current || Dimensions.get('window').height;
-        userPreferredPercentRef.current = characterHeight / containerHeight;
+        userPreferredPercentRef.current = characterHeightRef.current / containerHeight;
       },
     })
   ).current;

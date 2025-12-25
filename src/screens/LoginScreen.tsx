@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
-import { signIn } from '../services/supabaseService';
+import { signIn, signOut, resendConfirmationEmail } from '../services/supabaseService';
+import { getCurrentUsage } from '../services/usageTrackingService';
 import { setSession } from '../store/actions/authActions';
 import { useCustomAlert } from '../components/CustomAlert';
 import { AnimatedBackground3D } from '../components/AnimatedBackground3D';
@@ -12,13 +13,24 @@ import { useResponsive } from '../constants/Layout';
 
 export default function LoginScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
   const dispatch = useDispatch();
   const { showAlert, AlertComponent } = useCustomAlert();
   const { fonts, spacing, layout, isMobile, isTablet, isDesktop, deviceType, width } = useResponsive();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
   const [activeTab, setActiveTab] = useState<'signIn' | 'signUp'>('signIn');
+  const [showConfirmationBanner, setShowConfirmationBanner] = useState(false);
+
+  // Check if redirected due to unconfirmed email
+  useEffect(() => {
+    const params = route.params as { emailConfirmationRequired?: boolean } | undefined;
+    if (params?.emailConfirmationRequired) {
+      setShowConfirmationBanner(true);
+    }
+  }, [route.params]);
 
   // Responsive calculations based on device type
   const isNarrow = deviceType === 'narrow';
@@ -55,6 +67,21 @@ export default function LoginScreen() {
       const data = await signIn(email.trim().toLowerCase(), password);
       // Update Redux store with session before navigating
       if (data.session && data.user) {
+        // Check if email is confirmed (admin accounts bypass this check)
+        if (!data.user.email_confirmed_at) {
+          // Fetch user tier to check if admin
+          const usage = await getCurrentUsage();
+          if (usage?.tier !== 'admin') {
+            // Not admin and email not confirmed - sign out and show error
+            await signOut();
+            showAlert(
+              'Email Not Confirmed',
+              'Please confirm your email address before signing in. Check your inbox for the confirmation link.'
+            );
+            return;
+          }
+          // Admin accounts can proceed without email confirmation
+        }
         dispatch(setSession(data.session, data.user));
         navigation.navigate('Main');
       } else {
@@ -73,6 +100,34 @@ export default function LoginScreen() {
       showAlert('Sign In Failed', errorMessage);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResendConfirmation() {
+    if (!email.trim()) {
+      showAlert('Email Required', 'Please enter your email address to resend the confirmation.');
+      return;
+    }
+    if (!email.includes('@')) {
+      showAlert('Invalid Email', 'Please enter a valid email address.');
+      return;
+    }
+
+    setResendingEmail(true);
+    try {
+      await resendConfirmationEmail(email.trim().toLowerCase());
+      showAlert(
+        'Confirmation Email Sent',
+        'A new confirmation email has been sent. Please check your inbox and spam folder.'
+      );
+    } catch (error: any) {
+      let errorMessage = error.message;
+      if (errorMessage.includes('rate limit')) {
+        errorMessage = 'Please wait a few minutes before requesting another confirmation email.';
+      }
+      showAlert('Failed to Send', errorMessage);
+    } finally {
+      setResendingEmail(false);
     }
   }
 
@@ -147,6 +202,29 @@ export default function LoginScreen() {
             Organize social events with friends effortlessly
           </Text>
 
+          {/* Email Confirmation Banner */}
+          {showConfirmationBanner && (
+            <View style={[styles.confirmationBanner, { borderRadius: layout.borderRadiusMd, padding: spacing.md, marginBottom: spacing.lg }]}>
+              <View style={styles.confirmationBannerContent}>
+                <Ionicons name="mail-unread-outline" size={24} color="#f59e0b" />
+                <View style={styles.confirmationBannerTextContainer}>
+                  <Text style={[styles.confirmationBannerTitle, { fontSize: fonts.md }]}>
+                    Email Confirmation Required
+                  </Text>
+                  <Text style={[styles.confirmationBannerText, { fontSize: fonts.sm }]}>
+                    Please confirm your email address to continue. Check your inbox for the confirmation link.
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowConfirmationBanner(false)}
+                style={styles.confirmationBannerClose}
+              >
+                <Ionicons name="close" size={20} color="#9ca3af" />
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Tabs */}
           <View style={[styles.tabContainer, { marginBottom: isNarrow ? spacing.md : spacing.lg, borderRadius: layout.borderRadiusMd, padding: spacing.xs }]}>
             <TouchableOpacity
@@ -206,6 +284,18 @@ export default function LoginScreen() {
               size={isNarrow ? 'md' : 'lg'}
               style={{ marginTop: spacing.sm }}
             />
+
+            {/* Resend Confirmation Email Link */}
+            <TouchableOpacity
+              onPress={handleResendConfirmation}
+              disabled={resendingEmail || loading}
+              style={[styles.resendLink, { marginTop: spacing.md }]}
+            >
+              <Ionicons name="mail-outline" size={16} color="#5b7ef6" style={{ marginRight: 6 }} />
+              <Text style={[styles.resendLinkText, { fontSize: fonts.sm }, (resendingEmail || loading) && styles.resendLinkDisabled]}>
+                {resendingEmail ? 'Sending...' : "Didn't receive confirmation email?"}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -283,5 +373,49 @@ const styles = StyleSheet.create({
   },
   form: {
     width: '100%',
+  },
+  // Email confirmation banner styles
+  confirmationBanner: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  confirmationBannerContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  confirmationBannerTextContainer: {
+    flex: 1,
+  },
+  confirmationBannerTitle: {
+    color: '#f59e0b',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  confirmationBannerText: {
+    color: '#d4a574',
+    lineHeight: 20,
+  },
+  confirmationBannerClose: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  // Resend link styles
+  resendLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
+  resendLinkText: {
+    color: '#5b7ef6',
+    fontWeight: '500',
+  },
+  resendLinkDisabled: {
+    opacity: 0.5,
   },
 });

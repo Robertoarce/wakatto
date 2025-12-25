@@ -30,6 +30,14 @@ export async function signOut() {
   if (error) throw error;
 }
 
+export async function resendConfirmationEmail(email: string) {
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email,
+  });
+  if (error) throw error;
+}
+
 export async function getSession() {
   const { data: { session }, error } = await supabase.auth.getSession();
   if (error) throw error;

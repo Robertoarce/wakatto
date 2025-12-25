@@ -5,7 +5,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import MainScreen from '../screens/MainScreen';
-import { getSession } from '../services/supabaseService';
+import { getSession, signOut } from '../services/supabaseService';
+import { getCurrentUsage } from '../services/usageTrackingService';
 import { setSession, setLoading } from '../store/actions/authActions';
 import { RootState } from '../store';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
@@ -17,6 +18,7 @@ export default function AppNavigator() {
   const { session, loading } = useSelector((state: RootState) => state.auth);
   const [initialRoute, setInitialRoute] = useState('Login');
   const [isReady, setIsReady] = useState(false);
+  const [emailConfirmationRequired, setEmailConfirmationRequired] = useState(false);
 
   // Check initial session on mount
   useEffect(() => {
@@ -24,6 +26,22 @@ export default function AppNavigator() {
       try {
         const currentSession = await getSession();
         if (currentSession) {
+          // Check if email is confirmed (admin accounts bypass this check)
+          if (!currentSession.user.email_confirmed_at) {
+            // Fetch user tier to check if admin
+            const usage = await getCurrentUsage();
+            if (usage?.tier !== 'admin') {
+              // Not admin and email not confirmed - sign out and show message
+              console.log('[Auth] Email not confirmed for non-admin user, signing out');
+              await signOut();
+              setEmailConfirmationRequired(true);
+              setInitialRoute('Login');
+              dispatch(setLoading(false));
+              setIsReady(true);
+              return;
+            }
+            // Admin accounts can proceed without email confirmation
+          }
           dispatch(setSession(currentSession, currentSession.user));
           setInitialRoute('Main');
         } else {
@@ -60,6 +78,7 @@ export default function AppNavigator() {
             name="Login"
             component={LoginScreen}
             options={{ unmountOnBlur: true }}
+            initialParams={{ emailConfirmationRequired }}
           />
           <Stack.Screen
             name="Register"

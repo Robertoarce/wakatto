@@ -218,14 +218,15 @@ export function getOrientation(width: number, height: number): Orientation {
 
 /**
  * Detect if device is in mobile landscape mode
- * This is when the device is rotated landscape but has mobile-like constraints
- * We check: landscape orientation + height < tablet breakpoint (limited vertical space)
+ * This is when a phone is rotated landscape (both dimensions suggest mobile device)
+ * We check: landscape orientation + height < tablet + width < desktop
+ * This prevents desktop browser windows from being treated as mobile landscape
  */
 export function isMobileLandscapeMode(width: number, height: number): boolean {
   const isLandscape = width > height;
-  // In landscape, height becomes the limiting factor
-  // If height is less than tablet breakpoint, treat as mobile landscape
-  return isLandscape && height < BREAKPOINTS.tablet;
+  // Only treat as mobile landscape if BOTH dimensions suggest a phone
+  // Width must also be below desktop breakpoint to avoid desktop browser windows
+  return isLandscape && height < BREAKPOINTS.tablet && width < BREAKPOINTS.tablet;
 }
 
 // ============================================
