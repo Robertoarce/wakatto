@@ -1,21 +1,33 @@
 import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { View, StyleSheet, Dimensions, Platform } from 'react-native';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { getCharacter, CharacterBehavior } from '../config/characters';
 import { performanceLogger } from '../services/performanceLogger';
 import { fpsMonitor } from '../services/fpsMonitor';
 
+// Global counter to ensure only one performance monitor logs at a time
+let activeMonitorCount = 0;
+
 // Component to monitor actual Three.js render FPS (using circular buffer for O(1) operations)
 function ThreeJSPerformanceMonitor() {
   const lastTime = useRef(performance.now());
   const lastLogTime = useRef(performance.now());
   const frameCount = useRef(0);
+  const monitorId = useRef(-1);
   // Use circular buffer instead of array shift (O(1) vs O(n))
   const fpsBuffer = useRef(new Float32Array(300)); // 5 seconds worth at 60fps
   const bufferIndex = useRef(0);
   const bufferCount = useRef(0);
+
+  // Register this monitor on mount, unregister on unmount
+  useEffect(() => {
+    monitorId.current = activeMonitorCount++;
+    return () => {
+      activeMonitorCount--;
+    };
+  }, []);
 
   useFrame(() => {
     const now = performance.now();
@@ -29,8 +41,8 @@ function ThreeJSPerformanceMonitor() {
     bufferIndex.current = (bufferIndex.current + 1) % 300;
     if (bufferCount.current < 300) bufferCount.current++;
 
-    // Log every 5 seconds
-    if (now - lastLogTime.current >= 15000 && bufferCount.current > 0) {
+    // Log every 15 seconds - only from monitor 0 to avoid duplicate logs
+    if (monitorId.current === 0 && now - lastLogTime.current >= 15000 && bufferCount.current > 0) {
       lastLogTime.current = now;
       let sum = 0;
       let minFps = Infinity;
@@ -127,9 +139,6 @@ interface CharacterProps {
 
 // Character component with switchable 3D style - memoized to prevent unnecessary re-renders
 const Character = React.memo(function Character({ character, isActive, animation = 'idle', isTalking = false, scale = 1, complementary, modelStyle = 'blocky', positionX = 0, positionY = 0, positionZ = 0, onAnimationComplete }: CharacterProps) {
-  // Get invalidate function to trigger render on demand
-  const { invalidate } = useThree();
-
   const meshRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Group>(null);
   // Limbs as groups (for articulated joints)
@@ -214,12 +223,11 @@ const Character = React.memo(function Character({ character, isActive, animation
     // Reset mounted flag when effect runs
     isMountedRef.current = true;
     performanceLogger.registerAnimationLoop();
-    console.log(`[Character:${charId}] Animation loop STARTED`);
 
     let animationId: number;
     let lastFrameTime = 0;
-    // Lower FPS for inactive/background characters to save GPU resources
-    const targetFPS = isActiveRef.current ? 30 : 15;
+    // Higher FPS for active characters, lower for inactive/background to save GPU
+    const targetFPS = isActiveRef.current ? 60 : 30;
     const frameInterval = 1000 / targetFPS;
 
     const animate = (frameTime: number = 0) => {
@@ -1282,9 +1290,6 @@ const Character = React.memo(function Character({ character, isActive, animation
 
       performanceLogger.frameEnd(perfStart, `Character:${charId}`);
 
-      // Trigger render (for frameloop="demand" mode)
-      invalidate();
-
       animationId = requestAnimationFrame(animate);
     };
     animate();
@@ -1293,13 +1298,12 @@ const Character = React.memo(function Character({ character, isActive, animation
       // Mark as unmounted first to prevent any in-flight RAF from scheduling more
       isMountedRef.current = false;
       performanceLogger.unregisterAnimationLoop();
-      console.log(`[Character:${charId}] Animation loop STOPPED`);
       if (animationId) cancelAnimationFrame(animationId);
     };
     // Only restart animation loop when character changes
     // All other props (animation, isActive, complementary, isTalking, etc.) are read from refs
     // This prevents loop restarts when idle animation system cycles through animations
-  }, [character?.id, invalidate]);
+  }, [character?.id]);
 
   // Get customization from character config
   const customization = character.customization;
@@ -2790,7 +2794,7 @@ export function CharacterDisplay3D({
         dpr={isMobile ? [1, 1.5] : [1, 2]} // Lower pixel ratio on mobile
         style={{ background: 'transparent' }}
         onCreated={handleCreated}
-        frameloop="demand" // Only render when invalidate() is called - reduces renders from 360fps to 30fps
+        frameloop="always" // Render continuously at 60fps for smooth animations
       >
         {/* Simplified lighting for mobile, full lighting for web */}
         <ambientLight intensity={isMobile ? 0.5 : 0.3} />
