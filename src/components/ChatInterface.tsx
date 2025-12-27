@@ -1169,8 +1169,13 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       },
       onPanResponderRelease: () => {
         // Save user's preferred percentage for resize persistence
+        // Only save when chat is NOT shown - don't save the small "chat open" height as preference
         const containerHeight = availableHeightRef.current || Dimensions.get('window').height;
-        userPreferredPercentRef.current = characterHeightRef.current / containerHeight;
+        const currentPercent = characterHeightRef.current / containerHeight;
+        // Only update preference if it's above MIN_PERCENT (not the "chat shown" small height)
+        if (currentPercent > CHARACTER_HEIGHT.MIN_PERCENT + 0.05) {
+          userPreferredPercentRef.current = currentPercent;
+        }
       },
     })
   ).current;
