@@ -27,8 +27,7 @@ import {
   generateSingleCharacterResponse,
   ConversationMessage
 } from '../services/multiCharacterConversation';
-import { generateHybridResponse } from '../services/hybridOrchestration';
-import { 
+import {
   generateAnimatedSceneOrchestration,
   generateAnimatedSceneOrchestrationStreaming,
   EarlyAnimationSetup
@@ -400,10 +399,9 @@ The text behaves as it should be.`;
               includeInterruptions: ORCHESTRATION_CONFIG.singleCall.includeInterruptions
             });
 
-            try {
-              // Generate animated scene with timelines
-              // Use streaming for faster perceived response when supported
-              const shouldUseStreaming = useStreaming && isStreamingSupported();
+            // Generate animated scene with timelines
+            // Use streaming for faster perceived response when supported
+            const shouldUseStreaming = useStreaming && isStreamingSupported();
               console.log('[Chat] Using streaming:', shouldUseStreaming);
               
               let scene: OrchestrationScene;
@@ -500,47 +498,6 @@ The text behaves as it should be.`;
                   console.error('[Chat] Background assistant saves failed:', err);
                 });
 
-            } catch (animError) {
-              console.warn('[Chat] Animated orchestration failed, falling back to hybrid:', animError);
-              
-              // Fallback to hybrid orchestration
-              const characterResponses = await generateHybridResponse(
-                content,
-                selectedCharacters,
-                conversationHistory
-              );
-
-              // Create fallback scene for animation
-              const fallbackResponses = characterResponses.map(r => ({
-                characterId: r.characterId,
-                content: r.content
-              }));
-              const fallbackScene = fillGapsForNonSpeakers(
-                createFallbackScene(fallbackResponses, selectedCharacters),
-                selectedCharacters
-              );
-              setAnimationScene(fallbackScene);
-
-              // Save responses in BACKGROUND (non-blocking)
-              const saveFallbackTimer = profiler.start(PROFILE_OPS.DB_SAVE_ASSISTANT_MESSAGE);
-              const fallbackSavePromises = characterResponses.map(response =>
-                dispatch(saveMessage(
-                  conversation.id,
-                  'assistant',
-                  response.content,
-                  response.characterId
-                ) as any)
-              );
-              
-              Promise.all(fallbackSavePromises)
-                .then(() => {
-                  saveFallbackTimer.stop({ responseCount: characterResponses.length, fallback: true, background: true });
-                })
-                .catch((err) => {
-                  saveFallbackTimer.stop({ error: String(err), fallback: true, background: true });
-                  console.error('[Chat] Background fallback saves failed:', err);
-                });
-            }
           } else {
             // Single character mode: traditional response with simple animation
             console.log('[Chat] Using single character mode:', selectedCharacters[0]);

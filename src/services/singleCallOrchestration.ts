@@ -62,18 +62,18 @@ const DEFAULT_CONFIG: OrchestrationConfig = {
 
 /**
  * Determine response count with weighted randomness
- * Balanced between conversation quality and response speed
- * - 50% chance: 3 responses (quick, focused)
+ * Balanced distribution from 3-6 responses
+ * - 40% chance: 3 responses (quick, focused)
  * - 30% chance: 4 responses (good back-and-forth)
- * - 15% chance: 5 responses (extended discussion)
- * - 5% chance: 6 responses (rare, deep dive)
+ * - 20% chance: 5 responses (extended discussion)
+ * - 10% chance: 6 responses (deep dive)
  */
 function getResponseCount(): number {
   const rand = Math.random();
-  if (rand < 0.05) return 6;      // 5% chance: 6 responses (rare)
-  if (rand < 0.20) return 5;      // 15% chance: 5 responses
-  if (rand < 0.50) return 4;      // 30% chance: 4 responses
-  return 3;                        // 50% chance: 3 responses (quick)
+  if (rand < 0.10) return 6;      // 10% chance: 6 responses
+  if (rand < 0.30) return 5;      // 20% chance: 5 responses
+  if (rand < 0.60) return 4;      // 30% chance: 4 responses
+  return 3;                        // 40% chance: 3 responses
 }
 
 // Track user interactions for reaction timing
@@ -619,17 +619,21 @@ Full scene: {"s":{"ch":[{"c":"ID","t":"TEXT","ord":1,"tl":[{"a":"thinking","sp":
 - No name prefix in "t" field
 - Use "reactsTo": "character_id" to show who you're responding to
 
-## RESPONSE COUNT: ${getResponseCount()} responses expected
+## MINIMUM RESPONSES: ${getResponseCount()} (HARD REQUIREMENT)
+
+You MUST generate at least ${getResponseCount()} character responses. 2 is NOT acceptable!
 
 **STRUCTURE:**
 1. Character A speaks first (reactsTo: null)
-2. Character B responds TO Character A (reactsTo: "A") - disagreeing or mocking
-3. Continue back-and-forth until ${getResponseCount()} responses
+2. Character B responds TO A (reactsTo: "A") - disagreeing or mocking
+3. Character A OR B speaks again (back-and-forth required!)
+4. Continue until ${getResponseCount()} responses reached
 
-**EXAMPLE:**
+**EXAMPLE (4 responses minimum):**
 {"c":"joan","t":"Two letters? I led armies!","ord":1}
 {"c":"wanda","t":"Not everyone screams, Joan.","ord":2,"reactsTo":"joan"}
 {"c":"joan","t":"At least I communicate.","ord":3,"reactsTo":"wanda"}
+{"c":"wanda","t":"Keep talking. See what happens.","ord":4,"reactsTo":"joan"}
 - Add "v" object to talking segments to control voice characteristics
 - If asked personal questions (birthday, history), characters answer AS THEMSELVES based on their real history
 ${config.includeInterruptions ? '- Characters can interrupt by setting "int": true' : ''}
@@ -787,18 +791,20 @@ Respond with VALID JSON only (no markdown code blocks):
 - 1-2 SHORT sentences per response (max 20 words) - like texting friends!
 - Use NORMAL TV/movie vocabulary - no fancy words unless character is known for it
 
-## RESPONSE COUNT: ${getResponseCount()} responses expected
+## MINIMUM RESPONSES: ${getResponseCount()} (HARD REQUIREMENT)
+
+You MUST generate at least ${getResponseCount()} character responses. 2 is NOT acceptable!
 
 **STRUCTURE:**
 1. Character A speaks first (reactsTo: null)
 2. Character B responds TO A (reactsTo: "A") - disagreeing or mocking
-3. Continue back-and-forth until ${getResponseCount()} responses
+3. Character A OR B speaks again (back-and-forth required!)
+4. Continue until ${getResponseCount()} responses reached
 
 **DRAMA REQUIRED:**
 - At least ONE character must DISAGREE or MOCK another
 - Use "reactsTo" to show who you're responding to
 - Roast each other! Be petty! Call out BS!
-- Swearing OK but censor: "f@#$", "sh!t"
 - NEVER disrespect the USER - other characters are fair game
 - First response: "timing": "immediate", "interrupts": false
 - Subsequent responses: "timing": "delayed", may have "interrupts": true
