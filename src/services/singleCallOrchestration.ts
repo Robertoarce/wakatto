@@ -62,18 +62,19 @@ const DEFAULT_CONFIG: OrchestrationConfig = {
 
 /**
  * Determine response count with weighted randomness
- * MINIMUM 4 responses to ensure back-and-forth conversation
- * - 50% chance: 4 responses (minimum for back-and-forth)
- * - 35% chance: 5 responses
- * - 10% chance: 6 responses
+ * MINIMUM 5 responses to FORCE back-and-forth conversation
+ * At least 1-2 characters MUST speak twice
+ * - 40% chance: 5 responses (minimum for back-and-forth)
+ * - 35% chance: 6 responses
+ * - 20% chance: 7 responses
  * - 5% chance: 8 responses (very rare)
  */
 function getResponseCount(): number {
   const rand = Math.random();
   if (rand < 0.05) return 8;      // 5% chance: 8 responses (very rare)
-  if (rand < 0.15) return 6;      // 10% chance: 6 responses
-  if (rand < 0.50) return 5;      // 35% chance: 5 responses
-  return 4;                        // 50% chance: 4 responses (minimum for back-and-forth)
+  if (rand < 0.25) return 7;      // 20% chance: 7 responses
+  if (rand < 0.60) return 6;      // 35% chance: 6 responses
+  return 5;                        // 40% chance: 5 responses (minimum)
 }
 
 // Track user interactions for reaction timing
@@ -623,22 +624,27 @@ Full scene: {"s":{"ch":[{"c":"ID","t":"TEXT","ord":1,"tl":[{"a":"thinking","sp":
 
 **RESPONSE IS INVALID AND WILL BE REJECTED IF:**
 - Fewer than ${getResponseCount()} responses generated
-- No character speaks twice (at least ONE character MUST reply again)
+- No character speaks twice (1-2 characters MUST speak at least twice!)
 - No back-and-forth exchange exists
 
-**REQUIRED STRUCTURE (you MUST follow this pattern):**
+**REQUIRED STRUCTURE (you MUST follow this EXACT pattern):**
 1. Character A speaks first (reactsTo: null)
 2. Character B responds TO Character A (reactsTo: "A") - mocking or disagreeing
 3. Character A fires back at B (reactsTo: "B") ← SAME CHARACTER SPEAKS AGAIN (REQUIRED!)
-4. Character C jumps in OR A/B continues (reactsTo: someone)
+4. Character B defends themselves (reactsTo: "A") ← B ALSO SPEAKS TWICE (REQUIRED!)
+5+ More back-and-forth until ${getResponseCount()} responses reached
 
-**EXAMPLE - CORRECT (4 responses, Joan speaks twice):**
+**EXAMPLE - CORRECT (${getResponseCount()} responses, BOTH Joan AND Wanda speak twice):**
 {"c":"joan","t":"Two letters? I led armies with battle cries!","ord":1}
 {"c":"wanda","t":"Not everyone screams to communicate, Joan.","ord":2,"reactsTo":"joan"}
 {"c":"joan","t":"At least I COMMUNICATE. You just sulk and hex.","ord":3,"reactsTo":"wanda"}
 {"c":"wanda","t":"Keep talking. See what happens.","ord":4,"reactsTo":"joan"}
+{"c":"joan","t":"See? That's exactly what I mean - threats instead of words!","ord":5,"reactsTo":"wanda"}
 
-**VALIDATION:** Response REJECTED if fewer than ${getResponseCount()} or no character speaks twice!
+**CRITICAL VALIDATION:**
+- Response REJECTED if fewer than ${getResponseCount()} responses
+- Response REJECTED if NO character speaks at least twice
+- IDEAL: 2 characters each speak 2-3 times for natural back-and-forth debate
 - Add "v" object to talking segments to control voice characteristics
 - If asked personal questions (birthday, history), characters answer AS THEMSELVES based on their real history
 ${config.includeInterruptions ? '- Characters can interrupt by setting "int": true' : ''}
@@ -800,20 +806,22 @@ Respond with VALID JSON only (no markdown code blocks):
 
 **RESPONSE IS INVALID AND WILL BE REJECTED IF:**
 - Fewer than ${getResponseCount()} responses generated
-- No character speaks twice (at least ONE character MUST reply again)
+- No character speaks twice (1-2 characters MUST speak at least twice!)
 - No back-and-forth exchange exists
 
-**REQUIRED STRUCTURE (you MUST follow this pattern):**
+**REQUIRED STRUCTURE (you MUST follow this EXACT pattern):**
 1. Character A speaks first (reactsTo: null)
 2. Character B responds TO Character A (reactsTo: "A") - mocking or disagreeing
 3. Character A fires back at B (reactsTo: "B") ← SAME CHARACTER SPEAKS AGAIN (REQUIRED!)
-4. Character C jumps in OR A/B continues (reactsTo: someone)
+4. Character B defends themselves (reactsTo: "A") ← B ALSO SPEAKS TWICE (REQUIRED!)
+5+ More back-and-forth until ${getResponseCount()} responses reached
 
-**EXAMPLE - CORRECT (4 responses, Joan speaks twice):**
+**EXAMPLE - CORRECT (${getResponseCount()} responses, BOTH speak twice):**
 {"character":"joan","content":"Two letters? I led armies!","reactsTo":null}
 {"character":"wanda","content":"Not everyone screams, Joan.","reactsTo":"joan"}
 {"character":"joan","content":"At least I COMMUNICATE.","reactsTo":"wanda"}
 {"character":"wanda","content":"Keep talking. See what happens.","reactsTo":"joan"}
+{"character":"joan","content":"See? Threats instead of words!","reactsTo":"wanda"}
 
 ## ⚠️ CRITICAL: DRAMA & CONFLICT REQUIRED ⚠️
 
@@ -1222,8 +1230,8 @@ function validateResponses(
     }
   }
 
-  // Check minimum response count (HARD REQUIREMENT: minimum 4)
-  const minResponseCount = 4;
+  // Check minimum response count (HARD REQUIREMENT: minimum 5)
+  const minResponseCount = 5;
   if (responses.length < minResponseCount) {
     violations.push(`⚠️ CRITICAL: Only ${responses.length} responses generated - MINIMUM is ${minResponseCount}. Back-and-forth conversation REQUIRED!`);
   }
@@ -1233,9 +1241,12 @@ function validateResponses(
   for (const resp of responses) {
     characterCounts.set(resp.character, (characterCounts.get(resp.character) || 0) + 1);
   }
-  const hasRepeatSpeaker = Array.from(characterCounts.values()).some(count => count >= 2);
-  if (!hasRepeatSpeaker && responses.length >= 2) {
-    violations.push(`⚠️ CRITICAL: No character speaks twice - back-and-forth conversation REQUIRED! Characters should argue/respond to each other.`);
+  const repeatSpeakers = Array.from(characterCounts.entries()).filter(([_, count]) => count >= 2);
+  if (repeatSpeakers.length === 0 && responses.length >= 2) {
+    violations.push(`⚠️ CRITICAL: No character speaks twice - back-and-forth conversation REQUIRED! At least 1-2 characters should speak multiple times.`);
+  } else if (repeatSpeakers.length === 1 && responses.length >= 5) {
+    // Warn if only one character speaks twice when we have 5+ responses
+    console.log(`[ARQ-Validation] Note: Only ${repeatSpeakers[0][0]} speaks twice. Consider having 2 characters speak multiple times for better debate.`);
   }
 
   // Log validation results
