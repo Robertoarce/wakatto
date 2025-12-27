@@ -184,7 +184,7 @@ interface ComponentTracker {
 }
 
 class MemoryDebugger {
-  private enabled = true; // Always enabled for debugging
+  private enabled = false; // Disabled by default - enable manually with memDebug.enable()
   private componentTrackers: Map<string, ComponentTracker> = new Map();
   private intervalRefs: Map<string, NodeJS.Timeout[]> = new Map();
   private timeoutRefs: Map<string, NodeJS.Timeout[]> = new Map();
@@ -192,8 +192,21 @@ class MemoryDebugger {
   private lastMemoryCheck = 0;
   private memoryHistory: number[] = [];
 
+  enable() { this.enabled = true; console.log('[MemDebug] Enabled'); }
+  disable() { this.enabled = false; this.clear(); console.log('[MemDebug] Disabled and cleared'); }
+
+  // Clear all tracking data to free memory
+  clear() {
+    this.componentTrackers.clear();
+    this.intervalRefs.clear();
+    this.timeoutRefs.clear();
+    this.rafRefs.clear();
+    this.memoryHistory = [];
+  }
+
   // Track component mount/unmount
   trackMount(componentName: string) {
+    if (!this.enabled) return;
     const tracker = this.componentTrackers.get(componentName) || { mounted: 0, unmounted: 0, renderCount: 0 };
     tracker.mounted++;
     this.componentTrackers.set(componentName, tracker);
@@ -202,6 +215,7 @@ class MemoryDebugger {
   }
 
   trackUnmount(componentName: string) {
+    if (!this.enabled) return;
     const tracker = this.componentTrackers.get(componentName) || { mounted: 0, unmounted: 0, renderCount: 0 };
     tracker.unmounted++;
     this.componentTrackers.set(componentName, tracker);
@@ -209,6 +223,7 @@ class MemoryDebugger {
   }
 
   trackRender(componentName: string) {
+    if (!this.enabled) return;
     const tracker = this.componentTrackers.get(componentName) || { mounted: 0, unmounted: 0, renderCount: 0 };
     tracker.renderCount++;
     this.componentTrackers.set(componentName, tracker);
@@ -220,6 +235,7 @@ class MemoryDebugger {
 
   // Track intervals
   trackInterval(owner: string, intervalId: NodeJS.Timeout) {
+    if (!this.enabled) return;
     const refs = this.intervalRefs.get(owner) || [];
     refs.push(intervalId);
     this.intervalRefs.set(owner, refs);
@@ -227,6 +243,7 @@ class MemoryDebugger {
   }
 
   trackIntervalClear(owner: string, intervalId: NodeJS.Timeout) {
+    if (!this.enabled) return;
     const refs = this.intervalRefs.get(owner) || [];
     const idx = refs.indexOf(intervalId);
     if (idx > -1) refs.splice(idx, 1);
@@ -236,6 +253,7 @@ class MemoryDebugger {
 
   // Track timeouts
   trackTimeout(owner: string, timeoutId: NodeJS.Timeout) {
+    if (!this.enabled) return;
     const refs = this.timeoutRefs.get(owner) || [];
     refs.push(timeoutId);
     this.timeoutRefs.set(owner, refs);
@@ -245,6 +263,7 @@ class MemoryDebugger {
   }
 
   trackTimeoutClear(owner: string, timeoutId: NodeJS.Timeout) {
+    if (!this.enabled) return;
     const refs = this.timeoutRefs.get(owner) || [];
     const idx = refs.indexOf(timeoutId);
     if (idx > -1) refs.splice(idx, 1);
@@ -253,6 +272,7 @@ class MemoryDebugger {
 
   // Track RAF
   trackRAF(owner: string, rafId: number) {
+    if (!this.enabled) return;
     const refs = this.rafRefs.get(owner) || [];
     refs.push(rafId);
     this.rafRefs.set(owner, refs);
@@ -262,6 +282,7 @@ class MemoryDebugger {
   }
 
   trackRAFCancel(owner: string, rafId: number) {
+    if (!this.enabled) return;
     const refs = this.rafRefs.get(owner) || [];
     const idx = refs.indexOf(rafId);
     if (idx > -1) refs.splice(idx, 1);
@@ -270,6 +291,7 @@ class MemoryDebugger {
 
   // Check memory usage
   checkMemory(context: string = '') {
+    if (!this.enabled) return;
     if ((performance as any).memory) {
       const now = Date.now();
       // Only check every 5 seconds
@@ -340,15 +362,10 @@ class MemoryDebugger {
 
 export const memDebug = new MemoryDebugger();
 
-// Auto-enable in development
+// Auto-enable in development (tools available on window, but no automatic logging)
 if (typeof window !== 'undefined') {
   (window as any).perfLogger = performanceLogger;
   (window as any).memDebug = memDebug;
-  console.log('[PerfLogger] Available as window.perfLogger - call perfLogger.enable() to start logging');
-  console.log('[MemDebug] Available as window.memDebug - call memDebug.logStatus() to check status');
-
-  // Log status every 30 seconds
-  setInterval(() => {
-    memDebug.logStatus();
-  }, 30000);
+  // NOTE: Removed auto-logging setInterval - it caused memory leaks by running forever
+  // Call window.memDebug.logStatus() manually when needed for debugging
 }

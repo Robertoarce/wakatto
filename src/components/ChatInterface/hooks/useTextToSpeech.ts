@@ -99,6 +99,10 @@ export function useTextToSpeech(options: UseTextToSpeechOptions = {}): UseTextTo
 
     return () => {
       tts.stop();
+      // Clean up the onvoiceschanged listener to prevent memory leaks
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        (window as any).speechSynthesis.onvoiceschanged = null;
+      }
     };
   }, []);
 

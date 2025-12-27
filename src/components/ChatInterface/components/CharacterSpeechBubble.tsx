@@ -147,6 +147,13 @@ export function CharacterSpeechBubble({
   const hasBubbles = bubbles && bubbles.length > 0;
   const hasText = text && text.length > 0;
 
+  // Always save text when it's provided (for persistence after playback ends)
+  useEffect(() => {
+    if (text && text.length > 0) {
+      lastTextRef.current = text;
+    }
+  }, [text]);
+
   // Handle fade in for the entire container - bubble persists until new content arrives
   useEffect(() => {
     // Clear any existing fade out timer when speaking starts again
@@ -161,7 +168,6 @@ export function CharacterSpeechBubble({
     // Show container when there's content and character is speaking/typing
     if ((hasBubbles || hasText) && (isSpeaking || isTyping)) {
       setShouldRender(true);
-      if (text) lastTextRef.current = text;
       // Fade in quickly
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -191,7 +197,9 @@ export function CharacterSpeechBubble({
     onAnimationComplete?.(bubbleId, animation);
   }, [onAnimationComplete]);
 
-  if (!shouldRender && !hasBubbles && !hasText) return null;
+  // Also check for persisted text so bubble stays visible after playback ends
+  const hasPersistedText = lastTextRef.current && lastTextRef.current.length > 0;
+  if (!shouldRender && !hasBubbles && !hasText && !hasPersistedText) return null;
 
   // Get bubble dimensions based on bubble count
   const bubbleCount = bubbles?.length || 1;
