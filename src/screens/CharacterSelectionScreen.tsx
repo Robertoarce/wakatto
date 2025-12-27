@@ -15,7 +15,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { CharacterBehavior, getAllCharacters, registerCustomCharacters } from '../config/characters';
+import { CharacterBehavior, getAllCharacters, registerCustomCharacters, TUTORIAL_CHARACTER_ID } from '../config/characters';
 import { getCustomWakattors } from '../services/customWakattorsService';
 import { useCustomAlert } from '../components/CustomAlert';
 import { useResponsive } from '../constants/Layout';
@@ -196,12 +196,16 @@ export default function CharacterSelectionScreen({ onStartConversation, onCancel
       const builtIn = getAllCharacters();
       const custom = await getCustomWakattors();
       const map = new Map<string, CharacterBehavior>();
-      builtIn.forEach(c => map.set(c.id, c));
+      // Filter out tutorial character (BOB) - BOB is exclusive to tutorial conversations
+      builtIn
+        .filter(c => c.id !== TUTORIAL_CHARACTER_ID)
+        .forEach(c => map.set(c.id, c));
       custom.forEach(c => map.set(c.id, { ...c, isCustom: true }));
       registerCustomCharacters(custom);
       setCharacters(Array.from(map.values()));
     } catch (e) {
-      setCharacters(getAllCharacters());
+      // Also filter BOB from fallback
+      setCharacters(getAllCharacters().filter(c => c.id !== TUTORIAL_CHARACTER_ID));
     } finally {
       setLoading(false);
     }

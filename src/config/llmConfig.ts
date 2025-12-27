@@ -90,7 +90,7 @@ export const LLM_CONFIG: Record<string, ProviderConfig> = {
     defaultModel: 'claude-3-haiku-20240307', // 3x faster than Sonnet
     parameters: {
       temperature: 0.8,
-      maxTokens: 800, // Shorter for speed
+      maxTokens: 1500, // Increased from 800 - need room for 4+ responses with animations
       topP: 0.95,
       topK: 40,
     },
@@ -189,7 +189,7 @@ export const ORCHESTRATION_CONFIG: OrchestrationModeConfig = {
   mode: 'single-call', // Default to single-call for cost/speed benefits
   enableFallback: true, // Automatically fallback to multi-call if needed
   singleCall: {
-    maxResponders: 3,
+    maxResponders: 8, // Allow up to 8 for rare extended conversations (typically 3-5)
     includeGestures: true, // Enable gesture system (70+ gestures)
     includeInterruptions: true, // LLM decides when to interrupt
     verbosity: 'balanced', // 2-4 sentences per response

@@ -1,9 +1,13 @@
-import { 
-  getConversations as fetchConversations, 
-  saveConversation as createConversationInDB 
+import {
+  getConversations as fetchConversations,
+  saveConversation as createConversationInDB
 } from '../../services/supabaseService';
 import { supabase } from '../../lib/supabase';
 import { processMessageEntities } from '../../services/entityExtraction';
+import { getBobGreeting } from '../../services/characterGreetings';
+
+// Tutorial character ID - BOB is exclusive to tutorial conversations
+export const TUTORIAL_CHARACTER_ID = 'bob-tutorial';
 
 export const SET_CONVERSATIONS = 'SET_CONVERSATIONS';
 export const SET_CURRENT_CONVERSATION = 'SET_CURRENT_CONVERSATION';
@@ -105,17 +109,66 @@ export const loadConversations = () => async (dispatch: any, getState: any) => {
   }
 };
 
+// Async action to find user's tutorial conversation
+export const findTutorialConversation = () => async (dispatch: any, getState: any): Promise<any | null> => {
+  try {
+    const { auth } = getState();
+    if (!auth.user) {
+      console.error('[findTutorialConversation] No user found');
+      return null;
+    }
+
+    const { data, error } = await supabase
+      .from('conversations')
+      .select('*')
+      .eq('user_id', auth.user.id)
+      .eq('is_tutorial', true)
+      .single();
+
+    if (error) {
+      // PGRST116 means no rows found - not an error for our use case
+      if (error.code === 'PGRST116') {
+        console.log('[findTutorialConversation] No tutorial conversation found');
+        return null;
+      }
+      console.error('[findTutorialConversation] Error:', error);
+      return null;
+    }
+
+    console.log('[findTutorialConversation] Found tutorial:', data?.id);
+    return data;
+  } catch (error) {
+    console.error('[findTutorialConversation] Exception:', error);
+    return null;
+  }
+};
+
 // Async action to create a new conversation
 // selectedCharacters parameter is required - conversations must have fixed characters at creation
+// isTutorial parameter marks this as the tutorial conversation (only one per user allowed)
 export const createConversation = (
   title: string = 'New Conversation',
-  selectedCharacters: string[] = []
+  selectedCharacters: string[] = [],
+  isTutorial: boolean = false
 ) => async (dispatch: any, getState: any) => {
   try {
     const { auth } = getState();
     if (!auth.user) {
       console.error('No user found when creating conversation');
       return;
+    }
+
+    // Validation: BOB can only be in tutorial conversations
+    const hasBob = selectedCharacters.includes(TUTORIAL_CHARACTER_ID);
+    if (hasBob && !isTutorial) {
+      console.error('[createConversation] BOB can only be used in tutorial conversations');
+      throw new Error('BOB is exclusive to the tutorial. Please select other characters.');
+    }
+
+    // Validation: Tutorial can ONLY have BOB
+    if (isTutorial && (selectedCharacters.length !== 1 || !hasBob)) {
+      console.error('[createConversation] Tutorial must have exactly BOB as character');
+      throw new Error('Tutorial must have BOB as the only character.');
     }
 
     const { data, error } = await supabase
@@ -125,6 +178,7 @@ export const createConversation = (
           user_id: auth.user.id,
           title,
           selected_characters: selectedCharacters,
+          is_tutorial: isTutorial,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }
@@ -132,7 +186,15 @@ export const createConversation = (
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      // Handle unique constraint violation for tutorial
+      if (error.code === '23505' && isTutorial) {
+        console.log('[createConversation] Tutorial already exists, finding it...');
+        // Tutorial already exists - find and return it instead
+        return dispatch(findTutorialConversation());
+      }
+      throw error;
+    }
 
     if (data) {
       dispatch(addConversation(data));
@@ -142,6 +204,60 @@ export const createConversation = (
     }
   } catch (error) {
     console.error('Error creating conversation:', error);
+    throw error;
+  }
+};
+
+// Async action to create or navigate to tutorial conversation
+export const createOrNavigateToTutorial = () => async (dispatch: any, getState: any) => {
+  try {
+    const { auth } = getState();
+    if (!auth.user) {
+      console.error('[createOrNavigateToTutorial] No user found');
+      throw new Error('User not authenticated');
+    }
+
+    // First, check if tutorial already exists
+    const existingTutorial = await dispatch(findTutorialConversation());
+
+    if (existingTutorial) {
+      console.log('[createOrNavigateToTutorial] Found existing tutorial, navigating...');
+      await dispatch(selectConversation(existingTutorial));
+      return existingTutorial;
+    }
+
+    // No tutorial exists - create new one
+    console.log('[createOrNavigateToTutorial] Creating new tutorial with Bob...');
+
+    const tutorialConv = await dispatch(
+      createConversation('Tutorial', [TUTORIAL_CHARACTER_ID], true)
+    );
+
+    if (tutorialConv) {
+      // Add Bob's greeting message
+      const greeting = getBobGreeting();
+      await supabase
+        .from('messages')
+        .insert([
+          {
+            conversation_id: tutorialConv.id,
+            role: 'assistant',
+            content: greeting,
+            character_id: TUTORIAL_CHARACTER_ID,
+            created_at: new Date().toISOString(),
+          }
+        ]);
+
+      // Reload messages to show greeting
+      await dispatch(selectConversation(tutorialConv));
+
+      console.log('[createOrNavigateToTutorial] Tutorial created with Bob\'s greeting');
+      return tutorialConv;
+    }
+
+    throw new Error('Failed to create tutorial conversation');
+  } catch (error: any) {
+    console.error('[createOrNavigateToTutorial] Error:', error);
     throw error;
   }
 };

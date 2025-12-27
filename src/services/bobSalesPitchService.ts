@@ -52,12 +52,17 @@ Get them interested in the app through your charm and wit. You're like a street 
 - Quick, punchy messages (2-3 sentences max)
 
 ## Animation System
-Body: idle, wave, nod, lean_forward, point, shrug, happy, talking
-Look: center (you're talking to the user)
-Face options: smile, wink (use sparingly)
+Body (a): idle, wave, nod, lean_forward, point, shrug, happy, talking
+Look (lk): center (you're talking to the user)
+Expression (ex): happy, playful, friendly, confident
+Speed (sp): "slow" | "normal" | "fast" | "explosive"
+- slow: Thoughtful, measured (1.3x duration)
+- normal: Conversational pace (default)
+- fast: Energetic, quick (0.7x duration)
+- explosive: Rapid-fire (0.5x duration)
 
-## Output Format (COMPACT JSON)
-{"greeting":"Your opening line","tl":[{"a":"wave","ms":600,"lk":"center"},{"a":"talking","ms":2500,"talking":true,"lk":"center","m":"smile"}]}
+## Output Format (COMPACT JSON - NO ms values!)
+{"greeting":"Your opening line","tl":[{"a":"wave","sp":"fast","lk":"center","ex":"friendly"},{"a":"talking","sp":"normal","talking":true,"lk":"center","ex":"playful"}]}
 
 Generate a casual, engaging opening. Don't be boring corporate - be Bob.`;
 }
@@ -107,12 +112,17 @@ ${stageInstructions[stage]}
 - If this is follow-up #4-5, it's okay to be more direct or funny about being ignored
 
 ## Animation System
-Body: idle, shrug, lean_forward, point, thinking, talking, nod
-Look: center
-Face: smile, raised_eyebrow (for questioning looks)
+Body (a): idle, shrug, lean_forward, point, thinking, talking, nod
+Look (lk): center
+Expression (ex): friendly, curious, hopeful, playful
+Speed (sp): "slow" | "normal" | "fast" | "explosive"
+- slow: Thoughtful (1.3x duration)
+- normal: Conversational (default)
+- fast: Energetic (0.7x duration)
+- explosive: Rapid-fire (0.5x duration)
 
-## Output Format (COMPACT JSON)
-{"message":"Your follow-up","tl":[{"a":"shrug","ms":500,"lk":"center"},{"a":"talking","ms":2000,"talking":true,"lk":"center"}]}
+## Output Format (COMPACT JSON - NO ms values!)
+{"message":"Your follow-up","tl":[{"a":"shrug","sp":"fast","lk":"center","ex":"playful"},{"a":"talking","sp":"normal","talking":true,"lk":"center","ex":"friendly"}]}
 
 Generate follow-up #${followUpNumber}. Make it count.`;
 }
@@ -198,6 +208,28 @@ export async function generateBobFollowUp(
 }
 
 /**
+ * Convert speed qualifier to duration multiplier
+ * Matches the system used in regular conversations (singleCallOrchestration.ts)
+ */
+function speedToDuration(speed: string, isTalking: boolean, textLength: number): number {
+  // Base duration: talking segments scale with text, non-talking are fixed
+  const baseDuration = isTalking
+    ? Math.max(1500, textLength * 50) // ~50ms per character, min 1500ms
+    : 800; // Non-talking animations (wave, shrug, etc.)
+
+  // Speed multipliers (same as singleCallOrchestration)
+  const multipliers: Record<string, number> = {
+    slow: 1.3,
+    normal: 1.0,
+    fast: 0.7,
+    explosive: 0.5,
+  };
+
+  const multiplier = multipliers[speed] || 1.0;
+  return Math.round(baseDuration * multiplier);
+}
+
+/**
  * Parse Bob's response into a scene
  */
 function parseBobResponse(rawResponse: string, isFollowUp: boolean = false): BobPitchResult {
@@ -211,23 +243,31 @@ function parseBobResponse(rawResponse: string, isFollowUp: boolean = false): Bob
     const message = parsed.greeting || parsed.message || "Hey there!";
     const timeline = parsed.tl || [];
 
-    const segments: AnimationSegment[] = timeline.map((seg: any) => ({
-      animation: (seg.a || 'idle') as AnimationState,
-      duration: seg.ms || 1000,
-      isTalking: seg.talking || false,
-      complementary: {
-        lookDirection: (seg.lk || 'center') as LookDirection,
-        mouthState: seg.m,
-        eyeState: seg.ey,
-        eyebrowState: seg.eb,
-      },
-      textReveal: seg.talking ? { startIndex: 0, endIndex: message.length } : undefined,
-    }));
+    const segments: AnimationSegment[] = timeline.map((seg: any) => {
+      const isTalking = seg.talking || false;
+      const speed = seg.sp || 'normal';
+      // Use ms if provided (backward compat), otherwise calculate from speed
+      const duration = seg.ms || speedToDuration(speed, isTalking, message.length);
+
+      return {
+        animation: (seg.a || 'idle') as AnimationState,
+        duration,
+        isTalking,
+        complementary: {
+          lookDirection: (seg.lk || 'center') as LookDirection,
+          expression: seg.ex,
+          mouthState: seg.m,
+          eyeState: seg.ey,
+          eyebrowState: seg.eb,
+        },
+        textReveal: isTalking ? { startIndex: 0, endIndex: message.length } : undefined,
+      };
+    });
 
     if (segments.length === 0) {
       segments.push(
-        { animation: 'wave', duration: 600, isTalking: false, complementary: { lookDirection: 'center' } },
-        { animation: 'talking', duration: 2500, isTalking: true, complementary: { lookDirection: 'center' }, textReveal: { startIndex: 0, endIndex: message.length } }
+        { animation: 'wave', duration: speedToDuration('fast', false, 0), isTalking: false, complementary: { lookDirection: 'center' } },
+        { animation: 'talking', duration: speedToDuration('normal', true, message.length), isTalking: true, complementary: { lookDirection: 'center' }, textReveal: { startIndex: 0, endIndex: message.length } }
       );
     }
 
@@ -258,18 +298,22 @@ function parseBobResponse(rawResponse: string, isFollowUp: boolean = false): Bob
 function createFallbackOpening(): BobPitchResult {
   const message = "Hey! I'm Bob, your guide to Wakatto. Think of me as the guy who actually knows where everything is. What brings you here today?";
 
+  const waveDuration = speedToDuration('fast', false, 0);
+  const talkDuration = speedToDuration('normal', true, message.length);
+  const totalDuration = waveDuration + talkDuration;
+
   const scene: OrchestrationScene = {
     timelines: [{
       characterId: BOB_CONFIG.characterId,
       content: message,
-      totalDuration: 4000,
+      totalDuration,
       startDelay: 0,
       segments: [
-        { animation: 'wave', duration: 700, isTalking: false, complementary: { lookDirection: 'center' } },
-        { animation: 'talking', duration: 3300, isTalking: true, complementary: { lookDirection: 'center', mouthState: 'open' }, textReveal: { startIndex: 0, endIndex: message.length } },
+        { animation: 'wave', duration: waveDuration, isTalking: false, complementary: { lookDirection: 'center', expression: 'friendly' } },
+        { animation: 'talking', duration: talkDuration, isTalking: true, complementary: { lookDirection: 'center', expression: 'playful' }, textReveal: { startIndex: 0, endIndex: message.length } },
       ],
     }],
-    sceneDuration: 4000,
+    sceneDuration: totalDuration,
     nonSpeakerBehavior: {},
   };
 
@@ -291,18 +335,22 @@ function createFallbackFollowUp(followUpNumber: number): BobPitchResult {
   const index = Math.min(followUpNumber - 1, FALLBACK_FOLLOWUPS.length - 1);
   const message = FALLBACK_FOLLOWUPS[index];
 
+  const shrugDuration = speedToDuration('fast', false, 0);
+  const talkDuration = speedToDuration('normal', true, message.length);
+  const totalDuration = shrugDuration + talkDuration;
+
   const scene: OrchestrationScene = {
     timelines: [{
       characterId: BOB_CONFIG.characterId,
       content: message,
-      totalDuration: 3000,
+      totalDuration,
       startDelay: 0,
       segments: [
-        { animation: 'shrug', duration: 500, isTalking: false, complementary: { lookDirection: 'center' } },
-        { animation: 'talking', duration: 2500, isTalking: true, complementary: { lookDirection: 'center', mouthState: 'open' }, textReveal: { startIndex: 0, endIndex: message.length } },
+        { animation: 'shrug', duration: shrugDuration, isTalking: false, complementary: { lookDirection: 'center', expression: 'playful' } },
+        { animation: 'talking', duration: talkDuration, isTalking: true, complementary: { lookDirection: 'center', expression: 'friendly' }, textReveal: { startIndex: 0, endIndex: message.length } },
       ],
     }],
-    sceneDuration: 3000,
+    sceneDuration: totalDuration,
     nonSpeakerBehavior: {},
   };
 

@@ -29,6 +29,7 @@ import { getRandomStory, Story } from '../services/storyLibrary';
 import { setStoryContext, clearStoryContext } from '../store/actions/conversationActions';
 import { useResponsive, BREAKPOINTS, CHARACTER_HEIGHT } from '../constants/Layout';
 import { Toast } from './ui/Toast';
+import { memDebug } from '../services/performanceLogger';
 import {
   IdleConversationManager,
   IdleConversationState,
@@ -66,7 +67,6 @@ import {
 } from './ChatInterface/hooks';
 import { calculateCharacterPosition } from './ChatInterface/utils/characterPositioning';
 import { wrapTextWithReveal } from './ChatInterface/utils/speechBubbleHelpers';
-import { BUBBLE_ANIMATION_TIMING } from './ChatInterface/utils/bubbleQueueHelpers';
 
 interface Message {
   id: string;
@@ -151,6 +151,29 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const { isFullscreen } = useSelector((state: RootState) => state.ui);
   const { currentUsage, lastWarningDismissed, lastFetchedAt } = useSelector((state: RootState) => state.usage);
   const { showAlert, AlertComponent } = useCustomAlert();
+
+  // Track ChatInterface lifecycle
+  const renderCountRef = useRef(0);
+  useEffect(() => {
+    memDebug.trackMount('ChatInterface');
+    console.log(`[CHAT-DEBUG] 💬 ChatInterface MOUNTED (conversationId: ${conversationId})`);
+    memDebug.checkMemory('ChatInterface mount');
+
+    return () => {
+      memDebug.trackUnmount('ChatInterface');
+      console.log(`[CHAT-DEBUG] 💬 ChatInterface UNMOUNTED (had ${renderCountRef.current} renders)`);
+    };
+  }, []);
+
+  // Track render count
+  useEffect(() => {
+    renderCountRef.current++;
+    // Log every 50 renders
+    if (renderCountRef.current % 50 === 0) {
+      console.log(`[CHAT-DEBUG] 🔄 ChatInterface render #${renderCountRef.current}`);
+      memDebug.checkMemory(`ChatInterface render #${renderCountRef.current}`);
+    }
+  });
 
   // Upgrade prompt modal state
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -277,8 +300,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [isMobileView, setIsMobileView] = useState(isMobile);
   const [hoveredCharacterId, setHoveredCharacterId] = useState<string | null>(null); // Track which character is hovered
   const [isFullscreenHovered, setIsFullscreenHovered] = useState(false); // Track fullscreen button hover
-  const clickBubbleVisibleRef = useRef<Set<string>>(new Set()); // Track click bubble visibility (ref to avoid re-renders)
-  const lastCharacterTextRef = useRef<Map<string, { text: string; fullText: string }>>(new Map()); // Track last text for fade-out
+  const lastCharacterTextRef = useRef<Map<string, { text: string; fullText: string }>>(new Map()); // Track last text for persistence
   const [nameKey, setNameKey] = useState(0); // Key to trigger re-animation
   // Character loading (hook handles loading from both built-in and database)
   const { availableCharacters, isLoadingCharacters } = useCharacterLoading();
@@ -523,17 +545,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     }
   }, [playbackState.isPlaying, playbackState.characterStates, selectedCharacters, updateCharacterText]);
 
-  // Clear saved text after bubbles fade out when playback stops
-  useEffect(() => {
-    if (!playbackState.isPlaying && lastCharacterTextRef.current.size > 0) {
-      // Wait for fade-out delay + duration before clearing saved text
-      const clearDelay = BUBBLE_ANIMATION_TIMING.FADE_OUT_DELAY + BUBBLE_ANIMATION_TIMING.FADE_OUT_DURATION + 500;
-      const timer = setTimeout(() => {
-        lastCharacterTextRef.current.clear();
-      }, clearDelay);
-      return () => clearTimeout(timer);
-    }
-  }, [playbackState.isPlaying]);
+  // Note: lastCharacterTextRef is NOT cleared automatically - bubbles persist until new content arrives
 
   // Track previous playback state for TTS trigger
   const prevPlayingRef = useRef(false);
@@ -758,6 +770,13 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const previousMessagesRef = useRef(messages);
   const hasRestoredInitialCharacters = useRef(false);
   const hasTriggeredGreeting = useRef(false); // Prevent duplicate greetings
+
+  // Reset greeting trigger when conversationId changes (handles new empty conversations)
+  useEffect(() => {
+    hasTriggeredGreeting.current = false;
+    conversationStarterInProgressRef.current = false;
+    console.log('[ChatInterface] Conversation changed, reset greeting triggers');
+  }, [conversationId]);
 
   useEffect(() => {
     // Detect conversation change: first message ID changed or message array replaced
@@ -1589,8 +1608,9 @@ Each silence, a cathedral where you still reside.`;
               // Get bubbles from queue (persists after playback ends)
               const characterBubbles = getBubblesForCharacter(characterId);
 
-              // Render bubble if speaking OR if there are bubbles in queue (for fade-out)
+              // Render bubble if speaking, typing, has bubbles, OR has saved text to persist
               const hasBubbles = characterBubbles.length > 0;
+              const hasPersistedText = lastSavedText?.text && lastSavedText.text.length > 0;
               if (!isSpeakingNow && !isTypingNow && !hasBubbles) return null;
 
               return (
@@ -1695,11 +1715,6 @@ Each silence, a cathedral where you still reside.`;
               const isSpeaking = usePlayback && charPlaybackState?.isTalking;
               const isTyping = usePlayback && revealedText && revealedText.length > 0;
 
-              // Get the last message this character said (for hover display)
-              const lastCharacterMessage = messages
-                .filter(m => m.characterId === characterId && m.content)
-                .slice(-1)[0]?.content;
-
               // Get entrance config for this character (if in entrance animation)
               const charEntranceConfig = entranceSequence.get(characterId);
 
@@ -1712,17 +1727,9 @@ Each silence, a cathedral where you still reside.`;
                   entranceAnimation={showEntranceAnimation}
                   entranceKey={entranceAnimationKey.current}
                   isLeftSide={horizontalOffset < 0}
-                  lastMessage={lastCharacterMessage}
                   entranceConfig={charEntranceConfig}
                   actionText={usePlayback ? playbackEngineRef.current.getActionText(characterId) : undefined}
                   onHoverChange={(isHovered) => setHoveredCharacterId(isHovered ? characterId : null)}
-                  onClickBubbleChange={(isVisible) => {
-                    if (isVisible) {
-                      clickBubbleVisibleRef.current.add(characterId);
-                    } else {
-                      clickBubbleVisibleRef.current.delete(characterId);
-                    }
-                  }}
                   style={[
                     styles.characterWrapper,
                     {

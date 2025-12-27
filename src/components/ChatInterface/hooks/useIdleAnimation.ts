@@ -6,6 +6,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { IdleAnimationState } from '../types/chatInterface.types';
 import { getRandomIdleAnimation, getRandomIdleInterval } from '../utils/idleAnimationConstants';
+import { memDebug } from '../../../services/performanceLogger';
 
 interface UseIdleAnimationOptions {
   selectedCharacters: string[];
@@ -59,18 +60,22 @@ export function useIdleAnimation({
     const existingTimer = idleTimersRef.current.get(characterId);
     if (existingTimer) {
       clearTimeout(existingTimer);
+      memDebug.trackTimeoutClear('useIdleAnimation', existingTimer);
     }
 
     // Schedule next animation change with random interval (8-15 seconds)
+    const interval = getRandomIdleInterval();
     const timer = setTimeout(() => {
       if (isIdleCycleActiveRef.current) {
         updateCharacterIdleAnimation(characterId);
         // Schedule the next one
         scheduleNextIdleAnimation(characterId);
       }
-    }, getRandomIdleInterval());
+    }, interval);
 
     idleTimersRef.current.set(characterId, timer);
+    memDebug.trackTimeout('useIdleAnimation', timer);
+    console.log(`[IDLE-DEBUG] ⏱️ Scheduled idle animation for ${characterId} in ${(interval/1000).toFixed(1)}s (total timers: ${idleTimersRef.current.size})`);
   }, [updateCharacterIdleAnimation]);
 
   // Start idle animation cycle for all characters (with staggered start)
@@ -97,11 +102,14 @@ export function useIdleAnimation({
 
   // Stop all idle animation cycles and clear state
   const stopIdleCycle = useCallback(() => {
+    const timerCount = idleTimersRef.current.size;
+    console.log(`[IDLE-DEBUG] 🛑 Stopping idle cycle (${timerCount} timers to clear)`);
     isIdleCycleActiveRef.current = false;
 
     // Clear all character timers
-    idleTimersRef.current.forEach((timer) => {
+    idleTimersRef.current.forEach((timer, charId) => {
       clearTimeout(timer);
+      memDebug.trackTimeoutClear('useIdleAnimation', timer);
     });
     idleTimersRef.current.clear();
 
@@ -110,8 +118,10 @@ export function useIdleAnimation({
 
     if (idleStartDelayRef.current) {
       clearTimeout(idleStartDelayRef.current);
+      memDebug.trackTimeoutClear('useIdleAnimation', idleStartDelayRef.current);
       idleStartDelayRef.current = null;
     }
+    console.log(`[IDLE-DEBUG] ✅ Idle cycle stopped, all timers cleared`);
   }, []);
 
   // Effect: Start/stop idle cycle based on playback and loading state

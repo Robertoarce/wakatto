@@ -147,7 +147,7 @@ export function CharacterSpeechBubble({
   const hasBubbles = bubbles && bubbles.length > 0;
   const hasText = text && text.length > 0;
 
-  // Handle fade in/out for the entire container
+  // Handle fade in for the entire container - bubble persists until new content arrives
   useEffect(() => {
     // Clear any existing fade out timer when speaking starts again
     if (isSpeaking || isTyping) {
@@ -169,21 +169,8 @@ export function CharacterSpeechBubble({
         useNativeDriver: Platform.OS !== 'web',
       }).start();
     }
-    // Start fade out when speaking stops
-    else if (!isSpeaking && !isTyping && (lastTextRef.current || hasBubbles) && !hasStartedFadeOut.current) {
-      hasStartedFadeOut.current = true;
-      fadeOutTimerRef.current = setTimeout(() => {
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: BUBBLE_ANIMATION_TIMING.FADE_OUT_DURATION,
-          useNativeDriver: Platform.OS !== 'web',
-        }).start(() => {
-          setShouldRender(false);
-          lastTextRef.current = '';
-          hasStartedFadeOut.current = false;
-        });
-      }, BUBBLE_ANIMATION_TIMING.FADE_OUT_DELAY);
-    }
+    // Keep bubble visible when speaking stops - don't fade out
+    // Bubble will be replaced when new content arrives
 
     return () => {
       if (fadeOutTimerRef.current) {

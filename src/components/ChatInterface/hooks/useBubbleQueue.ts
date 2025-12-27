@@ -11,6 +11,7 @@ import {
   BUBBLE_ANIMATION_TIMING,
 } from '../utils/bubbleQueueHelpers';
 import type { BubbleState, BubbleAnimationState } from '../components/AnimatedBubble';
+import { memDebug } from '../../../services/performanceLogger';
 
 interface CharacterBubbleQueue {
   bubbles: BubbleState[];
@@ -164,6 +165,7 @@ export function useBubbleQueue({
     const existingTimer = timersRef.current.get(characterId);
     if (existingTimer) {
       clearTimeout(existingTimer);
+      memDebug.trackTimeoutClear('useBubbleQueue', existingTimer);
     }
 
     const pauseDuration = calculateReadingPause(wordCount);
@@ -174,6 +176,12 @@ export function useBubbleQueue({
     }, pauseDuration);
 
     timersRef.current.set(characterId, timer);
+    memDebug.trackTimeout('useBubbleQueue', timer);
+
+    // Log if many timers are accumulating
+    if (timersRef.current.size > 5) {
+      console.warn(`[BUBBLE-DEBUG] ⚠️ Many bubble timers: ${timersRef.current.size}`);
+    }
   }, [processPendingSegments]);
 
   // Update text for a character - this is called frequently during text reveal
@@ -337,8 +345,15 @@ export function useBubbleQueue({
 
   // Clear all bubbles
   const clearAllBubbles = useCallback(() => {
+    const timerCount = timersRef.current.size;
+    const animStateCount = animationStates.current.size;
+    console.log(`[BUBBLE-DEBUG] 🧹 Clearing all bubbles (${timerCount} timers, ${animStateCount} animation states)`);
+
     // Clear all timers
-    timersRef.current.forEach(timer => clearTimeout(timer));
+    timersRef.current.forEach(timer => {
+      clearTimeout(timer);
+      memDebug.trackTimeoutClear('useBubbleQueue', timer);
+    });
     timersRef.current.clear();
 
     // Clear all animation states
@@ -347,11 +362,20 @@ export function useBubbleQueue({
     setQueues(new Map());
   }, []);
 
-  // Cleanup timers on unmount
+  // Track mount/unmount and cleanup timers
   useEffect(() => {
+    memDebug.trackMount('useBubbleQueue');
+    console.log('[BUBBLE-DEBUG] 💬 useBubbleQueue mounted');
+
     return () => {
-      timersRef.current.forEach(timer => clearTimeout(timer));
+      const timerCount = timersRef.current.size;
+      console.log(`[BUBBLE-DEBUG] 💬 useBubbleQueue unmounting (${timerCount} timers, ${queues.size} queues, ${animationStates.current.size} animation states)`);
+      timersRef.current.forEach(timer => {
+        clearTimeout(timer);
+        memDebug.trackTimeoutClear('useBubbleQueue', timer);
+      });
       timersRef.current.clear();
+      memDebug.trackUnmount('useBubbleQueue');
     };
   }, []);
 

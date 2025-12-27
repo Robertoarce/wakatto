@@ -53,12 +53,63 @@ export interface OrchestrationConfig {
 }
 
 const DEFAULT_CONFIG: OrchestrationConfig = {
-  maxResponders: 3,
+  maxResponders: 8,  // Allow up to 8 for rare extended conversations
   includeGestures: true,
   includeInterruptions: true,
   verbosity: 'balanced',
   enableAnimatedScene: true // Default to animated format
 };
+
+/**
+ * Determine response count with weighted randomness
+ * MINIMUM 4 responses to ensure back-and-forth conversation
+ * - 50% chance: 4 responses (minimum for back-and-forth)
+ * - 35% chance: 5 responses
+ * - 10% chance: 6 responses
+ * - 5% chance: 8 responses (very rare)
+ */
+function getResponseCount(): number {
+  const rand = Math.random();
+  if (rand < 0.05) return 8;      // 5% chance: 8 responses (very rare)
+  if (rand < 0.15) return 6;      // 10% chance: 6 responses
+  if (rand < 0.50) return 5;      // 35% chance: 5 responses
+  return 4;                        // 50% chance: 4 responses (minimum for back-and-forth)
+}
+
+// Track user interactions for reaction timing
+let userInteractionCount = 0;
+let nextReactionAt = 2 + Math.floor(Math.random() * 2); // First reaction at 2-3
+
+/**
+ * Check if we should force a reaction this turn
+ * Returns true every 2-3 user interactions
+ */
+function shouldForceReaction(): boolean {
+  userInteractionCount++;
+  if (userInteractionCount >= nextReactionAt) {
+    // Reset counter and set next reaction at 2-3 interactions from now
+    userInteractionCount = 0;
+    nextReactionAt = 2 + Math.floor(Math.random() * 2);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Get reaction guidance for the prompt
+ */
+function getReactionGuidance(forceReaction: boolean): string {
+  if (forceReaction) {
+    return `
+**IMPORTANT - REACTION REQUIRED THIS TURN:**
+- At least ONE response MUST use "reactsTo" to react to a previous message
+- React to either: the USER's message OR another character's response
+- Reactions can be: agreement, disagreement, surprise, building on idea, playful teasing
+- Example: {"character": "freud", "content": "Ha! That's exactly what Jung said last time!", "reactsTo": "jung", ...}
+`;
+  }
+  return '';
+}
 
 /**
  * Get position label for a character based on index and total count
@@ -105,11 +156,15 @@ export async function generateSingleCallOrchestration(
   // Set available characters for parsing (to resolve names to IDs)
   setAvailableCharactersForParsing(selectedCharacters);
 
+  // Check if we should force a reaction this turn (every 2-3 user interactions)
+  const forceReaction = shouldForceReaction();
+
   // Build the orchestration prompt
   const orchestrationPrompt = buildOrchestrationPrompt(
     selectedCharacters,
     messageHistory,
-    finalConfig
+    finalConfig,
+    forceReaction
   );
 
   // Format message history for context
@@ -121,7 +176,7 @@ export async function generateSingleCallOrchestration(
     content: userMessage
   });
 
-  console.log('[SingleCall] Generating orchestrated response for', selectedCharacters.length, 'characters');
+  console.log('[SingleCall] Generating orchestrated response for', selectedCharacters.length, 'characters', forceReaction ? '(REACTION FORCED)' : '');
 
   // Log the full prompt (collapsed)
   console.groupCollapsed('[SingleCall] Full Orchestration Prompt');
@@ -182,12 +237,16 @@ export async function generateAnimatedSceneOrchestration(
   // Set available characters for parsing
   setAvailableCharactersForParsing(selectedCharacters);
 
+  // Check if we should force a reaction this turn (every 2-3 user interactions)
+  const forceReaction = shouldForceReaction();
+
   // Profile prompt building
   const promptTimer = profiler.start(PROFILE_OPS.PROMPT_BUILD);
   const animatedPrompt = buildAnimatedScenePrompt(
     selectedCharacters,
     messageHistory,
-    finalConfig
+    finalConfig,
+    forceReaction
   );
   promptTimer.stop({ 
     promptLength: animatedPrompt.length,
@@ -316,16 +375,20 @@ export async function generateAnimatedSceneOrchestrationStreaming(
   // Set available characters for parsing
   setAvailableCharactersForParsing(selectedCharacters);
 
+  // Check if we should force a reaction this turn (every 2-3 user interactions)
+  const forceReaction = shouldForceReaction();
+
   // Build prompt
   const promptTimer = profiler.start(PROFILE_OPS.PROMPT_BUILD);
   const animatedPrompt = buildAnimatedScenePrompt(
     selectedCharacters,
     messageHistory,
-    finalConfig
+    finalConfig,
+    forceReaction
   );
-  promptTimer.stop({ 
+  promptTimer.stop({
     promptLength: animatedPrompt.length,
-    characterCount: selectedCharacters.length 
+    characterCount: selectedCharacters.length
   });
 
   // Format message history
@@ -335,7 +398,7 @@ export async function generateAnimatedSceneOrchestrationStreaming(
     content: userMessage
   });
 
-  console.log('[AnimatedOrch-Stream] Starting streaming generation for', selectedCharacters.length, 'characters');
+  console.log('[AnimatedOrch-Stream] Starting streaming generation for', selectedCharacters.length, 'characters', forceReaction ? '(REACTION FORCED)' : '');
 
   // Log the full prompt (collapsed)
   console.groupCollapsed('[AnimatedOrch-Stream] Full Animated Scene Prompt');
@@ -445,7 +508,8 @@ export async function generateAnimatedSceneOrchestrationStreaming(
 function buildAnimatedScenePrompt(
   selectedCharacters: string[],
   messageHistory: ConversationMessage[],
-  config: OrchestrationConfig
+  config: OrchestrationConfig,
+  forceReaction: boolean = false
 ): string {
   // Get character profiles - enhanced with full systemPrompt + temperament modifiers
   const characterProfiles = selectedCharacters.map((charId, index) => {
@@ -522,7 +586,30 @@ Full scene: {"s":{"ch":[{"c":"ID","t":"TEXT","ord":1,"tl":[{"a":"thinking","sp":
 - VARY EXPRESSIONS: Each segment should feel emotionally distinct. Don't repeat the same expression.
 - OVERRIDE WHEN NEEDED: Use override keys (ey, eb, m, etc.) to tweak expressions for nuance.
 - 1-2 sentences per response - SHORT, punchy, like texting friends
-- Be SASSY and FUNNY, not supportive and preachy. Roast > comfort.
+- Use NORMAL TV/movie vocabulary - no fancy words unless character is known for it (Shakespeare, philosophers OK)
+- Swearing is OK but censor creatively: "f@#$", "sh!t", "d@mn", "F-- you!"
+
+## ⚠️ CRITICAL: DRAMA & CONFLICT REQUIRED ⚠️
+
+**NEVER DO THIS (boring, everyone agrees):**
+❌ A: "Mondays are great!" B: "I agree!" C: "Me too!"
+
+**ALWAYS DO THIS (drama, conflict, roasting):**
+✅ A: "Mondays build character!" B: "Oh please, Teddy. Not everyone needs to wrestle bears to feel alive." A: "At least I DO something, Bob. What do you do, smoke and strum?" C: "Both of you are insufferable."
+
+**MANDATORY RULES (RESPONSE IS INVALID IF NOT FOLLOWED):**
+- At least ONE character must DISAGREE or MOCK another character
+- EVERY response after the first MUST have "reactsTo" set to another character's ID
+- If ALL characters agree with each other = INVALID RESPONSE, regenerate with conflict!
+- NO positive platitudes - someone MUST be contrarian, sarcastic, or mocking
+- Roast each other! Tease! Call out BS! Be petty!
+- **NEVER disrespect the USER** - they're your friend, other characters are fair game
+
+⚠️ VALIDATION: Response will be REJECTED if:
+- No character uses "reactsTo"
+- All characters agree/support each other
+- No mocking, teasing, or disagreement between characters
+
 - Max 1 question per response (99%), 2 questions extremely rare (1%)
 - Look direction when addressing another character (based on their position relative to YOU):
   * If target is to YOUR LEFT (lower index): look "at_left_character"
@@ -530,11 +617,32 @@ Full scene: {"s":{"ch":[{"c":"ID","t":"TEXT","ord":1,"tl":[{"a":"thinking","sp":
   * Example: If you're at position 2 and addressing someone at position 4, look "at_right_character"
 - Use character ID (like "freud") in "c" field, NOT display name
 - No name prefix in "t" field
-- Include ${Math.min(config.maxResponders, selectedCharacters.length)} characters maximum
+- Use "reactsTo": "character_id" to show who you're responding to
+
+## ⚠️ MINIMUM RESPONSE COUNT: ${getResponseCount()} (HARD REQUIREMENT - NOT OPTIONAL!)
+
+**RESPONSE IS INVALID AND WILL BE REJECTED IF:**
+- Fewer than ${getResponseCount()} responses generated
+- No character speaks twice (at least ONE character MUST reply again)
+- No back-and-forth exchange exists
+
+**REQUIRED STRUCTURE (you MUST follow this pattern):**
+1. Character A speaks first (reactsTo: null)
+2. Character B responds TO Character A (reactsTo: "A") - mocking or disagreeing
+3. Character A fires back at B (reactsTo: "B") ← SAME CHARACTER SPEAKS AGAIN (REQUIRED!)
+4. Character C jumps in OR A/B continues (reactsTo: someone)
+
+**EXAMPLE - CORRECT (4 responses, Joan speaks twice):**
+{"c":"joan","t":"Two letters? I led armies with battle cries!","ord":1}
+{"c":"wanda","t":"Not everyone screams to communicate, Joan.","ord":2,"reactsTo":"joan"}
+{"c":"joan","t":"At least I COMMUNICATE. You just sulk and hex.","ord":3,"reactsTo":"wanda"}
+{"c":"wanda","t":"Keep talking. See what happens.","ord":4,"reactsTo":"joan"}
+
+**VALIDATION:** Response REJECTED if fewer than ${getResponseCount()} or no character speaks twice!
 - Add "v" object to talking segments to control voice characteristics
 - If asked personal questions (birthday, history), characters answer AS THEMSELVES based on their real history
 ${config.includeInterruptions ? '- Characters can interrupt by setting "int": true' : ''}
-
+${getReactionGuidance(forceReaction)}
 ## Characters in This Scene (DYNAMIC - answer personal questions based on their history)
 ${characterProfiles}
 ${characterChangeNote}
@@ -549,7 +657,8 @@ Start with { and end with }. Example: {"s":{"ch":[...]}}`;
 function buildOrchestrationPrompt(
   selectedCharacters: string[],
   messageHistory: ConversationMessage[],
-  config: OrchestrationConfig
+  config: OrchestrationConfig,
+  forceReaction: boolean = false
 ): string {
   // Get character profiles
   const characterProfiles = selectedCharacters.map(charId => {
@@ -595,12 +704,12 @@ You are orchestrating a casual conversation between multiple characters and a us
 
 Generate responses for the characters in this conversation. Consider:
 
-1. **Character Voice**: Each character has a unique perspective, but DON'T overdo it:
+1. **Character Voice**: Each character has a unique perspective - USE IT TO CREATE CONFLICT:
    - Let your viewpoint come through naturally, not forced
    - Don't constantly reference your famous ideas or catchphrases
    - Be a person first, a "character" second
-   - Sometimes a simple "yeah, that makes sense!" is perfect
-   - Not everything needs deep analysis or your signature spin
+   - DISAGREE with other characters - "yeah that makes sense" is BORING!
+   - Challenge, mock, and roast other characters' opinions
 
 2. **Casual Tone & Simple Words**: 
    - Talk like texting, not like giving a lecture
@@ -611,12 +720,12 @@ Generate responses for the characters in this conversation. Consider:
    - Be warm, relaxed, and natural
    - Ask questions to keep the conversation going!
 
-3. **Natural Dialogue**: Characters can:
-   - Build on each other's points
-   - Respectfully disagree
-   - Ask the user questions ("What do you think?", "How does that feel?")
-   - React to what others say
-   - Joke around or be playful when appropriate
+3. **Natural Dialogue**: Characters MUST:
+   - FIGHT, argue, and roast each other - NO agreeing!
+   - Challenge and mock each other's points
+   - Ask the USER questions (be friendly to user, fight with other characters)
+   - React to what others say using "reactsTo" field
+   - Be petty, sarcastic, and provocative with each other
 ${config.includeInterruptions ? '   - Interrupt when they feel strongly (mark as interruption)' : ''}
 
 4. **Response Length**: ${verbosityGuide} - Keep it snappy and conversational!
@@ -637,13 +746,14 @@ You MUST include a "reasoning" object that answers these questions:
 
 1. **Context Assessment**: What is the user asking? What's the emotional tone or need?
 2. **Character Selection**: Which characters have relevant expertise? Should all respond or just some?
-3. **Voice Check**: For each responding character, what makes their perspective unique?
+3. **Conflict Planning**: How will characters DISAGREE and FIGHT with each other? (REQUIRED - no agreeing!)
 4. **Format Validation Checklist**:
    - Am I using character IDs (like "albert_einstein") NOT display names?
    - Is each character in a SEPARATE object in the responses array?
    - Did I avoid putting [Character Name]: prefixes inside content fields?
    - Is each content field ONLY that single character's response text?
-5. **Final Decision**: Which characters will respond and why?
+   - Does at least ONE character mock/disagree with another? (REQUIRED!)
+5. **Final Decision**: Which characters will respond and HOW they'll fight with each other?
 
 ## Response Format
 
@@ -653,9 +763,9 @@ Respond with VALID JSON only (no markdown code blocks):
   "reasoning": {
     "context": "User is asking about X. Tone is Y.",
     "characterSelection": "Characters A and B are most relevant because...",
-    "voiceCheck": {
-      "character_id_1": "Will focus on...",
-      "character_id_2": "Will contrast by..."
+    "conflictPlan": {
+      "character_id_1": "Will MOCK character_id_2 by saying...",
+      "character_id_2": "Will DISAGREE with character_id_1 because..."
     },
     "formatValidation": {
       "usingCharacterIds": true,
@@ -683,18 +793,52 @@ Respond with VALID JSON only (no markdown code blocks):
 - Each response is from ONE character only - do not combine multiple characters in one response
 
 **Rules:**
-- 1 SHORT sentence only (max 10-15 words) - like a text message!
-- Max 1 question per response (99%), 2 questions extremely rare (1%)
-- Include ${Math.min(config.maxResponders, selectedCharacters.length)} characters maximum, but fewer is often better
-- If user addresses a specific character, include ONLY that character (unless others interrupt)
+- 1-2 SHORT sentences per response (max 20 words) - like texting friends!
+- Use NORMAL TV/movie vocabulary - no fancy words unless character is known for it
+
+## ⚠️ MINIMUM RESPONSE COUNT: ${getResponseCount()} (HARD REQUIREMENT - NOT OPTIONAL!)
+
+**RESPONSE IS INVALID AND WILL BE REJECTED IF:**
+- Fewer than ${getResponseCount()} responses generated
+- No character speaks twice (at least ONE character MUST reply again)
+- No back-and-forth exchange exists
+
+**REQUIRED STRUCTURE (you MUST follow this pattern):**
+1. Character A speaks first (reactsTo: null)
+2. Character B responds TO Character A (reactsTo: "A") - mocking or disagreeing
+3. Character A fires back at B (reactsTo: "B") ← SAME CHARACTER SPEAKS AGAIN (REQUIRED!)
+4. Character C jumps in OR A/B continues (reactsTo: someone)
+
+**EXAMPLE - CORRECT (4 responses, Joan speaks twice):**
+{"character":"joan","content":"Two letters? I led armies!","reactsTo":null}
+{"character":"wanda","content":"Not everyone screams, Joan.","reactsTo":"joan"}
+{"character":"joan","content":"At least I COMMUNICATE.","reactsTo":"wanda"}
+{"character":"wanda","content":"Keep talking. See what happens.","reactsTo":"joan"}
+
+## ⚠️ CRITICAL: DRAMA & CONFLICT REQUIRED ⚠️
+
+**NEVER DO THIS (boring):** A: "Great point!" B: "I agree!" C: "Me too!"
+**ALWAYS DO THIS (drama):** A says X → B mocks/disagrees with A (using reactsTo) → A fires back
+
+**MANDATORY (RESPONSE IS INVALID IF NOT FOLLOWED):**
+- At least ONE character must DISAGREE or MOCK another character
+- EVERY response after the first MUST have "reactsTo" set to another character
+- If ALL characters agree = INVALID, regenerate with conflict!
+- NO positive platitudes - someone MUST mock, tease, or disagree
+- Roast each other! Be petty! Call out BS!
+- Swearing OK but censor: "f@#$", "sh!t", "d@mn"
+- **NEVER disrespect the USER** - other characters are fair game
+- At least one character asks the USER a question
+
+⚠️ VALIDATION - REJECT response if: no reactsTo used, all agree, no conflict
 - First response: "timing": "immediate", "interrupts": false
 - Subsequent responses: "timing": "delayed", may have "interrupts": true
-- Use "reactsTo": "character_id" when building on another's point
+- Use "reactsTo": "character_id" when responding to another character
 - Maintain distinct voices for each character
 - Return an empty "responses" array [] if no character has something meaningful to add
 - If asked personal questions (birthday, history), characters answer AS THEMSELVES based on their real history
 ${config.includeGestures ? '- Choose gestures that match the character\'s emotional state and message' : ''}
-
+${getReactionGuidance(forceReaction)}
 ## Characters in This Conversation (DYNAMIC - answer personal questions based on their history)
 
 ${characterProfiles}
@@ -1077,7 +1221,23 @@ function validateResponses(
       violations.push(`Empty content for character ${resp.character}`);
     }
   }
-  
+
+  // Check minimum response count (HARD REQUIREMENT: minimum 4)
+  const minResponseCount = 4;
+  if (responses.length < minResponseCount) {
+    violations.push(`⚠️ CRITICAL: Only ${responses.length} responses generated - MINIMUM is ${minResponseCount}. Back-and-forth conversation REQUIRED!`);
+  }
+
+  // Check if at least one character speaks twice (REQUIRED for back-and-forth)
+  const characterCounts = new Map<string, number>();
+  for (const resp of responses) {
+    characterCounts.set(resp.character, (characterCounts.get(resp.character) || 0) + 1);
+  }
+  const hasRepeatSpeaker = Array.from(characterCounts.values()).some(count => count >= 2);
+  if (!hasRepeatSpeaker && responses.length >= 2) {
+    violations.push(`⚠️ CRITICAL: No character speaks twice - back-and-forth conversation REQUIRED! Characters should argue/respond to each other.`);
+  }
+
   // Log validation results
   if (violations.length > 0) {
     console.warn('[ARQ-Validation] ===== Guideline Violations Detected =====');

@@ -7,6 +7,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Animated, Platform, View, Text, StyleSheet, Easing } from 'react-native';
 import { useResponsive } from '../../../constants/Layout';
 import { EntranceConfig } from '../../../services/entranceAnimations';
+import { memDebug } from '../../../services/performanceLogger';
 
 interface FloatingCharacterWrapperProps {
   children: React.ReactNode;
@@ -17,10 +18,8 @@ interface FloatingCharacterWrapperProps {
   entranceAnimation?: boolean;
   entranceKey?: number;
   isLeftSide?: boolean;
-  lastMessage?: string;
   entranceConfig?: EntranceConfig;
   onHoverChange?: (isHovered: boolean) => void;
-  onClickBubbleChange?: (isVisible: boolean) => void; // Notify when click bubble visibility changes
   actionText?: string; // Comic-style action text like "slams hand on table"
 }
 
@@ -33,16 +32,13 @@ export function FloatingCharacterWrapper({
   entranceAnimation = false,
   entranceKey = 0,
   isLeftSide = false,
-  lastMessage,
   entranceConfig,
   onHoverChange,
-  onClickBubbleChange,
   actionText,
 }: FloatingCharacterWrapperProps) {
   const floatAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const hoverAnim = useRef(new Animated.Value(0)).current;
-  const clickAnim = useRef(new Animated.Value(0)).current; // For click-to-show message
   const slideAnim = useRef(new Animated.Value(0)).current;
   // Additional animation values for varied entrance types
   const verticalAnim = useRef(new Animated.Value(0)).current;  // For drop_from_sky
@@ -50,47 +46,10 @@ export function FloatingCharacterWrapper({
   const entranceRotateAnim = useRef(new Animated.Value(0)).current;  // For spin_in
   const opacityAnim = useRef(new Animated.Value(1)).current;   // For teleport_in
   const [isHovered, setIsHovered] = useState(false);
-  const [isClicked, setIsClicked] = useState(false); // Track click state for message bubble
-  const { fonts, spacing, borderRadius, components, scalePx, isMobile } = useResponsive();
-
-  // Responsive click bubble positioning (percentage-based to stay within screen)
-  const clickBubbleTop = isMobile ? '-35%' : '-45%';
-  const clickBubbleHorizontal = isMobile ? '-15%' : '-25%';
+  const { fonts, spacing, borderRadius, components, scalePx } = useResponsive();
 
   // Dynamic styles based on responsive values
   const dynamicStyles = useMemo(() => ({
-    speechBubble: {
-      backgroundColor: 'rgba(30, 30, 40, 0.95)',
-      borderRadius: borderRadius.lg,
-      padding: components.speechBubble.padding,
-      borderWidth: components.speechBubble.borderWidth,
-      maxWidth: components.speechBubble.maxWidth,
-      minWidth: components.speechBubble.minWidth,
-    },
-    speechBubbleName: {
-      fontFamily: 'Inter-Bold',
-      marginBottom: spacing.xs,
-      letterSpacing: 0.5,
-    },
-    speechBubbleText: {
-      fontFamily: 'Inter-Regular',
-      color: 'white',
-      lineHeight: scalePx(22),
-      letterSpacing: 0.2,
-    },
-    speechBubbleTail: {
-      position: 'absolute' as const,
-      bottom: -components.speechBubble.tailSize,
-      left: '50%' as any, // Percentage positioning
-      marginLeft: -components.speechBubble.tailSize,
-      width: 0,
-      height: 0,
-      borderLeftWidth: components.speechBubble.tailSize,
-      borderRightWidth: components.speechBubble.tailSize,
-      borderTopWidth: components.speechBubble.tailSize,
-      borderLeftColor: 'transparent',
-      borderRightColor: 'transparent',
-    },
     actionTextContainer: {
       position: 'absolute' as const,
       top: scalePx(-30),
@@ -127,6 +86,17 @@ export function FloatingCharacterWrapper({
       fontWeight: '600' as const,
     },
   }), [fonts, spacing, borderRadius, components, scalePx]);
+
+  // Track mount/unmount for memory debugging
+  useEffect(() => {
+    memDebug.trackMount(`FloatingCharacter:${characterName}`);
+    console.log(`[FLOAT-DEBUG] 🎈 FloatingCharacterWrapper MOUNTED: ${characterName}`);
+
+    return () => {
+      memDebug.trackUnmount(`FloatingCharacter:${characterName}`);
+      console.log(`[FLOAT-DEBUG] 🎈 FloatingCharacterWrapper UNMOUNTED: ${characterName}`);
+    };
+  }, [characterName]);
 
   useEffect(() => {
     // Different durations for different rhythms (2.5s to 4s based on index)
@@ -191,28 +161,9 @@ export function FloatingCharacterWrapper({
     onHoverChange?.(isHovered);
   }, [isHovered, onHoverChange]);
 
-  // Handle click animation (for showing last message bubble)
-  useEffect(() => {
-    Animated.timing(clickAnim, {
-      toValue: isClicked ? 1 : 0,
-      duration: 200,
-      useNativeDriver: Platform.OS !== 'web',
-    }).start();
-
-    // Notify parent of click bubble visibility change
-    onClickBubbleChange?.(isClicked);
-  }, [isClicked, clickAnim, onClickBubbleChange]);
-
-  // Handle click toggle
-  const handleClick = () => {
-    setIsClicked(prev => !prev);
-  };
-
-  // Close message bubble when clicking outside (mouse leave while clicked)
+  // Handle mouse leave
   const handleMouseLeave = () => {
     setIsHovered(false);
-    // Optionally close the bubble when mouse leaves
-    // setIsClicked(false);
   };
 
   // Handle entrance animation - varied types based on entranceConfig
@@ -365,22 +316,6 @@ export function FloatingCharacterWrapper({
     outputRange: ['0deg', '360deg'],
   });
 
-  // Click animation interpolations (for message bubble)
-  const messageOpacity = clickAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1],
-  });
-
-  const messageTranslateY = clickAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-components.speechBubble.tailSize, 0], // Slide down from above (responsive)
-  });
-
-  const messageScale = clickAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.9, 1], // Slight scale up on appear
-  });
-
   // Combine vertical animations using Animated.add
   const combinedTranslateY = Animated.add(floatTranslateY, verticalAnim);
 
@@ -404,46 +339,15 @@ export function FloatingCharacterWrapper({
         },
       ]}
     >
-      {/* Inner hitbox for hover/click - narrower than wrapper to prevent overlap issues */}
+      {/* Inner hitbox for hover - narrower than wrapper to prevent overlap issues */}
       <View
         style={styles.characterHitbox}
         // @ts-ignore - web-specific props
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={handleMouseLeave}
-        onClick={handleClick}
       >
         {children}
       </View>
-      {/* Click tooltip - shows last message bubble when character is clicked */}
-      {lastMessage && (
-        <Animated.View
-          style={[
-            styles.clickMessageContainer,
-            {
-              top: clickBubbleTop,
-              left: clickBubbleHorizontal,
-              right: clickBubbleHorizontal,
-              opacity: messageOpacity,
-              transform: [
-                { translateY: messageTranslateY },
-                { scale: messageScale },
-              ],
-              pointerEvents: isClicked ? 'auto' : 'none',
-            }
-          ]}
-        >
-          <View style={[dynamicStyles.speechBubble, { borderColor: characterColor }]}>
-            <Text style={[dynamicStyles.speechBubbleName, { color: characterColor, fontSize: fonts.lg }]}>
-              {characterName}
-            </Text>
-            <Text style={[dynamicStyles.speechBubbleText, { fontSize: fonts.md }]} numberOfLines={6}>
-              {lastMessage}
-            </Text>
-            {/* Speech bubble tail */}
-            <View style={[dynamicStyles.speechBubbleTail, { borderTopColor: characterColor }]} />
-          </View>
-        </Animated.View>
-      )}
 
       {/* Comic-style action text overlay */}
       {actionText && (
@@ -495,12 +399,6 @@ const styles = StyleSheet.create({
       },
       default: {},
     }),
-  },
-  clickMessageContainer: {
-    position: 'absolute',
-    // top, left, right applied dynamically based on screen size (percentage-based)
-    alignItems: 'center',
-    zIndex: 600, // Higher z-index to appear above speech bubbles
   },
   nameTagContainer: {
     position: 'absolute',

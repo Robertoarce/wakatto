@@ -4,7 +4,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { getCharacter, CharacterBehavior } from '../config/characters';
-import { performanceLogger } from '../services/performanceLogger';
+import { performanceLogger, memDebug } from '../services/performanceLogger';
 import { fpsMonitor } from '../services/fpsMonitor';
 
 // Global counter to ensure only one performance monitor logs at a time
@@ -223,6 +223,8 @@ const Character = React.memo(function Character({ character, isActive, animation
     // Reset mounted flag when effect runs
     isMountedRef.current = true;
     performanceLogger.registerAnimationLoop();
+    memDebug.trackMount(`Character:${charId}`);
+    console.log(`[CHAR-DEBUG] 🎭 Animation loop STARTED for ${charId}`);
 
     let animationId: number;
     let lastFrameTime = 0;
@@ -1298,7 +1300,12 @@ const Character = React.memo(function Character({ character, isActive, animation
       // Mark as unmounted first to prevent any in-flight RAF from scheduling more
       isMountedRef.current = false;
       performanceLogger.unregisterAnimationLoop();
-      if (animationId) cancelAnimationFrame(animationId);
+      memDebug.trackUnmount(`Character:${charId}`);
+      console.log(`[CHAR-DEBUG] 🎭 Animation loop STOPPED for ${charId}`);
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+        memDebug.trackRAFCancel(`Character:${charId}`, animationId);
+      }
     };
     // Only restart animation loop when character changes
     // All other props (animation, isActive, complementary, isTalking, etc.) are read from refs
@@ -2401,9 +2408,9 @@ const Character = React.memo(function Character({ character, isActive, animation
           {/* --- MATTE FACE MASK SECTION --- */}
 
           {/* Main Face Triangle base */}
-          <mesh position={[0, -0.05 * headScale, 0.2 * headScale]} castShadow>
+          <mesh position={[0, -0.05 * headScale, 0.2 * headScale]} rotation={[0, Math.PI/4, Math.PI]} scale={[1, 1, 0.5]} castShadow>
             {/* A cone pointing down makes a good triangular face shape */}
-            <coneGeometry args={[0.35 * headScale, 0.5 * headScale, 4]} rotation={[0, Math.PI/4, Math.PI]} scale={[1,1,0.5]}/>
+            <coneGeometry args={[0.35 * headScale, 0.5 * headScale, 4]} />
              <meshStandardMaterial color="#151515" metalness={0.3} roughness={0.6} />
           </mesh>
 
@@ -2736,9 +2743,23 @@ export function CharacterDisplay3D({
 
   const sceneRef = useRef<THREE.Scene | null>(null);
 
+  // Track mount/unmount for debugging memory leaks
+  useEffect(() => {
+    const charName = character?.id || characterId || 'unknown';
+    memDebug.trackMount(`CharacterDisplay3D:${charName}`);
+    console.log(`[CHAR3D-DEBUG] 🖼️ CharacterDisplay3D MOUNTED: ${charName}`);
+    memDebug.checkMemory(`CharacterDisplay3D:${charName} mount`);
+
+    return () => {
+      memDebug.trackUnmount(`CharacterDisplay3D:${charName}`);
+      console.log(`[CHAR3D-DEBUG] 🖼️ CharacterDisplay3D UNMOUNTED: ${charName}`);
+    };
+  }, [character?.id, characterId]);
+
   // Cleanup WebGL resources on unmount
   useEffect(() => {
     return () => {
+      console.log(`[CHAR3D-DEBUG] 🧹 Disposing WebGL resources for ${character?.id || characterId || 'unknown'}`);
       // Traverse scene and dispose all geometries, materials, textures
       if (sceneRef.current) {
         sceneRef.current.traverse((object) => {

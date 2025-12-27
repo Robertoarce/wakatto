@@ -600,6 +600,9 @@ Otherwise, favor concise, impactful insights.`,
 
 export const DEFAULT_CHARACTER = 'jung';
 
+// Tutorial character ID - BOB is exclusive to tutorial conversations
+export const TUTORIAL_CHARACTER_ID = 'bob-tutorial';
+
 // Runtime registry for custom Wakattors
 // This allows multiCharacterConversation service to access custom characters
 let customCharactersRegistry: Record<string, CharacterBehavior> = {};

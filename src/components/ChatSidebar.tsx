@@ -11,6 +11,7 @@ interface Conversation {
   created_at: string;
   updated_at: string;
   characterCount?: number;
+  is_tutorial?: boolean;
 }
 
 interface ChatSidebarProps {

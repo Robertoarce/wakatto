@@ -14,6 +14,7 @@ import {
   loadConversations,
   selectConversation,
   createConversation,
+  createOrNavigateToTutorial,
   saveMessage,
   renameConversation,
   deleteConversation,
@@ -119,19 +120,9 @@ export default function MainTabs() {
       console.log('[MainTabs] No conversations found, creating tutorial with Bob...');
 
       try {
-        // Create tutorial conversation with Bob
-        const tutorialConv = await dispatch(
-          createConversation('Tutorial', ['bob-tutorial']) as any
-        );
-
-        if (tutorialConv) {
-          // Add Bob's greeting message
-          const greeting = getBobGreeting();
-          await dispatch(
-            saveMessage(tutorialConv.id, 'assistant', greeting, 'bob-tutorial') as any
-          );
-          console.log('[MainTabs] Tutorial conversation created with Bob\'s greeting');
-        }
+        // Use unified tutorial creation action (handles greeting, is_tutorial flag, etc.)
+        await dispatch(createOrNavigateToTutorial() as any);
+        console.log('[MainTabs] Tutorial conversation created with Bob\'s greeting');
       } catch (error) {
         console.error('[MainTabs] Failed to create tutorial:', error);
         isCreatingTutorial.current = false; // Allow retry on failure
@@ -158,13 +149,28 @@ export default function MainTabs() {
     setShowCharacterSelection(true);
   };
 
-  // Start tutorial conversation with Bob
+  // Start or navigate to tutorial conversation with Bob
   const onTutorial = async () => {
+    // Prevent double-click issues
+    if (isCreatingTutorial.current) {
+      console.log('[MainTabs] Tutorial creation already in progress');
+      return;
+    }
+
+    isCreatingTutorial.current = true;
+
     try {
-      console.log('[MainTabs] Creating tutorial conversation with Bob');
-      await dispatch(createConversation('Tutorial', ['bob-tutorial']) as any);
+      console.log('[MainTabs] Opening tutorial conversation');
+      await dispatch(createOrNavigateToTutorial() as any);
+
+      // Close sidebar on mobile after navigation
+      if (isMobile && showSidebar) {
+        dispatch(setSidebarOpen(false));
+      }
     } catch (error: any) {
-      showAlert('Error', 'Failed to create tutorial: ' + error.message);
+      showAlert('Error', 'Failed to open tutorial: ' + error.message);
+    } finally {
+      isCreatingTutorial.current = false;
     }
   };
 
@@ -607,44 +613,43 @@ The text behaves as it should be.`;
   };
 
   // Handle character greeting for new conversations
+  // Note: Removed isProcessingGreeting blocking to allow multiple character greetings to be saved
   const handleGreeting = useCallback(async (characterId: string, greetingMessage: string) => {
-    // Prevent duplicate greeting processing
-    if (isProcessingGreeting.current) {
-      console.log('[MainTabs] Already processing greeting, skipping');
-      return;
-    }
-    
-    isProcessingGreeting.current = true;
     console.log('[MainTabs] handleGreeting called for character:', characterId);
-    
+
     try {
       // Get the LATEST state from the store (not stale closure value)
-      const state = store.getState() as RootState;
-      const conversation = state.conversations.currentConversation;
-      
-      // Only save greeting if there's already a current conversation
-      // Do NOT automatically create new conversations - this was causing unwanted "Chat with..." chats
+      let conversation = store.getState().conversations.currentConversation;
+
+      // Retry up to 3 times if conversation not yet set (race condition with Redux)
       if (!conversation) {
-        console.log('[MainTabs] No current conversation, skipping greeting (prevents auto-creation)');
+        for (let i = 0; i < 3; i++) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+          conversation = store.getState().conversations.currentConversation;
+          if (conversation) {
+            console.log('[MainTabs] Conversation found after retry', i + 1);
+            break;
+          }
+        }
+      }
+
+      // Only save greeting if there's a current conversation
+      if (!conversation) {
+        console.warn('[MainTabs] No current conversation after retries, skipping greeting');
         return;
       }
-      
+
       // Save the greeting as an assistant message with the character ID
       await dispatch(saveMessage(
-        conversation.id, 
-        'assistant', 
-        greetingMessage, 
+        conversation.id,
+        'assistant',
+        greetingMessage,
         characterId
       ) as any);
-      
-      console.log('[MainTabs] Greeting saved successfully');
-      
-      // Reload conversations to update character count in sidebar
-      await dispatch(loadConversations() as any);
+
+      console.log('[MainTabs] Greeting saved successfully for', characterId);
     } catch (error: any) {
       console.error('[MainTabs] Failed to save greeting:', error);
-    } finally {
-      isProcessingGreeting.current = false;
     }
   }, [dispatch, store]);
 
