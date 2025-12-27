@@ -165,12 +165,13 @@ ${themeInstructions[theme]}
 ${characterProfiles}
 ${storySection}
 ## CRITICAL RULES
-1. **GENERATE 5-8 EXCHANGES** (30-45 seconds total)
-2. Characters start by talking TO EACH OTHER
-3. Then they notice the user and WELCOME THEM
-4. End with characters ready to engage with user
-5. Make it feel natural and inviting, not rehearsed
-6. Characters should face each other initially, then toward user at end:
+1. **EVERY CHARACTER MUST SPEAK AT LEAST ONCE** - mandatory, do not skip any character (${characterIds.length} characters total)
+2. **GENERATE ${Math.max(5, characterIds.length + 2)}-${Math.max(8, characterIds.length + 4)} EXCHANGES** (30-45 seconds total)
+3. Characters start by talking TO EACH OTHER
+4. Then they notice the user and WELCOME THEM
+5. End with characters ready to engage with user
+6. Make it feel natural and inviting, not rehearsed
+7. Characters should face each other initially, then toward user at end:
    - LEFT position character: look "at_right_character" → then "center" when noticing user
    - RIGHT position character: look "at_left_character" → then "center" when noticing user
    - CENTER position: look at whoever they're addressing → "center" for user
@@ -184,23 +185,25 @@ Mouth: closed,smile,open | Face: normal,blush
 ## Voice (optional "v" object per segment)
 ${getVoiceOptionsForPrompt()}
 
-## Output Format (COMPACT JSON)
-Use short keys: s=scene, dur=totalDuration, ch=characters, c=character, t=content, d=startDelay, tl=timeline, a=animation, ms=duration, lk=look, ey=eyes, eb=eyebrow, m=mouth, talking=true when speaking
+## Output Format (COMPACT JSON - SIMPLIFIED)
+Use short keys: s=scene, ch=characters, c=character, t=content, ord=speaker order (1,2,3...), tl=timeline, a=animation, lk=look, ey=eyes, eb=eyebrow, m=mouth, talking=true when speaking
+CRITICAL: Use "ord" for speaker order (1, 2, 3...), NOT "d" for delays. Timing is calculated automatically.
 
-EXAMPLE (5 exchanges, yours should be 5-8):
-{"s":{"dur":35000,"ch":[
-{"c":"freud","t":"You know, I was just thinking about something interesting...","d":0,"tl":[{"a":"thinking","ms":500,"lk":"at_right_character"},{"a":"talking","ms":3000,"talking":true,"lk":"at_right_character"}]},
-{"c":"jung","t":"Oh? Do tell. You have that look in your eyes.","d":4000,"tl":[{"a":"lean_forward","ms":400,"lk":"at_left_character","eb":"raised"},{"a":"talking","ms":2500,"talking":true,"lk":"at_left_character"}]},
-{"c":"freud","t":"Wait - I think someone's here!","d":7500,"tl":[{"a":"surprise_happy","ms":400,"lk":"center"},{"a":"talking","ms":2000,"talking":true,"lk":"center"}]},
-{"c":"jung","t":"Oh wonderful! Hello there! Welcome!","d":10500,"tl":[{"a":"wave","ms":600,"lk":"center","m":"smile"},{"a":"talking","ms":2500,"talking":true,"lk":"center","m":"smile"}]},
-{"c":"freud","t":"Yes, please join us! What's on your mind today?","d":14000,"tl":[{"a":"happy","ms":400,"lk":"center"},{"a":"talking","ms":2800,"talking":true,"lk":"center","m":"smile"}]}
+EXAMPLE (5 exchanges, yours should have ${Math.max(5, characterIds.length + 2)}-${Math.max(8, characterIds.length + 4)}):
+{"s":{"ch":[
+{"c":"freud","t":"You know, I was just thinking about something interesting...","ord":1,"tl":[{"a":"thinking","lk":"at_right_character"},{"a":"talking","talking":true,"lk":"at_right_character"}]},
+{"c":"jung","t":"Oh? Do tell. You have that look in your eyes.","ord":2,"tl":[{"a":"lean_forward","lk":"at_left_character","eb":"raised"},{"a":"talking","talking":true,"lk":"at_left_character"}]},
+{"c":"freud","t":"Wait - I think someone's here!","ord":3,"tl":[{"a":"surprise_happy","lk":"center"},{"a":"talking","talking":true,"lk":"center"}]},
+{"c":"jung","t":"Oh wonderful! Hello there! Welcome!","ord":4,"tl":[{"a":"wave","lk":"center","m":"smile"},{"a":"talking","talking":true,"lk":"center","m":"smile"}]},
+{"c":"freud","t":"Yes, please join us! What's on your mind today?","ord":5,"tl":[{"a":"happy","lk":"center"},{"a":"talking","talking":true,"lk":"center","m":"smile"}]}
 ]}}
 
 ## Important
 - Character ID in "c" field (like "freud"), NOT display name
 - No "Freud:" prefixes in the text - just dialogue
 - Keep it WARM and WELCOMING - this is the user's first impression
-- Natural conversation flow with good timing between turns
+- Natural conversation flow
+- Use "ord" for order (1, 2, 3...) - DO NOT use "d" for delays
 - Last 1-2 exchanges should be directed at the user (lookDirection: "center")
 
 Generate the conversation starter now (5-8 exchanges, 30-45 seconds total).`;
@@ -232,6 +235,9 @@ export async function generateConversationStarter(
   onProgress?: (percentage: number) => void,
   story?: Story
 ): Promise<ConversationStarterResult> {
+  console.log('[ConversationStarter] Starting generation for', characterIds.length, 'characters:', characterIds);
+  console.log('[ConversationStarter] Story:', story?.toastText || 'none');
+
   const isSingleCharacter = characterIds.length === 1;
 
   const prompt = isSingleCharacter
@@ -270,6 +276,8 @@ export async function generateConversationStarter(
     return createFallbackStarter(characterIds);
   }
 
+  console.log('[ConversationStarter] AI response received, length:', rawResponse.length);
+
   // Parse response based on character count
   let result: ConversationStarterResult;
   if (isSingleCharacter) {
@@ -277,6 +285,13 @@ export async function generateConversationStarter(
   } else {
     result = parseMultiCharacterResponse(rawResponse, characterIds);
   }
+
+  console.log('[ConversationStarter] Result:', {
+    sceneTimelines: result.scene?.timelines?.length,
+    sceneDuration: result.scene?.sceneDuration,
+    responsesCount: result.responses?.length,
+    responseCharacters: result.responses?.map(r => r.characterId)
+  });
 
   // Add story context if a story was used
   if (story) {
@@ -354,6 +369,8 @@ function parseMultiCharacterResponse(
   rawResponse: string,
   characterIds: string[]
 ): ConversationStarterResult {
+  console.log('[ConversationStarter] Parsing multi-character response for', characterIds.length, 'characters');
+
   // Use the existing orchestration parser
   const scene = parseOrchestrationScene(rawResponse, characterIds);
 
@@ -362,11 +379,36 @@ function parseMultiCharacterResponse(
     return createFallbackStarter(characterIds);
   }
 
-  // Extract responses from timelines
-  const responses = scene.timelines.map((t) => ({
-    characterId: t.characterId,
-    content: t.content,
-  }));
+  // Extract responses from timelines - deduplicate by character (keep first occurrence)
+  const seenCharacters = new Set<string>();
+  const responses: Array<{ characterId: string; content: string }> = [];
+
+  for (const t of scene.timelines) {
+    if (!seenCharacters.has(t.characterId)) {
+      seenCharacters.add(t.characterId);
+      responses.push({
+        characterId: t.characterId,
+        content: t.content,
+      });
+    }
+  }
+
+  // Check if any characters are missing from the response
+  const missingCharacters = characterIds.filter(id => !seenCharacters.has(id));
+  if (missingCharacters.length > 0) {
+    console.warn('[ConversationStarter] Missing characters in AI response:', missingCharacters);
+    // Add simple greeting for missing characters
+    for (const charId of missingCharacters) {
+      const char = getCharacter(charId);
+      responses.push({
+        characterId: charId,
+        content: `Hello! I'm ${char.name}. Nice to meet you!`,
+      });
+    }
+  }
+
+  console.log('[ConversationStarter] Parsed', responses.length, 'unique character responses:', JSON.stringify(responses.map(r => r.characterId)));
+  console.log('[ConversationStarter] Scene has', scene.timelines.length, 'timelines');
 
   return { scene, responses };
 }

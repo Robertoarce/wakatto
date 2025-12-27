@@ -1678,22 +1678,38 @@ const Character = React.memo(function Character({ character, isActive, animation
 
           {/* SHIELD - held on left arm (moves with left arm) */}
           {hasShield && (
-            <group position={[-0.1, body.handY, 0.15]}>
-              {/* Main shield body */}
-              <mesh position={[0, 0, 0]} castShadow>
-                <boxGeometry args={[0.02, 0.35, 0.3]} />
-                <meshStandardMaterial color="#6b7280" metalness={0.7} roughness={0.4} />
+            <group position={[-0.1, body.handY, 0.15]} rotation={[ Math.PI / 2,0,  Math.PI / 3]}>
+              
+              {/* 1. Outer Red Ring */}
+              <mesh castShadow>
+                <cylinderGeometry args={[0.45, 0.45, 0.02, 32]} />
+                <meshStandardMaterial color="#b11313" metalness={0.8} roughness={0.2} />
               </mesh>
-              {/* Shield boss (center) */}
-              <mesh position={[0.02, 0, 0]} castShadow>
-                <sphereGeometry args={[0.05, 8, 8, 0, Math.PI]} />
-                <meshStandardMaterial color="#c9a227" metalness={0.8} roughness={0.3} />
+
+              {/* 2. Middle White/Silver Ring */}
+              <mesh position={[0, 0.005, 0]} castShadow>
+                <cylinderGeometry args={[0.33, 0.33, 0.02, 32]} />
+                <meshStandardMaterial color="#e2e2e2" metalness={0.9} roughness={0.1} />
               </mesh>
-              {/* Rim */}
-              <mesh position={[0.01, 0, 0]} castShadow>
-                <torusGeometry args={[0.15, 0.015, 8, 16]} />
-                <meshStandardMaterial color="#c9a227" metalness={0.7} roughness={0.3} />
+
+              {/* 3. Inner Red Ring */}
+              <mesh position={[0, 0.01, 0]} castShadow>
+                <cylinderGeometry args={[0.22, 0.22, 0.02, 32]} />
+                <meshStandardMaterial color="#b11313" metalness={0.8} roughness={0.2} />
               </mesh>
+
+              {/* 4. Center Blue Circle */}
+              <mesh position={[0, 0.015, 0]} castShadow>
+                <cylinderGeometry args={[0.12, 0.12, 0.02, 32]} />
+                <meshStandardMaterial color="#002868" metalness={0.8} roughness={0.2} />
+              </mesh>
+
+              {/* 5. The Star (Simplified using a 5-pointed cylinder) */}
+              <mesh position={[0, 0.02, 0]} rotation={[0, 0, 0]} castShadow>
+                <cylinderGeometry args={[0.07, 0.07, 0.01, 5]} />
+                <meshStandardMaterial color="#ffffff" metalness={1} roughness={0.1} />
+              </mesh>
+              
             </group>
           )}
 
@@ -2572,7 +2588,7 @@ const Character = React.memo(function Character({ character, isActive, animation
 
         {/* PIPE - smoking pipe in mouth (moves with head) */}
         {hasPipe && (
-          <group position={[0.1 * headScale, -0.12 + faceYOffset, 0.3 * headScale]} rotation={[0.3, 0.3, 0]}>
+          <group position={[0.06+0.1 * headScale, -0.09-0.12 + faceYOffset, 0.07+0.3 * headScale]} rotation={[0.3, -2.5, 0]}>
             {/* Bowl */}
             <mesh position={[0, 0.03, 0]} castShadow>
               <cylinderGeometry args={[0.025 * headScale, 0.02 * headScale, 0.05 * headScale, 8]} />

@@ -124,7 +124,9 @@
       "Bash(git -C \"C:/00 ALL/00 Projects/07 wakatto\" diff src/store/actions/conversationActions.ts)",
       "Bash(git -C \"C:/00 ALL/00 Projects/07 wakatto\" diff src/services/singleCallOrchestration.ts)",
       "Bash(git -C \"C:/00 ALL/00 Projects/07 wakatto\" diff src/components/ChatInterface.tsx)",
-      "Bash(tasklist:*)"
+      "Bash(tasklist:*)",
+      "Bash(npm run predeploy:*)",
+      "Bash(git revert:*)"
     ],
     "deny": [],
     "ask": []
