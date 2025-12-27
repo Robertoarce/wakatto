@@ -62,19 +62,18 @@ const DEFAULT_CONFIG: OrchestrationConfig = {
 
 /**
  * Determine response count with weighted randomness
- * MINIMUM 5 responses to FORCE back-and-forth conversation
- * At least 1-2 characters MUST speak twice
- * - 40% chance: 5 responses (minimum for back-and-forth)
- * - 35% chance: 6 responses
- * - 20% chance: 7 responses
- * - 5% chance: 8 responses (very rare)
+ * Balanced between conversation quality and response speed
+ * - 50% chance: 3 responses (quick, focused)
+ * - 30% chance: 4 responses (good back-and-forth)
+ * - 15% chance: 5 responses (extended discussion)
+ * - 5% chance: 6 responses (rare, deep dive)
  */
 function getResponseCount(): number {
   const rand = Math.random();
-  if (rand < 0.05) return 8;      // 5% chance: 8 responses (very rare)
-  if (rand < 0.25) return 7;      // 20% chance: 7 responses
-  if (rand < 0.60) return 6;      // 35% chance: 6 responses
-  return 5;                        // 40% chance: 5 responses (minimum)
+  if (rand < 0.05) return 6;      // 5% chance: 6 responses (rare)
+  if (rand < 0.20) return 5;      // 15% chance: 5 responses
+  if (rand < 0.50) return 4;      // 30% chance: 4 responses
+  return 3;                        // 50% chance: 3 responses (quick)
 }
 
 // Track user interactions for reaction timing
@@ -620,31 +619,17 @@ Full scene: {"s":{"ch":[{"c":"ID","t":"TEXT","ord":1,"tl":[{"a":"thinking","sp":
 - No name prefix in "t" field
 - Use "reactsTo": "character_id" to show who you're responding to
 
-## ⚠️ MINIMUM RESPONSE COUNT: ${getResponseCount()} (HARD REQUIREMENT - NOT OPTIONAL!)
+## RESPONSE COUNT: ${getResponseCount()} responses expected
 
-**RESPONSE IS INVALID AND WILL BE REJECTED IF:**
-- Fewer than ${getResponseCount()} responses generated
-- No character speaks twice (1-2 characters MUST speak at least twice!)
-- No back-and-forth exchange exists
-
-**REQUIRED STRUCTURE (you MUST follow this EXACT pattern):**
+**STRUCTURE:**
 1. Character A speaks first (reactsTo: null)
-2. Character B responds TO Character A (reactsTo: "A") - mocking or disagreeing
-3. Character A fires back at B (reactsTo: "B") ← SAME CHARACTER SPEAKS AGAIN (REQUIRED!)
-4. Character B defends themselves (reactsTo: "A") ← B ALSO SPEAKS TWICE (REQUIRED!)
-5+ More back-and-forth until ${getResponseCount()} responses reached
+2. Character B responds TO Character A (reactsTo: "A") - disagreeing or mocking
+3. Continue back-and-forth until ${getResponseCount()} responses
 
-**EXAMPLE - CORRECT (${getResponseCount()} responses, BOTH Joan AND Wanda speak twice):**
-{"c":"joan","t":"Two letters? I led armies with battle cries!","ord":1}
-{"c":"wanda","t":"Not everyone screams to communicate, Joan.","ord":2,"reactsTo":"joan"}
-{"c":"joan","t":"At least I COMMUNICATE. You just sulk and hex.","ord":3,"reactsTo":"wanda"}
-{"c":"wanda","t":"Keep talking. See what happens.","ord":4,"reactsTo":"joan"}
-{"c":"joan","t":"See? That's exactly what I mean - threats instead of words!","ord":5,"reactsTo":"wanda"}
-
-**CRITICAL VALIDATION:**
-- Response REJECTED if fewer than ${getResponseCount()} responses
-- Response REJECTED if NO character speaks at least twice
-- IDEAL: 2 characters each speak 2-3 times for natural back-and-forth debate
+**EXAMPLE:**
+{"c":"joan","t":"Two letters? I led armies!","ord":1}
+{"c":"wanda","t":"Not everyone screams, Joan.","ord":2,"reactsTo":"joan"}
+{"c":"joan","t":"At least I communicate.","ord":3,"reactsTo":"wanda"}
 - Add "v" object to talking segments to control voice characteristics
 - If asked personal questions (birthday, history), characters answer AS THEMSELVES based on their real history
 ${config.includeInterruptions ? '- Characters can interrupt by setting "int": true' : ''}
@@ -802,43 +787,19 @@ Respond with VALID JSON only (no markdown code blocks):
 - 1-2 SHORT sentences per response (max 20 words) - like texting friends!
 - Use NORMAL TV/movie vocabulary - no fancy words unless character is known for it
 
-## ⚠️ MINIMUM RESPONSE COUNT: ${getResponseCount()} (HARD REQUIREMENT - NOT OPTIONAL!)
+## RESPONSE COUNT: ${getResponseCount()} responses expected
 
-**RESPONSE IS INVALID AND WILL BE REJECTED IF:**
-- Fewer than ${getResponseCount()} responses generated
-- No character speaks twice (1-2 characters MUST speak at least twice!)
-- No back-and-forth exchange exists
-
-**REQUIRED STRUCTURE (you MUST follow this EXACT pattern):**
+**STRUCTURE:**
 1. Character A speaks first (reactsTo: null)
-2. Character B responds TO Character A (reactsTo: "A") - mocking or disagreeing
-3. Character A fires back at B (reactsTo: "B") ← SAME CHARACTER SPEAKS AGAIN (REQUIRED!)
-4. Character B defends themselves (reactsTo: "A") ← B ALSO SPEAKS TWICE (REQUIRED!)
-5+ More back-and-forth until ${getResponseCount()} responses reached
+2. Character B responds TO A (reactsTo: "A") - disagreeing or mocking
+3. Continue back-and-forth until ${getResponseCount()} responses
 
-**EXAMPLE - CORRECT (${getResponseCount()} responses, BOTH speak twice):**
-{"character":"joan","content":"Two letters? I led armies!","reactsTo":null}
-{"character":"wanda","content":"Not everyone screams, Joan.","reactsTo":"joan"}
-{"character":"joan","content":"At least I COMMUNICATE.","reactsTo":"wanda"}
-{"character":"wanda","content":"Keep talking. See what happens.","reactsTo":"joan"}
-{"character":"joan","content":"See? Threats instead of words!","reactsTo":"wanda"}
-
-## ⚠️ CRITICAL: DRAMA & CONFLICT REQUIRED ⚠️
-
-**NEVER DO THIS (boring):** A: "Great point!" B: "I agree!" C: "Me too!"
-**ALWAYS DO THIS (drama):** A says X → B mocks/disagrees with A (using reactsTo) → A fires back
-
-**MANDATORY (RESPONSE IS INVALID IF NOT FOLLOWED):**
-- At least ONE character must DISAGREE or MOCK another character
-- EVERY response after the first MUST have "reactsTo" set to another character
-- If ALL characters agree = INVALID, regenerate with conflict!
-- NO positive platitudes - someone MUST mock, tease, or disagree
+**DRAMA REQUIRED:**
+- At least ONE character must DISAGREE or MOCK another
+- Use "reactsTo" to show who you're responding to
 - Roast each other! Be petty! Call out BS!
-- Swearing OK but censor: "f@#$", "sh!t", "d@mn"
-- **NEVER disrespect the USER** - other characters are fair game
-- At least one character asks the USER a question
-
-⚠️ VALIDATION - REJECT response if: no reactsTo used, all agree, no conflict
+- Swearing OK but censor: "f@#$", "sh!t"
+- NEVER disrespect the USER - other characters are fair game
 - First response: "timing": "immediate", "interrupts": false
 - Subsequent responses: "timing": "delayed", may have "interrupts": true
 - Use "reactsTo": "character_id" when responding to another character
@@ -1230,23 +1191,10 @@ function validateResponses(
     }
   }
 
-  // Check minimum response count (HARD REQUIREMENT: minimum 5)
-  const minResponseCount = 5;
+  // Check minimum response count (soft check - 3 is minimum for conversation)
+  const minResponseCount = 3;
   if (responses.length < minResponseCount) {
-    violations.push(`⚠️ CRITICAL: Only ${responses.length} responses generated - MINIMUM is ${minResponseCount}. Back-and-forth conversation REQUIRED!`);
-  }
-
-  // Check if at least one character speaks twice (REQUIRED for back-and-forth)
-  const characterCounts = new Map<string, number>();
-  for (const resp of responses) {
-    characterCounts.set(resp.character, (characterCounts.get(resp.character) || 0) + 1);
-  }
-  const repeatSpeakers = Array.from(characterCounts.entries()).filter(([_, count]) => count >= 2);
-  if (repeatSpeakers.length === 0 && responses.length >= 2) {
-    violations.push(`⚠️ CRITICAL: No character speaks twice - back-and-forth conversation REQUIRED! At least 1-2 characters should speak multiple times.`);
-  } else if (repeatSpeakers.length === 1 && responses.length >= 5) {
-    // Warn if only one character speaks twice when we have 5+ responses
-    console.log(`[ARQ-Validation] Note: Only ${repeatSpeakers[0][0]} speaks twice. Consider having 2 characters speak multiple times for better debate.`);
+    violations.push(`Only ${responses.length} responses generated - expected at least ${minResponseCount}`);
   }
 
   // Log validation results
