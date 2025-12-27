@@ -71,16 +71,17 @@ export function calculateAnimationSpeed(text: string, ttsDuration: number): numb
 
 /**
  * Get TTS rate value from voice pace setting
+ * Increased rates for faster, more natural speech
  */
 export function paceToTTSRate(pace: 'slow' | 'normal' | 'fast'): number {
   switch (pace) {
     case 'slow':
-      return 0.8;
+      return 1.0;
     case 'normal':
-      return 1.0;
+      return 1.2;
     case 'fast':
-      return 1.3;
+      return 1.5;
     default:
-      return 1.0;
+      return 1.2;
   }
 }
