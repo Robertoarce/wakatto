@@ -55,21 +55,17 @@ function mapPitchToValue(pitch?: VoicePitch): number {
 
 /**
  * Map VoicePace to SpeechSynthesis rate value (0.1-10, default 1)
- * Increased rates for faster, more natural speech:
- * - slow: 1.0 (was 0.8) - measured, thoughtful
- * - normal: 1.2 (was 1.0) - conversational, natural
- * - fast: 1.5 (was 1.3) - energetic, dynamic
  */
 function mapPaceToRate(pace?: VoicePace): number {
   switch (pace) {
     case 'slow':
-      return 1.0;
+      return 0.8;
     case 'normal':
-      return 1.2;
+      return 1.0;
     case 'fast':
-      return 1.5;
+      return 1.3;
     default:
-      return 1.2;
+      return 1.0;
   }
 }
 
