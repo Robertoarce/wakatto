@@ -554,22 +554,31 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
   // Trigger TTS when playback STARTS (synchronized with animation)
   // Uses voice-driven mode: TTS boundary events drive text reveal
-  // Characters speak one at a time, sequentially
+  // Characters speak one at a time, sequentially in timeline order (by startDelay)
   useEffect(() => {
     const wasPlaying = prevPlayingRef.current;
     const isNowPlaying = playbackState.isPlaying;
 
     // Detect transition from stopped to playing (START of playback)
-    if (!wasPlaying && isNowPlaying && ttsEnabled && isTTSSupported) {
+    if (!wasPlaying && isNowPlaying && ttsEnabled && isTTSSupported && animationScene) {
       // Enable TTS-driven mode: text reveal follows TTS position
       playbackEngineRef.current.setTTSDrivenMode(true);
 
-      // Speak characters sequentially - one at a time
+      // Speak in timeline order (sorted by startDelay) - matches animation sequence
+      // This ensures characters speak in the order determined by the LLM (ord field)
       const speakSequentially = async () => {
-        for (const characterId of selectedCharacters) {
-          const fullText = pendingTTSTextRef.current.get(characterId);
+        // Sort timelines by startDelay to get correct speaking order
+        const sortedTimelines = [...animationScene.timelines]
+          .sort((a, b) => a.startDelay - b.startDelay);
+
+        for (const timeline of sortedTimelines) {
+          const characterId = timeline.characterId;
+          const fullText = timeline.content;
 
           if (fullText && fullText.trim()) {
+            // Signal this character is now speaking (for bubble visibility sync)
+            playbackEngineRef.current.setTTSCurrentSpeaker(characterId);
+
             // Get character's voice profile for TTS
             try {
               const character = getCharacter(characterId);
@@ -593,6 +602,9 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
             }
           }
         }
+
+        // All characters done speaking
+        playbackEngineRef.current.setTTSCurrentSpeaker(null);
       };
 
       speakSequentially();
@@ -605,7 +617,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     }
 
     prevPlayingRef.current = isNowPlaying;
-  }, [playbackState.isPlaying, ttsEnabled, isTTSSupported, selectedCharacters, speak]);
+  }, [playbackState.isPlaying, ttsEnabled, isTTSSupported, animationScene, speak]);
 
   // Animation playback subscription is handled by useAnimationPlayback hook
 

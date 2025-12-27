@@ -109,6 +109,8 @@ export class AnimationPlaybackEngine {
   // TTS-driven mode: character positions driven by voice feedback
   private ttsCharPositions: Map<string, number> = new Map();
   private ttsDrivenMode: boolean = false;
+  // Track which character TTS is currently speaking (for bubble sync)
+  private ttsCurrentSpeaker: string | null = null;
   // Throttle TTS updates to prevent excessive re-renders
   private lastTTSUpdateTime: number = 0;
   private ttsUpdateThrottleMs: number = 50; // Max 20 updates per second
@@ -137,6 +139,7 @@ export class AnimationPlaybackEngine {
     this.ttsDrivenMode = enabled;
     if (!enabled) {
       this.ttsCharPositions.clear();
+      this.ttsCurrentSpeaker = null;
     }
   }
 
@@ -175,6 +178,23 @@ export class AnimationPlaybackEngine {
    */
   clearTTSPositions(): void {
     this.ttsCharPositions.clear();
+  }
+
+  /**
+   * Set which character TTS is currently speaking
+   * Used to sync bubble visibility with actual speech
+   * @param characterId - The character currently speaking, or null if none
+   */
+  setTTSCurrentSpeaker(characterId: string | null): void {
+    this.ttsCurrentSpeaker = characterId;
+    this.notifyCallbacks();
+  }
+
+  /**
+   * Get which character TTS is currently speaking
+   */
+  getTTSCurrentSpeaker(): string | null {
+    return this.ttsCurrentSpeaker;
   }
 
   /**
@@ -761,12 +781,18 @@ export class AnimationPlaybackEngine {
     
     // Find current segment
     const currentSegment = this.findCurrentSegment(timeline.segments, characterElapsed);
-    
+
+    // In TTS-driven mode, isTalking follows who TTS is currently speaking
+    // This ensures bubble visibility syncs with actual speech, not animation timing
+    const isTalking = this.ttsDrivenMode
+      ? this.ttsCurrentSpeaker === timeline.characterId
+      : (currentSegment.isTalking ?? false);
+
     return {
       characterId: timeline.characterId,
       animation: currentSegment.animation,
       complementary: this.buildComplementary(currentSegment),
-      isTalking: currentSegment.isTalking ?? false,
+      isTalking,
       revealedText: this.getRevealedText(timeline.characterId),
       isActive: true,
       isComplete: false
