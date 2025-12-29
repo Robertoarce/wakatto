@@ -68,7 +68,7 @@ Available animations: wave, nod, lean_forward, happy, idle, bow
 Look directions: center
 
 ## Output Format (COMPACT JSON)
-{"greeting":"Your greeting text","tl":[{"a":"wave","ms":800,"lk":"center"},{"a":"talking","ms":2500,"talking":true}]}
+{"greeting":"Your greeting text","a":"wave","sp":"normal","lk":"center","ex":"happy"}
 
 Generate the greeting now.`;
 }
@@ -186,16 +186,16 @@ Mouth: closed,smile,open | Face: normal,blush
 ${getVoiceOptionsForPrompt()}
 
 ## Output Format (COMPACT JSON - SIMPLIFIED)
-Use short keys: s=scene, ch=characters, c=character, t=content, ord=speaker order (1,2,3...), tl=timeline, a=animation, lk=look, ey=eyes, eb=eyebrow, m=mouth, talking=true when speaking
+Use short keys: s=scene, ch=characters, c=character, t=content, ord=speaker order (1,2,3...), a=animation, sp=speed, lk=look, ex=expression, ey=eyes, eb=eyebrow, m=mouth
 CRITICAL: Use "ord" for speaker order (1, 2, 3...), NOT "d" for delays. Timing is calculated automatically.
 
 EXAMPLE (5 exchanges, yours should have ${Math.max(5, characterIds.length + 2)}-${Math.max(8, characterIds.length + 4)}):
 {"s":{"ch":[
-{"c":"freud","t":"You know, I was just thinking about something interesting...","ord":1,"tl":[{"a":"thinking","lk":"at_right_character"},{"a":"talking","talking":true,"lk":"at_right_character"}]},
-{"c":"jung","t":"Oh? Do tell. You have that look in your eyes.","ord":2,"tl":[{"a":"lean_forward","lk":"at_left_character","eb":"raised"},{"a":"talking","talking":true,"lk":"at_left_character"}]},
-{"c":"freud","t":"Wait - I think someone's here!","ord":3,"tl":[{"a":"surprise_happy","lk":"center"},{"a":"talking","talking":true,"lk":"center"}]},
-{"c":"jung","t":"Oh wonderful! Hello there! Welcome!","ord":4,"tl":[{"a":"wave","lk":"center","m":"smile"},{"a":"talking","talking":true,"lk":"center","m":"smile"}]},
-{"c":"freud","t":"Yes, please join us! What's on your mind today?","ord":5,"tl":[{"a":"happy","lk":"center"},{"a":"talking","talking":true,"lk":"center","m":"smile"}]}
+{"c":"freud","t":"You know, I was just thinking about something interesting...","ord":1,"a":"thinking","sp":"slow","lk":"at_right_character","ex":"thoughtful"},
+{"c":"jung","t":"Oh? Do tell. You have that look in your eyes.","ord":2,"a":"lean_forward","sp":"normal","lk":"at_left_character","ex":"curious","eb":"raised"},
+{"c":"freud","t":"Wait - I think someone's here!","ord":3,"a":"surprise_happy","sp":"fast","lk":"center","ex":"surprised"},
+{"c":"jung","t":"Oh wonderful! Hello there! Welcome!","ord":4,"a":"wave","sp":"fast","lk":"center","ex":"happy","m":"smile"},
+{"c":"freud","t":"Yes, please join us! What's on your mind today?","ord":5,"a":"happy","sp":"normal","lk":"center","ex":"welcoming","m":"smile"}
 ]}}
 
 ## Important
@@ -317,26 +317,29 @@ function parseSingleCharacterResponse(
 
     const parsed = JSON.parse(cleanJson);
     const greeting = parsed.greeting || "Hello! What's on your mind today?";
-    const timeline = parsed.tl || [];
 
-    // Build scene from parsed response
-    const segments: AnimationSegment[] = timeline.map((seg: any) => ({
-      animation: (seg.a || 'idle') as AnimationState,
-      duration: seg.ms || 1000,
-      isTalking: seg.talking || false,
+    // Parse flat animation fields (new format)
+    const animation = (parsed.a || 'wave') as AnimationState;
+    const speed = parsed.sp || 'normal';
+    const lookDirection = (parsed.lk || 'center') as LookDirection;
+    const expression = parsed.ex;
+
+    // Calculate duration based on speed and text length
+    const speedMultiplier = speed === 'slow' ? 1.3 : speed === 'fast' ? 0.7 : speed === 'explosive' ? 0.5 : 1.0;
+    const baseDuration = Math.max(1500, greeting.length * 50); // ~50ms per character
+    const duration = Math.round(baseDuration * speedMultiplier);
+
+    // Build single talking segment from flat fields
+    const segments: AnimationSegment[] = [{
+      animation,
+      duration,
+      isTalking: true,
       complementary: {
-        lookDirection: (seg.lk || 'center') as LookDirection,
+        lookDirection,
+        ...(expression && { faceState: expression }),
       },
-      textReveal: seg.talking ? { startIndex: 0, endIndex: greeting.length } : undefined,
-    }));
-
-    // Ensure we have segments
-    if (segments.length === 0) {
-      segments.push(
-        { animation: 'wave', duration: 800, isTalking: false, complementary: { lookDirection: 'center' } },
-        { animation: 'talking', duration: 2500, isTalking: true, complementary: { lookDirection: 'center' }, textReveal: { startIndex: 0, endIndex: greeting.length } }
-      );
-    }
+      textReveal: { startIndex: 0, endIndex: greeting.length },
+    }];
 
     const totalDuration = segments.reduce((sum, seg) => sum + seg.duration, 0);
 

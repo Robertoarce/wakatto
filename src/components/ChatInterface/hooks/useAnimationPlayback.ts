@@ -40,7 +40,6 @@ export function useAnimationPlayback(): UseAnimationPlaybackResult {
   // Update on status changes and periodically during playback for text reveal
   useEffect(() => {
     memDebug.trackMount('useAnimationPlayback');
-    console.log('[PLAYBACK-DEBUG] 🎬 Subscribing to animation playback engine');
     let updateCount = 0;
 
     const engine = playbackEngineRef.current;
@@ -61,7 +60,6 @@ export function useAnimationPlayback(): UseAnimationPlaybackResult {
       // 1. Status changed (idle -> playing -> complete)
       if (state.status !== prevStatus) {
         hasSignificantChange = true;
-        console.log(`[PLAYBACK-DEBUG] 📊 Status change: ${prevStatus} -> ${state.status} (chars: ${state.characterStates.size})`);
         prevStatus = state.status;
       }
 
@@ -92,11 +90,6 @@ export function useAnimationPlayback(): UseAnimationPlaybackResult {
       // Only update React state if something significant changed
       if (hasSignificantChange) {
         updateCount++;
-        // Log every 100th update to avoid console spam
-        if (updateCount % 100 === 0) {
-          console.log(`[PLAYBACK-DEBUG] 📈 ${updateCount} state updates so far`);
-          memDebug.checkMemory('useAnimationPlayback');
-        }
         setPlaybackState({
           isPlaying: state.status === 'playing',
           characterStates: state.characterStates
@@ -105,7 +98,6 @@ export function useAnimationPlayback(): UseAnimationPlaybackResult {
     });
 
     return () => {
-      console.log(`[PLAYBACK-DEBUG] 🎬 Unsubscribing from animation playback engine (had ${updateCount} updates)`);
       memDebug.trackUnmount('useAnimationPlayback');
       unsubscribe();
     };

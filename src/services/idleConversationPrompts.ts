@@ -128,19 +128,20 @@ Mouth: closed,open,smile,wide_smile,surprised | Face: normal,blush,sweat_drop,sp
 ## Voice (optional "v" object per segment)
 ${getVoiceOptionsForPrompt()}
 
-## Output Format (COMPACT JSON)
-Use short keys: s=scene, dur=totalDuration, ch=characters, c=character, t=content, d=startDelay, tl=timeline, a=animation, ms=duration, lk=look, ey=eyes, eb=eyebrow, m=mouth, talking=true when speaking
+## Output Format (COMPACT JSON - SIMPLIFIED)
+Use short keys: s=scene, ch=characters, c=character, t=content, ord=speaker order (1,2,3...), a=animation, sp=speed, lk=look, ex=expression, ey=eyes, eb=eyebrow, m=mouth
+Speed (sp): "slow" | "normal" | "fast" | "explosive"
 
 EXAMPLE STRUCTURE (showing variety - your conversation should be LONGER with 12-20 exchanges):
-{"s":{"dur":75000,"ch":[
-{"c":"freud","t":"Dude, you would NOT believe who I saw at the grocery store yesterday...","d":0,"tl":[{"a":"lean_forward","ms":400,"lk":"at_right_character","eb":"raised"},{"a":"talking","ms":3500,"talking":true,"lk":"at_right_character"}]},
-{"c":"jung","t":"Who? Don't leave me hanging!","d":4500,"tl":[{"a":"excited","ms":300,"lk":"at_left_character"},{"a":"talking","ms":1800,"talking":true,"lk":"at_left_character"}]},
-{"c":"freud","t":"Remember that patient who kept insisting his mother was actually a lamp? THAT guy.","d":7000,"tl":[{"a":"talking","ms":4000,"talking":true,"lk":"at_right_character"}]},
-{"c":"jung","t":"NO. What was he buying?","d":11500,"tl":[{"a":"surprise_jump","ms":400,"lk":"at_left_character"},{"a":"talking","ms":1500,"talking":true,"lk":"at_left_character"}]},
-{"c":"freud","t":"Lightbulbs. I am NOT joking. An entire cart full of lightbulbs.","d":14000,"tl":[{"a":"facepalm","ms":600,"lk":"at_right_character"},{"a":"talking","ms":3200,"talking":true,"lk":"at_right_character"}]},
-{"c":"jung","t":"Oh my god. Okay but honestly? That's kind of poetic in a weird way.","d":18500,"tl":[{"a":"laugh","ms":800,"lk":"at_left_character"},{"a":"talking","ms":3500,"talking":true,"lk":"at_left_character","m":"smile"}]},
-{"c":"freud","t":"Don't you DARE try to find meaning in that. Not everything is an archetype.","d":23500,"tl":[{"a":"cross_arms","ms":500,"lk":"at_right_character","eb":"furrowed"},{"a":"talking","ms":3500,"talking":true,"lk":"at_right_character"}]},
-{"c":"jung","t":"Speaking of which... okay this is totally unrelated but I've been meaning to ask you something.","d":28500,"tl":[{"a":"thinking","ms":600,"lk":"at_left_character"},{"a":"talking","ms":4500,"talking":true,"lk":"at_left_character"}]}
+{"s":{"ch":[
+{"c":"freud","t":"Dude, you would NOT believe who I saw at the grocery store yesterday...","ord":1,"a":"lean_forward","sp":"fast","lk":"at_right_character","ex":"excited","eb":"raised"},
+{"c":"jung","t":"Who? Don't leave me hanging!","ord":2,"a":"excited","sp":"fast","lk":"at_left_character","ex":"curious"},
+{"c":"freud","t":"Remember that patient who kept insisting his mother was actually a lamp? THAT guy.","ord":3,"a":"talking","sp":"normal","lk":"at_right_character","ex":"amused"},
+{"c":"jung","t":"NO. What was he buying?","ord":4,"a":"surprise_jump","sp":"fast","lk":"at_left_character","ex":"shocked"},
+{"c":"freud","t":"Lightbulbs. I am NOT joking. An entire cart full of lightbulbs.","ord":5,"a":"facepalm","sp":"slow","lk":"at_right_character","ex":"exasperated"},
+{"c":"jung","t":"Oh my god. Okay but honestly? That's kind of poetic in a weird way.","ord":6,"a":"laugh","sp":"normal","lk":"at_left_character","ex":"amused","m":"smile"},
+{"c":"freud","t":"Don't you DARE try to find meaning in that. Not everything is an archetype.","ord":7,"a":"cross_arms","sp":"fast","lk":"at_right_character","ex":"annoyed","eb":"furrowed"},
+{"c":"jung","t":"Speaking of which... okay this is totally unrelated but I've been meaning to ask you something.","ord":8,"a":"thinking","sp":"slow","lk":"at_left_character","ex":"thoughtful"}
 ]}}
 (Continue for 12-20 total exchanges!)
 

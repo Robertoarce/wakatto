@@ -90,13 +90,14 @@ export function FloatingCharacterWrapper({
   // Track mount/unmount for memory debugging
   useEffect(() => {
     memDebug.trackMount(`FloatingCharacter:${characterName}`);
-    console.log(`[FLOAT-DEBUG] 🎈 FloatingCharacterWrapper MOUNTED: ${characterName}`);
+    // console.log(`[FLOAT-DEBUG] 🎈 FloatingCharacterWrapper MOUNTED: ${characterName}`);
 
     return () => {
       memDebug.trackUnmount(`FloatingCharacter:${characterName}`);
-      console.log(`[FLOAT-DEBUG] 🎈 FloatingCharacterWrapper UNMOUNTED: ${characterName}`);
+      // console.log(`[FLOAT-DEBUG] 🎈 FloatingCharacterWrapper UNMOUNTED: ${characterName}`);
     };
   }, [characterName]);
+
 
   useEffect(() => {
     // Different durations for different rhythms (2.5s to 4s based on index)

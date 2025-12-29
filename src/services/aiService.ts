@@ -75,12 +75,10 @@ async function getCachedAuthSession(): Promise<any> {
   
   // Return cached session if valid
   if (cachedAuthSession && cachedAuthSession.expiresAt > now) {
-    console.log('[AI] Using cached auth session');
     return cachedAuthSession.session;
   }
-  
+
   // Fetch new session
-  console.log('[AI] Fetching fresh auth session');
   const { data } = await supabase.auth.getSession();
   
   if (data?.session) {
@@ -115,12 +113,8 @@ export async function warmupAuthCache(): Promise<void> {
  */
 export function warmupEdgeFunction(): void {
   getCachedAuthSession().then(session => {
-    if (!session) {
-      console.log('[AI] Skipping edge function warmup - no session');
-      return;
-    }
+    if (!session) return;
 
-    console.log('[AI] Warming up edge function...');
     fetch(`${supabaseUrl}/functions/v1/ai-chat`, {
       method: 'POST',
       headers: {
@@ -128,10 +122,7 @@ export function warmupEdgeFunction(): void {
         'Authorization': `Bearer ${session.access_token}`,
       },
       body: JSON.stringify({ type: 'warmup' }),
-    })
-      .then(res => res.json())
-      .then(data => console.log('[AI] Edge function warmed up:', data.status))
-      .catch(() => {}); // Ignore errors - this is best-effort
+    }).catch(() => {}); // Ignore errors - this is best-effort
   });
 }
 
@@ -143,7 +134,6 @@ async function loadAPIKey(): Promise<string> {
   // First, check environment variable (for development)
   const envKey = process.env.CLAUDE_API_KEY;
   if (envKey) {
-    console.log('[AI] Using API key from environment variable');
     return envKey;
   }
 
@@ -307,7 +297,6 @@ export async function generateAIResponse(
     // Parse usage info from response (if available)
     const usage = parseUsageFromResponse(data);
     if (usage) {
-      console.log('[AI] Usage update:', usage);
       // Dispatch a custom event for usage updates (web only)
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('ai:usage-update', { detail: usage }));
@@ -403,8 +392,6 @@ export async function generateAIResponseStreaming(
   let edgeTimer: ReturnType<typeof profiler.start> | null = null;
 
   try {
-    console.log('[AI-Stream] Starting streaming request');
-
     // Get cached auth session
     const session = await getCachedAuthSession();
     authTimer.stop({ cached: cachedAuthSession !== null });
@@ -487,14 +474,12 @@ export async function generateAIResponseStreaming(
                 // Track time to first token
                 if (timeToFirstToken === null) {
                   timeToFirstToken = getTimestamp() - startTime;
-                  console.log('[AI-Stream] Time to first token:', timeToFirstToken.toFixed(0), 'ms');
                 }
                 accumulatedText += parsed.text;
                 callbacks?.onDelta?.(parsed.text, accumulatedText);
               } else if (parsed.type === 'usage') {
                 // Handle usage update from Edge Function
                 const usage = parsed.usage as Partial<UsageInfo>;
-                console.log('[AI-Stream] Usage update:', usage);
                 callbacks?.onUsageUpdate?.(usage);
 
                 // Dispatch warning if at threshold
@@ -525,7 +510,6 @@ export async function generateAIResponseStreaming(
                 }
                 const durationMs = getTimestamp() - startTime;
                 callbacks?.onDone?.(accumulatedText, durationMs);
-                console.log('[AI-Stream] Complete in', durationMs.toFixed(0), 'ms');
               } else if (parsed.type === 'error') {
                 if (edgeTimer && !edgeTimerStopped) {
                   edgeTimer.stop({ error: parsed.message, streaming: true });
@@ -547,7 +531,6 @@ export async function generateAIResponseStreaming(
     } else {
       // Fallback: Edge Function returned non-streaming JSON response
       // This happens when streaming isn't deployed or enabled on the server
-      console.log('[AI-Stream] Received non-streaming response, falling back to regular JSON');
       const json = await response.json();
       const content = json.content || '';
 

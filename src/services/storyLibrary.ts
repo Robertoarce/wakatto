@@ -419,6 +419,348 @@ const STORIES: Story[] = [
     toastText: 'When I was young...',
     fullContext: 'Stories from youth - the dreams, the naivety, the energy. How much has changed? What remains the same? A warm trip down memory lane.',
   },
+
+  // ============================================
+  // ADDITIONAL STORIES (to reach 100+)
+  // ============================================
+
+  // Daily Life & Observations
+  {
+    id: 'obs-morning-ritual',
+    type: 'observation',
+    toastText: 'Morning rituals reveal so much...',
+    fullContext: 'The characters discuss how morning routines reflect our inner state. What does your first hour reveal about your priorities and fears?',
+  },
+  {
+    id: 'obs-strangers',
+    type: 'observation',
+    toastText: 'The lives of strangers fascinate me...',
+    fullContext: 'Watching people on the street - what stories do their faces tell? The characters speculate about the inner lives of passersby.',
+  },
+  {
+    id: 'obs-silence',
+    type: 'observation',
+    toastText: 'Silence speaks volumes...',
+    fullContext: 'The different types of silence: comfortable, awkward, heavy, healing. What does silence reveal that words cannot?',
+  },
+  {
+    id: 'obs-handwriting',
+    type: 'observation',
+    toastText: 'Handwriting reveals personality...',
+    fullContext: 'Can you read someone through their handwriting? The characters examine specimens and debate what the loops and slants mean.',
+  },
+  {
+    id: 'obs-waiting',
+    type: 'observation',
+    toastText: 'How people wait is telling...',
+    fullContext: 'In waiting rooms, bus stops, queues - how people fill empty time reveals their inner world. What do you do while waiting?',
+  },
+
+  // Emotions & Feelings
+  {
+    id: 'theme-loneliness',
+    type: 'theme',
+    toastText: 'The epidemic of loneliness...',
+    fullContext: 'Why do so many feel alone even when surrounded by people? The difference between solitude and loneliness. Can we cure isolation?',
+  },
+  {
+    id: 'theme-anger',
+    type: 'theme',
+    toastText: 'What is anger really saying?',
+    fullContext: 'Beneath every anger lies something else - fear, hurt, frustration. The characters explore the messages hidden in rage.',
+  },
+  {
+    id: 'theme-joy',
+    type: 'theme',
+    toastText: 'What does pure joy feel like?',
+    fullContext: 'Moments of genuine happiness - are they rare? Can they be cultivated? The characters share their experiences of true joy.',
+  },
+  {
+    id: 'theme-guilt',
+    type: 'theme',
+    toastText: 'The weight of guilt...',
+    fullContext: 'Healthy guilt versus toxic shame. When does guilt serve us, and when does it become a prison? How do we forgive ourselves?',
+  },
+  {
+    id: 'theme-envy',
+    type: 'theme',
+    toastText: 'Why do we envy others?',
+    fullContext: 'The psychology of envy. What does jealousy reveal about our own desires? Can envy ever be constructive?',
+  },
+  {
+    id: 'theme-nostalgia',
+    type: 'theme',
+    toastText: 'Why does nostalgia hurt so good?',
+    fullContext: 'The bittersweet ache of remembering. Why do we long for the past even when the present is good? Is nostalgia healthy?',
+  },
+
+  // Relationships & Connection
+  {
+    id: 'theme-friendship',
+    type: 'theme',
+    toastText: 'What makes a true friend?',
+    fullContext: 'The qualities of deep friendship. How do we recognize real connection? Why do some friendships last while others fade?',
+  },
+  {
+    id: 'theme-boundaries',
+    type: 'theme',
+    toastText: 'The art of saying no...',
+    fullContext: 'Setting healthy boundaries - why is it so hard? The guilt, the fear of rejection. How do we protect ourselves while staying open?',
+  },
+  {
+    id: 'theme-trust',
+    type: 'theme',
+    toastText: 'How do we rebuild trust?',
+    fullContext: 'After betrayal, can trust be restored? The slow process of rebuilding. Is forgiveness required for healing?',
+  },
+  {
+    id: 'theme-family',
+    type: 'theme',
+    toastText: 'Family shapes us forever...',
+    fullContext: 'The lasting impact of family dynamics. How do we break unhealthy patterns? Can we choose our own path while honoring our roots?',
+  },
+  {
+    id: 'theme-attachment',
+    type: 'theme',
+    toastText: 'Our attachment styles define us...',
+    fullContext: 'Anxious, avoidant, secure - how early bonds shape all our relationships. Can attachment patterns be changed?',
+  },
+
+  // Self-Discovery
+  {
+    id: 'theme-masks',
+    type: 'theme',
+    toastText: 'The masks we wear...',
+    fullContext: 'The different versions of ourselves we present to the world. Are any of them the "real" us? What happens when masks slip?',
+  },
+  {
+    id: 'theme-purpose',
+    type: 'theme',
+    toastText: 'Finding purpose in life...',
+    fullContext: 'Is there a destined purpose, or do we create our own meaning? How do people find what they\'re meant to do?',
+  },
+  {
+    id: 'theme-authenticity',
+    type: 'theme',
+    toastText: 'Being truly authentic...',
+    fullContext: 'What does it mean to be genuine? The courage to be yourself despite pressure to conform. Is total authenticity even possible?',
+  },
+  {
+    id: 'theme-shadow',
+    type: 'theme',
+    toastText: 'Embracing our shadow side...',
+    fullContext: 'The parts of ourselves we hide or deny. What happens when we integrate our darker aspects instead of suppressing them?',
+  },
+  {
+    id: 'theme-growth',
+    type: 'theme',
+    toastText: 'Can people truly change?',
+    fullContext: 'The debate about personal transformation. Are we fixed, or forever capable of becoming someone new? What triggers real change?',
+  },
+
+  // Hypotheticals & Thought Experiments
+  {
+    id: 'hypo-no-fear',
+    type: 'hypothetical',
+    toastText: 'What if you had no fear?',
+    fullContext: 'If fear vanished completely, what would you do differently? Would fearlessness be a gift or a curse?',
+  },
+  {
+    id: 'hypo-truth-serum',
+    type: 'hypothetical',
+    toastText: 'What if everyone spoke only truth?',
+    fullContext: 'A world without lies. Would society collapse or flourish? What role do white lies play in human connection?',
+  },
+  {
+    id: 'hypo-relive-day',
+    type: 'hypothetical',
+    toastText: 'What day would you relive?',
+    fullContext: 'If you could experience one day from your past again, which would it be? Would you change anything or just observe?',
+  },
+  {
+    id: 'hypo-switch-lives',
+    type: 'hypothetical',
+    toastText: 'Would you switch lives with someone?',
+    fullContext: 'If you could trade places with anyone for a year, who would it be? What do you imagine they experience that you don\'t?',
+  },
+  {
+    id: 'hypo-know-death',
+    type: 'hypothetical',
+    toastText: 'Would you want to know when you\'ll die?',
+    fullContext: 'If you could know the exact date of your death, would you want to? How would that knowledge change how you live?',
+  },
+  {
+    id: 'hypo-perfect-memory',
+    type: 'hypothetical',
+    toastText: 'What if you remembered everything?',
+    fullContext: 'Perfect recall of every moment - blessing or curse? The role of forgetting in mental health and moving forward.',
+  },
+
+  // Dilemmas & Decisions
+  {
+    id: 'dilemma-honesty',
+    type: 'dilemma',
+    toastText: 'Honesty vs. kindness...',
+    fullContext: 'When the truth will hurt, is it better to be honest or kind? Where is the balance between authenticity and compassion?',
+  },
+  {
+    id: 'dilemma-past-mistakes',
+    type: 'dilemma',
+    toastText: 'When past mistakes resurface...',
+    fullContext: 'Something from long ago threatens to come to light. Should you confess preemptively or hope it stays buried?',
+  },
+  {
+    id: 'dilemma-loyalty',
+    type: 'dilemma',
+    toastText: 'Loyalty to self vs. others...',
+    fullContext: 'When your needs conflict with those you care about, how do you choose? Is self-sacrifice noble or self-destructive?',
+  },
+
+  // Philosophical Questions
+  {
+    id: 'debate-consciousness',
+    type: 'debate',
+    toastText: 'What is consciousness anyway?',
+    fullContext: 'The hard problem of consciousness. How do physical brain processes create subjective experience? Are we more than our neurons?',
+  },
+  {
+    id: 'debate-afterlife',
+    type: 'debate',
+    toastText: 'What happens after we die?',
+    fullContext: 'The eternal question. Does consciousness persist? Is there an afterlife, reincarnation, or simply nothing? What do we hope for?',
+  },
+  {
+    id: 'debate-meaning',
+    type: 'debate',
+    toastText: 'Does life have inherent meaning?',
+    fullContext: 'Is meaning discovered or created? The existentialist view versus the belief in cosmic purpose. How does this shape how we live?',
+  },
+  {
+    id: 'debate-evil',
+    type: 'debate',
+    toastText: 'Is anyone truly evil?',
+    fullContext: 'Are some people born bad, or does evil arise from circumstances? Can we understand without excusing? The nature of moral failing.',
+  },
+
+  // Personal Challenges
+  {
+    id: 'challenge-regret',
+    type: 'challenge',
+    toastText: 'What is your biggest regret?',
+    fullContext: 'A vulnerable question about roads not taken. What would you do differently? Can we make peace with our regrets?',
+  },
+  {
+    id: 'challenge-proud',
+    type: 'challenge',
+    toastText: 'What are you most proud of?',
+    fullContext: 'A moment of genuine pride - not just achievement, but character. What accomplishment defines who you are?',
+  },
+  {
+    id: 'challenge-fear',
+    type: 'challenge',
+    toastText: 'What fear holds you back most?',
+    fullContext: 'The fear that shapes your choices. What would you do if it didn\'t exist? How do we overcome our deepest fears?',
+  },
+
+  // Light Topics
+  {
+    id: 'joke-therapy-dog',
+    type: 'joke',
+    toastText: 'My patient brought their dog...',
+    fullContext: 'A funny story about an unexpected therapy session. The pet who attended, the chaos that ensued, the lesson learned.',
+  },
+  {
+    id: 'joke-freudian-slip',
+    type: 'joke',
+    toastText: 'The most embarrassing slip...',
+    fullContext: 'A collection of hilarious Freudian slips - accidental revelations that couldn\'t be unsaid. The humor in human psychology.',
+  },
+  {
+    id: 'gossip-rival',
+    type: 'gossip',
+    toastText: 'Our old rival published again...',
+    fullContext: 'A professional rival has a new book/paper out. The characters are reading between the lines and finding it amusing.',
+  },
+
+  // Dreams & Symbolism
+  {
+    id: 'dream-flying',
+    type: 'dream',
+    toastText: 'Dreams of flying mean what?',
+    fullContext: 'The universal dream of flight. Freedom? Escape? Ambition? The characters debate interpretations of this common dream.',
+  },
+  {
+    id: 'dream-teeth',
+    type: 'dream',
+    toastText: 'Why do we dream about losing teeth?',
+    fullContext: 'One of the most common nightmares. Loss of control? Fear of aging? Anxiety about appearance? Multiple theories explored.',
+  },
+  {
+    id: 'dream-chase',
+    type: 'dream',
+    toastText: 'Being chased in dreams...',
+    fullContext: 'Running from something unknown. What are we really fleeing? The metaphors of pursuit in our unconscious.',
+  },
+
+  // Modern Life
+  {
+    id: 'obs-screens',
+    type: 'observation',
+    toastText: 'We\'re all glued to screens...',
+    fullContext: 'The psychological impact of constant connectivity. Are we more connected or more isolated? What are we avoiding?',
+  },
+  {
+    id: 'obs-comparison',
+    type: 'observation',
+    toastText: 'Social media and comparison...',
+    fullContext: 'The endless comparison to curated lives. How does seeing everyone\'s highlights affect our sense of self?',
+  },
+  {
+    id: 'obs-busyness',
+    type: 'observation',
+    toastText: 'Why are we always so busy?',
+    fullContext: 'The cult of busyness. Is constant activity productive or avoidant? What are we running from by never stopping?',
+  },
+
+  // Wisdom & Advice
+  {
+    id: 'recommend-habit',
+    type: 'recommendation',
+    toastText: 'This one habit changed everything...',
+    fullContext: 'A small practice that had outsized impact. The power of tiny changes. What habit would you recommend to anyone?',
+  },
+  {
+    id: 'recommend-question',
+    type: 'recommendation',
+    toastText: 'The most powerful question...',
+    fullContext: 'A single question that unlocks insight. What question do you ask yourself or your patients that reveals the most?',
+  },
+  {
+    id: 'discovery-connection',
+    type: 'discovery',
+    toastText: 'Everything is connected...',
+    fullContext: 'A sudden realization about how seemingly unrelated things are linked. The web of causation in human psychology.',
+  },
+
+  // Secrets & Confessions
+  {
+    id: 'confession-imposter',
+    type: 'confession',
+    toastText: 'Sometimes I feel like a fraud...',
+    fullContext: 'Imposter syndrome even among experts. The secret doubt that you don\'t really know what you\'re doing. Is anyone immune?',
+  },
+  {
+    id: 'confession-tired',
+    type: 'confession',
+    toastText: 'I\'m exhausted by people...',
+    fullContext: 'The burnout of caring professions. When empathy becomes draining. How do healers heal themselves?',
+  },
+  {
+    id: 'secret-hope',
+    type: 'secret',
+    toastText: 'My secret hope for humanity...',
+    fullContext: 'A private optimism or pessimism about where we\'re heading. What do you really believe about human potential?',
+  },
 ];
 
 // ============================================

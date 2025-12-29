@@ -62,7 +62,7 @@ Speed (sp): "slow" | "normal" | "fast" | "explosive"
 - explosive: Rapid-fire (0.5x duration)
 
 ## Output Format (COMPACT JSON - NO ms values!)
-{"greeting":"Your opening line","tl":[{"a":"wave","sp":"fast","lk":"center","ex":"friendly"},{"a":"talking","sp":"normal","talking":true,"lk":"center","ex":"playful"}]}
+{"greeting":"Your opening line","a":"wave","sp":"fast","lk":"center","ex":"friendly"}
 
 Generate a casual, engaging opening. Don't be boring corporate - be Bob.`;
 }
@@ -122,7 +122,7 @@ Speed (sp): "slow" | "normal" | "fast" | "explosive"
 - explosive: Rapid-fire (0.5x duration)
 
 ## Output Format (COMPACT JSON - NO ms values!)
-{"message":"Your follow-up","tl":[{"a":"shrug","sp":"fast","lk":"center","ex":"playful"},{"a":"talking","sp":"normal","talking":true,"lk":"center","ex":"friendly"}]}
+{"message":"Your follow-up","a":"shrug","sp":"fast","lk":"center","ex":"playful"}
 
 Generate follow-up #${followUpNumber}. Make it count.`;
 }
@@ -241,35 +241,25 @@ function parseBobResponse(rawResponse: string, isFollowUp: boolean = false): Bob
 
     const parsed = JSON.parse(cleanJson);
     const message = parsed.greeting || parsed.message || "Hey there!";
-    const timeline = parsed.tl || [];
 
-    const segments: AnimationSegment[] = timeline.map((seg: any) => {
-      const isTalking = seg.talking || false;
-      const speed = seg.sp || 'normal';
-      // Use ms if provided (backward compat), otherwise calculate from speed
-      const duration = seg.ms || speedToDuration(speed, isTalking, message.length);
+    // Parse flat animation fields (new simplified format)
+    const animation = (parsed.a || 'wave') as AnimationState;
+    const speed = parsed.sp || 'normal';
+    const lookDirection = (parsed.lk || 'center') as LookDirection;
+    const expression = parsed.ex;
+    const duration = speedToDuration(speed, true, message.length);
 
-      return {
-        animation: (seg.a || 'idle') as AnimationState,
-        duration,
-        isTalking,
-        complementary: {
-          lookDirection: (seg.lk || 'center') as LookDirection,
-          expression: seg.ex,
-          mouthState: seg.m,
-          eyeState: seg.ey,
-          eyebrowState: seg.eb,
-        },
-        textReveal: isTalking ? { startIndex: 0, endIndex: message.length } : undefined,
-      };
-    });
-
-    if (segments.length === 0) {
-      segments.push(
-        { animation: 'wave', duration: speedToDuration('fast', false, 0), isTalking: false, complementary: { lookDirection: 'center' } },
-        { animation: 'talking', duration: speedToDuration('normal', true, message.length), isTalking: true, complementary: { lookDirection: 'center' }, textReveal: { startIndex: 0, endIndex: message.length } }
-      );
-    }
+    // Build single talking segment from flat fields
+    const segments: AnimationSegment[] = [{
+      animation,
+      duration,
+      isTalking: true,
+      complementary: {
+        lookDirection,
+        expression,
+      },
+      textReveal: { startIndex: 0, endIndex: message.length },
+    }];
 
     const totalDuration = segments.reduce((sum, seg) => sum + seg.duration, 0);
 

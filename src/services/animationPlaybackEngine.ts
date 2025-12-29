@@ -201,14 +201,29 @@ export class AnimationPlaybackEngine {
    * Start playing an orchestration scene
    */
   play(scene: OrchestrationScene): void {
-    this.stop(); // Clean up any existing playback
+    // Cancel any existing animation frame without full stop() to avoid chars: 0 flash
+    if (this.animationFrameId !== null) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
 
+    // Reset state without clearing cached states (prevents character disappearing during transition)
     this.scene = scene;
     this.status = 'playing';
     this.startTime = performance.now();
     this.pausedAt = 0;
+
     // Clear cached expressions for new scene
     this.postSpeakingExpressionCache.clear();
+    // Invalidate timeline cache so it gets rebuilt
+    this.timelinesCacheValid = false;
+    this.lastCachedElapsed = -1;
+    this.lastCachedStatus = 'idle';
+    // Clear TTS state
+    this.ttsCharPositions.clear();
+    this.lastTTSUpdateTime = 0;
+    this.gracefulStopRequested = false;
+    this.gracefulStopCallback = null;
 
     // Build timeline cache once at start (not every frame)
     this.buildTimelinesCache();
@@ -398,14 +413,14 @@ export class AnimationPlaybackEngine {
       if (activeTimeline) {
         this.cachedStates.set(characterId, this.getCharacterState(activeTimeline, elapsed));
       } else {
-        // No active timeline - character is idle
+        // No active timeline - character is idle but still visible during playback
         this.cachedStates.set(characterId, {
           characterId,
           animation: 'idle',
           complementary: {},
           isTalking: false,
           revealedText: '',
-          isActive: false,
+          isActive: true, // Keep visible during playback
           isComplete: false
         });
       }
@@ -747,7 +762,7 @@ export class AnimationPlaybackEngine {
   ): CharacterAnimationState {
     const characterElapsed = elapsed - timeline.startDelay;
     
-    // Before character's turn
+    // Before character's turn - still visible but not yet talking
     if (characterElapsed < 0) {
       return {
         characterId: timeline.characterId,
@@ -755,12 +770,12 @@ export class AnimationPlaybackEngine {
         complementary: {},
         isTalking: false,
         revealedText: '',
-        isActive: false,
+        isActive: true, // Keep visible during playback
         isComplete: false
       };
     }
     
-    // After character's turn
+    // After character's turn - finished speaking but still visible
     if (characterElapsed >= timeline.totalDuration) {
       // Use cached expression to prevent flickering, or generate and cache a new one
       let expression = this.postSpeakingExpressionCache.get(timeline.characterId);
@@ -774,7 +789,7 @@ export class AnimationPlaybackEngine {
         complementary: expression,
         isTalking: false,
         revealedText: timeline.content,
-        isActive: false,
+        isActive: true, // Keep visible during playback
         isComplete: true
       };
     }

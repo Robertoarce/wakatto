@@ -177,11 +177,6 @@ export function useBubbleQueue({
 
     timersRef.current.set(characterId, timer);
     memDebug.trackTimeout('useBubbleQueue', timer);
-
-    // Log if many timers are accumulating
-    if (timersRef.current.size > 5) {
-      console.warn(`[BUBBLE-DEBUG] ⚠️ Many bubble timers: ${timersRef.current.size}`);
-    }
   }, [processPendingSegments]);
 
   // Update text for a character - this is called frequently during text reveal
@@ -345,10 +340,6 @@ export function useBubbleQueue({
 
   // Clear all bubbles
   const clearAllBubbles = useCallback(() => {
-    const timerCount = timersRef.current.size;
-    const animStateCount = animationStates.current.size;
-    console.log(`[BUBBLE-DEBUG] 🧹 Clearing all bubbles (${timerCount} timers, ${animStateCount} animation states)`);
-
     // Clear all timers
     timersRef.current.forEach(timer => {
       clearTimeout(timer);
@@ -365,11 +356,8 @@ export function useBubbleQueue({
   // Track mount/unmount and cleanup timers
   useEffect(() => {
     memDebug.trackMount('useBubbleQueue');
-    console.log('[BUBBLE-DEBUG] 💬 useBubbleQueue mounted');
 
     return () => {
-      const timerCount = timersRef.current.size;
-      console.log(`[BUBBLE-DEBUG] 💬 useBubbleQueue unmounting (${timerCount} timers, ${queues.size} queues, ${animationStates.current.size} animation states)`);
       timersRef.current.forEach(timer => {
         clearTimeout(timer);
         memDebug.trackTimeoutClear('useBubbleQueue', timer);

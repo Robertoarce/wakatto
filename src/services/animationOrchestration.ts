@@ -491,6 +491,20 @@ function parseSpeedQualifier(sp?: string): SpeedQualifier {
   return 'normal'; // Default fallback
 }
 
+/**
+ * Convert speed qualifier string to numeric animation speed multiplier
+ * Used by CharacterDisplay3D for animation timing
+ */
+function speedToNumber(speed: SpeedQualifier): number {
+  switch (speed) {
+    case 'slow': return 0.7;
+    case 'normal': return 1.0;
+    case 'fast': return 1.3;
+    case 'explosive': return 1.8;
+    default: return 1.0;
+  }
+}
+
 // ============================================
 // VALIDATION HELPERS
 // ============================================
@@ -739,10 +753,11 @@ function splitCombinedContent(
 /**
  * Simplified JSON format where LLM outputs speed qualifiers instead of ms values
  * Client calculates actual durations based on text length and speed multipliers
+ * Uses flat animation fields at character level (simpler than timeline arrays)
  *
  * Keys: s=scene, ch=characters, c=character, t=content, ord=speakerOrder
- *       tl=timeline, a=animation, sp=speed, lk=look, ey=eyes, eb=eyebrow
- *       m=mouth, fc=face, fx=effect, n=nose, ch=cheek, fh=forehead, j=jaw, v=voice
+ *       a=animation, sp=speed, lk=look, ex=expression, ey=eyes, eb=eyebrow
+ *       m=mouth, fc=face, fx=effect, n=nose, ck=cheek, fh=forehead, j=jaw, v=voice
  */
 interface SimplifiedSceneResponse {
   s: {
@@ -751,23 +766,22 @@ interface SimplifiedSceneResponse {
       t: string;       // content text
       ord: number;     // speaker order (1, 2, 3...)
       int?: boolean;   // interruption flag
-      tl: Array<{
-        a: string;          // animation (body)
-        sp?: string;        // speed: 'slow' | 'normal' | 'fast' | 'explosive'
-        lk?: string;        // look direction
-        talking?: boolean;  // is talking segment
-        ex?: string;        // expression preset (expands to face components)
-        ey?: string;        // eyes (override)
-        eb?: string;        // eyebrow (override)
-        m?: string;         // mouth (override)
-        fc?: string;        // face (override)
-        fx?: string;        // effect
-        n?: string;         // nose (override)
-        ck?: string;        // cheek (override)
-        fh?: string;        // forehead (override)
-        j?: string;         // jaw (override)
-        v?: any;            // voice
-      }>;
+      reactsTo?: string; // reacts to character
+      // Flat animation fields (one animation per response)
+      a?: string;      // animation (body)
+      sp?: string;     // speed: 'slow' | 'normal' | 'fast' | 'explosive'
+      lk?: string;     // look direction
+      ex?: string;     // expression preset (expands to face components)
+      ey?: string;     // eyes (override)
+      eb?: string;     // eyebrow (override)
+      m?: string;      // mouth (override)
+      fc?: string;     // face (override)
+      fx?: string;     // effect
+      n?: string;      // nose (override)
+      ck?: string;     // cheek (override)
+      fh?: string;     // forehead (override)
+      j?: string;      // jaw (override)
+      v?: any;         // voice
     }>;
   };
 }
@@ -955,33 +969,45 @@ function convertSimplifiedScene(
 
     const contentLength = cleanedContent.length;
 
-    // Count talking segments to distribute text
-    const talkingSegments = char.tl.filter(seg => seg.talking);
-    const totalTalkingSegments = Math.max(1, talkingSegments.length);
-    let talkingSegmentIndex = 0;
+    // Use flat animation fields directly (simplified format)
+    const animation = validateAnimation(char.a || 'talking');
+    const speed = parseSpeedQualifier(char.sp);
+    const duration = calculateTalkingDuration(contentLength, speed);
 
-    // Convert all segments with calculated timing
-    const segments: AnimationSegment[] = [];
-    for (const seg of char.tl) {
-      const segment = convertSimplifiedSegment(
-        seg,
-        contentLength,
-        seg.talking ? talkingSegmentIndex : 0,
-        totalTalkingSegments
-      );
+    // Build complementary animation from expression and overrides
+    const complementary: AnimationSegment['complementary'] = {};
 
-      // Calculate text range for talking segments
-      if (seg.talking) {
-        segment.textReveal = calculateTextRange(
-          talkingSegmentIndex,
-          totalTalkingSegments,
-          contentLength
-        );
-        talkingSegmentIndex++;
-      }
-
-      segments.push(segment);
+    // Expand expression preset if provided
+    if (char.ex) {
+      const expanded = expandExpression(char.ex);
+      if (expanded.ey) complementary.eyeState = expanded.ey;
+      if (expanded.eb) complementary.eyebrowState = expanded.eb;
+      if (expanded.m) complementary.mouthState = expanded.m;
+      if (expanded.fc) complementary.faceState = expanded.fc;
     }
+
+    // Apply individual overrides
+    if (char.lk) complementary.lookDirection = char.lk as LookDirection;
+    if (char.ey) complementary.eyeState = char.ey as EyeState;
+    if (char.eb) complementary.eyebrowState = char.eb as EyebrowState;
+    if (char.m) complementary.mouthState = char.m as MouthState;
+    if (char.fc) complementary.faceState = char.fc as FaceState;
+    if (char.fx) complementary.effect = char.fx as VisualEffect;
+    if (char.n) complementary.noseState = char.n as NoseState;
+    if (char.ck) complementary.cheekState = char.ck as CheekState;
+    if (char.fh) complementary.foreheadState = char.fh as ForeheadState;
+    if (char.j) complementary.jawState = char.j as JawState;
+    complementary.speed = speedToNumber(speed);
+
+    // Create single talking segment
+    const segments: AnimationSegment[] = [{
+      animation,
+      duration,
+      isTalking: true,
+      complementary,
+      textReveal: { startIndex: 0, endIndex: contentLength },
+      voice: char.v ? parseSegmentVoice(char.v) : undefined,
+    }];
 
     // Add action text to the first segment (if any extracted)
     if (actionTexts.length > 0 && segments.length > 0) {
@@ -1067,7 +1093,7 @@ export function parseOrchestrationScene(
     // If not simplified format, log warning and return null
     // The caller (singleCallOrchestration.ts) will create a fallback scene
     console.warn('[AnimOrch] Response is not in simplified format (missing ord field or has d field)');
-    console.warn('[AnimOrch] Expected format: {"s":{"ch":[{"c":"ID","t":"TEXT","ord":1,"tl":[...]}]}}');
+    console.warn('[AnimOrch] Expected format: {"s":{"ch":[{"c":"ID","t":"TEXT","ord":1,"a":"talking","sp":"normal","lk":"center","ex":"happy"}]}}');
     return null;
 
   } catch (error) {

@@ -29,6 +29,7 @@ import { getRandomStory, Story } from '../services/storyLibrary';
 import { setStoryContext, clearStoryContext } from '../store/actions/conversationActions';
 import { useResponsive, BREAKPOINTS, CHARACTER_HEIGHT } from '../constants/Layout';
 import { Toast } from './ui/Toast';
+import { StorySpeechBubble } from './ui/StorySpeechBubble';
 import { memDebug } from '../services/performanceLogger';
 import {
   IdleConversationManager,
@@ -146,6 +147,47 @@ const MemoizedCharacterDisplay3D = memo(CharacterDisplay3D, (prevProps, nextProp
 // Use extracted FloatingCharacterWrapper component
 const FloatingCharacterWrapper = ExtractedFloatingWrapper;
 
+// ThinkingDots component - animated dots that pulse while AI is thinking
+const ThinkingDots = memo(() => {
+  const dot1Opacity = useRef(new Animated.Value(0.3)).current;
+  const dot2Opacity = useRef(new Animated.Value(0.3)).current;
+  const dot3Opacity = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    const animateDot = (dot: Animated.Value, delay: number) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(dot, { toValue: 1, duration: 400, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0.3, duration: 400, useNativeDriver: true }),
+        ])
+      );
+    };
+
+    const anim1 = animateDot(dot1Opacity, 0);
+    const anim2 = animateDot(dot2Opacity, 200);
+    const anim3 = animateDot(dot3Opacity, 400);
+
+    anim1.start();
+    anim2.start();
+    anim3.start();
+
+    return () => {
+      anim1.stop();
+      anim2.stop();
+      anim3.stop();
+    };
+  }, []);
+
+  return (
+    <View style={{ flexDirection: 'row', gap: 2 }}>
+      <Animated.Text style={{ opacity: dot1Opacity, color: '#a855f7', fontSize: 16, fontWeight: 'bold' }}>.</Animated.Text>
+      <Animated.Text style={{ opacity: dot2Opacity, color: '#a855f7', fontSize: 16, fontWeight: 'bold' }}>.</Animated.Text>
+      <Animated.Text style={{ opacity: dot3Opacity, color: '#a855f7', fontSize: 16, fontWeight: 'bold' }}>.</Animated.Text>
+    </View>
+  );
+});
+
 export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting, conversationId, savedCharacters, onSaveIdleMessage }: ChatInterfaceProps) {
   const dispatch = useDispatch();
   const { isFullscreen } = useSelector((state: RootState) => state.ui);
@@ -156,23 +198,16 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const renderCountRef = useRef(0);
   useEffect(() => {
     memDebug.trackMount('ChatInterface');
-    console.log(`[CHAT-DEBUG] 💬 ChatInterface MOUNTED (conversationId: ${conversationId})`);
     memDebug.checkMemory('ChatInterface mount');
 
     return () => {
       memDebug.trackUnmount('ChatInterface');
-      console.log(`[CHAT-DEBUG] 💬 ChatInterface UNMOUNTED (had ${renderCountRef.current} renders)`);
     };
   }, []);
 
-  // Track render count
+  // Track render count (silent)
   useEffect(() => {
     renderCountRef.current++;
-    // Log every 50 renders
-    if (renderCountRef.current % 50 === 0) {
-      console.log(`[CHAT-DEBUG] 🔄 ChatInterface render #${renderCountRef.current}`);
-      memDebug.checkMemory(`ChatInterface render #${renderCountRef.current}`);
-    }
   });
 
   // Upgrade prompt modal state
@@ -277,7 +312,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     pause: pauseTTS,
     resume: resumeTTS,
   } = useTextToSpeech({
-    enabled: true, // Default on for voice-synced experience
+    enabled: false, // TTS disabled
   });
   // Track actual available height from container layout (excludes header/tab bar)
   const [availableHeight, setAvailableHeight] = useState(0);
@@ -787,7 +822,6 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   useEffect(() => {
     hasTriggeredGreeting.current = false;
     conversationStarterInProgressRef.current = false;
-    console.log('[ChatInterface] Conversation changed, reset greeting triggers');
   }, [conversationId]);
 
   useEffect(() => {
@@ -1600,6 +1634,17 @@ Each silence, a cathedral where you still reside.`;
           </View>
         )}
 
+        {/* Thinking Indicator - Shows animated dots while AI is processing */}
+        {isLoading && !playbackState.isPlaying && (
+          <View style={styles.thinkingIndicatorContainer}>
+            <View style={styles.thinkingIndicator}>
+              <Ionicons name="chatbubble-ellipses" size={scaleValue(14, 20)} color="#a855f7" />
+              <Text style={[styles.thinkingText, { fontSize: fonts.sm }]}>Thinking</Text>
+              <ThinkingDots />
+            </View>
+          </View>
+        )}
+
         {/* Mobile Speech Bubble Stack - Renders all active bubbles in a scrollable container */}
         {/* Protected from overflowing into input area via dynamic maxHeight with scroll */}
         {/* In mobile landscape, use side positioning instead of stacked */}
@@ -1781,12 +1826,13 @@ Each silence, a cathedral where you still reside.`;
                       : idleState?.complementary;
                     
                     const isHovered = hoveredCharacterId === characterId;
+                    const finalIsActive = (usePlayback && charPlaybackState?.isActive) || showEntranceAnimation || !!idleState;
                     return (
                       <MemoizedCharacterDisplay3D
                         character={character}
-                        isActive={(usePlayback && charPlaybackState.isActive) || showEntranceAnimation || !!idleState}
+                        isActive={finalIsActive}
                         animation={finalAnimation}
-                        isTalking={usePlayback && charPlaybackState.isTalking}
+                        isTalking={usePlayback && charPlaybackState?.isTalking}
                         complementary={finalComplementary}
                         showName={isHovered}
                         nameKey={nameKey}
@@ -2248,14 +2294,24 @@ Each silence, a cathedral where you still reside.`;
         onDismiss={() => setToastVisible(false)}
         duration={2000}
       />
-      {/* Story Toast - shown at start of new conversations */}
-      <Toast
-        message={currentStory?.toastText || ''}
-        visible={storyToastVisible}
-        variant="story"
-        onDismiss={() => setStoryToastVisible(false)}
-        duration={5000}
-      />
+      {/* Story Speech Bubble - shown at start of new conversations */}
+      {(() => {
+        // Get first selected character for the speech bubble
+        const firstCharId = selectedCharacters[0];
+        const firstChar = firstCharId
+          ? (availableCharacters.find(c => c.id === firstCharId) || getCharacter(firstCharId))
+          : null;
+        return (
+          <StorySpeechBubble
+            message={currentStory?.toastText || ''}
+            characterName={firstChar?.name || 'Narrator'}
+            characterColor={firstChar?.color || '#8b5cf6'}
+            visible={storyToastVisible}
+            onDismiss={() => setStoryToastVisible(false)}
+            duration={6000}
+          />
+        );
+      })()}
     </>
   );
 }
@@ -2446,6 +2502,30 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '300',
     opacity: 0.8,
+  },
+  // Thinking indicator styles
+  thinkingIndicatorContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    zIndex: 15,
+    alignItems: 'center',
+  },
+  thinkingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(168, 85, 247, 0.15)',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.3)',
+  },
+  thinkingText: {
+    color: '#a855f7',
+    fontFamily: 'Inter-Medium',
   },
   chatScrollView: {
     flex: 1,

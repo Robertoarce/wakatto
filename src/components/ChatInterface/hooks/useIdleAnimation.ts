@@ -75,7 +75,6 @@ export function useIdleAnimation({
 
     idleTimersRef.current.set(characterId, timer);
     memDebug.trackTimeout('useIdleAnimation', timer);
-    console.log(`[IDLE-DEBUG] ⏱️ Scheduled idle animation for ${characterId} in ${(interval/1000).toFixed(1)}s (total timers: ${idleTimersRef.current.size})`);
   }, [updateCharacterIdleAnimation]);
 
   // Start idle animation cycle for all characters (with staggered start)
@@ -102,12 +101,10 @@ export function useIdleAnimation({
 
   // Stop all idle animation cycles and clear state
   const stopIdleCycle = useCallback(() => {
-    const timerCount = idleTimersRef.current.size;
-    console.log(`[IDLE-DEBUG] 🛑 Stopping idle cycle (${timerCount} timers to clear)`);
     isIdleCycleActiveRef.current = false;
 
     // Clear all character timers
-    idleTimersRef.current.forEach((timer, charId) => {
+    idleTimersRef.current.forEach((timer) => {
       clearTimeout(timer);
       memDebug.trackTimeoutClear('useIdleAnimation', timer);
     });
@@ -121,7 +118,6 @@ export function useIdleAnimation({
       memDebug.trackTimeoutClear('useIdleAnimation', idleStartDelayRef.current);
       idleStartDelayRef.current = null;
     }
-    console.log(`[IDLE-DEBUG] ✅ Idle cycle stopped, all timers cleared`);
   }, []);
 
   // Effect: Start/stop idle cycle based on playback and loading state

@@ -216,15 +216,14 @@ const Character = React.memo(function Character({ character, isActive, animation
 
   // Animation system with frame throttling for performance
   React.useEffect(() => {
-    if (!meshRef.current || !headRef.current) return;
-
     const charId = character?.id || 'unknown';
+    if (!meshRef.current || !headRef.current) return;
 
     // Reset mounted flag when effect runs
     isMountedRef.current = true;
     performanceLogger.registerAnimationLoop();
     memDebug.trackMount(`Character:${charId}`);
-    console.log(`[CHAR-DEBUG] 🎭 Animation loop STARTED for ${charId}`);
+    // console.log(`[CHAR-DEBUG] 🎭 Animation loop STARTED for ${charId}`);
 
     let animationId: number;
     let lastFrameTime = 0;
@@ -1301,7 +1300,7 @@ const Character = React.memo(function Character({ character, isActive, animation
       isMountedRef.current = false;
       performanceLogger.unregisterAnimationLoop();
       memDebug.trackUnmount(`Character:${charId}`);
-      console.log(`[CHAR-DEBUG] 🎭 Animation loop STOPPED for ${charId}`);
+      // console.log(`[CHAR-DEBUG] 🎭 Animation loop STOPPED for ${charId}`);
       if (animationId) {
         cancelAnimationFrame(animationId);
         memDebug.trackRAFCancel(`Character:${charId}`, animationId);
@@ -2763,19 +2762,19 @@ export function CharacterDisplay3D({
   useEffect(() => {
     const charName = character?.id || characterId || 'unknown';
     memDebug.trackMount(`CharacterDisplay3D:${charName}`);
-    console.log(`[CHAR3D-DEBUG] 🖼️ CharacterDisplay3D MOUNTED: ${charName}`);
+    // console.log(`[CHAR3D-DEBUG] 🖼️ CharacterDisplay3D MOUNTED: ${charName}`);
     memDebug.checkMemory(`CharacterDisplay3D:${charName} mount`);
 
     return () => {
       memDebug.trackUnmount(`CharacterDisplay3D:${charName}`);
-      console.log(`[CHAR3D-DEBUG] 🖼️ CharacterDisplay3D UNMOUNTED: ${charName}`);
+      // console.log(`[CHAR3D-DEBUG] 🖼️ CharacterDisplay3D UNMOUNTED: ${charName}`);
     };
   }, [character?.id, characterId]);
 
   // Cleanup WebGL resources on unmount
   useEffect(() => {
     return () => {
-      console.log(`[CHAR3D-DEBUG] 🧹 Disposing WebGL resources for ${character?.id || characterId || 'unknown'}`);
+      // console.log(`[CHAR3D-DEBUG] 🧹 Disposing WebGL resources for ${character?.id || characterId || 'unknown'}`);
       // Traverse scene and dispose all geometries, materials, textures
       if (sceneRef.current) {
         sceneRef.current.traverse((object) => {

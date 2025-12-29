@@ -83,7 +83,6 @@ export default function MainTabs() {
 
   // Load conversations on mount and warm up services
   useEffect(() => {
-    console.log('[MainTabs] Loading conversations on mount...');
     dispatch(loadConversations() as any).then(() => {
       setConversationsLoaded(true);
     });
@@ -116,12 +115,10 @@ export default function MainTabs() {
       }
 
       isCreatingTutorial.current = true;
-      console.log('[MainTabs] No conversations found, creating tutorial with Bob...');
 
       try {
         // Use unified tutorial creation action (handles greeting, is_tutorial flag, etc.)
         await dispatch(createOrNavigateToTutorial() as any);
-        console.log('[MainTabs] Tutorial conversation created with Bob\'s greeting');
       } catch (error) {
         console.error('[MainTabs] Failed to create tutorial:', error);
         isCreatingTutorial.current = false; // Allow retry on failure
@@ -151,15 +148,11 @@ export default function MainTabs() {
   // Start or navigate to tutorial conversation with Bob
   const onTutorial = async () => {
     // Prevent double-click issues
-    if (isCreatingTutorial.current) {
-      console.log('[MainTabs] Tutorial creation already in progress');
-      return;
-    }
+    if (isCreatingTutorial.current) return;
 
     isCreatingTutorial.current = true;
 
     try {
-      console.log('[MainTabs] Opening tutorial conversation');
       await dispatch(createOrNavigateToTutorial() as any);
 
       // Close sidebar on mobile after navigation
@@ -176,7 +169,6 @@ export default function MainTabs() {
   // Handle starting conversation with selected characters
   const onStartConversationWithCharacters = async (selectedCharacterIds: string[]) => {
     try {
-      console.log('[MainTabs] Creating conversation with characters:', selectedCharacterIds);
       await dispatch(createConversation('New Conversation', selectedCharacterIds) as any);
       setShowCharacterSelection(false);
     } catch (error: any) {
@@ -199,11 +191,8 @@ export default function MainTabs() {
 
   const onDeleteConversation = async (conversationId: string) => {
     try {
-      console.log('[MainTabs] Deleting conversation:', conversationId);
       await dispatch(deleteConversation(conversationId) as any);
-      console.log('[MainTabs] Delete complete');
     } catch (error: any) {
-      console.error('[MainTabs] Delete failed:', error);
       showAlert(
         'Delete Failed',
         error.message || 'Failed to delete conversation. Please try again.',
@@ -276,7 +265,6 @@ The text behaves as it should be.`;
       return;
     }
 
-    console.log('[MainTabs] TEST POEM: Triggering with characters:', selectedChars);
     setIsLoadingAI(true);
 
     try {
@@ -295,10 +283,7 @@ The text behaves as it should be.`;
         TEST_POEM,
         testCharacter
       ) as any);
-
-      console.log('[MainTabs] TEST POEM: Scene created');
     } catch (error: any) {
-      console.error('[MainTabs] TEST POEM: Error:', error);
       showAlert('Error', 'Failed to play test poem: ' + error.message);
     } finally {
       setIsLoadingAI(false);
@@ -306,8 +291,6 @@ The text behaves as it should be.`;
   }, [currentConversation, dispatch, showAlert]);
 
   const handleSendMessage = async (content: string, selectedCharacters: string[]) => {
-    console.log('[MainTabs] handleSendMessage called with selectedCharacters:', selectedCharacters);
-
     // Validate that at least one character is selected
     if (!selectedCharacters || selectedCharacters.length === 0) {
       showAlert('No Wakattors Selected', 'Please select at least one Wakattor before sending a message.');
@@ -356,20 +339,17 @@ The text behaves as it should be.`;
           (conversation.title === 'New Conversation' || conversation.title === 'Tutorial');
 
         if (needsTitleGeneration) {
-          console.log('[Chat] Deferring title generation to background');
           const conversationId = conversation.id;
-          
+
           // Run in background - don't await
           (async () => {
             const bgTitleTimer = profiler.start(PROFILE_OPS.TITLE_GENERATION);
             try {
               const generatedTitle = await generateConversationTitle(content);
-              console.log('[Chat] Background title generated:', generatedTitle);
               await dispatch(renameConversation(conversationId, generatedTitle) as any);
               bgTitleTimer.stop({ background: true });
             } catch (titleError) {
               bgTitleTimer.stop({ error: String(titleError), background: true });
-              console.error('[Chat] Background title generation failed:', titleError);
             }
           })();
         }
@@ -391,18 +371,9 @@ The text behaves as it should be.`;
           // Use animated scene orchestration for all multi-character conversations
           if (selectedCharacters.length > 1) {
             // Multi-character mode: Animated scene orchestration
-            console.log('[Chat] Using animated scene orchestration with:', selectedCharacters);
-            console.log('[Chat] Orchestration config:', {
-              mode: ORCHESTRATION_CONFIG.mode,
-              maxResponders: ORCHESTRATION_CONFIG.singleCall.maxResponders,
-              includeGestures: ORCHESTRATION_CONFIG.singleCall.includeGestures,
-              includeInterruptions: ORCHESTRATION_CONFIG.singleCall.includeInterruptions
-            });
-
             // Generate animated scene with timelines
             // Use streaming for faster perceived response when supported
             const shouldUseStreaming = useStreaming && isStreamingSupported();
-              console.log('[Chat] Using streaming:', shouldUseStreaming);
               
               let scene: OrchestrationScene;
               let characterResponses: any[];
@@ -411,34 +382,26 @@ The text behaves as it should be.`;
                 // Streaming version - shows progress during generation
                 setStreamingProgress(0);
                 setEarlyAnimationSetup(null); // Clear previous early setup
-                
+
                 const result = await generateAnimatedSceneOrchestrationStreaming(
                   content,
                   selectedCharacters,
                   conversationHistory,
                   {
                     onStart: () => {
-                      console.log('[Chat] Streaming started');
                       setStreamingProgress(5);
                     },
                     onProgress: (_, percentage) => {
                       setStreamingProgress(percentage);
                     },
                     onEarlySetup: (setup) => {
-                      // Start animations early while still streaming
-                      console.log('[Chat] Early animation setup:', {
-                        characters: setup.detectedCharacters,
-                        estimatedDuration: setup.estimatedDuration
-                      });
                       setEarlyAnimationSetup(setup);
                     },
-                    onComplete: (completedScene) => {
-                      console.log('[Chat] Streaming complete, scene duration:', completedScene.sceneDuration);
+                    onComplete: () => {
                       setStreamingProgress(100);
-                      setEarlyAnimationSetup(null); // Clear early setup once we have real scene
+                      setEarlyAnimationSetup(null);
                     },
-                    onError: (error) => {
-                      console.error('[Chat] Streaming error:', error);
+                    onError: () => {
                       setEarlyAnimationSetup(null);
                     },
                   }
@@ -456,12 +419,6 @@ The text behaves as it should be.`;
                 characterResponses = result.responses;
               }
 
-              console.log('[Chat] Generated animated scene:', {
-                duration: scene.sceneDuration,
-                timelines: scene.timelines.length,
-                nonSpeakers: Object.keys(scene.nonSpeakerBehavior).length
-              });
-
               // Profile animation setup for multi-character
               const animSetupTimer = profiler.start(PROFILE_OPS.ANIMATION_SETUP);
               // Start animation playback IMMEDIATELY (display first, save in background)
@@ -469,38 +426,29 @@ The text behaves as it should be.`;
               setStreamingProgress(0); // Reset progress
               animSetupTimer.stop({ characterCount: selectedCharacters.length, multiCharacter: true });
 
-              console.log(`[Chat] Generated ${characterResponses.length} animated responses - saving in background`);
-
               // Save assistant responses in BACKGROUND (non-blocking parallel saves)
               // This allows the UI to show responses immediately while persisting to DB
               const saveAssistantTimer = profiler.start(PROFILE_OPS.DB_SAVE_ASSISTANT_MESSAGE);
-              const savePromises = characterResponses.map(response => {
-                console.log(`[Chat] Background save for ${response.characterId}:`, {
-                  content: response.content.substring(0, 50) + '...',
-                  gesture: response.gesture
-                });
-                return dispatch(saveMessage(
+              const savePromises = characterResponses.map(response =>
+                dispatch(saveMessage(
                   conversation.id,
                   'assistant',
                   response.content,
                   response.characterId
-                ) as any);
-              });
-              
-              // Fire and forget - don't await, but log completion
+                ) as any)
+              );
+
+              // Fire and forget - don't await
               Promise.all(savePromises)
                 .then(() => {
                   saveAssistantTimer.stop({ responseCount: characterResponses.length, background: true });
-                  console.log('[Chat] Background assistant saves completed');
                 })
                 .catch((err) => {
                   saveAssistantTimer.stop({ error: String(err), background: true });
-                  console.error('[Chat] Background assistant saves failed:', err);
                 });
 
           } else {
             // Single character mode: traditional response with simple animation
-            console.log('[Chat] Using single character mode:', selectedCharacters[0]);
 
             const aiResponse = await generateSingleCharacterResponse(
               content,
@@ -530,7 +478,6 @@ The text behaves as it should be.`;
               })
               .catch((err: any) => {
                 saveSingleTimer.stop({ error: String(err), background: true });
-                console.error('[Chat] Background single character save failed:', err);
               });
           }
         } catch (aiError: any) {
@@ -553,12 +500,11 @@ The text behaves as it should be.`;
     } finally {
       setIsLoadingAI(false);
       
-      // End profiling session and log results
+      // End profiling session
       const session = profiler.endSession();
       if (session) {
         setLastProfileSession(session);
         profiler.logSession(session);
-        console.log('[Profiling] Session summary:', session.summary);
       }
       
       // Reload conversations to update character count in sidebar
@@ -572,7 +518,6 @@ The text behaves as it should be.`;
   // Handle character greeting for new conversations
   // Note: Removed isProcessingGreeting blocking to allow multiple character greetings to be saved
   const handleGreeting = useCallback(async (characterId: string, greetingMessage: string) => {
-    console.log('[MainTabs] handleGreeting called for character:', characterId);
 
     try {
       // Get the LATEST state from the store (not stale closure value)

@@ -262,15 +262,6 @@ export async function generateAnimatedSceneOrchestration(
     content: userMessage
   });
 
-  console.log('[AnimatedOrch] Generating animated scene for', selectedCharacters.length, 'characters');
-  console.log('[AnimatedOrch] Prompt size:', animatedPrompt.length, 'chars, ~', profiler.estimateTokens(animatedPrompt), 'tokens');
-
-  // Log the full prompt (collapsed)
-  console.groupCollapsed('[AnimatedOrch] Full Animated Scene Prompt');
-  console.log('System Prompt:', animatedPrompt);
-  console.log('Conversation Messages:', conversationMessages);
-  console.groupEnd();
-
   try {
     // Single API call generates the entire scene (profiled inside generateAIResponse)
     const rawResponse = await generateAIResponse(
@@ -278,8 +269,6 @@ export async function generateAnimatedSceneOrchestration(
       animatedPrompt,
       'orchestrator'
     );
-
-    console.log('[AnimatedOrch] Raw response:', rawResponse.substring(0, 500) + '...');
 
     // Profile scene parsing
     const parseTimer = profiler.start(PROFILE_OPS.SCENE_PARSE);
@@ -316,8 +305,6 @@ export async function generateAnimatedSceneOrchestration(
       isReaction: false,
       timing: timeline.startDelay === 0 ? 'immediate' : 'delayed'
     }));
-
-    console.log('[AnimatedOrch] Generated scene with', scene.timelines.length, 'timelines, duration:', scene.sceneDuration, 'ms');
 
     return { scene, responses: characterResponses };
 
@@ -368,7 +355,6 @@ export async function generateAnimatedSceneOrchestrationStreaming(
 
   // Check if streaming is supported
   if (!isStreamingSupported()) {
-    console.log('[AnimatedOrch-Stream] Streaming not supported, falling back to regular');
     return generateAnimatedSceneOrchestration(userMessage, selectedCharacters, messageHistory, config);
   }
 
@@ -398,31 +384,19 @@ export async function generateAnimatedSceneOrchestrationStreaming(
     content: userMessage
   });
 
-  console.log('[AnimatedOrch-Stream] Starting streaming generation for', selectedCharacters.length, 'characters', forceReaction ? '(REACTION FORCED)' : '');
-
-  // Log the full prompt (collapsed)
-  console.groupCollapsed('[AnimatedOrch-Stream] Full Animated Scene Prompt');
-  console.log('System Prompt:', animatedPrompt);
-  console.log('Conversation Messages:', conversationMessages);
-  console.groupEnd();
-
   // Notify start
   callbacks?.onStart?.();
 
   try {
     let estimatedTotalLength = 500; // Estimate for progress calculation
     let earlySetupSent = false;
-    let detectedCharacters: string[] = [];
-    
+
     // Use streaming API
     const rawResponse = await generateAIResponseStreaming(
       conversationMessages,
       animatedPrompt,
       'orchestrator',
       {
-        onStart: () => {
-          console.log('[AnimatedOrch-Stream] Stream started');
-        },
         onDelta: (delta, accumulated) => {
           // Update estimated total based on accumulated length
           if (accumulated.length > estimatedTotalLength * 0.8) {
@@ -430,20 +404,17 @@ export async function generateAnimatedSceneOrchestrationStreaming(
           }
           const percentage = Math.min(95, (accumulated.length / estimatedTotalLength) * 100);
           callbacks?.onProgress?.(accumulated, percentage);
-          
+
           // Try to detect characters early for animation setup
           if (!earlySetupSent && callbacks?.onEarlySetup) {
             const earlyData = tryDetectEarlyCharacters(accumulated, selectedCharacters);
             if (earlyData.canStartThinkingAnimation) {
               earlySetupSent = true;
-              detectedCharacters = earlyData.detectedCharacters;
-              console.log('[AnimatedOrch-Stream] Early setup triggered for:', detectedCharacters);
               callbacks.onEarlySetup(earlyData);
             }
           }
         },
-        onDone: (fullText, durationMs) => {
-          console.log('[AnimatedOrch-Stream] Stream complete in', durationMs.toFixed(0), 'ms');
+        onDone: (fullText) => {
           callbacks?.onProgress?.(fullText, 100);
         },
         onError: (error) => {
@@ -451,8 +422,6 @@ export async function generateAnimatedSceneOrchestrationStreaming(
         },
       }
     );
-
-    console.log('[AnimatedOrch-Stream] Raw response:', rawResponse.substring(0, 500) + '...');
 
     // Parse scene
     const parseTimer = profiler.start(PROFILE_OPS.SCENE_PARSE);
@@ -484,8 +453,6 @@ export async function generateAnimatedSceneOrchestrationStreaming(
       timing: timeline.startDelay === 0 ? 'immediate' : 'delayed'
     }));
 
-    console.log('[AnimatedOrch-Stream] Generated scene with', scene.timelines.length, 'timelines');
-    
     // Notify complete
     callbacks?.onComplete?.(scene, characterResponses);
 
@@ -538,6 +505,20 @@ function buildAnimatedScenePrompt(
   // Dynamic content (character profiles) goes LAST
   return `# Animated Scene Orchestrator
 
+## ⚠️ CRITICAL: JSON OUTPUT ONLY ⚠️
+You MUST respond with ONLY valid JSON. NOTHING ELSE.
+- Start your response with { and end with }
+- NO text before the JSON
+- NO text after the JSON
+- NO markdown code blocks
+- NO explanations
+- ONLY the JSON object
+
+WRONG: "Here's the scene: {...}"
+WRONG: "[Character]: Hello there"
+WRONG: \`\`\`json {...} \`\`\`
+RIGHT: {"s":{"ch":[...]}}
+
 ${STATIC_ORCHESTRATION_IDENTITY_RULES}
 ## Animation System
 Body (a): ${getAnimationsList()}
@@ -551,8 +532,10 @@ Override specific parts if needed: "ex":"joyful","m":"smirk" (joyful expression 
 ## Voice (optional "v" object per segment)
 ${getVoiceOptionsForPrompt()}
 
-## Output Format (SIMPLIFIED - NO ms/duration values!)
-Keys: s=scene, ch=characters, c=character, t=content, ord=speakerOrder, tl=timeline, a=animation, sp=speed, lk=look, ex=expression, fx=effect, v=voice
+## Output Format (JSON REQUIRED - NO PLAIN TEXT!)
+⚠️ RESPOND WITH JSON ONLY - not "[Name]: text" format!
+
+Keys: s=scene, ch=characters, c=character, t=content, ord=speakerOrder, a=animation, sp=speed, lk=look, ex=expression, fx=effect, v=voice
 Override keys (optional, override ex): ey=eyes, eb=eyebrow, m=mouth, fc=face, n=nose, ck=cheek, fh=forehead, j=jaw
 
 Speed (sp): "slow" | "normal" | "fast" | "explosive"
@@ -570,9 +553,13 @@ Playful tease: {"a":"lean_forward","sp":"fast","lk":"center","ex":"playful"}
 Nervous: {"a":"fidget","sp":"fast","lk":"down","ex":"nervous"}
 With override: {"a":"happy","ex":"joyful","m":"smirk"} (joyful but with smirk instead of big_grin)
 
-Full scene: {"s":{"ch":[{"c":"ID","t":"TEXT","ord":1,"tl":[{"a":"thinking","sp":"slow","lk":"up","ex":"thoughtful"},{"a":"talking","sp":"normal","talking":true,"lk":"center","ex":"happy"}]}]}}
+Full scene (THIS IS WHAT YOUR ENTIRE RESPONSE SHOULD LOOK LIKE):
+{"s":{"ch":[{"c":"ID","t":"TEXT","ord":1,"a":"talking","sp":"normal","lk":"center","ex":"happy"}]}}
+
+⚠️ YOUR RESPONSE = ONLY THE JSON ABOVE. NO OTHER TEXT. ⚠️
 
 ## CRITICAL FORMAT RULES
+- RESPOND WITH JSON ONLY - never "[Name]: text" plain text format!
 - DO NOT include: ms, duration, dur, d, startDelay, textRange
 - Use "ord" for speaker order (1, 2, 3...) - first speaker is ord:1
 - Use "sp" for speed qualifier (slow/normal/fast/explosive)
@@ -630,10 +617,10 @@ You MUST generate at least ${getResponseCount()} character responses. 2 is NOT a
 4. Continue until ${getResponseCount()} responses reached
 
 **EXAMPLE (4 responses minimum):**
-{"c":"joan","t":"Two letters? I led armies!","ord":1}
-{"c":"wanda","t":"Not everyone screams, Joan.","ord":2,"reactsTo":"joan"}
-{"c":"joan","t":"At least I communicate.","ord":3,"reactsTo":"wanda"}
-{"c":"wanda","t":"Keep talking. See what happens.","ord":4,"reactsTo":"joan"}
+{"c":"joan","t":"Two letters? I led armies!","ord":1,"a":"talking","sp":"fast","lk":"center","ex":"proud"}
+{"c":"wanda","t":"Not everyone screams, Joan.","ord":2,"reactsTo":"joan","a":"cross_arms","sp":"normal","lk":"at_left_character","ex":"skeptical"}
+{"c":"joan","t":"At least I communicate.","ord":3,"reactsTo":"wanda","a":"lean_forward","sp":"fast","lk":"at_right_character","ex":"defiant"}
+{"c":"wanda","t":"Keep talking. See what happens.","ord":4,"reactsTo":"joan","a":"idle","sp":"slow","lk":"at_left_character","ex":"threatening"}
 - Add "v" object to talking segments to control voice characteristics
 - If asked personal questions (birthday, history), characters answer AS THEMSELVES based on their real history
 ${config.includeInterruptions ? '- Characters can interrupt by setting "int": true' : ''}
@@ -642,8 +629,22 @@ ${getReactionGuidance(forceReaction)}
 ${characterProfiles}
 ${characterChangeNote}
 
-CRITICAL: Your ENTIRE response must be ONLY valid JSON. No text before or after.
-Start with { and end with }. Example: {"s":{"ch":[...]}}`;
+## ⚠️ FINAL REMINDER: JSON ONLY ⚠️
+Your response MUST be EXACTLY this format (no other text):
+{"s":{"ch":[{"c":"character_id","t":"dialogue text","ord":1,"a":"animation","sp":"speed","lk":"look","ex":"expression"},...]}}
+
+DO NOT:
+❌ Write "[Character Name]: dialogue" format
+❌ Add any text before or after the JSON
+❌ Use markdown code blocks
+❌ Add explanations or commentary
+❌ Use display names in "c" field (use IDs like "freud" not "Sigmund Freud")
+
+DO:
+✅ Start response with { character
+✅ End response with }
+✅ Use character IDs in "c" field
+✅ Include all required fields: c, t, ord, a, sp, lk, ex`;
 }
 
 /**
@@ -1097,6 +1098,33 @@ function parseOrchestrationResponse(rawResponse: string): OrchestrationResult {
     // Remove markdown JSON code blocks
     cleaned = cleaned.replace(/```json\s*/g, '').replace(/```\s*/g, '');
 
+    // Check if response is plain text format: [Character Name]: text
+    // This happens when AI ignores JSON instructions
+    const plainTextPattern = /\[([^\]]+)\]:\s*(.+?)(?=\n\n\[|$)/gs;
+    const plainTextMatches = [...cleaned.matchAll(plainTextPattern)];
+
+    if (plainTextMatches.length > 0 && !cleaned.startsWith('{')) {
+      console.log('[SingleCall] Parsing plain text format (AI ignored JSON instructions)');
+      const responses: OrchestrationResponse[] = plainTextMatches.map((match, index) => {
+        const displayName = match[1].trim();
+        const content = match[2].trim();
+        // Convert display name to character ID (e.g., "Captain America" -> "captain_america")
+        const characterId = resolveCharacterId(displayName, currentAvailableCharacters);
+        return {
+          character: characterId,
+          content,
+          gesture: 'talking',
+          interrupts: false,
+          reactsTo: index > 0 ? plainTextMatches[index - 1][1].trim() : undefined,
+          timing: index === 0 ? 'immediate' : 'delayed'
+        };
+      });
+      return {
+        responses,
+        conversationFlow: 'Converted from plain text format'
+      };
+    }
+
     // Try to extract JSON if wrapped in other text
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
@@ -1108,7 +1136,24 @@ function parseOrchestrationResponse(rawResponse: string): OrchestrationResult {
     // Extract and log ARQ reasoning if present
     logARQReasoning(parsed.reasoning);
 
-    // Validate structure
+    // Handle new simplified format (s.ch) - convert to responses array
+    if (parsed.s?.ch && Array.isArray(parsed.s.ch)) {
+      console.log('[SingleCall] Converting simplified s.ch format to responses array');
+      const responses: OrchestrationResponse[] = parsed.s.ch.map((ch: any) => ({
+        character: ch.c,
+        content: ch.t,
+        gesture: ch.a,
+        interrupts: ch.int || false,
+        reactsTo: ch.reactsTo,
+        timing: ch.ord === 1 ? 'immediate' : 'delayed'
+      }));
+      return {
+        responses,
+        conversationFlow: 'Converted from simplified format'
+      };
+    }
+
+    // Validate structure (old format with responses array)
     if (!parsed.responses || !Array.isArray(parsed.responses)) {
       throw new Error('Invalid response structure: missing responses array');
     }

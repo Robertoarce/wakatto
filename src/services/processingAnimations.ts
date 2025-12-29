@@ -28,12 +28,13 @@ interface ProcessingAnimationPreset {
 /**
  * Available processing animation presets
  * These are cycled through randomly while waiting for AI response
+ * ENHANCED: Faster cycling and more dynamic animations for better visibility
  */
 const PROCESSING_PRESETS: ProcessingAnimationPreset[] = [
   {
     animation: 'thinking',
-    duration: 2500,
-    durationVariance: 0.3,
+    duration: 1500, // Reduced from 2500
+    durationVariance: 0.2,
     complementary: {
       lookDirection: 'up',
       eyeState: 'open',
@@ -42,8 +43,18 @@ const PROCESSING_PRESETS: ProcessingAnimationPreset[] = [
     description: 'Classic thinking pose with hand on chin',
   },
   {
+    animation: 'look_around',
+    duration: 1200, // Fast look around
+    durationVariance: 0.2,
+    complementary: {
+      eyeState: 'open',
+      eyebrowState: 'raised',
+    },
+    description: 'Looking around as if searching for answer',
+  },
+  {
     animation: 'nod',
-    duration: 1500,
+    duration: 1000, // Reduced from 1500
     durationVariance: 0.2,
     complementary: {
       eyeState: 'blink',
@@ -53,8 +64,8 @@ const PROCESSING_PRESETS: ProcessingAnimationPreset[] = [
   },
   {
     animation: 'head_tilt',
-    duration: 2000,
-    durationVariance: 0.3,
+    duration: 1200, // Reduced from 2000
+    durationVariance: 0.2,
     complementary: {
       eyebrowState: 'raised',
       eyeState: 'open',
@@ -63,8 +74,8 @@ const PROCESSING_PRESETS: ProcessingAnimationPreset[] = [
   },
   {
     animation: 'chin_stroke',
-    duration: 2500,
-    durationVariance: 0.3,
+    duration: 1500, // Reduced from 2500
+    durationVariance: 0.2,
     complementary: {
       lookDirection: 'down',
       mouthState: 'closed',
@@ -73,18 +84,27 @@ const PROCESSING_PRESETS: ProcessingAnimationPreset[] = [
   },
   {
     animation: 'lean_forward',
-    duration: 2000,
+    duration: 1200, // Reduced from 2000
     durationVariance: 0.2,
     complementary: {
       mouthState: 'open',
       eyeState: 'open',
     },
-    description: 'Leaning forward with interest, mouth slightly open',
+    description: 'Leaning forward with interest',
+  },
+  {
+    animation: 'weight_shift',
+    duration: 1000, // New: subtle movement
+    durationVariance: 0.3,
+    complementary: {
+      eyeState: 'open',
+    },
+    description: 'Shifting weight while thinking',
   },
   {
     animation: 'idle',
-    duration: 1500,
-    durationVariance: 0.4,
+    duration: 1000, // Reduced from 1500
+    durationVariance: 0.3,
     complementary: {
       lookDirection: 'up',
       eyebrowState: 'raised',
@@ -93,24 +113,34 @@ const PROCESSING_PRESETS: ProcessingAnimationPreset[] = [
     description: 'Glancing up thoughtfully',
   },
   {
-    animation: 'idle',
-    duration: 1800,
-    durationVariance: 0.3,
+    animation: 'fidget',
+    duration: 1200, // New: shows processing
+    durationVariance: 0.2,
     complementary: {
-      eyebrowState: 'raised',
       eyeState: 'open',
       mouthState: 'closed',
     },
-    description: 'Eyebrow raised in contemplation',
+    description: 'Slight fidgeting while processing',
   },
   {
     animation: 'peek',
-    duration: 1500,
+    duration: 1000, // Reduced from 1500
     durationVariance: 0.2,
     complementary: {
       eyeState: 'open',
     },
     description: 'Curious peeking to the side',
+  },
+  {
+    animation: 'excited',
+    duration: 1500, // Occasional excitement (10% chance due to array position)
+    durationVariance: 0.2,
+    complementary: {
+      eyeState: 'open',
+      eyebrowState: 'raised',
+      mouthState: 'smile',
+    },
+    description: 'Excited about forming an idea',
   },
 ];
 
