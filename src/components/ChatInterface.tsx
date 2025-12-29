@@ -68,6 +68,7 @@ import {
 } from './ChatInterface/hooks';
 import { calculateCharacterPosition } from './ChatInterface/utils/characterPositioning';
 import { wrapTextWithReveal } from './ChatInterface/utils/speechBubbleHelpers';
+import { CollaborationPanel } from './CollaborationPanel';
 
 interface Message {
   id: string;
@@ -2168,6 +2169,13 @@ Each silence, a cathedral where you still reside.`;
         <BlockedInputIndicator
           usage={currentUsage}
           onUpgrade={handleUpgradePress}
+        />
+      )}
+
+      {/* Multi-user Collaboration Panel */}
+      {conversationId && (
+        <CollaborationPanel
+          conversationId={conversationId}
         />
       )}
 

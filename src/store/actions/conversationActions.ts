@@ -5,10 +5,20 @@ import {
 import { supabase } from '../../lib/supabase';
 import { processMessageEntities } from '../../services/entityExtraction';
 import { getBobGreeting } from '../../services/characterGreetings';
+import { realtimeService } from '../../services/realtimeService';
+import {
+  getParticipants,
+  getUserRole,
+  removeParticipant as removeParticipantService,
+  updateParticipantRole as updateRoleService,
+  type Participant,
+  type ParticipantRole,
+} from '../../services/participantService';
 
 // Tutorial character ID - BOB is exclusive to tutorial conversations
 export const TUTORIAL_CHARACTER_ID = 'bob-tutorial';
 
+// Existing action types
 export const SET_CONVERSATIONS = 'SET_CONVERSATIONS';
 export const SET_CURRENT_CONVERSATION = 'SET_CURRENT_CONVERSATION';
 export const SET_MESSAGES = 'SET_MESSAGES';
@@ -19,6 +29,16 @@ export const SET_SELECTED_CHARACTERS = 'SET_SELECTED_CHARACTERS';
 export const TOGGLE_CHARACTER = 'TOGGLE_CHARACTER';
 export const SET_STORY_CONTEXT = 'SET_STORY_CONTEXT';
 export const CLEAR_STORY_CONTEXT = 'CLEAR_STORY_CONTEXT';
+
+// Multi-user action types
+export const SET_PARTICIPANTS = 'SET_PARTICIPANTS';
+export const ADD_PARTICIPANT = 'ADD_PARTICIPANT';
+export const REMOVE_PARTICIPANT = 'REMOVE_PARTICIPANT';
+export const SET_USER_ROLE = 'SET_USER_ROLE';
+export const SET_TYPING_USER = 'SET_TYPING_USER';
+export const CLEAR_TYPING_USERS = 'CLEAR_TYPING_USERS';
+export const SET_SUBSCRIBED = 'SET_SUBSCRIBED';
+export const ADD_REALTIME_MESSAGE = 'ADD_REALTIME_MESSAGE';
 
 export const setConversations = (conversations: any[]) => ({
   type: SET_CONVERSATIONS,
@@ -532,6 +552,176 @@ export const loadSelectedCharacters = (conversationId: string) => async (dispatc
   } catch (error) {
     console.error('Error loading selected characters:', error);
     return null;
+  }
+};
+
+// ============================
+// MULTI-USER ACTIONS
+// ============================
+
+// Action creators for multi-user
+export const setParticipants = (conversationId: string, participants: Participant[]) => ({
+  type: SET_PARTICIPANTS,
+  payload: { conversationId, participants },
+});
+
+export const addParticipantAction = (conversationId: string, participant: Participant) => ({
+  type: ADD_PARTICIPANT,
+  payload: { conversationId, participant },
+});
+
+export const removeParticipantAction = (conversationId: string, userId: string) => ({
+  type: REMOVE_PARTICIPANT,
+  payload: { conversationId, userId },
+});
+
+export const setUserRole = (role: ParticipantRole | null) => ({
+  type: SET_USER_ROLE,
+  payload: role,
+});
+
+export const setTypingUser = (conversationId: string, userId: string, isTyping: boolean) => ({
+  type: SET_TYPING_USER,
+  payload: { conversationId, userId, isTyping },
+});
+
+export const clearTypingUsers = (conversationId: string) => ({
+  type: CLEAR_TYPING_USERS,
+  payload: { conversationId },
+});
+
+export const setSubscribed = (conversationId: string, subscribed: boolean) => ({
+  type: SET_SUBSCRIBED,
+  payload: { conversationId, subscribed },
+});
+
+export const addRealtimeMessage = (message: any) => ({
+  type: ADD_REALTIME_MESSAGE,
+  payload: message,
+});
+
+// Async action to load participants for a conversation
+export const loadParticipants = (conversationId: string) => async (dispatch: any) => {
+  try {
+    const participants = await getParticipants(conversationId);
+    dispatch(setParticipants(conversationId, participants as Participant[]));
+    return participants;
+  } catch (error) {
+    console.error('[loadParticipants] Error:', error);
+    return [];
+  }
+};
+
+// Async action to load current user's role in a conversation
+export const loadUserRole = (conversationId: string) => async (dispatch: any) => {
+  try {
+    const role = await getUserRole(conversationId);
+    dispatch(setUserRole(role));
+    return role;
+  } catch (error) {
+    console.error('[loadUserRole] Error:', error);
+    dispatch(setUserRole(null));
+    return null;
+  }
+};
+
+// Async action to subscribe to real-time updates for a conversation
+export const subscribeToConversation = (conversationId: string) => async (dispatch: any, getState: any) => {
+  try {
+    const { auth } = getState();
+    if (!auth.user) {
+      console.error('[subscribeToConversation] No user found');
+      return;
+    }
+
+    // Set current user for filtering own events
+    realtimeService.setCurrentUser(auth.user.id);
+
+    // Subscribe with callbacks
+    realtimeService.subscribeToConversation(conversationId, {
+      onMessage: (message) => {
+        console.log('[Realtime] New message received:', message.id);
+        dispatch(addRealtimeMessage({
+          ...message,
+          characterId: message.character_id,
+        }));
+      },
+      onTypingChange: (userId, isTyping) => {
+        console.log('[Realtime] Typing change:', userId, isTyping);
+        dispatch(setTypingUser(conversationId, userId, isTyping));
+      },
+      onParticipantJoin: (participant) => {
+        console.log('[Realtime] Participant joined:', participant.user_id);
+        dispatch(addParticipantAction(conversationId, participant as Participant));
+      },
+      onParticipantLeave: (userId) => {
+        console.log('[Realtime] Participant left:', userId);
+        dispatch(removeParticipantAction(conversationId, userId));
+      },
+      onError: (error) => {
+        console.error('[Realtime] Subscription error:', error);
+      },
+    });
+
+    dispatch(setSubscribed(conversationId, true));
+
+    // Update presence
+    realtimeService.updatePresence(conversationId);
+  } catch (error) {
+    console.error('[subscribeToConversation] Error:', error);
+  }
+};
+
+// Async action to unsubscribe from real-time updates
+export const unsubscribeFromConversation = (conversationId: string) => async (dispatch: any) => {
+  try {
+    // Clear presence before leaving
+    await realtimeService.leavePresence(conversationId);
+
+    // Unsubscribe from channel
+    realtimeService.unsubscribe(conversationId);
+
+    dispatch(setSubscribed(conversationId, false));
+    dispatch(clearTypingUsers(conversationId));
+  } catch (error) {
+    console.error('[unsubscribeFromConversation] Error:', error);
+  }
+};
+
+// Async action to set typing status
+export const setTypingStatus = (conversationId: string, isTyping: boolean) => async (dispatch: any, getState: any) => {
+  try {
+    const { auth } = getState();
+    if (!auth.user) return;
+
+    await realtimeService.setTyping(conversationId, isTyping);
+  } catch (error) {
+    console.error('[setTypingStatus] Error:', error);
+  }
+};
+
+// Async action to remove a participant from conversation
+export const removeParticipant = (conversationId: string, userId: string) => async (dispatch: any) => {
+  try {
+    await removeParticipantService(conversationId, userId);
+    dispatch(removeParticipantAction(conversationId, userId));
+    console.log('[removeParticipant] Successfully removed user:', userId);
+  } catch (error) {
+    console.error('[removeParticipant] Error:', error);
+    throw error;
+  }
+};
+
+// Async action to update a participant's role
+export const updateParticipantRole = (conversationId: string, userId: string, role: 'editor' | 'viewer') => async (dispatch: any) => {
+  try {
+    await updateRoleService(conversationId, userId, role);
+    // Reload participants to get updated state
+    await dispatch(loadParticipants(conversationId));
+    console.log('[updateParticipantRole] Successfully updated role for user:', userId, 'to', role);
+  } catch (error) {
+    console.error('[updateParticipantRole] Error:', error);
+    throw error;
   }
 };
 
