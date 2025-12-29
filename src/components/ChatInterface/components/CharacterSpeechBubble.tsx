@@ -165,8 +165,13 @@ export function CharacterSpeechBubble({
       hasStartedFadeOut.current = false;
     }
 
+    // Check for persisted text (stored from previous renders)
+    const hasStoredText = lastTextRef.current && lastTextRef.current.length > 0;
+
     // Show container when there's content and character is speaking/typing
-    if ((hasBubbles || hasText) && (isSpeaking || isTyping)) {
+    // Also show when there's persisted text (for conversation switching)
+    const hasPersistedContent = hasStoredText || hasBubbles || hasText;
+    if (hasPersistedContent && (isSpeaking || isTyping || hasStoredText)) {
       setShouldRender(true);
       // Fade in quickly
       Animated.timing(fadeAnim, {

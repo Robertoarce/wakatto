@@ -824,6 +824,32 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     conversationStarterInProgressRef.current = false;
   }, [conversationId]);
 
+  // Compute last messages per character synchronously (available immediately during render)
+  // This is used as a fallback when lastCharacterTextRef hasn't been populated yet
+  const lastMessagesFromConversation = useMemo(() => {
+    const result = new Map<string, { text: string; fullText: string }>();
+    if (!conversationId || messages.length === 0) return result;
+
+    messages.forEach(msg => {
+      if (msg.role === 'assistant' && msg.characterId) {
+        result.set(msg.characterId, {
+          text: msg.content,
+          fullText: msg.content
+        });
+      }
+    });
+    return result;
+  }, [conversationId, messages]);
+
+  // Also populate lastCharacterTextRef for persistence after playback
+  useEffect(() => {
+    if (!playbackState.isPlaying && lastMessagesFromConversation.size > 0) {
+      lastMessagesFromConversation.forEach((value, charId) => {
+        lastCharacterTextRef.current.set(charId, value);
+      });
+    }
+  }, [lastMessagesFromConversation, playbackState.isPlaying]);
+
   useEffect(() => {
     // Detect conversation change: first message ID changed or message array replaced
     const conversationChanged =
@@ -1661,7 +1687,8 @@ Each silence, a cathedral where you still reside.`;
               const usePlayback = playbackState.isPlaying && charPlaybackState;
 
               // Get current text from playback, or fall back to last saved text for fade-out
-              const lastSavedText = lastCharacterTextRef.current.get(characterId);
+              // Use lastMessagesFromConversation as immediate fallback (computed synchronously)
+              const lastSavedText = lastCharacterTextRef.current.get(characterId) || lastMessagesFromConversation.get(characterId);
               const revealedText = usePlayback ? playbackEngineRef.current.getRevealedText(characterId) : (lastSavedText?.text || '');
               const fullTextContent = usePlayback ? playbackEngineRef.current.getFullText(characterId) : (lastSavedText?.fullText || '');
               const isSpeakingNow = usePlayback && charPlaybackState?.isTalking;
@@ -1673,7 +1700,7 @@ Each silence, a cathedral where you still reside.`;
               // Render bubble if speaking, typing, has bubbles, OR has saved text to persist
               const hasBubbles = characterBubbles.length > 0;
               const hasPersistedText = lastSavedText?.text && lastSavedText.text.length > 0;
-              if (!isSpeakingNow && !isTypingNow && !hasBubbles) return null;
+              if (!isSpeakingNow && !isTypingNow && !hasBubbles && !hasPersistedText) return null;
 
               return (
                 <MemoizedCharacterSpeechBubble
@@ -1771,7 +1798,8 @@ Each silence, a cathedral where you still reside.`;
               const charPlaybackState = playbackState.characterStates.get(characterId);
               const usePlayback = playbackState.isPlaying && charPlaybackState;
               // Get current text from playback, or fall back to last saved text for fade-out
-              const lastSavedText = lastCharacterTextRef.current.get(characterId);
+              // Use lastMessagesFromConversation as immediate fallback (computed synchronously)
+              const lastSavedText = lastCharacterTextRef.current.get(characterId) || lastMessagesFromConversation.get(characterId);
               const revealedText = usePlayback ? playbackEngineRef.current.getRevealedText(characterId) : (lastSavedText?.text || '');
               const fullTextContent = usePlayback ? playbackEngineRef.current.getFullText(characterId) : (lastSavedText?.fullText || '');
               const isSpeaking = usePlayback && charPlaybackState?.isTalking;
