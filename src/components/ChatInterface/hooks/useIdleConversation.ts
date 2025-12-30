@@ -37,6 +37,7 @@ export function useIdleConversation({
 }: UseIdleConversationOptions): UseIdleConversationResult {
   const [idleConversationState, setIdleConversationState] = useState<IdleConversationState>('ACTIVE');
   const idleManagerRef = useRef<IdleConversationManager | null>(null);
+  const managerStartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [idleAnimationSceneOverride, setIdleAnimationSceneOverride] = useState<OrchestrationScene | null>(null);
   // PERFORMANCE: Batch pending messages to save after playback completes (prevents re-renders during playback)
   const pendingIdleMessagesRef = useRef<Array<{ characterId: string; content: string; metadata?: Record<string, any> }>>([]);
@@ -123,7 +124,8 @@ export function useIdleConversation({
       );
 
       // Start monitoring after a short delay to avoid triggering immediately
-      setTimeout(() => {
+      // Store timeout ref for proper cleanup
+      managerStartTimeoutRef.current = setTimeout(() => {
         idleManagerRef.current?.start();
       }, 2000);
 
@@ -134,6 +136,11 @@ export function useIdleConversation({
     }
 
     return () => {
+      // Clear the startup timeout if it's still pending
+      if (managerStartTimeoutRef.current) {
+        clearTimeout(managerStartTimeoutRef.current);
+        managerStartTimeoutRef.current = null;
+      }
       destroyIdleConversationManager();
       idleManagerRef.current = null;
     };

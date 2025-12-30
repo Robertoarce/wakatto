@@ -230,7 +230,7 @@ export function CharacterCreationWizard({ onComplete, onCancel }: Props) {
               What's the character's name?
             </Text>
             <Text style={[styles.stepDescription, dynamicStyles.stepDescription]}>
-              Enter a known character (Einstein, Goku, Superman) or create your own fictional character
+              Enter a known character (Einstein, Socrates, Shakespeare) or create your own fictional character
             </Text>
             <TextInput
               style={[

@@ -19,6 +19,7 @@ const ALLOWED_ORIGINS = [
   'https://www.wakatto.com',
   'https://wakatto.com',
   'http://localhost:8080',
+  'http://localhost:8081',
   'http://localhost:19006',
   'http://localhost:3000',
 ]

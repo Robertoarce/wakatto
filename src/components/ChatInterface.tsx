@@ -130,6 +130,32 @@ const FadingLine = ExtractedFadingLine;
 // Use extracted CharacterSpeechBubble component
 const MemoizedCharacterSpeechBubble = ExtractedSpeechBubble;
 
+// Shallow compare ComplementaryAnimation objects (all props are primitives)
+const shallowCompareComplementary = (
+  prev: typeof CharacterDisplay3D extends React.ComponentType<infer P> ? P['complementary'] : never,
+  next: typeof CharacterDisplay3D extends React.ComponentType<infer P> ? P['complementary'] : never
+): boolean => {
+  if (prev === next) return true;
+  if (!prev || !next) return prev === next;
+  return (
+    prev.lookDirection === next.lookDirection &&
+    prev.eyeState === next.eyeState &&
+    prev.eyebrowState === next.eyebrowState &&
+    prev.headStyle === next.headStyle &&
+    prev.mouthState === next.mouthState &&
+    prev.faceState === next.faceState &&
+    prev.noseState === next.noseState &&
+    prev.cheekState === next.cheekState &&
+    prev.foreheadState === next.foreheadState &&
+    prev.jawState === next.jawState &&
+    prev.effect === next.effect &&
+    prev.effectColor === next.effectColor &&
+    prev.speed === next.speed &&
+    prev.transitionDuration === next.transitionDuration &&
+    prev.blinkDuration === next.blinkDuration
+  );
+};
+
 // Memoize CharacterDisplay3D to prevent re-renders when messages change
 const MemoizedCharacterDisplay3D = memo(CharacterDisplay3D, (prevProps, nextProps) => {
   // Only re-render if these specific props change (not on every parent re-render)
@@ -140,8 +166,8 @@ const MemoizedCharacterDisplay3D = memo(CharacterDisplay3D, (prevProps, nextProp
     prevProps.isTalking === nextProps.isTalking &&
     prevProps.showName === nextProps.showName &&
     prevProps.nameKey === nextProps.nameKey &&
-    // Deep compare complementary (it changes during animation)
-    JSON.stringify(prevProps.complementary) === JSON.stringify(nextProps.complementary)
+    // Shallow compare complementary properties (much faster than JSON.stringify)
+    shallowCompareComplementary(prevProps.complementary, nextProps.complementary)
   );
 });
 
@@ -572,10 +598,22 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
         const isTyping = charPlaybackState?.isTalking || false;
         const revealedText = playbackEngineRef.current.getRevealedText(characterId);
         const fullText = playbackEngineRef.current.getFullText(characterId);
+
+        // Always save fullText to ref when available (for persistence after playback)
+        // This ensures we capture the text even in TTS-driven mode where revealedText may lag
+        if (fullText) {
+          const currentRef = lastCharacterTextRef.current.get(characterId);
+          // Only update if fullText changed (new content)
+          if (currentRef?.fullText !== fullText) {
+            lastCharacterTextRef.current.set(characterId, {
+              text: revealedText || fullText,
+              fullText: fullText
+            });
+          }
+        }
+
         if (revealedText) {
           updateCharacterText(characterId, revealedText, isTyping, fullText);
-          // Save last text for fade-out display after playback ends
-          lastCharacterTextRef.current.set(characterId, { text: revealedText, fullText: fullText || revealedText });
         }
       });
     }
@@ -842,11 +880,26 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     return result;
   }, [conversationId, messages]);
 
-  // Also populate lastCharacterTextRef for persistence after playback
+  // Memoize the limited characters array to avoid re-creating on every render
+  // This is used in multiple places in the render function
+  const limitedCharacters = useMemo(() =>
+    Array.from(new Set(selectedCharacters)).slice(0, 5),
+    [selectedCharacters]
+  );
+
+  // Populate lastCharacterTextRef from DB messages
+  // This handles cases where playback didn't run (errors, skipped messages, etc.)
   useEffect(() => {
     if (!playbackState.isPlaying && lastMessagesFromConversation.size > 0) {
       lastMessagesFromConversation.forEach((value, charId) => {
-        lastCharacterTextRef.current.set(charId, value);
+        const existingRef = lastCharacterTextRef.current.get(charId);
+        // Update ref if:
+        // 1. No existing data (empty ref)
+        // 2. DB has DIFFERENT content than ref (newer message that wasn't played back)
+        const needsUpdate = !existingRef || existingRef.fullText !== value.fullText;
+        if (needsUpdate) {
+          lastCharacterTextRef.current.set(charId, value);
+        }
       });
     }
   }, [lastMessagesFromConversation, playbackState.isPlaying]);
@@ -876,6 +929,8 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     if (conversationChanged) {
       stopPlayback();
       setAnimatingMessages(new Map());
+      // Clear old text refs so we don't show previous conversation's text
+      lastCharacterTextRef.current.clear();
       // Trigger entrance animation for characters
       entranceAnimationKey.current += 1;
       setShowEntranceAnimation(true);
@@ -1682,18 +1737,23 @@ Each silence, a cathedral where you still reside.`;
             showsVerticalScrollIndicator={false}
             nestedScrollEnabled={true}
           >
-            {Array.from(new Set(selectedCharacters)).slice(0, 5).map((characterId, index) => {
+            {limitedCharacters.map((characterId, index) => {
               const character = availableCharacters.find(c => c.id === characterId) || getCharacter(characterId);
               const charPlaybackState = playbackState.characterStates.get(characterId);
               const usePlayback = playbackState.isPlaying && charPlaybackState;
 
-              // Get current text from playback, or fall back to last saved text for fade-out
+              // Get current text from playback, or fall back to last saved text for persistence
               // Use lastMessagesFromConversation as immediate fallback (computed synchronously)
-              const lastSavedText = lastCharacterTextRef.current.get(characterId) || lastMessagesFromConversation.get(characterId);
-              const revealedText = usePlayback ? playbackEngineRef.current.getRevealedText(characterId) : (lastSavedText?.text || '');
+              const lastSavedTextFromRef = lastCharacterTextRef.current.get(characterId);
+              const lastSavedTextFromDB = lastMessagesFromConversation.get(characterId);
+              const lastSavedText = lastSavedTextFromRef || lastSavedTextFromDB;
+              // During playback: use revealed text. After playback: use fullText to prevent flickering to old partial text
+              const playbackText = usePlayback ? playbackEngineRef.current.getRevealedText(characterId) : '';
+              const revealedText = playbackText || lastSavedText?.fullText || lastSavedText?.text || '';
               const fullTextContent = usePlayback ? playbackEngineRef.current.getFullText(characterId) : (lastSavedText?.fullText || '');
               const isSpeakingNow = usePlayback && charPlaybackState?.isTalking;
               const isTypingNow = usePlayback && revealedText && revealedText.length > 0;
+
 
               // Get bubbles from queue (persists after playback ends)
               const characterBubbles = getBubblesForCharacter(characterId);
@@ -1740,7 +1800,7 @@ Each silence, a cathedral where you still reside.`;
             </View>
           ) : (
             (() => {
-              const limitedCharacters = Array.from(new Set(selectedCharacters)).slice(0, 5);
+              // Using memoized limitedCharacters from component scope
               return limitedCharacters.map((characterId, index) => {
               // Get character from availableCharacters (includes custom wakattors) or fallback to built-in
               const character = availableCharacters.find(c => c.id === characterId) || getCharacter(characterId);
@@ -1798,13 +1858,18 @@ Each silence, a cathedral where you still reside.`;
               // Get revealed text for this character's speech bubble
               const charPlaybackState = playbackState.characterStates.get(characterId);
               const usePlayback = playbackState.isPlaying && charPlaybackState;
-              // Get current text from playback, or fall back to last saved text for fade-out
+              // Get current text from playback, or fall back to last saved text for persistence
               // Use lastMessagesFromConversation as immediate fallback (computed synchronously)
-              const lastSavedText = lastCharacterTextRef.current.get(characterId) || lastMessagesFromConversation.get(characterId);
-              const revealedText = usePlayback ? playbackEngineRef.current.getRevealedText(characterId) : (lastSavedText?.text || '');
+              const lastSavedTextFromRef = lastCharacterTextRef.current.get(characterId);
+              const lastSavedTextFromDB = lastMessagesFromConversation.get(characterId);
+              const lastSavedText = lastSavedTextFromRef || lastSavedTextFromDB;
+              // During playback: use revealed text. After playback: use fullText to prevent flickering to old partial text
+              const playbackText = usePlayback ? playbackEngineRef.current.getRevealedText(characterId) : '';
+              const revealedText = playbackText || lastSavedText?.fullText || lastSavedText?.text || '';
               const fullTextContent = usePlayback ? playbackEngineRef.current.getFullText(characterId) : (lastSavedText?.fullText || '');
               const isSpeaking = usePlayback && charPlaybackState?.isTalking;
               const isTyping = usePlayback && revealedText && revealedText.length > 0;
+
 
               // Get entrance config for this character (if in entrance animation)
               const charEntranceConfig = entranceSequence.get(characterId);

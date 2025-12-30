@@ -2,7 +2,7 @@
  * Character Generation Service
  *
  * Uses LLM to analyze character names and generate full character configurations.
- * Supports both known characters (Einstein, Goku) and fictional characters.
+ * Supports both known characters (Einstein, Socrates) and fictional characters.
  */
 
 import { generateAIResponse } from './aiService';

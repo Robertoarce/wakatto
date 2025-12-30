@@ -79,6 +79,13 @@ export function useIdleAnimation({
 
   // Start idle animation cycle for all characters (with staggered start)
   const startIdleCycle = useCallback(() => {
+    // Clear any existing timers first to prevent orphaned timers
+    idleTimersRef.current.forEach((timer) => {
+      clearTimeout(timer);
+      memDebug.trackTimeoutClear('useIdleAnimation', timer);
+    });
+    idleTimersRef.current.clear();
+
     isIdleCycleActiveRef.current = true;
 
     // Each character starts with a random initial delay (0-5 seconds stagger)
@@ -96,6 +103,7 @@ export function useIdleAnimation({
       }, staggerDelay);
 
       idleTimersRef.current.set(charId, initialTimer);
+      memDebug.trackTimeout('useIdleAnimation', initialTimer);
     });
   }, [selectedCharacters, updateCharacterIdleAnimation, scheduleNextIdleAnimation]);
 
@@ -167,6 +175,7 @@ export function useIdleAnimation({
     idleTimersRef.current.forEach((timer, charId) => {
       if (!selectedCharacters.includes(charId)) {
         clearTimeout(timer);
+        memDebug.trackTimeoutClear('useIdleAnimation', timer);
         idleTimersRef.current.delete(charId);
       }
     });
@@ -184,6 +193,7 @@ export function useIdleAnimation({
           }
         }, staggerDelay);
         idleTimersRef.current.set(charId, timer);
+        memDebug.trackTimeout('useIdleAnimation', timer);
       }
     });
   }, [selectedCharacters, updateCharacterIdleAnimation, scheduleNextIdleAnimation]);

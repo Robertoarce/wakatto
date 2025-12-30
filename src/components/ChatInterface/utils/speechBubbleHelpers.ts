@@ -104,25 +104,11 @@ export function getFullTextLengthWithSpaces(lines: string[]): number {
 
 /**
  * Calculate opacity for a line based on its position
- * Older lines (at top) fade out quickly, newer lines (at bottom) stay visible
- * Uses exponential curve for faster fade-out of old lines
  * @param lineIndex - Index of the line (0 = top/oldest)
  * @param totalVisible - Total number of visible lines
- * @returns Opacity value between 0.1 and 1.0
+ * @returns Opacity value (always 1.0 - all lines fully visible)
  */
 export function getLineOpacity(lineIndex: number, totalVisible: number): number {
-  if (totalVisible <= 1) return 1;
-
-  // lineIndex 0 = top (oldest), totalVisible-1 = bottom (newest)
-  // Top line gets lowest opacity, bottom gets full
-  const normalizedPosition = lineIndex / (totalVisible - 1); // 0 to 1
-
-  // Use exponential curve for more aggressive fade-out
-  // This makes older lines fade faster while keeping recent lines readable
-  // squared curve: 0 -> 0.1, 0.5 -> 0.325, 1 -> 1
-  const curvedPosition = normalizedPosition * normalizedPosition;
-
-  // Opacity ranges from 0.1 (nearly invisible but not removed) to 1.0 (newest)
-  // Minimum 0.1 ensures lines fade out smoothly without instant removal
-  return 0.1 + (curvedPosition * 0.9);
+  // All lines stay fully visible (no fadeout)
+  return 1;
 }

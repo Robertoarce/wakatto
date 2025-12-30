@@ -16,8 +16,8 @@ import { getVoiceOptionsForPrompt } from '../config/voiceConfig';
 
 const BOB_CONFIG = {
   characterId: 'bob-tutorial',
-  followUpDelay: 8000,      // 8 seconds before Bob talks again
-  maxFollowUps: 5,          // Max follow-up messages before giving up
+  followUpDelay: 30000,      // 8 seconds before Bob talks again
+  maxFollowUps: 8,          // Max follow-up messages before giving up
   pitchEscalation: [        // Topics escalate in urgency/value
     'casual_intro',
     'value_proposition',
@@ -40,9 +40,10 @@ You are Bob, the cheeky but helpful assistant for Wakatto. A new user just arriv
 Get them interested in the app through your charm and wit. You're like a street vendor who's actually good at his job - engaging, funny, not pushy.
 
 ## Key Points to Weave In (naturally, not a list)
-- Wakatto helps with journaling and self-reflection
-- Multiple AI therapist characters with different perspectives (Freud, Jung, etc.)
-- It's like having a pocket therapy session
+- Wakatto is a 'low-budget' (in a funny way) multi-character app inspired by famous figures.
+- Wakatto: Where you meet Wakattors channeling the spirits of famous figures.
+- You could also talk with einsteins, philosophers, or just fun personalities.
+- You could talk to Multiple historic and fictional characters with different perspectives (, Freud, etc.)
 - Free trial, then subscription
 
 ## Your Personality

@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { View, StyleSheet, Animated, Platform } from 'react-native';
 import { CharacterDisplay3D, AnimationState } from './CharacterDisplay3D';
 import { getAllCharacters } from '../config/characters';
 
@@ -17,8 +17,10 @@ interface CharacterAnimation {
 
 export function AnimatedBackground3D() {
   const [characterAnimations, setCharacterAnimations] = useState<CharacterAnimation[]>([]);
+  const [isPageVisible, setIsPageVisible] = useState(true);
   const animationTimers = useRef<NodeJS.Timeout[]>([]);
   const movementTimers = useRef<NodeJS.Timeout[]>([]);
+  const isInitializedRef = useRef(false);
 
   const allCharacters = getAllCharacters();
   const animations: AnimationState[] = ['idle', 'thinking', 'happy', 'excited', 'talking'];
@@ -28,6 +30,63 @@ export function AnimatedBackground3D() {
     x: Math.random() * 95, // 0-95%
     y: Math.random() * 95, // 0-95%
   });
+
+  // Clear all timers helper
+  const clearAllTimers = useCallback(() => {
+    animationTimers.current.forEach(timer => clearInterval(timer));
+    animationTimers.current = [];
+    movementTimers.current.forEach(timer => clearInterval(timer));
+    movementTimers.current = [];
+  }, []);
+
+  // Start timers for all characters
+  const startTimers = useCallback((characterCount: number) => {
+    // Clear existing timers first
+    clearAllTimers();
+
+    // Start animation cycle for each character
+    for (let index = 0; index < characterCount; index++) {
+      // Change animation state
+      const animTimer = setInterval(() => {
+        changeCharacterAnimation(index);
+      }, 3000 + Math.random() * 2000); // Random interval between 3-5 seconds
+      animationTimers.current.push(animTimer);
+
+      // Move character to new position
+      const moveTimer = setInterval(() => {
+        moveCharacter(index);
+      }, 5000 + Math.random() * 5000); // Random interval between 5-10 seconds
+      movementTimers.current.push(moveTimer);
+    }
+  }, [clearAllTimers]);
+
+  // Track page visibility (pause timers when tab is hidden)
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+
+    const handleVisibilityChange = () => {
+      const visible = document.visibilityState === 'visible';
+      setIsPageVisible(visible);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  // Pause/resume timers based on visibility
+  useEffect(() => {
+    if (!isInitializedRef.current || characterAnimations.length === 0) return;
+
+    if (isPageVisible) {
+      // Resume timers when page becomes visible
+      startTimers(characterAnimations.length);
+    } else {
+      // Pause timers when page is hidden (saves CPU)
+      clearAllTimers();
+    }
+  }, [isPageVisible, characterAnimations.length, startTimers, clearAllTimers]);
 
   // Initialize random character positions
   useEffect(() => {
@@ -53,27 +112,14 @@ export function AnimatedBackground3D() {
     }
 
     setCharacterAnimations(characters);
+    isInitializedRef.current = true;
 
-    // Start animation cycle for each character
-    characters.forEach((_, index) => {
-      // Change animation state
-      const animTimer = setInterval(() => {
-        changeCharacterAnimation(index);
-      }, 3000 + Math.random() * 2000); // Random interval between 3-5 seconds
-      animationTimers.current.push(animTimer);
-
-      // Move character to new position
-      const moveTimer = setInterval(() => {
-        moveCharacter(index);
-      }, 5000 + Math.random() * 5000); // Random interval between 5-10 seconds
-      movementTimers.current.push(moveTimer);
-    });
+    // Start timers (will be paused/resumed based on visibility)
+    startTimers(characters.length);
 
     return () => {
-      animationTimers.current.forEach(timer => clearInterval(timer));
-      animationTimers.current = [];
-      movementTimers.current.forEach(timer => clearInterval(timer));
-      movementTimers.current = [];
+      clearAllTimers();
+      isInitializedRef.current = false;
     };
   }, []);
 

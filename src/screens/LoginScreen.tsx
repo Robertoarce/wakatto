@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, useWindowDimensions } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +17,7 @@ export default function LoginScreen() {
   const dispatch = useDispatch();
   const { showAlert, AlertComponent } = useCustomAlert();
   const { fonts, spacing, layout, isMobile, isTablet, isDesktop, deviceType, width } = useResponsive();
+  const { height: screenHeight } = useWindowDimensions();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -32,20 +33,26 @@ export default function LoginScreen() {
     }
   }, [route.params]);
 
+  // Calculate scale factor based on screen height (reference: 800px = 100%)
+  const heightScale = Math.min(1, screenHeight / 800);
+  const scaleHeight = (value: number) => Math.round(value * heightScale);
+
   // Responsive calculations based on device type
   const isNarrow = deviceType === 'narrow';
   const isUltrawide = deviceType === 'ultrawide' || deviceType === 'large';
+  const isCompactScreen = heightScale < 0.875;
+  const isVeryCompactScreen = heightScale < 0.75;
 
-  // Card sizing - uses layout system
-  const cardPadding = isNarrow ? spacing.sm : isMobile ? spacing.md : isTablet ? spacing.lg : spacing.xl;
-  const cardMargin = isNarrow ? spacing.xs : isMobile ? spacing.sm : spacing.md;
+  // Card sizing - uses layout system with proportional scaling
+  const cardPadding = scaleHeight(isNarrow ? spacing.sm : isMobile ? spacing.md : isTablet ? spacing.lg : spacing.xl);
+  const cardMargin = scaleHeight(isNarrow ? spacing.xs : isMobile ? spacing.sm : spacing.md);
   // Constrain card width on mobile to prevent overflow (account for scroll padding + card margins)
   const cardMaxWidth = isMobile ? width - (cardMargin * 4) : layout.formContainerMaxWidth;
   const cardBorderRadius = isNarrow ? layout.borderRadiusMd : layout.borderRadiusLg + 4;
 
-  // Logo sizing - scales with screen
-  const logoSize = isNarrow ? 50 : isMobile ? 60 : isTablet ? 70 : isUltrawide ? 100 : 80;
-  const iconSize = isNarrow ? 24 : isMobile ? 30 : isTablet ? 35 : isUltrawide ? 50 : 40;
+  // Logo sizing - scales proportionally with screen height
+  const logoSize = scaleHeight(isNarrow ? 50 : isMobile ? 60 : isTablet ? 70 : isUltrawide ? 100 : 80);
+  const iconSize = scaleHeight(isNarrow ? 24 : isMobile ? 30 : isTablet ? 35 : isUltrawide ? 50 : 40);
 
   async function signInWithEmail() {
     // Validation
@@ -131,34 +138,6 @@ export default function LoginScreen() {
     }
   }
 
-  function skipLoginWithDemo() {
-    // Create a demo session without authentication
-    const demoSession = {
-      access_token: 'demo-token',
-      refresh_token: 'demo-refresh-token',
-      expires_in: 3600,
-      token_type: 'bearer',
-      user: {
-        id: 'demo-user-id',
-        email: 'demo@wakatto.app',
-        user_metadata: { name: 'Demo User' },
-      },
-    };
-
-    const demoUser = {
-      id: 'demo-user-id',
-      email: 'demo@wakatto.app',
-      user_metadata: { name: 'Demo User' },
-      app_metadata: {},
-      aud: 'authenticated',
-      created_at: new Date().toISOString(),
-    };
-
-    // Set demo session in Redux store
-    dispatch(setSession(demoSession, demoUser));
-    navigation.navigate('Main');
-  }
-
   const handleTabSwitch = (tab: 'signIn' | 'signUp') => {
     setActiveTab(tab);
     if (tab === 'signUp') {
@@ -188,17 +167,17 @@ export default function LoginScreen() {
           }
         ]}>
           {/* Logo Icon */}
-          <View style={[styles.logoContainer, { marginBottom: isNarrow ? spacing.md : spacing.lg }]}>
+          <View style={[styles.logoContainer, { marginBottom: scaleHeight(isNarrow ? spacing.md : spacing.lg) }]}>
             <View style={[styles.logoBackground, { width: logoSize, height: logoSize, borderRadius: logoSize * 0.25 }]}>
               <Ionicons name="chatbubbles" size={iconSize} color="white" />
             </View>
           </View>
 
           {/* Welcome Text */}
-          <Text style={[styles.title, { fontSize: isUltrawide ? fonts.xxl : fonts.xl, marginBottom: spacing.xs }]}>
+          <Text style={[styles.title, { fontSize: Math.max(fonts.md, scaleHeight(isUltrawide ? fonts.xxl : fonts.xl)), marginBottom: scaleHeight(spacing.xs) }]}>
             Welcome to Wakatto
           </Text>
-          <Text style={[styles.subtitle, { fontSize: fonts.sm, marginBottom: isNarrow ? spacing.md : spacing.lg }]}>
+          <Text style={[styles.subtitle, { fontSize: Math.max(fonts.xs, scaleHeight(fonts.sm)), marginBottom: scaleHeight(isNarrow ? spacing.md : spacing.lg) }]}>
             Organize social events with friends effortlessly
           </Text>
 
@@ -226,28 +205,28 @@ export default function LoginScreen() {
           )}
 
           {/* Tabs */}
-          <View style={[styles.tabContainer, { marginBottom: isNarrow ? spacing.md : spacing.lg, borderRadius: layout.borderRadiusMd, padding: spacing.xs }]}>
+          <View style={[styles.tabContainer, { marginBottom: scaleHeight(isNarrow ? spacing.md : spacing.lg), borderRadius: layout.borderRadiusMd, padding: spacing.xs }]}>
             <TouchableOpacity
               style={[
                 styles.tab,
-                { paddingVertical: isNarrow ? spacing.xs : spacing.sm, borderRadius: layout.borderRadiusSm },
+                { paddingVertical: scaleHeight(spacing.sm), borderRadius: layout.borderRadiusSm },
                 activeTab === 'signIn' && styles.activeTab
               ]}
               onPress={() => handleTabSwitch('signIn')}
             >
-              <Text style={[styles.tabText, { fontSize: fonts.md }, activeTab === 'signIn' && styles.activeTabText]}>
+              <Text style={[styles.tabText, { fontSize: Math.max(fonts.xs, scaleHeight(fonts.md)) }, activeTab === 'signIn' && styles.activeTabText]}>
                 Sign In
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.tab,
-                { paddingVertical: isNarrow ? spacing.xs : spacing.sm, borderRadius: layout.borderRadiusSm },
+                { paddingVertical: scaleHeight(spacing.sm), borderRadius: layout.borderRadiusSm },
                 activeTab === 'signUp' && styles.activeTab
               ]}
               onPress={() => handleTabSwitch('signUp')}
             >
-              <Text style={[styles.tabText, { fontSize: fonts.md }, activeTab === 'signUp' && styles.activeTabText]}>
+              <Text style={[styles.tabText, { fontSize: Math.max(fonts.xs, scaleHeight(fonts.md)) }, activeTab === 'signUp' && styles.activeTabText]}>
                 Sign Up
               </Text>
             </TouchableOpacity>
@@ -263,6 +242,7 @@ export default function LoginScreen() {
               autoCapitalize="none"
               keyboardType="email-address"
               icon="mail-outline"
+              containerStyle={{ marginBottom: scaleHeight(spacing.lg) }}
             />
 
             <Input
@@ -273,6 +253,7 @@ export default function LoginScreen() {
               secureTextEntry
               showPasswordToggle
               icon="lock-closed-outline"
+              containerStyle={{ marginBottom: scaleHeight(spacing.lg) }}
             />
 
             <Button
@@ -281,18 +262,18 @@ export default function LoginScreen() {
               disabled={loading}
               loading={loading}
               fullWidth
-              size={isNarrow ? 'md' : 'lg'}
-              style={{ marginTop: spacing.sm }}
+              size={isVeryCompactScreen ? 'sm' : isNarrow ? 'md' : 'lg'}
+              style={{ marginTop: scaleHeight(spacing.sm) }}
             />
 
             {/* Resend Confirmation Email Link */}
             <TouchableOpacity
               onPress={handleResendConfirmation}
               disabled={resendingEmail || loading}
-              style={[styles.resendLink, { marginTop: spacing.md }]}
+              style={[styles.resendLink, { marginTop: scaleHeight(spacing.md) }]}
             >
-              <Ionicons name="mail-outline" size={16} color="#5b7ef6" style={{ marginRight: 6 }} />
-              <Text style={[styles.resendLinkText, { fontSize: fonts.sm }, (resendingEmail || loading) && styles.resendLinkDisabled]}>
+              <Ionicons name="mail-outline" size={scaleHeight(16)} color="#5b7ef6" style={{ marginRight: 6 }} />
+              <Text style={[styles.resendLinkText, { fontSize: Math.max(fonts.xs, scaleHeight(fonts.sm)) }, (resendingEmail || loading) && styles.resendLinkDisabled]}>
                 {resendingEmail ? 'Sending...' : "Didn't receive confirmation email?"}
               </Text>
             </TouchableOpacity>
@@ -313,7 +294,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    minHeight: '100%',
   },
   card: {
     width: '100%',

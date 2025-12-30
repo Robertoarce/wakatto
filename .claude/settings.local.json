@@ -126,7 +126,9 @@
       "Bash(git -C \"C:/00 ALL/00 Projects/07 wakatto\" diff src/components/ChatInterface.tsx)",
       "Bash(tasklist:*)",
       "Bash(npm run predeploy:*)",
-      "Bash(git revert:*)"
+      "Bash(git revert:*)",
+      "Bash(supabase functions:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []
