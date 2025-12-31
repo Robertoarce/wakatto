@@ -82,6 +82,14 @@ module.exports = async function (env = {}, argv = {}) {
   // CRITICAL: Set target to web to avoid Node.js-specific code
   config.target = 'web';
   
+  // Ignore source-map warnings from @mediapipe (third-party package issue)
+  config.ignoreWarnings = [
+    {
+      module: /@mediapipe/,
+      message: /Failed to parse source map/,
+    },
+  ];
+
   // Add plugins for global polyfills
   config.plugins = [
     ...config.plugins,
@@ -93,8 +101,7 @@ module.exports = async function (env = {}, argv = {}) {
       // This will make code like `if (typeof require !== 'undefined')` evaluate to false
       'typeof require': JSON.stringify('undefined'),
       '__BUILD_TIME__': JSON.stringify(new Date().toISOString()),
-      // Ensure process.env is defined
-      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
+      // Note: NODE_ENV is handled by Expo - don't override it here to avoid conflicts
       // Note: CLAUDE_API_KEY is NOT bundled - it's handled server-side by Edge Functions
       'process.env.CLAUDE_API_KEY': JSON.stringify(''),
     }),

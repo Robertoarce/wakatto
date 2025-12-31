@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase, clearInvalidSession, isRefreshTokenError } from '../lib/supabase';
 
 export async function signIn(email: string, password: string) {
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -39,9 +39,27 @@ export async function resendConfirmationEmail(email: string) {
 }
 
 export async function getSession() {
-  const { data: { session }, error } = await supabase.auth.getSession();
-  if (error) throw error;
-  return session;
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) {
+      // Handle invalid refresh token by clearing corrupted session
+      if (isRefreshTokenError(error)) {
+        console.warn('[Auth] Invalid refresh token detected, clearing session');
+        await clearInvalidSession();
+        return null;
+      }
+      throw error;
+    }
+    return session;
+  } catch (error) {
+    // Catch any refresh token errors that happen during initialization
+    if (isRefreshTokenError(error)) {
+      console.warn('[Auth] Refresh token error caught, clearing session');
+      await clearInvalidSession();
+      return null;
+    }
+    throw error;
+  }
 }
 
 export async function getConversations(userId: string) {

@@ -128,7 +128,9 @@
       "Bash(npm run predeploy:*)",
       "Bash(git revert:*)",
       "Bash(supabase functions:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(yarn install:*)",
+      "Bash(npx expo-doctor)"
     ],
     "deny": [],
     "ask": []

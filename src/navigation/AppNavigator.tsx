@@ -6,6 +6,7 @@ import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import MainScreen from '../screens/MainScreen';
 import { getSession, signOut } from '../services/supabaseService';
+import { clearInvalidSession, isRefreshTokenError } from '../lib/supabase';
 import { getCurrentUsage } from '../services/usageTrackingService';
 import { setSession, setLoading } from '../store/actions/authActions';
 import { RootState } from '../store';
@@ -50,6 +51,11 @@ export default function AppNavigator() {
         }
       } catch (error) {
         console.error('Error checking session:', error);
+        // Handle invalid refresh token errors by clearing session
+        if (isRefreshTokenError(error)) {
+          console.warn('[Auth] Invalid session detected during init, clearing...');
+          await clearInvalidSession();
+        }
         setInitialRoute('Login');
         dispatch(setLoading(false));
       } finally {

@@ -25,15 +25,18 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.wakatto.app",
+      "icon": "./src/assets/images/icon.png",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Wakatto needs microphone access for voice conversations with your characters.",
-        "NSSpeechRecognitionUsageDescription": "Wakatto uses speech recognition to transcribe your voice messages."
+        "NSSpeechRecognitionUsageDescription": "Wakatto uses speech recognition to transcribe your voice messages.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.wakatto.app",
+      "icon": "./src/assets/images/adaptive-icon.png",
       "adaptiveIcon": {
-        "foregroundImage": "./src/assets/images/icon.png",
+        "foregroundImage": "./src/assets/images/adaptive-icon.png",
         "backgroundColor": "#0f0f0f"
       },
       "permissions": [
@@ -42,8 +45,13 @@
       ]
     },
     "web": {
-      "favicon": "./src/assets/images/icon.png"
+      "favicon": "./src/assets/images/favicon.png"
     },
-    "description": "Explore multiple perspectives with AI-powered conversations featuring diverse therapeutic characters"
+    "description": "Explore multiple perspectives with AI-powered conversations featuring diverse therapeutic characters",
+    "extra": {
+      "eas": {
+        "projectId": "725b9fc5-0033-4e94-b237-4ffd2e8f41e8"
+      }
+    }
   }
 }
