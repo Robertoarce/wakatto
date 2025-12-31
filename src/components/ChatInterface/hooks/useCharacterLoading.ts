@@ -40,10 +40,12 @@ export function useCharacterLoading(): UseCharacterLoadingResult {
         // IMPORTANT: Register database characters to the global registry
         // This makes them available to getCharacter() for AI responses
         registerCustomCharacters(dbCharacters);
-        console.log('[useCharacterLoading] Registered', dbCharacters.length, 'database characters to global registry');
 
         setAvailableCharacters(allCharacters);
-        console.log('[useCharacterLoading] Loaded', allCharacters.length, 'characters (', builtInCharacters.length, 'built-in +', dbCharacters.length, 'from database)');
+        // Only log once (not on every re-render)
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useCharacterLoading] Loaded', allCharacters.length, 'characters');
+        }
       } catch (error) {
         console.error('[useCharacterLoading] Failed to load characters:', error);
         // Fallback to built-in only

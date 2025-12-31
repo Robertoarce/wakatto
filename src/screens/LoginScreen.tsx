@@ -21,6 +21,8 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendingEmail, setResendingEmail] = useState(false);
+  const [resendCount, setResendCount] = useState(0);
+  const MAX_RESEND_ATTEMPTS = 2;
   const [activeTab, setActiveTab] = useState<'signIn' | 'signUp'>('signIn');
   const [showConfirmationBanner, setShowConfirmationBanner] = useState(false);
 
@@ -65,21 +67,19 @@ export default function LoginScreen() {
       const data = await signIn(email.trim().toLowerCase(), password);
       // Update Redux store with session before navigating
       if (data.session && data.user) {
-        // Check if email is confirmed (admin accounts bypass this check)
-        if (!data.user.email_confirmed_at) {
-          // Fetch user tier to check if admin
-          const usage = await getCurrentUsage();
-          if (usage?.tier !== 'admin') {
-            // Not admin and email not confirmed - sign out and show error
-            await signOut();
-            showAlert(
-              'Email Not Confirmed',
-              'Please confirm your email address before signing in. Check your inbox for the confirmation link.'
-            );
-            return;
-          }
-          // Admin accounts can proceed without email confirmation
-        }
+        // Email confirmation check disabled for now
+        // TODO: Re-enable when SMTP is configured
+        // if (!data.user.email_confirmed_at) {
+        //   const usage = await getCurrentUsage();
+        //   if (usage?.tier !== 'admin') {
+        //     await signOut();
+        //     showAlert(
+        //       'Email Not Confirmed',
+        //       'Please confirm your email address before signing in. Check your inbox for the confirmation link.'
+        //     );
+        //     return;
+        //   }
+        // }
         dispatch(setSession(data.session, data.user));
         navigate('Main');
       } else {
@@ -102,6 +102,13 @@ export default function LoginScreen() {
   }
 
   async function handleResendConfirmation() {
+    if (resendCount >= MAX_RESEND_ATTEMPTS) {
+      showAlert(
+        'Limit Reached',
+        'You have reached the maximum number of resend attempts. Please check your spam folder or contact support.'
+      );
+      return;
+    }
     if (!email.trim()) {
       showAlert('Email Required', 'Please enter your email address to resend the confirmation.');
       return;
@@ -114,9 +121,11 @@ export default function LoginScreen() {
     setResendingEmail(true);
     try {
       await resendConfirmationEmail(email.trim().toLowerCase());
+      setResendCount(prev => prev + 1);
+      const attemptsLeft = MAX_RESEND_ATTEMPTS - (resendCount + 1);
       showAlert(
         'Confirmation Email Sent',
-        'A new confirmation email has been sent. Please check your inbox and spam folder.'
+        `A new confirmation email has been sent. Please check your inbox and spam folder.${attemptsLeft > 0 ? ` (${attemptsLeft} resend${attemptsLeft === 1 ? '' : 's'} remaining)` : ''}`
       );
     } catch (error: any) {
       let errorMessage = error.message;
@@ -258,16 +267,22 @@ export default function LoginScreen() {
             />
 
             {/* Resend Confirmation Email Link */}
-            <TouchableOpacity
-              onPress={handleResendConfirmation}
-              disabled={resendingEmail || loading}
-              style={[styles.resendLink, { marginTop: scaleHeight(spacing.md) }]}
-            >
-              <Ionicons name="mail-outline" size={scaleHeight(16)} color="#5b7ef6" style={{ marginRight: 6 }} />
-              <Text style={[styles.resendLinkText, { fontSize: Math.max(fonts.xs, scaleHeight(fonts.sm)) }, (resendingEmail || loading) && styles.resendLinkDisabled]}>
-                {resendingEmail ? 'Sending...' : "Didn't receive confirmation email?"}
+            {resendCount < MAX_RESEND_ATTEMPTS ? (
+              <TouchableOpacity
+                onPress={handleResendConfirmation}
+                disabled={resendingEmail || loading}
+                style={[styles.resendLink, { marginTop: scaleHeight(spacing.md) }]}
+              >
+                <Ionicons name="mail-outline" size={scaleHeight(16)} color="#5b7ef6" style={{ marginRight: 6 }} />
+                <Text style={[styles.resendLinkText, { fontSize: Math.max(fonts.xs, scaleHeight(fonts.sm)) }, (resendingEmail || loading) && styles.resendLinkDisabled]}>
+                  {resendingEmail ? 'Sending...' : `Didn't receive confirmation email?${resendCount > 0 ? ` (${MAX_RESEND_ATTEMPTS - resendCount} left)` : ''}`}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={[styles.resendLimitText, { fontSize: Math.max(fonts.xs, scaleHeight(fonts.sm)), marginTop: scaleHeight(spacing.md) }]}>
+                Resend limit reached. Check spam or contact support.
               </Text>
-            </TouchableOpacity>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -388,5 +403,9 @@ const styles = StyleSheet.create({
   },
   resendLinkDisabled: {
     opacity: 0.5,
+  },
+  resendLimitText: {
+    color: '#9ca3af',
+    textAlign: 'center',
   },
 });

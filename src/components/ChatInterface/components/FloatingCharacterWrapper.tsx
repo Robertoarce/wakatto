@@ -325,20 +325,20 @@ export function FloatingCharacterWrapper({
       style={[
         style,
         {
-          opacity: opacityAnim, // For teleport_in and grow_in
+          opacity: opacityAnim,
           transform: [
             ...(style?.transform || []),
-            { translateX: slideAnim }, // Entrance slide animation
-            { translateY: combinedTranslateY }, // Float + drop_from_sky
-            { scale: scaleAnim }, // For grow_in, spin_in, teleport_in
-            { rotate: spinRotation }, // For spin_in
-            { rotateZ }, // Idle pivot animation
+            { translateX: slideAnim },
+            { translateY: combinedTranslateY },
+            { scale: scaleAnim },
+            { rotate: spinRotation },
+            { rotateZ },
           ],
-          // Disable pointer events on outer wrapper - use inner hitbox instead
-          pointerEvents: 'box-none',
-          overflow: 'visible', // Allow character to overflow wrapper bounds
+          overflow: 'visible',
         },
       ]}
+      // @ts-ignore - pointerEvents as style for web compatibility
+      pointerEvents="box-none"
     >
       {/* Inner hitbox for hover - narrower than wrapper to prevent overlap issues */}
       <View
@@ -347,7 +347,14 @@ export function FloatingCharacterWrapper({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={handleMouseLeave}
       >
-        {children}
+        {/* Filter children to avoid text node issues on web - only render valid React elements */}
+        {React.Children.map(children, child => {
+          // Skip null, undefined, booleans, and strings (text nodes)
+          if (child == null || typeof child === 'boolean' || typeof child === 'string' || typeof child === 'number') {
+            return null;
+          }
+          return child;
+        })}
       </View>
 
       {/* Comic-style action text overlay */}

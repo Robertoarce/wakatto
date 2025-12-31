@@ -1,7 +1,31 @@
 import React from 'react';
 import { Provider } from 'react-redux';
-import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Text, Platform } from 'react-native';
 import { useFonts } from 'expo-font';
+
+// Suppress known React Native Web console warnings that spam the console
+// These are internal RNW issues, not bugs in our code
+if (Platform.OS === 'web') {
+  // Filter out "Unexpected text node" errors from Animated interpolations
+  const originalConsoleError = console.error;
+  console.error = (...args: any[]) => {
+    const message = args[0];
+    if (typeof message === 'string' && message.includes('Unexpected text node:')) {
+      return; // Suppress this specific error
+    }
+    originalConsoleError.apply(console, args);
+  };
+
+  // Also filter console.warn for pointerEvents deprecation warnings
+  const originalConsoleWarn = console.warn;
+  console.warn = (...args: any[]) => {
+    const message = args[0];
+    if (typeof message === 'string' && message.includes('props.pointerEvents is deprecated')) {
+      return; // Suppress this specific warning
+    }
+    originalConsoleWarn.apply(console, args);
+  };
+}
 import { 
   Inter_400Regular, 
   Inter_500Medium, 

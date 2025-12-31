@@ -1,16 +1,16 @@
 import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
 import { logout } from '../store/actions/authActions';
 import { toggleSidebar } from '../store/actions/uiActions';
 import { useCustomAlert } from './CustomAlert';
 import { useResponsive } from '../constants/Layout';
+import { useSimpleNavigation } from '../navigation/AppNavigator';
 
 export function Header() {
-  const navigation = useNavigation();
+  const { navigate } = useSimpleNavigation();
   const dispatch = useDispatch();
   const { showAlert, AlertComponent } = useCustomAlert();
   const { user } = useSelector((state: RootState) => state.auth);
@@ -32,7 +32,7 @@ export function Header() {
           style: 'destructive',
           onPress: async () => {
             await dispatch(logout() as any);
-            navigation.navigate('Login' as never);
+            navigate('Login');
           },
         },
       ]

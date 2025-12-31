@@ -5,9 +5,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import MainScreen from '../screens/MainScreen';
-import { getSession, signOut } from '../services/supabaseService';
+import { getSession } from '../services/supabaseService';
 import { clearInvalidSession, isRefreshTokenError } from '../lib/supabase';
-import { getCurrentUsage } from '../services/usageTrackingService';
 import { setSession, setLoading } from '../store/actions/authActions';
 import { RootState } from '../store';
 import { ActivityIndicator, View, StyleSheet, Text, Platform } from 'react-native';
@@ -46,22 +45,8 @@ export default function AppNavigator() {
       try {
         const currentSession = await getSession();
         if (currentSession) {
-          // Check if email is confirmed (admin accounts bypass this check)
-          if (!currentSession.user.email_confirmed_at) {
-            // Fetch user tier to check if admin
-            const usage = await getCurrentUsage();
-            if (usage?.tier !== 'admin') {
-              // Not admin and email not confirmed - sign out and show message
-              await signOut();
-              setEmailConfirmationRequired(true);
-              setInitialRoute('Login');
-              setCurrentScreen('Login');
-              dispatch(setLoading(false));
-              setIsReady(true);
-              return;
-            }
-            // Admin accounts can proceed without email confirmation
-          }
+          // Email confirmation check disabled for now
+          // TODO: Re-enable when SMTP is configured
           dispatch(setSession(currentSession, currentSession.user));
           setInitialRoute('Main');
           setCurrentScreen('Main');

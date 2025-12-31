@@ -53,7 +53,7 @@ export default function MainTabs() {
   const { conversations, currentConversation, messages } = useSelector((state: RootState) => state.conversations);
   const { showSidebar, isFullscreen } = useSelector((state: RootState) => state.ui);
   const { currentUsage } = useSelector((state: RootState) => state.usage);
-  const { fonts, layout, isMobile, isMobileLandscape, spacing } = useResponsive();
+  const { layout, isMobile, isMobileLandscape, spacing } = useResponsive();
 
   // Check if user is admin (for restricted features)
   const isAdmin = currentUsage?.tier === 'admin';
@@ -621,99 +621,31 @@ The text behaves as it should be.`;
           // Only add sidebar margin on non-mobile (mobile uses overlay) and not in fullscreen
           !isMobile && showSidebar && !isFullscreen && { marginLeft: layout.sidebarWidth },
         ]}>
-        <NavigationContainer>
-        <Tab.Navigator
-          screenOptions={{
-            headerShown: false,
-            tabBarStyle: [
-              styles.tabBar,
-              {
-                paddingBottom: isMobile ? spacing.xs : spacing.sm,
-                paddingTop: isMobile ? spacing.xs : spacing.sm,
-              },
-              // Hide tab bar in fullscreen mode
-              isFullscreen && { display: 'none' },
-            ],
-            tabBarActiveTintColor: '#8b5cf6',
-            tabBarInactiveTintColor: '#a1a1aa',
-            tabBarLabelStyle: { fontSize: isMobile ? fonts.xs : fonts.sm },
-            tabBarIconStyle: { marginBottom: isMobile ? 2 : 4 },
-            unmountOnBlur: true, // Unmount inactive screens to stop 3D rendering
-          }}
-        >
-          <Tab.Screen
-            name="Chat"
-            options={{
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons name="chatbox-outline" color={color} size={size} />
-              ),
-            }}
-            listeners={({ navigation }) => ({
-              focus: () => {
-                // Check if we should trigger test poem from navigation params
-                const state = navigation.getState();
-                const chatRoute = state?.routes?.find((r: any) => r.name === 'Chat');
-                const params = chatRoute?.params as { triggerTestPoem?: boolean } | undefined;
-                if (params?.triggerTestPoem) {
-                  // Clear the param immediately to prevent re-triggering
-                  navigation.setParams({ triggerTestPoem: undefined });
-                  // Trigger the test poem after a small delay to ensure ChatInterface is ready
-                  setTimeout(() => {
-                    handleTestPoem();
-                  }, 100);
-                }
-              },
-            })}
-          >
-            {() => (
-              <ChatInterface
-                messages={messages}
-                onSendMessage={handleSendMessage}
-                showSidebar={showSidebar}
-                onToggleSidebar={onToggleSidebar}
-                isLoading={isLoadingAI}
-                onEditMessage={onEditMessage}
-                onDeleteMessage={onDeleteMessage}
-                animationScene={animationScene}
-                earlyAnimationSetup={earlyAnimationSetup}
-                onGreeting={handleGreeting}
-                conversationId={currentConversation?.id}
-                savedCharacters={currentConversation?.selected_characters}
-                onSaveIdleMessage={handleSaveIdleMessage}
-              />
-            )}
-          </Tab.Screen>
-          <Tab.Screen
-            name="Wakattors"
-            component={LibraryScreen}
-            options={{
-              tabBarIcon: ({ color, size }) => (
-                <MaterialCommunityIcons name="emoticon-happy-outline" color={color} size={size} />
-              ),
-            }}
-          />
-          {isAdmin && (
-            <Tab.Screen
-              name="Animations"
-              component={AnimationsScreen}
-              options={{
-                tabBarIcon: ({ color, size }) => (
-                  <MaterialCommunityIcons name="animation-play-outline" color={color} size={size} />
-                ),
-              }}
-            />
-          )}
-          <Tab.Screen 
-            name="Settings"
-            component={SettingsScreen}
-            options={{
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons name="settings-outline" color={color} size={size} />
-              ),
-            }}
-          />
-        </Tab.Navigator>
-        </NavigationContainer>
+        {/*
+          KNOWN ISSUE (2025-12-31): Tab.Navigator from @react-navigation/bottom-tabs doesn't render content on web
+          when nested inside custom navigation context (SimpleNavContext from AppNavigator).
+
+          ISSUE: The Tab.Navigator mounts but never renders its screen content.
+          WORKAROUND: Render screens directly with custom tab bar implementation.
+
+          TODO: Investigate if this is fixable with proper linking config or by restructuring navigation.
+          Date: 2025-12-31
+        */}
+        <ChatInterface
+          messages={messages}
+          onSendMessage={handleSendMessage}
+          showSidebar={showSidebar}
+          onToggleSidebar={onToggleSidebar}
+          isLoading={isLoadingAI}
+          onEditMessage={onEditMessage}
+          onDeleteMessage={onDeleteMessage}
+          animationScene={animationScene}
+          earlyAnimationSetup={earlyAnimationSetup}
+          onGreeting={handleGreeting}
+          conversationId={currentConversation?.id}
+          savedCharacters={currentConversation?.selected_characters}
+          onSaveIdleMessage={handleSaveIdleMessage}
+        />
         </View>
       </View>
 
@@ -746,12 +678,29 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     position: 'relative',
+    // @ts-ignore - web specific
+    ...Platform.select({
+      web: {
+        minHeight: 0,
+        height: '100%',
+        overflow: 'hidden',
+      },
+    }),
   },
   mainContentWrapper: {
     flex: 1,
     position: 'relative',
     // @ts-ignore - web transition
     transition: 'margin-left 0.3s ease',
+    // @ts-ignore - web specific
+    ...Platform.select({
+      web: {
+        minHeight: 0,
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+      },
+    }),
   },
   tabBar: {
     backgroundColor: '#171717',
