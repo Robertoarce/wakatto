@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, createContext, useContext } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useDispatch, useSelector } from 'react-redux';
@@ -10,9 +10,23 @@ import { clearInvalidSession, isRefreshTokenError } from '../lib/supabase';
 import { getCurrentUsage } from '../services/usageTrackingService';
 import { setSession, setLoading } from '../store/actions/authActions';
 import { RootState } from '../store';
-import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import { ActivityIndicator, View, StyleSheet, Text, Platform } from 'react-native';
 
 const Stack = createStackNavigator();
+
+// Simple navigation context for web workaround
+type SimpleNavScreen = 'Login' | 'Register' | 'Main';
+interface SimpleNavContextType {
+  navigate: (screen: SimpleNavScreen) => void;
+  currentScreen: SimpleNavScreen;
+}
+const SimpleNavContext = createContext<SimpleNavContextType | null>(null);
+
+export const useSimpleNavigation = () => {
+  const ctx = useContext(SimpleNavContext);
+  if (!ctx) throw new Error('useSimpleNavigation must be used within SimpleNavContext');
+  return ctx;
+};
 
 export default function AppNavigator() {
   const dispatch = useDispatch();
@@ -20,6 +34,11 @@ export default function AppNavigator() {
   const [initialRoute, setInitialRoute] = useState('Login');
   const [isReady, setIsReady] = useState(false);
   const [emailConfirmationRequired, setEmailConfirmationRequired] = useState(false);
+
+  // Web workaround: Use simple state-based navigation instead of Stack.Navigator
+  // Stack.Navigator has issues on web with React Navigation v7
+  // IMPORTANT: This must be declared before any early returns to satisfy React hooks rules
+  const [currentScreen, setCurrentScreen] = useState<SimpleNavScreen>('Login');
 
   // Check initial session on mount
   useEffect(() => {
@@ -33,10 +52,10 @@ export default function AppNavigator() {
             const usage = await getCurrentUsage();
             if (usage?.tier !== 'admin') {
               // Not admin and email not confirmed - sign out and show message
-              console.log('[Auth] Email not confirmed for non-admin user, signing out');
               await signOut();
               setEmailConfirmationRequired(true);
               setInitialRoute('Login');
+              setCurrentScreen('Login');
               dispatch(setLoading(false));
               setIsReady(true);
               return;
@@ -45,18 +64,19 @@ export default function AppNavigator() {
           }
           dispatch(setSession(currentSession, currentSession.user));
           setInitialRoute('Main');
+          setCurrentScreen('Main');
         } else {
           setInitialRoute('Login');
+          setCurrentScreen('Login');
           dispatch(setLoading(false));
         }
       } catch (error) {
-        console.error('Error checking session:', error);
         // Handle invalid refresh token errors by clearing session
         if (isRefreshTokenError(error)) {
-          console.warn('[Auth] Invalid session detected during init, clearing...');
           await clearInvalidSession();
         }
         setInitialRoute('Login');
+        setCurrentScreen('Login');
         dispatch(setLoading(false));
       } finally {
         setIsReady(true);
@@ -65,6 +85,13 @@ export default function AppNavigator() {
     checkSession();
   }, [dispatch]);
 
+  // Update screen when session changes
+  useEffect(() => {
+    if (session) {
+      setCurrentScreen('Main');
+    }
+  }, [session]);
+
   if (loading || !isReady) {
     return (
       <View style={styles.loadingContainer}>
@@ -72,29 +99,31 @@ export default function AppNavigator() {
       </View>
     );
   }
-  
+
+  const simpleNav: SimpleNavContextType = {
+    navigate: (screen) => setCurrentScreen(screen),
+    currentScreen,
+  };
+
+  const renderScreen = () => {
+    switch (currentScreen) {
+      case 'Login':
+        return <LoginScreen />;
+      case 'Register':
+        return <RegisterScreen />;
+      case 'Main':
+        return <MainScreen />;
+      default:
+        return <LoginScreen />;
+    }
+  };
+
   return (
-    <View style={styles.container}>
-      <NavigationContainer>
-        <Stack.Navigator
-          initialRouteName={initialRoute}
-          screenOptions={{ headerShown: false }}
-        >
-          <Stack.Screen
-            name="Login"
-            component={LoginScreen}
-            options={{ unmountOnBlur: true }}
-            initialParams={{ emailConfirmationRequired }}
-          />
-          <Stack.Screen
-            name="Register"
-            component={RegisterScreen}
-            options={{ unmountOnBlur: true }}
-          />
-          <Stack.Screen name="Main" component={MainScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </View>
+    <SimpleNavContext.Provider value={simpleNav}>
+      <View style={styles.container}>
+        {renderScreen()}
+      </View>
+    </SimpleNavContext.Provider>
   );
 }
 
@@ -103,6 +132,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     height: '100%',
+    minHeight: '100vh' as any,
     backgroundColor: '#0f0f0f',
   },
   loadingContainer: {

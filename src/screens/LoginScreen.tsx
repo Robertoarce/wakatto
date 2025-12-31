@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, useWindowDimensions } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { signIn, signOut, resendConfirmationEmail } from '../services/supabaseService';
@@ -10,10 +9,10 @@ import { useCustomAlert } from '../components/CustomAlert';
 import { AnimatedBackground3D } from '../components/AnimatedBackground3D';
 import { Button, Input, Card } from '../components/ui';
 import { useResponsive } from '../constants/Layout';
+import { useSimpleNavigation } from '../navigation/AppNavigator';
 
 export default function LoginScreen() {
-  const navigation = useNavigation();
-  const route = useRoute();
+  const { navigate } = useSimpleNavigation();
   const dispatch = useDispatch();
   const { showAlert, AlertComponent } = useCustomAlert();
   const { fonts, spacing, layout, isMobile, isTablet, isDesktop, deviceType, width } = useResponsive();
@@ -24,14 +23,6 @@ export default function LoginScreen() {
   const [resendingEmail, setResendingEmail] = useState(false);
   const [activeTab, setActiveTab] = useState<'signIn' | 'signUp'>('signIn');
   const [showConfirmationBanner, setShowConfirmationBanner] = useState(false);
-
-  // Check if redirected due to unconfirmed email
-  useEffect(() => {
-    const params = route.params as { emailConfirmationRequired?: boolean } | undefined;
-    if (params?.emailConfirmationRequired) {
-      setShowConfirmationBanner(true);
-    }
-  }, [route.params]);
 
   // Calculate scale factor based on screen height (reference: 800px = 100%)
   const heightScale = Math.min(1, screenHeight / 800);
@@ -90,7 +81,7 @@ export default function LoginScreen() {
           // Admin accounts can proceed without email confirmation
         }
         dispatch(setSession(data.session, data.user));
-        navigation.navigate('Main');
+        navigate('Main');
       } else {
         showAlert('Sign In Failed', 'Could not establish session. Please try again.');
       }
@@ -141,7 +132,7 @@ export default function LoginScreen() {
   const handleTabSwitch = (tab: 'signIn' | 'signUp') => {
     setActiveTab(tab);
     if (tab === 'signUp') {
-      navigation.navigate('Register');
+      navigate('Register');
     }
   };
 

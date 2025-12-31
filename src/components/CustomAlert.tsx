@@ -26,39 +26,40 @@ export function CustomAlert({ visible, title, message, buttons, onClose }: Custo
 
   const dynamicStyles = useMemo(() => ({
     container: {
-      maxWidth: scalePx(400),
-      paddingHorizontal: spacing.xl,
+      width: '85%' as const,
+      maxWidth: '20%' as const,
     },
     alertBox: {
       borderRadius: borderRadius.md,
       padding: spacing.xl,
     },
     header: {
-      marginBottom: spacing.md,
-      gap: spacing.md,
+      marginBottom: spacing.xs, 
+      gap: spacing.sm,
     },
     iconContainer: {
-      width: scalePx(40),
-      height: scalePx(40),
-      borderRadius: scalePx(20),
+      width: scalePx(10),
+      height: scalePx(10),
+      borderRadius: scalePx(14),
     },
-    iconSize: components.iconSizes.md,
+    iconSize: components.iconSizes.lg,
     title: {
-      fontSize: fonts.lg,
+      fontSize: fonts.xl,
     },
     message: {
-      fontSize: fonts.sm,
-      lineHeight: scalePx(20),
+      fontSize: fonts.md,
+      lineHeight: fonts.md * 1.3,
+      marginTop: spacing.sm,
       marginBottom: spacing.xl,
     },
     buttonContainer: {
       gap: spacing.sm,
     },
     button: {
-      paddingHorizontal: spacing.xl,
+      flex: 1,
+      paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md,
       borderRadius: borderRadius.sm,
-      minWidth: scalePx(80),
     },
     buttonText: {
       fontSize: fonts.sm,
@@ -108,7 +109,6 @@ export function CustomAlert({ visible, title, message, buttons, onClose }: Custo
                     dynamicStyles.button,
                     button.style === 'cancel' && styles.buttonCancel,
                     button.style === 'destructive' && styles.buttonDestructive,
-                    displayButtons.length === 1 && styles.buttonSingle,
                   ]}
                   onPress={() => handleButtonPress(button)}
                 >
@@ -181,9 +181,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  container: {
-    width: '100%',
-  },
+  container: {},
   alertBox: {
     backgroundColor: '#1e1e1e',
     borderWidth: 1,
@@ -227,9 +225,6 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: '#8b5cf6',
     alignItems: 'center',
-  },
-  buttonSingle: {
-    flex: 1,
   },
   buttonCancel: {
     backgroundColor: '#27272a',

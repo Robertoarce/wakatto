@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ChatInterface } from '../components/ChatInterface';
@@ -620,12 +621,13 @@ The text behaves as it should be.`;
           // Only add sidebar margin on non-mobile (mobile uses overlay) and not in fullscreen
           !isMobile && showSidebar && !isFullscreen && { marginLeft: layout.sidebarWidth },
         ]}>
+        <NavigationContainer>
         <Tab.Navigator
           screenOptions={{
             headerShown: false,
             tabBarStyle: [
               styles.tabBar,
-              { 
+              {
                 paddingBottom: isMobile ? spacing.xs : spacing.sm,
                 paddingTop: isMobile ? spacing.xs : spacing.sm,
               },
@@ -711,9 +713,10 @@ The text behaves as it should be.`;
             }}
           />
         </Tab.Navigator>
+        </NavigationContainer>
         </View>
       </View>
-      
+
       {/* Profiling Dashboard - toggle with Ctrl/Cmd + Shift + P */}
       <ProfilingDashboard
         visible={profilingDashboard.visible}

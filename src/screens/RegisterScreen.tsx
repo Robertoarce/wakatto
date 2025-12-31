@@ -1,15 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, useWindowDimensions } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { signUp } from '../services/supabaseService';
+import { sendWelcomeEmail } from '../services/emailService';
 import { useCustomAlert } from '../components/CustomAlert';
 import { AnimatedBackground3D } from '../components/AnimatedBackground3D';
 import { Button, Input } from '../components/ui';
 import { useResponsive } from '../constants/Layout';
+import { useSimpleNavigation } from '../navigation/AppNavigator';
 
 export default function RegisterScreen() {
-  const navigation = useNavigation();
+  const { navigate } = useSimpleNavigation();
   const { showAlert, AlertComponent } = useCustomAlert();
   const { fonts, spacing, borderRadius, layout, isMobile, isTablet } = useResponsive();
   const { height: screenHeight, width: screenWidth } = useWindowDimensions();
@@ -123,10 +124,16 @@ export default function RegisterScreen() {
         phone: phone.trim() || undefined,
       };
       await signUp(email.trim().toLowerCase(), password, metadata);
+
+      // Send welcome email (fire and forget - don't block registration)
+      sendWelcomeEmail(email.trim().toLowerCase(), name.trim()).catch((err) => {
+        console.warn('[Register] Failed to send welcome email:', err);
+      });
+
       showAlert(
         'Success!',
         'Account created successfully! Please check your email to confirm your account before signing in.',
-        [{ text: 'Go to Login', onPress: () => navigation.navigate('Login') }]
+        [{ text: 'Go to Login', onPress: () => navigate('Login') }]
       );
     } catch (error: any) {
       // Provide user-friendly error messages
@@ -147,7 +154,7 @@ export default function RegisterScreen() {
   const handleTabSwitch = (tab: 'signIn' | 'signUp') => {
     setActiveTab(tab);
     if (tab === 'signIn') {
-      navigation.navigate('Login');
+      navigate('Login');
     }
   };
 
