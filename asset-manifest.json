@@ -1,8 +1,8 @@
 {
   "files": {
-    "main.js": "/static/js/main.384dc8bf.js",
-    "static/js/592.1873f313.js": "/static/js/592.1873f313.js",
-    "static/js/955.d7cb09f6.js": "/static/js/955.d7cb09f6.js",
+    "main.js": "/static/js/main.7115f124.js",
+    "static/js/592.8595a216.js": "/static/js/592.8595a216.js",
+    "static/js/477.0037c6de.js": "/static/js/477.0037c6de.js",
     "static/media/MaterialCommunityIcons.ttf": "/static/media/MaterialCommunityIcons.5d42b4e60858731e7b65.ttf",
     "static/media/Ionicons.ttf": "/static/media/Ionicons.9b6b1954a5eb6efeaf11.ttf",
     "static/media/Inter_900Black_Italic.ttf": "/static/media/Inter_900Black_Italic.298558d37b3e365d146d.ttf",
@@ -61,16 +61,16 @@
     "static/media/RobotoMono_500Medium.ttf": "/static/media/RobotoMono_500Medium.95534b935fea63268d98.ttf",
     "favicon.ico": "/favicon.ico",
     "index.html": "/index.html",
-    "manifest.json": "/manifest.json",
     "favicon-32.png": "/favicon-32.png",
+    "manifest.json": "/manifest.json",
     "favicon-16.png": "/favicon-16.png",
     "serve.json": "/serve.json",
-    "main.384dc8bf.js.map": "/static/js/main.384dc8bf.js.map",
-    "592.1873f313.js.map": "/static/js/592.1873f313.js.map",
-    "955.d7cb09f6.js.map": "/static/js/955.d7cb09f6.js.map"
+    "main.7115f124.js.map": "/static/js/main.7115f124.js.map",
+    "592.8595a216.js.map": "/static/js/592.8595a216.js.map",
+    "477.0037c6de.js.map": "/static/js/477.0037c6de.js.map"
   },
   "entrypoints": [
-    "static/js/955.d7cb09f6.js",
-    "static/js/main.384dc8bf.js"
+    "static/js/477.0037c6de.js",
+    "static/js/main.7115f124.js"
   ]
 }
