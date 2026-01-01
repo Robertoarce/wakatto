@@ -3,7 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ChatInterface } from '../components/ChatInterface';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform, TouchableOpacity, Text } from 'react-native';
 import { useSelector, useDispatch, useStore } from 'react-redux';
 import { RootState } from '../store';
 import { Header } from '../components/Header';
@@ -69,6 +69,10 @@ export default function MainTabs() {
 
   // State for character selection screen (new conversation flow)
   const [showCharacterSelection, setShowCharacterSelection] = useState(false);
+
+  // State for active tab (custom tab bar since Tab.Navigator doesn't work on web)
+  type TabName = 'Home' | 'Wakattors' | 'Library' | 'Animations' | 'Settings';
+  const [activeTab, setActiveTab] = useState<TabName>('Home');
 
   // Hide sidebar by default
   useEffect(() => {
@@ -601,21 +605,22 @@ The text behaves as it should be.`;
   return (
     <View style={styles.fullContainer}>
       <AlertComponent />
+      {/* Sidebar rendered at root level to cover entire screen including header and tab bar */}
+      {!isFullscreen && (
+        <ChatSidebar
+          conversations={conversations}
+          currentConversation={currentConversation}
+          onSelectConversation={onSelectConversation}
+          onToggleSidebar={onToggleSidebar}
+          isOpen={showSidebar}
+          onNewConversation={onNewConversation}
+          onTutorial={onTutorial}
+          onRenameConversation={onRenameConversation}
+          onDeleteConversation={onDeleteConversation}
+        />
+      )}
       {!isFullscreen && <Header />}
       <View style={styles.contentContainer}>
-        {!isFullscreen && (
-          <ChatSidebar
-            conversations={conversations}
-            currentConversation={currentConversation}
-            onSelectConversation={onSelectConversation}
-            onToggleSidebar={onToggleSidebar}
-            isOpen={showSidebar}
-            onNewConversation={onNewConversation}
-            onTutorial={onTutorial}
-            onRenameConversation={onRenameConversation}
-            onDeleteConversation={onDeleteConversation}
-          />
-        )}
         <View style={[
           styles.mainContentWrapper,
           // Only add sidebar margin on non-mobile (mobile uses overlay) and not in fullscreen
@@ -631,23 +636,90 @@ The text behaves as it should be.`;
           TODO: Investigate if this is fixable with proper linking config or by restructuring navigation.
           Date: 2025-12-31
         */}
-        <ChatInterface
-          messages={messages}
-          onSendMessage={handleSendMessage}
-          showSidebar={showSidebar}
-          onToggleSidebar={onToggleSidebar}
-          isLoading={isLoadingAI}
-          onEditMessage={onEditMessage}
-          onDeleteMessage={onDeleteMessage}
-          animationScene={animationScene}
-          earlyAnimationSetup={earlyAnimationSetup}
-          onGreeting={handleGreeting}
-          conversationId={currentConversation?.id}
-          savedCharacters={currentConversation?.selected_characters}
-          onSaveIdleMessage={handleSaveIdleMessage}
-        />
+        {/* Render active screen based on tab */}
+        {activeTab === 'Home' && (
+          <ChatInterface
+            messages={messages}
+            onSendMessage={handleSendMessage}
+            showSidebar={showSidebar}
+            onToggleSidebar={onToggleSidebar}
+            isLoading={isLoadingAI}
+            onEditMessage={onEditMessage}
+            onDeleteMessage={onDeleteMessage}
+            animationScene={animationScene}
+            earlyAnimationSetup={earlyAnimationSetup}
+            onGreeting={handleGreeting}
+            conversationId={currentConversation?.id}
+            savedCharacters={currentConversation?.selected_characters}
+            onSaveIdleMessage={handleSaveIdleMessage}
+          />
+        )}
+        {activeTab === 'Library' && <LibraryScreen />}
+        {activeTab === 'Animations' && <AnimationsScreen />}
+        {activeTab === 'Settings' && <SettingsScreen />}
         </View>
       </View>
+
+      {/* Custom Bottom Tab Bar - workaround for Tab.Navigator not working on web */}
+      {!isFullscreen && (
+        <View style={styles.customTabBar}>
+          <TouchableOpacity
+            style={[styles.tabItem, activeTab === 'Home' && styles.tabItemActive]}
+            onPress={() => setActiveTab('Home')}
+          >
+            <Ionicons
+              name={activeTab === 'Home' ? 'chatbubbles' : 'chatbubbles-outline'}
+              size={22}
+              color={activeTab === 'Home' ? '#5398BE' : '#71717a'}
+            />
+            <Text style={[styles.tabLabel, activeTab === 'Home' && styles.tabLabelActive]}>
+              Chat
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabItem, activeTab === 'Library' && styles.tabItemActive]}
+            onPress={() => setActiveTab('Library')}
+          >
+            <Ionicons
+              name={activeTab === 'Library' ? 'library' : 'library-outline'}
+              size={22}
+              color={activeTab === 'Library' ? '#5398BE' : '#71717a'}
+            />
+            <Text style={[styles.tabLabel, activeTab === 'Library' && styles.tabLabelActive]}>
+              Library
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabItem, activeTab === 'Animations' && styles.tabItemActive]}
+            onPress={() => setActiveTab('Animations')}
+          >
+            <MaterialCommunityIcons
+              name={activeTab === 'Animations' ? 'animation-play' : 'animation-play-outline'}
+              size={22}
+              color={activeTab === 'Animations' ? '#5398BE' : '#71717a'}
+            />
+            <Text style={[styles.tabLabel, activeTab === 'Animations' && styles.tabLabelActive]}>
+              Animations
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabItem, activeTab === 'Settings' && styles.tabItemActive]}
+            onPress={() => setActiveTab('Settings')}
+          >
+            <Ionicons
+              name={activeTab === 'Settings' ? 'settings' : 'settings-outline'}
+              size={22}
+              color={activeTab === 'Settings' ? '#5398BE' : '#71717a'}
+            />
+            <Text style={[styles.tabLabel, activeTab === 'Settings' && styles.tabLabelActive]}>
+              Settings
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Profiling Dashboard - toggle with Ctrl/Cmd + Shift + P */}
       <ProfilingDashboard
@@ -682,8 +754,8 @@ const styles = StyleSheet.create({
     ...Platform.select({
       web: {
         minHeight: 0,
-        height: '100%',
         overflow: 'hidden',
+        // Don't use height: '100%' here - let flex handle it so tab bar is respected
       },
     }),
   },
@@ -696,9 +768,10 @@ const styles = StyleSheet.create({
     ...Platform.select({
       web: {
         minHeight: 0,
-        height: '100%',
         display: 'flex',
         flexDirection: 'column',
+        // Don't use height: '100%' - let flex handle sizing
+        // Don't use overflow: 'hidden' - characters need overflow: visible
       },
     }),
   },
@@ -706,5 +779,35 @@ const styles = StyleSheet.create({
     backgroundColor: '#171717',
     borderTopColor: '#27272a',
     borderTopWidth: 1,
+  },
+  // Custom bottom tab bar styles
+  customTabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#171717',
+    borderTopWidth: 1,
+    borderTopColor: '#27272a',
+    paddingBottom: Platform.OS === 'ios' ? 20 : 8,
+    paddingTop: 8,
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 4,
+    gap: 2,
+  },
+  tabItemActive: {
+    // Active state styling handled by icon/text color
+  },
+  tabLabel: {
+    fontSize: 11,
+    color: '#71717a',
+    fontWeight: '500',
+  },
+  tabLabelActive: {
+    color: '#5398BE',
+    fontWeight: '600',
   },
 });

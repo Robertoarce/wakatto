@@ -3,7 +3,6 @@
  */
 
 import { useMemo, useCallback } from 'react';
-import { getDynamicBubbleDimensions } from '../utils/bubbleQueueHelpers';
 
 interface UseResponsiveCharactersOptions {
   characterCount: number;
@@ -11,7 +10,7 @@ interface UseResponsiveCharactersOptions {
   screenHeight: number;
   isMobile: boolean;
   isMobileLandscape: boolean;
-  bubbleCount?: number; // NEW: Number of bubbles showing (1 or 2)
+  bubbleCount?: number;
 }
 
 interface UseResponsiveCharactersResult {
@@ -31,6 +30,24 @@ interface UseResponsiveCharactersResult {
   };
 }
 
+// Simple bubble dimensions based on screen size and character count
+function getSimpleBubbleDimensions(
+  characterCount: number,
+  screenWidth: number,
+  isMobile: boolean
+) {
+  // Simple responsive sizing
+  const baseWidth = isMobile ? Math.min(screenWidth - 32, 280) : Math.min(320, screenWidth * 0.3);
+  const scaledWidth = characterCount > 2 ? baseWidth * 0.8 : baseWidth;
+
+  return {
+    maxWidth: Math.round(scaledWidth),
+    maxHeight: isMobile ? 120 : 150,
+    maxLines: 4,
+    maxChars: 45,
+  };
+}
+
 export function useResponsiveCharacters({
   characterCount,
   screenWidth,
@@ -39,17 +56,10 @@ export function useResponsiveCharacters({
   isMobileLandscape,
   bubbleCount = 1,
 }: UseResponsiveCharactersOptions): UseResponsiveCharactersResult {
-  // Get bubble dimensions using the new dynamic system
+  // Get simple bubble dimensions
   const bubbleDimensions = useMemo(() => {
-    return getDynamicBubbleDimensions(
-      characterCount,
-      bubbleCount,
-      screenWidth,
-      screenHeight,
-      isMobile,
-      isMobileLandscape
-    );
-  }, [characterCount, bubbleCount, screenWidth, screenHeight, isMobile, isMobileLandscape]);
+    return getSimpleBubbleDimensions(characterCount, screenWidth, isMobile);
+  }, [characterCount, screenWidth, isMobile]);
 
   const bubbleMaxWidth = bubbleDimensions.maxWidth;
   const bubbleMaxHeight = bubbleDimensions.maxHeight;
@@ -58,15 +68,8 @@ export function useResponsiveCharacters({
 
   // Helper to get dimensions for a specific bubble count
   const getBubbleDimensionsForCount = useCallback((count: number) => {
-    return getDynamicBubbleDimensions(
-      characterCount,
-      count,
-      screenWidth,
-      screenHeight,
-      isMobile,
-      isMobileLandscape
-    );
-  }, [characterCount, screenWidth, screenHeight, isMobile, isMobileLandscape]);
+    return getSimpleBubbleDimensions(characterCount, screenWidth, isMobile);
+  }, [characterCount, screenWidth, isMobile]);
 
   // Character scale - smaller when more characters to leave room for bubbles
   const characterScaleFactor = useMemo(() => {

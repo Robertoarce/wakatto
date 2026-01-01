@@ -2697,6 +2697,27 @@ export function CharacterDisplay3D({
   const [responsiveScale, setResponsiveScale] = useState(1);
   const [cameraDistance, setCameraDistance] = useState(3);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [shiftPressed, setShiftPressed] = useState(false);
+
+  // Track shift key for zoom control (shift + scroll to zoom)
+  useEffect(() => {
+    if (Platform.OS !== 'web') return; // Only on web
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') setShiftPressed(true);
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') setShiftPressed(false);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
 
   // Effect color with fallback
   const effectColor = complementary?.effectColor || character.color;
@@ -2878,10 +2899,13 @@ export function CharacterDisplay3D({
         )}
 
         <OrbitControls
-          enableZoom={false}
+          enableZoom={shiftPressed}
           enablePan={false}
           minPolarAngle={Math.PI / 3}
           maxPolarAngle={Math.PI / 2}
+          minDistance={1.5}
+          maxDistance={8}
+          zoomSpeed={0.8}
         />
 
         {/* Performance monitoring - only for active characters to avoid overhead */}

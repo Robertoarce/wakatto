@@ -48,9 +48,7 @@ import {
   formatTimestamp as formatTimestampUtil,
 } from './ChatInterface/utils';
 import {
-  MemoizedCharacterSpeechBubble as ExtractedSpeechBubble,
   FloatingCharacterWrapper as ExtractedFloatingWrapper,
-  FadingLine as ExtractedFadingLine,
 } from './ChatInterface/components';
 // Import extracted hooks
 import {
@@ -63,11 +61,10 @@ import {
   useMessageEditing,
   useVoiceRecording,
   useBobSales,
-  useBubbleQueue,
   useTextToSpeech,
 } from './ChatInterface/hooks';
 import { calculateCharacterPosition } from './ChatInterface/utils/characterPositioning';
-import { wrapTextWithReveal } from './ChatInterface/utils/speechBubbleHelpers';
+import { SimpleSpeechBubble } from './SimpleSpeechBubble';
 import { CollaborationPanel } from './CollaborationPanel';
 
 interface Message {
@@ -123,12 +120,6 @@ export function stopAnimationPlayback(): void {
 type IdleAnimationState = ExtractedIdleAnimationState;
 const getRandomIdleAnimation = getRandomIdleAnimationUtil;
 const getRandomIdleInterval = getRandomIdleIntervalUtil;
-
-// Use extracted FadingLine component
-const FadingLine = ExtractedFadingLine;
-
-// Use extracted CharacterSpeechBubble component
-const MemoizedCharacterSpeechBubble = ExtractedSpeechBubble;
 
 // Shallow compare ComplementaryAnimation objects (all props are primitives)
 const shallowCompareComplementary = (
@@ -362,7 +353,6 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [isMobileView, setIsMobileView] = useState(isMobile);
   const [hoveredCharacterId, setHoveredCharacterId] = useState<string | null>(null); // Track which character is hovered
   const [isFullscreenHovered, setIsFullscreenHovered] = useState(false); // Track fullscreen button hover
-  const lastCharacterTextRef = useRef<Map<string, { text: string; fullText: string }>>(new Map()); // Track last text for persistence
   const [nameKey, setNameKey] = useState(0); // Key to trigger re-animation
   // Character loading (hook handles loading from both built-in and database)
   const { availableCharacters, isLoadingCharacters } = useCharacterLoading();
@@ -574,52 +564,6 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     isMobile,
     isMobileLandscape,
   });
-
-  // Bubble queue for per-character speech bubble management
-  const {
-    getBubblesForCharacter,
-    getAnimationState,
-    updateCharacterText,
-    onBubbleAnimationComplete,
-    clearAllBubbles,
-  } = useBubbleQueue({
-    characterCount: selectedCharacters.length,
-    screenWidth,
-    screenHeight,
-    isMobile,
-    isMobileLandscape,
-  });
-
-  // Feed revealed text into bubble queue during playback
-  useEffect(() => {
-    if (playbackState.isPlaying) {
-      selectedCharacters.forEach(characterId => {
-        const charPlaybackState = playbackState.characterStates.get(characterId);
-        const isTyping = charPlaybackState?.isTalking || false;
-        const revealedText = playbackEngineRef.current.getRevealedText(characterId);
-        const fullText = playbackEngineRef.current.getFullText(characterId);
-
-        // Always save fullText to ref when available (for persistence after playback)
-        // This ensures we capture the text even in TTS-driven mode where revealedText may lag
-        if (fullText) {
-          const currentRef = lastCharacterTextRef.current.get(characterId);
-          // Only update if fullText changed (new content)
-          if (currentRef?.fullText !== fullText) {
-            lastCharacterTextRef.current.set(characterId, {
-              text: revealedText || fullText,
-              fullText: fullText
-            });
-          }
-        }
-
-        if (revealedText) {
-          updateCharacterText(characterId, revealedText, isTyping, fullText);
-        }
-      });
-    }
-  }, [playbackState.isPlaying, playbackState.characterStates, selectedCharacters, updateCharacterText]);
-
-  // Note: lastCharacterTextRef is NOT cleared automatically - bubbles persist until new content arrives
 
   // Track previous playback state for TTS trigger
   const prevPlayingRef = useRef(false);
@@ -863,8 +807,8 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     conversationStarterInProgressRef.current = false;
   }, [conversationId]);
 
-  // Compute last messages per character synchronously (available immediately during render)
-  // This is used as a fallback when lastCharacterTextRef hasn't been populated yet
+  // Compute last message per character from messages array (source of truth)
+  // This updates automatically when messages or conversationId changes
   const lastMessagesFromConversation = useMemo(() => {
     const result = new Map<string, { text: string; fullText: string }>();
     if (!conversationId || messages.length === 0) return result;
@@ -886,23 +830,6 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     Array.from(new Set(selectedCharacters)).slice(0, 5),
     [selectedCharacters]
   );
-
-  // Populate lastCharacterTextRef from DB messages
-  // This handles cases where playback didn't run (errors, skipped messages, etc.)
-  useEffect(() => {
-    if (!playbackState.isPlaying && lastMessagesFromConversation.size > 0) {
-      lastMessagesFromConversation.forEach((value, charId) => {
-        const existingRef = lastCharacterTextRef.current.get(charId);
-        // Update ref if:
-        // 1. No existing data (empty ref)
-        // 2. DB has DIFFERENT content than ref (newer message that wasn't played back)
-        const needsUpdate = !existingRef || existingRef.fullText !== value.fullText;
-        if (needsUpdate) {
-          lastCharacterTextRef.current.set(charId, value);
-        }
-      });
-    }
-  }, [lastMessagesFromConversation, playbackState.isPlaying]);
 
   useEffect(() => {
     // Detect conversation change: first message ID changed or message array replaced
@@ -929,8 +856,6 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     if (conversationChanged) {
       stopPlayback();
       setAnimatingMessages(new Map());
-      // Clear old text refs so we don't show previous conversation's text
-      lastCharacterTextRef.current.clear();
       // Trigger entrance animation for characters
       entranceAnimationKey.current += 1;
       setShowEntranceAnimation(true);
@@ -1737,54 +1662,29 @@ Each silence, a cathedral where you still reside.`;
             showsVerticalScrollIndicator={false}
             nestedScrollEnabled={true}
           >
-            {limitedCharacters.map((characterId, index) => {
+            {limitedCharacters.map((characterId) => {
               const character = availableCharacters.find(c => c.id === characterId) || getCharacter(characterId);
               const charPlaybackState = playbackState.characterStates.get(characterId);
               const usePlayback = playbackState.isPlaying && charPlaybackState;
 
-              // Get current text from playback, or fall back to last saved text for persistence
-              // Use lastMessagesFromConversation as immediate fallback (computed synchronously)
-              const lastSavedTextFromRef = lastCharacterTextRef.current.get(characterId);
-              const lastSavedTextFromDB = lastMessagesFromConversation.get(characterId);
-              const lastSavedText = lastSavedTextFromRef || lastSavedTextFromDB;
-              // During playback: use revealed text. After playback: use fullText to prevent flickering to old partial text
-              const playbackText = usePlayback ? playbackEngineRef.current.getRevealedText(characterId) : '';
-              const revealedText = playbackText || lastSavedText?.fullText || lastSavedText?.text || '';
-              const fullTextContent = usePlayback ? playbackEngineRef.current.getFullText(characterId) : (lastSavedText?.fullText || '');
-              const isSpeakingNow = usePlayback && charPlaybackState?.isTalking;
-              const isTypingNow = usePlayback && revealedText && revealedText.length > 0;
+              // Get text from playback (during animation) OR from last message (persistence)
+              const lastMessage = lastMessagesFromConversation.get(characterId);
+              const displayText = usePlayback
+                ? playbackEngineRef.current.getRevealedText(characterId)
+                : (lastMessage?.text || '');
 
-
-              // Get bubbles from queue (persists after playback ends)
-              const characterBubbles = getBubblesForCharacter(characterId);
-
-              // Render bubble if speaking, typing, has bubbles, OR has saved text to persist
-              const hasBubbles = characterBubbles.length > 0;
-              const hasPersistedText = lastSavedText?.text && lastSavedText.text.length > 0;
-              if (!isSpeakingNow && !isTypingNow && !hasBubbles && !hasPersistedText) return null;
+              // Don't render if no text
+              if (!displayText) return null;
 
               return (
-                <MemoizedCharacterSpeechBubble
+                <SimpleSpeechBubble
                   key={`mobile-bubble-${characterId}`}
-                  bubbles={hasBubbles ? characterBubbles : undefined}
-                  text={revealedText || ''}
-                  fullText={fullTextContent}
+                  text={displayText}
                   characterName={character.name}
                   characterColor={character.color}
-                  position="left"
-                  isTyping={!!isTypingNow}
-                  isSpeaking={!!isSpeakingNow}
-                  isSingleCharacter={false}
+                  isVisible={displayText.length > 0}
                   isMobileStacked={true}
-                  stackIndex={index}
-                  characterCount={selectedCharacters.length}
-                  getAnimationState={(bubbleId) => getAnimationState(characterId, bubbleId)}
-                  onAnimationComplete={(bubbleId, animation) => onBubbleAnimationComplete(characterId, bubbleId, animation)}
-                  // Responsive props for mobile stacked bubbles
-                  maxWidth={screenWidth - 32} // Full width minus padding
-                  maxHeight={Math.floor(characterHeight * 0.4)} // Max 40% of character area
-                  screenWidth={screenWidth}
-                  characterIndex={index}
+                  maxWidth={screenWidth - 32}
                 />
               );
             })}
@@ -1855,20 +1755,14 @@ Each silence, a cathedral where you still reside.`;
               // Center character (odd number of characters: 3 or 5) should have bubble above (like single character)
               const isCenterCharacter = horizontalOffset === 0 && total > 1;
               
-              // Get revealed text for this character's speech bubble
+              // Get text for this character's speech bubble
               const charPlaybackState = playbackState.characterStates.get(characterId);
               const usePlayback = playbackState.isPlaying && charPlaybackState;
-              // Get current text from playback, or fall back to last saved text for persistence
-              // Use lastMessagesFromConversation as immediate fallback (computed synchronously)
-              const lastSavedTextFromRef = lastCharacterTextRef.current.get(characterId);
-              const lastSavedTextFromDB = lastMessagesFromConversation.get(characterId);
-              const lastSavedText = lastSavedTextFromRef || lastSavedTextFromDB;
-              // During playback: use revealed text. After playback: use fullText to prevent flickering to old partial text
-              const playbackText = usePlayback ? playbackEngineRef.current.getRevealedText(characterId) : '';
-              const revealedText = playbackText || lastSavedText?.fullText || lastSavedText?.text || '';
-              const fullTextContent = usePlayback ? playbackEngineRef.current.getFullText(characterId) : (lastSavedText?.fullText || '');
-              const isSpeaking = usePlayback && charPlaybackState?.isTalking;
-              const isTyping = usePlayback && revealedText && revealedText.length > 0;
+              // Get text from playback (during animation) OR from last message (persistence)
+              const lastMessage = lastMessagesFromConversation.get(characterId);
+              const revealedText = usePlayback
+                ? playbackEngineRef.current.getRevealedText(characterId)
+                : (lastMessage?.text || '');
 
 
               // Get entrance config for this character (if in entrance animation)
@@ -1933,33 +1827,20 @@ Each silence, a cathedral where you still reside.`;
                       />
                     );
                   })()}
-                  {/* Speech Bubble - Comic book style, to the side of character (or above if single/center) */}
+                  {/* Speech Bubble - Simple text display */}
                   {/* On mobile portrait with multiple characters, use the stacked bubbles above instead */}
-                  {/* In mobile landscape, always show bubbles beside characters */}
                   {(isMobileLandscape || !(isMobile && total > 1)) && (() => {
-                    // Get bubbles from queue for this character
-                    const characterBubbles = getBubblesForCharacter(characterId);
+                    const displayText = revealedText || '';
+                    if (!displayText) return null;
 
                     return (
-                      <MemoizedCharacterSpeechBubble
-                        bubbles={characterBubbles.length > 0 ? characterBubbles : undefined}
-                        text={revealedText || ''}
-                        fullText={fullTextContent}
+                      <SimpleSpeechBubble
+                        text={displayText}
                         characterName={character.name}
                         characterColor={character.color}
+                        isVisible={displayText.length > 0}
                         position={bubblePosition}
-                        isTyping={!!isTyping}
-                        isSpeaking={!!isSpeaking}
-                        isSingleCharacter={total === 1 || isCenterCharacter}
-                        characterCount={total}
-                        getAnimationState={(bubbleId) => getAnimationState(characterId, bubbleId)}
-                        onAnimationComplete={(bubbleId, animation) => onBubbleAnimationComplete(characterId, bubbleId, animation)}
-                        // Responsive props
                         maxWidth={bubbleMaxWidth}
-                        maxHeight={bubbleMaxHeight}
-                        topOffset={getBubbleTopOffset(index)}
-                        screenWidth={screenWidth}
-                        characterIndex={index}
                       />
                     );
                   })()}
@@ -2708,6 +2589,12 @@ const styles = StyleSheet.create({
     padding: 12,
     marginTop: 8,
     alignItems: 'center',
+    // Add bottom padding on web since there's no safe area like on mobile
+    ...Platform.select({
+      web: {
+        paddingBottom: 16,
+      },
+    }),
   },
   inputWrapper: {
     flexDirection: 'row',

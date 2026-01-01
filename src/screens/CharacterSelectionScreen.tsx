@@ -30,7 +30,7 @@ const MAX_CHARACTERS = 5;
 // Profession filter options
 const PROFESSIONS = [
   { id: 'all', label: 'All', icon: 'apps' },
-  { id: 'psychologist', label: 'Psychology', icon: 'brain' },
+  { id: 'psychologist', label: 'Psychology', icon: 'medical' },
   { id: 'philosopher', label: 'Philosophy', icon: 'school' },
   { id: 'coach', label: 'Coaching', icon: 'fitness' },
   { id: 'spiritual', label: 'Spiritual', icon: 'leaf' },

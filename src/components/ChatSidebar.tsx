@@ -553,11 +553,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 39,
+    zIndex: 999, // Just below sidebar to cover header and tab bar
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   edgeGestureZone: {
-    position: 'absolute',
+    // @ts-ignore - web only: use fixed to cover entire viewport
+    position: Platform.OS === 'web' ? 'fixed' : 'absolute',
     left: 0,
     top: 0,
     bottom: 0,
@@ -599,14 +600,15 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: '#27272a',
     flexDirection: 'column',
-    position: 'absolute',
+    // @ts-ignore - web only: use fixed to cover entire viewport including header and tab bar
+    position: Platform.OS === 'web' ? 'fixed' : 'absolute',
     left: 0,
     top: 0,
-    height: '100%',
-    zIndex: 40,
+    bottom: 0,
+    zIndex: 1000, // High z-index to cover header and tab bar
   },
   sidebarMobileOpen: {
-    zIndex: 100,
+    zIndex: 1000,
   },
   sidebarHeader: {
   },
