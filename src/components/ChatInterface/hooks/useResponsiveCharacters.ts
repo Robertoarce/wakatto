@@ -15,6 +15,8 @@ interface UseResponsiveCharactersOptions {
   isMobile: boolean;
   isMobileLandscape: boolean;
   bubbleCount?: number;
+  containerHeight?: number;  // Actual character display area height
+  containerWidth?: number;   // Actual character display area width
 }
 
 interface UseResponsiveCharactersResult {
@@ -82,6 +84,8 @@ export function useResponsiveCharacters({
   isMobile,
   isMobileLandscape,
   bubbleCount = 1,
+  containerHeight,
+  containerWidth,
 }: UseResponsiveCharactersOptions): UseResponsiveCharactersResult {
   // Get proportional bubble dimensions
   const bubbleDimensions = useMemo(() => {
@@ -99,11 +103,28 @@ export function useResponsiveCharacters({
     return getProportionalBubbleDimensions(count, screenWidth, screenHeight, isMobile);
   }, [screenWidth, screenHeight, isMobile]);
 
-  // Character scale - smaller when more characters to leave room for bubbles
+  // Character scale - based on container size and character count
   const characterScaleFactor = useMemo(() => {
-    // 1.0 for 1 char, 0.9 for 2, 0.8 for 3, etc. (min 0.6)
-    return Math.max(0.6, 1 - (characterCount - 1) * 0.1);
-  }, [characterCount]);
+    // Base scale from character count
+    const countFactor = Math.max(0.6, 1 - (characterCount - 1) * 0.1);
+
+    // Container-based scale factor
+    // Reference: 400px height = 1.0 scale
+    const heightReference = 400;
+    const heightFactor = containerHeight
+      ? Math.min(1.2, Math.max(0.5, containerHeight / heightReference))
+      : 1.0;
+
+    // Reference: 600px width = 1.0 scale
+    const widthReference = 600;
+    const widthFactor = containerWidth
+      ? Math.min(1.2, Math.max(0.5, containerWidth / widthReference))
+      : 1.0;
+
+    // Combine: use smaller of width/height factor, then apply count factor
+    const containerFactor = Math.min(heightFactor, widthFactor);
+    return countFactor * containerFactor;
+  }, [characterCount, containerHeight, containerWidth]);
 
   // Input area protection - calculate safe zone for bubbles
   const inputAreaHeight = 120; // Approximate input container height

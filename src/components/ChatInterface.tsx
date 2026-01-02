@@ -565,6 +565,8 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     screenHeight,
     isMobile,
     isMobileLandscape,
+    containerHeight: characterHeight,
+    containerWidth: screenWidth,
   });
 
   // Track previous playback state for TTS trigger
