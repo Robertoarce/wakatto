@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import { useResponsive } from '../constants/Layout';
 import {
   CharacterDisplay3D,
@@ -221,8 +220,11 @@ const JAW_STATES: { value: JawState; label: string; icon: string }[] = [
   { value: 'slack', label: 'Slack', icon: '😲' },
 ];
 
-const AnimationsScreen = (): JSX.Element => {
-  const navigation = useNavigation<any>();
+interface AnimationsScreenProps {
+  onNavigateToChat?: (params?: { triggerTestPoem?: boolean }) => void;
+}
+
+const AnimationsScreen = ({ onNavigateToChat }: AnimationsScreenProps): JSX.Element => {
   const { fonts, spacing, layout, isMobile, isTablet, width: screenWidth, height: screenHeight } = useResponsive();
 
   // Responsive layout calculations
@@ -700,7 +702,7 @@ const AnimationsScreen = (): JSX.Element => {
 
                   <TouchableOpacity
                     style={styles.testPoemButton}
-                    onPress={() => navigation.navigate('Chat', { triggerTestPoem: true })}
+                    onPress={() => onNavigateToChat?.({ triggerTestPoem: true })}
                   >
                     <Ionicons name="play" size={20} color="#ffffff" />
                     <Text style={dynamicStyles.testPoemButtonText}>Play Test Poem</Text>

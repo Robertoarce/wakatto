@@ -7,7 +7,7 @@ import { logout } from '../store/actions/authActions';
 import { fetchUsage } from '../store/actions/usageActions';
 import { configureAI, getAIConfig } from '../services/aiService';
 import { TIER_NAMES, TIER_COLORS, formatTokens, getDaysUntilReset, getUsageColor } from '../services/usageTrackingService';
-import { useNavigation } from '@react-navigation/native';
+import { useSimpleNavigation } from '../navigation/AppNavigator';
 import { runAllTests, TestResult } from '../services/aiConnectionTest';
 import { useCustomAlert } from '../components/CustomAlert';
 import { Button, Input, Card, Badge } from '../components/ui';
@@ -24,7 +24,7 @@ import {
 type AIProvider = 'mock' | 'openai' | 'anthropic' | 'gemini';
 
 const SettingsScreen = (): JSX.Element => {
-  const navigation = useNavigation();
+  const { navigate } = useSimpleNavigation();
   const dispatch = useDispatch();
   const { showAlert, AlertComponent } = useCustomAlert();
   const { user } = useSelector((state: RootState) => state.auth);
@@ -175,7 +175,7 @@ const SettingsScreen = (): JSX.Element => {
           style: 'destructive',
           onPress: async () => {
             await dispatch(logout() as any);
-            navigation.navigate('Login' as never);
+            navigate('Login');
           },
         },
       ]

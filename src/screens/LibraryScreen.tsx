@@ -16,7 +16,6 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import { CharacterDisplay3D, AnimationState } from '../components/CharacterDisplay3D';
 import { CharacterBehavior, getAllCharacters, registerCustomCharacters } from '../config/characters';
 import { getCustomWakattors } from '../services/customWakattorsService';
@@ -43,7 +42,6 @@ const getRandomAnimation = (): AnimationState => {
 };
 
 export default function LibraryScreen() {
-  const navigation = useNavigation();
   const { showAlert, AlertComponent } = useCustomAlert();
   const { fonts, spacing, layout, isMobile, isTablet, borderRadius, scalePx } = useResponsive();
   const [characters, setCharacters] = useState<CharacterBehavior[]>([]);

@@ -655,7 +655,7 @@ The text behaves as it should be.`;
           />
         )}
         {activeTab === 'Library' && <LibraryScreen />}
-        {activeTab === 'Animations' && <AnimationsScreen />}
+        {activeTab === 'Animations' && <AnimationsScreen onNavigateToChat={() => setActiveTab('Home')} />}
         {activeTab === 'Settings' && <SettingsScreen />}
         </View>
       </View>

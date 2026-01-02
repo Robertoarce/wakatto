@@ -554,6 +554,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const {
     bubbleMaxWidth,
     bubbleMaxHeight,
+    bubbleWidthPercent,
     characterScaleFactor,
     inputAreaHeight,
     safeTopBoundary,
@@ -1653,11 +1654,9 @@ Each silence, a cathedral where you still reside.`;
           </View>
         )}
 
-        {/* Mobile Speech Bubble Stack - Renders all active bubbles in a scrollable container */}
-        {/* Protected from overflowing into input area via dynamic maxHeight with scroll */}
-        {/* In mobile landscape, use side positioning instead of stacked */}
+        {/* Mobile Speech Bubble Stack - 40% of screen height */}
         {isMobile && selectedCharacters.length > 1 && !isMobileLandscape && (
-          <View style={[styles.mobileBubbleStackContainer, { maxHeight: Math.floor(characterHeight * 0.6) }]}>
+          <View style={[styles.mobileBubbleStackContainer, { maxHeight: screenHeight * 0.4 }]}>
             <ScrollView
               style={styles.mobileBubbleStack}
               contentContainerStyle={styles.mobileBubbleStackContent}
@@ -1686,13 +1685,21 @@ Each silence, a cathedral where you still reside.`;
                     characterColor={character.color}
                     isVisible={displayText.length > 0}
                     isMobileStacked={true}
-                    maxWidth={screenWidth - 32}
                   />
                 );
               })}
             </ScrollView>
             {/* Divider line showing speech bubble container boundary */}
             <View style={styles.mobileBubbleStackDivider} />
+            {/* Toast positioned under the divider line on mobile stacked view */}
+            <Toast
+              message={toastMessage}
+              visible={toastVisible}
+              customColor={toastColor}
+              onDismiss={() => setToastVisible(false)}
+              duration={2000}
+              containerStyle={styles.mobileBubbleToast}
+            />
           </View>
         )}
 
@@ -1845,7 +1852,7 @@ Each silence, a cathedral where you still reside.`;
                         characterColor={character.color}
                         isVisible={displayText.length > 0}
                         position={bubblePosition}
-                        maxWidth={bubbleMaxWidth}
+                        widthPercent={bubbleWidthPercent}
                       />
                     );
                   })()}
@@ -2274,13 +2281,16 @@ Each silence, a cathedral where you still reside.`;
         </View>
       </View>
     </KeyboardAvoidingView>
-      <Toast
-        message={toastMessage}
-        visible={toastVisible}
-        customColor={toastColor}
-        onDismiss={() => setToastVisible(false)}
-        duration={2000}
-      />
+      {/* Toast - only show here when NOT in mobile stacked mode (toast is inside stacked container otherwise) */}
+      {!(isMobile && selectedCharacters.length > 1 && !isMobileLandscape) && (
+        <Toast
+          message={toastMessage}
+          visible={toastVisible}
+          customColor={toastColor}
+          onDismiss={() => setToastVisible(false)}
+          duration={2000}
+        />
+      )}
       {/* Story Speech Bubble - shown at start of new conversations */}
       {(() => {
         // Get first selected character for the speech bubble
@@ -3135,14 +3145,19 @@ const styles = StyleSheet.create({
     // left: '40%',
     // transform: [{ translateX: -200 }], // Center a ~200px bubble
   },
-  // Mobile bubble stack container - positioned at top of characters area
-  // Protected from overflowing into input area via maxHeight and overflow
-  mobileBubbleStack: {
+  // Mobile bubble stack outer container - positioned at top of characters area
+  // Contains ScrollView + divider line
+  mobileBubbleStackContainer: {
     position: 'absolute',
     top: 8,
     left: 8,
     right: 8,
     zIndex: 300,
+    overflow: 'hidden',
+  },
+  // Mobile bubble stack ScrollView - fills container
+  mobileBubbleStack: {
+    flex: 1,
   },
   // Content container for scrollable bubble stack
   mobileBubbleStackContent: {
@@ -3150,6 +3165,22 @@ const styles = StyleSheet.create({
     gap: 6,
     alignItems: 'flex-start',
     paddingBottom: 4,
+  },
+  // Divider line at bottom of speech bubble area
+  mobileBubbleStackDivider: {
+    height: 2,
+    backgroundColor: 'rgba(255, 252, 91, 0.66)',
+    marginTop: 6,
+    marginHorizontal: 0,
+    borderRadius: 1,
+  },
+  // Toast style override for mobile stacked view - positioned below divider
+  mobileBubbleToast: {
+    position: 'relative',
+    top: 0,
+    left: 0,
+    right: 0,
+    marginTop: 8,
   },
   // Mobile stacked bubble style - full width, compact
   speechBubbleMobileStacked: {

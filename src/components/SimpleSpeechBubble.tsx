@@ -3,10 +3,12 @@
  *
  * Design principle: Parent controls what text to display.
  * This component just renders it with fade animation.
+ *
+ * Uses hybrid clamp() responsive sizing for all screen sizes.
  */
 
-import React, { useRef, useEffect } from 'react';
-import { Animated, View, Text, StyleSheet, Platform } from 'react-native';
+import React, { useRef, useEffect, useMemo } from 'react';
+import { Animated, Text, StyleSheet, Platform } from 'react-native';
 import { useResponsive } from '../constants/Layout';
 
 interface SimpleSpeechBubbleProps {
@@ -16,8 +18,9 @@ interface SimpleSpeechBubbleProps {
   isVisible: boolean;
   position?: 'left' | 'right' | 'center';
   maxLines?: number;
-  maxWidth?: number;
   isMobileStacked?: boolean;
+  // Optional override for multi-character scenarios (percentage of screen width)
+  widthPercent?: number;
 }
 
 export function SimpleSpeechBubble({
@@ -27,11 +30,42 @@ export function SimpleSpeechBubble({
   isVisible,
   position = 'center',
   maxLines = 4,
-  maxWidth = 280,
   isMobileStacked = false,
+  widthPercent,
 }: SimpleSpeechBubbleProps) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const { fonts, spacing, borderRadius, scalePx, isMobile, width: screenWidth } = useResponsive();
+  const {
+    spacing,
+    borderRadius,
+    components,
+    width: screenWidth,
+    proportionalWidth: calcProportionalWidth,
+  } = useResponsive();
+
+  // Get speech bubble sizing from responsive system
+  const bubbleSizing = components.speechBubble;
+
+  // Calculate bubble width proportionally
+  const bubbleWidth = useMemo(() => {
+    if (isMobileStacked) {
+      return calcProportionalWidth(bubbleSizing.stackedWidthPercent);
+    }
+    return calcProportionalWidth(
+      widthPercent ?? bubbleSizing.floatingWidthPercent,
+      bubbleSizing.minWidth
+    );
+  }, [isMobileStacked, widthPercent, bubbleSizing, calcProportionalWidth]);
+
+  // Font sizes from clamp system (numeric pixels)
+  const nameFontSize = bubbleSizing.nameFontSize;
+  const textFontSize = bubbleSizing.textFontSize;
+
+  // Padding from clamp system (numeric pixels)
+  const paddingH = bubbleSizing.paddingHorizontal;
+  const paddingV = bubbleSizing.paddingVertical;
+
+  // Line height as absolute value (font size * multiplier)
+  const lineHeight = Math.round(textFontSize * bubbleSizing.lineHeightMultiplier);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -44,27 +78,11 @@ export function SimpleSpeechBubble({
   // Don't render if no text
   if (!text) return null;
 
-  // Responsive sizing based on screen width
-  // Small screens (<400): smaller text/padding
-  // Medium screens (400-800): normal
-  // Large screens (>800): larger text/padding
-  const isSmallScreen = screenWidth < 400;
-  const isLargeScreen = screenWidth > 800;
-
-
-
-  // Dynamic font sizes (compact, using scales)
- const nameFontSize = '100%';
-  const textFontSize = '80%';
-
-  // Dynamic padding (compact, using scales)
-  const bubblePadding = '6%';
-
-  // Dynamic line height (tight, using scales)
-  const lineHeight = '150%';
-
-  // Dynamic chars per line based on screen width
-  const charsPerLine = isSmallScreen ? 35 : (isLargeScreen ? 55 : 45);
+  // Calculate approximate characters per line based on actual bubble width and font size
+  // Assume average character width is ~0.55 of font size for proportional fonts
+  const avgCharWidth = textFontSize * 0.55;
+  const usableWidth = bubbleWidth - (paddingH * 2);
+  const charsPerLine = Math.max(20, Math.floor(usableWidth / avgCharWidth));
 
   // Simple word wrap function
   const wrapText = (str: string, maxChars: number): string[] => {
@@ -98,12 +116,14 @@ export function SimpleSpeechBubble({
             opacity: fadeAnim,
             borderColor: characterColor,
             borderRadius: borderRadius.md,
-            padding: bubblePadding,
+            paddingHorizontal: paddingH,
+            paddingVertical: paddingV,
             marginBottom: spacing.xs,
+            maxWidth: bubbleWidth,
           }
         ]}
       >
-        <Text style={[styles.name, { color: characterColor, fontSize: nameFontSize }]}>
+        <Text style={[styles.name, { color: characterColor, fontSize: nameFontSize, marginBottom: 4 }]}>
           {characterName}
         </Text>
         {lines.map((line, i) => (
@@ -116,20 +136,19 @@ export function SimpleSpeechBubble({
   }
 
   // Default floating layout (absolute positioning for desktop/character display)
-  // Position bubble from 10% top down, with horizontal alignment based on position prop
   const getPositionStyle = () => {
     const baseStyle = {
-      top: '1%',
+      top: 8,
     };
 
     switch (position) {
       case 'left':
-        return { ...baseStyle, right: '60%' };
+        return { ...baseStyle, right: screenWidth * 0.55 };
       case 'right':
-        return { ...baseStyle, left: '60%' };
+        return { ...baseStyle, left: screenWidth * 0.55 };
       case 'center':
       default:
-        return { ...baseStyle, left: '50%', transform: [{ translateX: -maxWidth / 2 }] };
+        return { ...baseStyle, left: screenWidth * 0.5, transform: [{ translateX: -bubbleWidth / 2 }] };
     }
   };
 
@@ -140,14 +159,15 @@ export function SimpleSpeechBubble({
         {
           opacity: fadeAnim,
           borderColor: characterColor,
-          maxWidth,
+          width: bubbleWidth,
           borderRadius: borderRadius.lg,
-          padding: bubblePadding,
+          paddingHorizontal: paddingH,
+          paddingVertical: paddingV,
         },
         getPositionStyle(),
       ]}
     >
-      <Text style={[styles.name, { color: characterColor, fontSize: nameFontSize }]}>
+      <Text style={[styles.name, { color: characterColor, fontSize: nameFontSize, marginBottom: 4 }]}>
         {characterName}
       </Text>
       {lines.map((line, i) => (
@@ -164,7 +184,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     backgroundColor: 'rgba(30, 30, 40, 0.71)',
     borderWidth: 2,
-    minWidth: '50%',
     zIndex: 100,
     pointerEvents: 'none',
   },
@@ -172,13 +191,11 @@ const styles = StyleSheet.create({
     position: 'relative',
     backgroundColor: 'rgba(30, 30, 40, 0.95)',
     borderWidth: 2,
-    alignSelf: 'stretch',
-    width: '100%',
+    alignSelf: 'center',
     pointerEvents: 'none',
   },
   name: {
     fontFamily: 'Inter-Bold',
-    margin: '3%',
     letterSpacing: 0.3,
   },
   text: {

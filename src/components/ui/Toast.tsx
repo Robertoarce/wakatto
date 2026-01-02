@@ -12,6 +12,7 @@ interface ToastProps {
   onDismiss?: () => void;
   duration?: number;
   customColor?: string; // Character theme color override
+  containerStyle?: ViewStyle; // Override container positioning
 }
 
 // Helper to convert hex color to rgba
@@ -31,6 +32,7 @@ export function Toast({
   onDismiss,
   duration = 3000,
   customColor,
+  containerStyle,
 }: ToastProps) {
   const { fonts, spacing, borderRadius, components, scalePx } = useResponsive();
   const translateY = useRef(new Animated.Value(-100)).current;
@@ -166,6 +168,7 @@ export function Toast({
           transform: [{ translateY }],
           opacity,
         },
+        containerStyle,
       ]}
     >
       <Ionicons

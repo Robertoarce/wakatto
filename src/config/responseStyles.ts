@@ -458,15 +458,27 @@ export function getCombinedResponseStyle(temperaments: TemperamentId[]): string 
   }
 
   if (temperaments.length === 1) {
-    return RESPONSE_STYLE_MODIFIERS[temperaments[0]];
+    const modifier = RESPONSE_STYLE_MODIFIERS[temperaments[0]];
+    if (!modifier) {
+      console.warn(`Unknown temperament: ${temperaments[0]}`);
+      return '';
+    }
+    return modifier;
   }
 
   // Primary temperament is dominant
   const primary = RESPONSE_STYLE_MODIFIERS[temperaments[0]];
+  if (!primary) {
+    console.warn(`Unknown primary temperament: ${temperaments[0]}`);
+  }
   
   // Secondary temperaments add flavor (abbreviated)
   const secondaryNotes = temperaments.slice(1).map(t => {
     const definition = RESPONSE_STYLE_MODIFIERS[t];
+    if (!definition) {
+      console.warn(`Unknown temperament: ${t}`);
+      return `- Also incorporate ${t} elements`;
+    }
     // Extract just the first line as a secondary influence
     const firstLine = definition.split('\n')[0].replace('**Response Style - ', '').replace('**', '');
     return `- Also incorporate ${firstLine.toLowerCase()} elements`;

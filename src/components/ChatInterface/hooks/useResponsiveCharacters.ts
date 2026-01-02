@@ -1,8 +1,12 @@
 /**
  * useResponsiveCharacters - Responsive calculations for bubbles and character sizing
+ *
+ * Uses proportional width (percentage of screen) instead of fixed pixels.
+ * SimpleSpeechBubble handles its own sizing via the responsive hook.
  */
 
 import { useMemo, useCallback } from 'react';
+import { clampVw, proportionalWidth, BREAKPOINTS } from '../../../constants/Layout';
 
 interface UseResponsiveCharactersOptions {
   characterCount: number;
@@ -18,6 +22,7 @@ interface UseResponsiveCharactersResult {
   bubbleMaxHeight: number;
   bubbleMaxLines: number;
   bubbleMaxChars: number;
+  bubbleWidthPercent: number;  // Proportional width for SimpleSpeechBubble
   characterScaleFactor: number;
   inputAreaHeight: number;
   safeTopBoundary: number;
@@ -27,24 +32,46 @@ interface UseResponsiveCharactersResult {
     maxHeight: number;
     maxLines: number;
     maxChars: number;
+    widthPercent: number;
   };
 }
 
-// Simple bubble dimensions based on screen size and character count
-function getSimpleBubbleDimensions(
+// Proportional bubble dimensions based on screen size and character count
+function getProportionalBubbleDimensions(
   characterCount: number,
   screenWidth: number,
+  screenHeight: number,
   isMobile: boolean
 ) {
-  // Simple responsive sizing
-  const baseWidth = isMobile ? Math.min(screenWidth - 32, 280) : Math.min(320, screenWidth * 0.3);
-  const scaledWidth = characterCount > 2 ? baseWidth * 0.8 : baseWidth;
+  // Base width as percentage of screen (NOT fixed pixels)
+  // Single character: larger bubble, multiple: smaller
+  const isMobileSize = screenWidth < BREAKPOINTS.tablet;
+  const baseWidthPercent = isMobileSize
+    ? (characterCount > 2 ? 0.28 : 0.35)
+    : (characterCount > 2 ? 0.20 : 0.25);
+
+  const maxWidth = proportionalWidth(baseWidthPercent, screenWidth, 120);
+
+  // Height scales with screen using clamp
+  const maxHeight = clampVw(100, 15, 200, screenWidth);
+
+  // Font size for calculating chars (using same clamp as Layout.ts)
+  const fontSize = clampVw(12, 3.2, 24, screenWidth);
+  const avgCharWidth = fontSize * 0.55;
+  const paddingH = clampVw(8, 2.5, 24, screenWidth);
+  const usableWidth = maxWidth - (paddingH * 2);
+  const maxChars = Math.max(20, Math.floor(usableWidth / avgCharWidth));
+
+  // Max lines based on height
+  const lineHeight = fontSize * 1.45;
+  const maxLines = Math.max(2, Math.floor((maxHeight - 40) / lineHeight));
 
   return {
-    maxWidth: Math.round(scaledWidth),
-    maxHeight: isMobile ? 120 : 150,
-    maxLines: 4,
-    maxChars: 45,
+    maxWidth,
+    maxHeight,
+    maxLines: Math.min(maxLines, 6),
+    maxChars,
+    widthPercent: baseWidthPercent,
   };
 }
 
@@ -56,20 +83,21 @@ export function useResponsiveCharacters({
   isMobileLandscape,
   bubbleCount = 1,
 }: UseResponsiveCharactersOptions): UseResponsiveCharactersResult {
-  // Get simple bubble dimensions
+  // Get proportional bubble dimensions
   const bubbleDimensions = useMemo(() => {
-    return getSimpleBubbleDimensions(characterCount, screenWidth, isMobile);
-  }, [characterCount, screenWidth, isMobile]);
+    return getProportionalBubbleDimensions(characterCount, screenWidth, screenHeight, isMobile);
+  }, [characterCount, screenWidth, screenHeight, isMobile]);
 
   const bubbleMaxWidth = bubbleDimensions.maxWidth;
   const bubbleMaxHeight = bubbleDimensions.maxHeight;
   const bubbleMaxLines = bubbleDimensions.maxLines;
   const bubbleMaxChars = bubbleDimensions.maxChars;
+  const bubbleWidthPercent = bubbleDimensions.widthPercent;
 
   // Helper to get dimensions for a specific bubble count
   const getBubbleDimensionsForCount = useCallback((count: number) => {
-    return getSimpleBubbleDimensions(characterCount, screenWidth, isMobile);
-  }, [characterCount, screenWidth, isMobile]);
+    return getProportionalBubbleDimensions(count, screenWidth, screenHeight, isMobile);
+  }, [screenWidth, screenHeight, isMobile]);
 
   // Character scale - smaller when more characters to leave room for bubbles
   const characterScaleFactor = useMemo(() => {
@@ -102,6 +130,7 @@ export function useResponsiveCharacters({
     bubbleMaxHeight,
     bubbleMaxLines,
     bubbleMaxChars,
+    bubbleWidthPercent,
     characterScaleFactor,
     inputAreaHeight,
     safeTopBoundary,

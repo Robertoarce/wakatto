@@ -251,6 +251,10 @@ export interface ResponsiveValues {
   vw: (percent: number) => number;
   vh: (percent: number) => number;
   scalePx: (basePx: number, minPx?: number, maxPx?: number) => number;
+  // Clamp helpers bound to current dimensions
+  clampVw: (minPx: number, vwPercent: number, maxPx: number) => number;
+  clampVh: (minPx: number, vhPercent: number, maxPx: number) => number;
+  proportionalWidth: (percent: number, minPx?: number) => number;
 }
 
 export function useResponsive(): ResponsiveValues {
@@ -301,6 +305,13 @@ export function useResponsive(): ResponsiveValues {
       vh: (percent: number) => vh(percent, height),
       scalePx: (basePx: number, minPx?: number, maxPx?: number) =>
         scalePx(basePx, width, minPx, maxPx),
+      // Clamp helpers bound to current dimensions
+      clampVw: (minPx: number, vwPercent: number, maxPx: number) =>
+        clampVw(minPx, vwPercent, maxPx, width),
+      clampVh: (minPx: number, vhPercent: number, maxPx: number) =>
+        clampVh(minPx, vhPercent, maxPx, height),
+      proportionalWidth: (percent: number, minPx?: number) =>
+        proportionalWidth(percent, width, minPx),
     };
   }, [dimensions]);
 }
@@ -404,7 +415,21 @@ export function calculateBorderRadius(width: number): ResponsiveBorderRadius {
 // ============================================
 export interface ComponentSizing {
   speechBubble: {
+    // Proportional widths (percentage of screen)
+    widthPercent: number;           // Base width as % of screen
+    floatingWidthPercent: number;   // Floating bubble width
+    stackedWidthPercent: number;    // Mobile stacked width
+    // Min bounds
     minWidth: number;
+    // Font sizes using clamp approach
+    nameFontSize: number;
+    textFontSize: number;
+    // Spacing using clamp
+    paddingHorizontal: number;
+    paddingVertical: number;
+    // Line height multiplier
+    lineHeightMultiplier: number;
+    // Legacy (kept for compatibility)
     maxWidth: number;
     padding: number;
     borderWidth: number;
@@ -441,12 +466,29 @@ export function calculateComponentSizing(
     : width < BREAKPOINTS.large ? 1.1
     : 1.45;
 
+  // Determine proportional widths based on device size
+  const isMobileSize = width < BREAKPOINTS.tablet;
+
   return {
     speechBubble: {
-      minWidth: Math.round(100 * scale),
+      // Proportional widths - scale with screen, no hard max
+      widthPercent: isMobileSize ? 0.35 : 0.28,
+      floatingWidthPercent: isMobileSize ? 0.30 : 0.22,
+      stackedWidthPercent: 0.92, // Nearly full width for mobile stacked
+      // Minimum width floor
+      minWidth: clampVw(100, 25, 180, width),
+      // Font sizes: clamp(min, preferred vw, max)
+      nameFontSize: clampVw(11, 2.8, 22, width),
+      textFontSize: clampVw(12, 3.2, 24, width),
+      // Padding: clamp approach
+      paddingHorizontal: clampVw(8, 2.5, 24, width),
+      paddingVertical: clampVw(6, 2, 18, width),
+      // Line height as multiplier
+      lineHeightMultiplier: 1.45,
+      // Legacy (kept for compatibility)
       maxWidth: Math.min(Math.round(380 * scale), width * 0.85),
       padding: Math.round(14 * scale),
-      borderWidth: Math.round(3 * scale),
+      borderWidth: Math.round(2 * scale),
       tailSize: Math.round(10 * scale),
     },
     iconSizes: {
@@ -521,6 +563,65 @@ export function heightPercent(percent: number, screenHeight: number): number {
  */
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+// ============================================
+// CLAMP-BASED RESPONSIVE SIZING (Hybrid Approach)
+// ============================================
+
+/**
+ * Clamp a viewport-relative value between min and max pixel bounds
+ * Mimics CSS clamp(min, preferred, max) behavior for React Native
+ *
+ * @param minPx - Minimum pixel value (floor)
+ * @param vwPercent - Viewport width percentage for preferred value (e.g., 3 = 3vw)
+ * @param maxPx - Maximum pixel value (ceiling)
+ * @param screenWidth - Current screen width
+ */
+export function clampVw(
+  minPx: number,
+  vwPercent: number,
+  maxPx: number,
+  screenWidth: number
+): number {
+  const preferred = (vwPercent / 100) * screenWidth;
+  return Math.round(clamp(preferred, minPx, maxPx));
+}
+
+/**
+ * Clamp a viewport-relative value based on height
+ *
+ * @param minPx - Minimum pixel value
+ * @param vhPercent - Viewport height percentage for preferred value
+ * @param maxPx - Maximum pixel value
+ * @param screenHeight - Current screen height
+ */
+export function clampVh(
+  minPx: number,
+  vhPercent: number,
+  maxPx: number,
+  screenHeight: number
+): number {
+  const preferred = (vhPercent / 100) * screenHeight;
+  return Math.round(clamp(preferred, minPx, maxPx));
+}
+
+/**
+ * Calculate proportional width as percentage of screen with optional min bound
+ * NO hard-coded max cap - scales proportionally with screen
+ *
+ * @param percent - Percentage of screen width (e.g., 0.35 = 35%)
+ * @param screenWidth - Current screen width
+ * @param minPx - Optional minimum pixel value
+ */
+export function proportionalWidth(
+  percent: number,
+  screenWidth: number,
+  minPx?: number
+): number {
+  let result = screenWidth * percent;
+  if (minPx !== undefined) result = Math.max(result, minPx);
+  return Math.round(result);
 }
 
 /**
