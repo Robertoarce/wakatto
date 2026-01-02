@@ -248,13 +248,14 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     saveText: { fontSize: fonts.sm },
     characterNameText: { fontSize: fonts.lg },
     hoverNameText: { fontSize: fonts.xl },
-    characterSelectorText: { fontSize: fonts.sm },
-    characterSelectorTitle: { fontSize: fonts.sm },
-    characterSelectorName: { fontSize: fonts.sm },
-    characterSearchInput: { fontSize: fonts.sm },
-    roleFilterText: { fontSize: fonts.xs },
-    characterSectionLabel: { fontSize: fonts.xs },
-    selectedCharacterName: { fontSize: fonts.sm },
+    // Drawer text: percentage-based sizing (scales with parent/viewport)
+    characterSelectorText: { fontSize: '100%' },
+    characterSelectorTitle: { fontSize: '100%' },
+    characterSelectorName: { fontSize: '100%' },
+    characterSearchInput: { fontSize: '100%' },
+    roleFilterText: { fontSize: '90%' },
+    characterSectionLabel: { fontSize: '90%' },
+    selectedCharacterName: { fontSize: '100%' },
     recordingText: { fontSize: fonts.sm },
     transcribingText: { fontSize: fonts.sm },
     liveTranscriptLabel: { fontSize: fonts.xs },
@@ -1656,39 +1657,43 @@ Each silence, a cathedral where you still reside.`;
         {/* Protected from overflowing into input area via dynamic maxHeight with scroll */}
         {/* In mobile landscape, use side positioning instead of stacked */}
         {isMobile && selectedCharacters.length > 1 && !isMobileLandscape && (
-          <ScrollView
-            style={[styles.mobileBubbleStack, { maxHeight: Math.floor(characterHeight * 0.6) }]}
-            contentContainerStyle={styles.mobileBubbleStackContent}
-            showsVerticalScrollIndicator={false}
-            nestedScrollEnabled={true}
-          >
-            {limitedCharacters.map((characterId) => {
-              const character = availableCharacters.find(c => c.id === characterId) || getCharacter(characterId);
-              const charPlaybackState = playbackState.characterStates.get(characterId);
-              const usePlayback = playbackState.isPlaying && charPlaybackState;
+          <View style={[styles.mobileBubbleStackContainer, { maxHeight: Math.floor(characterHeight * 0.6) }]}>
+            <ScrollView
+              style={styles.mobileBubbleStack}
+              contentContainerStyle={styles.mobileBubbleStackContent}
+              showsVerticalScrollIndicator={false}
+              nestedScrollEnabled={true}
+            >
+              {limitedCharacters.map((characterId) => {
+                const character = availableCharacters.find(c => c.id === characterId) || getCharacter(characterId);
+                const charPlaybackState = playbackState.characterStates.get(characterId);
+                const usePlayback = playbackState.isPlaying && charPlaybackState;
 
-              // Get text from playback (during animation) OR from last message (persistence)
-              const lastMessage = lastMessagesFromConversation.get(characterId);
-              const displayText = usePlayback
-                ? playbackEngineRef.current.getRevealedText(characterId)
-                : (lastMessage?.text || '');
+                // Get text from playback (during animation) OR from last message (persistence)
+                const lastMessage = lastMessagesFromConversation.get(characterId);
+                const displayText = usePlayback
+                  ? playbackEngineRef.current.getRevealedText(characterId)
+                  : (lastMessage?.text || '');
 
-              // Don't render if no text
-              if (!displayText) return null;
+                // Don't render if no text
+                if (!displayText) return null;
 
-              return (
-                <SimpleSpeechBubble
-                  key={`mobile-bubble-${characterId}`}
-                  text={displayText}
-                  characterName={character.name}
-                  characterColor={character.color}
-                  isVisible={displayText.length > 0}
-                  isMobileStacked={true}
-                  maxWidth={screenWidth - 32}
-                />
-              );
-            })}
-          </ScrollView>
+                return (
+                  <SimpleSpeechBubble
+                    key={`mobile-bubble-${characterId}`}
+                    text={displayText}
+                    characterName={character.name}
+                    characterColor={character.color}
+                    isVisible={displayText.length > 0}
+                    isMobileStacked={true}
+                    maxWidth={screenWidth - 32}
+                  />
+                );
+              })}
+            </ScrollView>
+            {/* Divider line showing speech bubble container boundary */}
+            <View style={styles.mobileBubbleStackDivider} />
+          </View>
         )}
 
         {/* Multiple Character Display - Semi-circle arrangement (table view) */}
@@ -1724,7 +1729,7 @@ Each silence, a cathedral where you still reside.`;
               
               // Calculate horizontal position (percentage from center)
               // Proportional spread - scales with screen width (35% at 320px, 50% at 768px+)
-              const minSpread = 30;
+              const minSpread = 40;
               const maxSpread = 50;
               const spreadFactor = Math.min(maxSpread, minSpread + ((screenWidth - 280) / (768 - 280)) * (maxSpread - minSpread));
               const horizontalOffset = Math.sin(angleRad) * spreadFactor;
@@ -1785,9 +1790,9 @@ Each silence, a cathedral where you still reside.`;
                     {
                       position: 'absolute',
                       // Proportional positioning based on screen width
-                      left: `${47 + horizontalOffset - (100 / total / 2)}%`,
+                      left: `${50 + horizontalOffset - (100 / total / 2)}%`,
                       width: `${Math.max(100 / total, 22)}%`,
-                      top: `${15 + (20 - verticalPosition)}%`, // Center higher up, edges lower (lowered from 25% to 15%)
+                      top: `${20 + (20 - verticalPosition)}%`, // Center higher up, edges lower (aligned with bubbles)
                       // Scale based on character count only - CharacterDisplay3D handles screen-width scaling
                       transform: [{ scale: scale }],
                       zIndex: zIndex,

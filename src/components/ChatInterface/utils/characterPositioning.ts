@@ -123,7 +123,7 @@ export function getCharacterWrapperStyle(
     position: 'absolute' as const,
     left: `${47 + position.horizontalOffset - (100 / total / 2)}%`,
     width: `${Math.max(100 / total, 22)}%`,
-    top: `${15 + (20 - position.verticalPosition)}%`,
+    top: `${25 + (20 - position.verticalPosition)}%`,
     transform: [{ scale: position.scale }],
     zIndex: position.zIndex,
   };

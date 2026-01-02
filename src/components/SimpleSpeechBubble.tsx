@@ -51,15 +51,17 @@ export function SimpleSpeechBubble({
   const isSmallScreen = screenWidth < 400;
   const isLargeScreen = screenWidth > 800;
 
-  // Dynamic font sizes
-  const nameFontSize = isSmallScreen ? fonts.sm : (isLargeScreen ? fonts.lg : fonts.sd);
-  const textFontSize = isSmallScreen ? fonts.sm : (isLargeScreen ? fonts.md : fonts.sd);
 
-  // Dynamic padding
-  const bubblePadding = isSmallScreen ? scalePx(6) : (isLargeScreen ? scalePx(16) : scalePx(10));
 
-  // Dynamic line height
-  const lineHeight = isSmallScreen ? 18 : (isLargeScreen ? 28 : 22);
+  // Dynamic font sizes (compact, using scales)
+ const nameFontSize = '100%';
+  const textFontSize = '80%';
+
+  // Dynamic padding (compact, using scales)
+  const bubblePadding = '6%';
+
+  // Dynamic line height (tight, using scales)
+  const lineHeight = '150%';
 
   // Dynamic chars per line based on screen width
   const charsPerLine = isSmallScreen ? 35 : (isLargeScreen ? 55 : 45);
@@ -114,13 +116,10 @@ export function SimpleSpeechBubble({
   }
 
   // Default floating layout (absolute positioning for desktop/character display)
-  // Position bubble above the character, with horizontal alignment based on position prop
-  // Vertical position scales with screen size
-  const verticalOffset = isSmallScreen ? -60 : (isLargeScreen ? -120 : -90);
-
+  // Position bubble from 10% top down, with horizontal alignment based on position prop
   const getPositionStyle = () => {
     const baseStyle = {
-      top: verticalOffset,
+      top: '1%',
     };
 
     switch (position) {
@@ -163,9 +162,9 @@ export function SimpleSpeechBubble({
 const styles = StyleSheet.create({
   bubble: {
     position: 'absolute',
-    backgroundColor: 'rgba(30, 30, 40, 0.95)',
+    backgroundColor: 'rgba(30, 30, 40, 0.71)',
     borderWidth: 2,
-    minWidth: 100,
+    minWidth: '50%',
     zIndex: 100,
     pointerEvents: 'none',
   },
@@ -179,8 +178,8 @@ const styles = StyleSheet.create({
   },
   name: {
     fontFamily: 'Inter-Bold',
-    marginBottom: 4,
-    letterSpacing: 0.5,
+    margin: '3%',
+    letterSpacing: 0.3,
   },
   text: {
     fontFamily: 'Inter-Regular',
