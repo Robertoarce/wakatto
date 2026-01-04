@@ -218,15 +218,16 @@ export function getOrientation(width: number, height: number): Orientation {
 
 /**
  * Detect if device is in mobile landscape mode
- * This is when a phone is rotated landscape (both dimensions suggest mobile device)
- * We check: landscape orientation + height < tablet + width < desktop
- * This prevents desktop browser windows from being treated as mobile landscape
+ * This is when a phone is rotated landscape (height becomes short)
+ * Key indicator: short height (< 500px) + landscape orientation
+ * This hides header/tab bar to maximize screen space on phones
  */
 export function isMobileLandscapeMode(width: number, height: number): boolean {
   const isLandscape = width > height;
-  // Only treat as mobile landscape if BOTH dimensions suggest a phone
-  // Width must also be below desktop breakpoint to avoid desktop browser windows
-  return isLandscape && height < BREAKPOINTS.tablet && width < BREAKPOINTS.tablet;
+  // Mobile landscape = short height (phone in landscape has ~400-500px height)
+  // Don't check width - landscape phones can have 800-1000px width
+  const shortHeight = height < 500;
+  return isLandscape && shortHeight;
 }
 
 // ============================================
@@ -472,8 +473,8 @@ export function calculateComponentSizing(
   return {
     speechBubble: {
       // Proportional widths - scale with screen, no hard max
-      widthPercent: isMobileSize ? 0.35 : 0.28,
-      floatingWidthPercent: isMobileSize ? 0.30 : 0.22,
+      widthPercent: isMobileSize ? 0.35 : 0.38,
+      floatingWidthPercent: isMobileSize ? 0.30 : 0.35,
       stackedWidthPercent: 0.92, // Nearly full width for mobile stacked
       // Minimum width floor
       minWidth: clampVw(100, 25, 180, width),

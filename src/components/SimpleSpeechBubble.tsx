@@ -4,10 +4,11 @@
  * Design principle: Parent controls what text to display.
  * This component just renders it with fade animation.
  *
- * Uses hybrid clamp() responsive sizing for all screen sizes.
+ * Positioned inside FloatingCharacterWrapper to inherit floating animation.
+ * Centers itself within the wrapper.
  */
 
-import React, { useRef, useEffect, useMemo } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Animated, Text, StyleSheet, Platform } from 'react-native';
 import { useResponsive } from '../constants/Layout';
 
@@ -16,11 +17,10 @@ interface SimpleSpeechBubbleProps {
   characterName: string;
   characterColor: string;
   isVisible: boolean;
-  position?: 'left' | 'right' | 'center';
   maxLines?: number;
   isMobileStacked?: boolean;
-  // Optional override for multi-character scenarios (percentage of screen width)
-  widthPercent?: number;
+  // Total number of characters - used to limit bubble width and prevent overlap
+  characterCount?: number;
 }
 
 export function SimpleSpeechBubble({
@@ -28,44 +28,44 @@ export function SimpleSpeechBubble({
   characterName,
   characterColor,
   isVisible,
-  position = 'center',
   maxLines = 4,
   isMobileStacked = false,
-  widthPercent,
+  characterCount = 1,
 }: SimpleSpeechBubbleProps) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const {
     spacing,
     borderRadius,
-    components,
     width: screenWidth,
-    proportionalWidth: calcProportionalWidth,
+    isMobile,
   } = useResponsive();
 
-  // Get speech bubble sizing from responsive system
-  const bubbleSizing = components.speechBubble;
+  // Calculate max bubble width based on character count to prevent overlap
+  // Each character gets an equal slice of screen width, bubble uses 85% of that slice
+  const sliceWidth = screenWidth / Math.max(1, characterCount);
+  const maxSliceUsage = 0.85; // Use 85% of character's allocated space
+  const absoluteMaxWidth = 350; // Cap for readability
 
-  // Calculate bubble width proportionally
-  const bubbleWidth = useMemo(() => {
-    if (isMobileStacked) {
-      return calcProportionalWidth(bubbleSizing.stackedWidthPercent);
-    }
-    return calcProportionalWidth(
-      widthPercent ?? bubbleSizing.floatingWidthPercent,
-      bubbleSizing.minWidth
-    );
-  }, [isMobileStacked, widthPercent, bubbleSizing, calcProportionalWidth]);
+  // Final bubble width: min of (slice limit, absolute max, percentage of screen)
+  const bubbleWidthPercent = isMobile ? 0.38 : 0.28;
+  const bubbleWidth = Math.min(
+    sliceWidth * maxSliceUsage,
+    absoluteMaxWidth,
+    screenWidth * bubbleWidthPercent
+  );
 
-  // Font sizes from clamp system (numeric pixels)
-  const nameFontSize = bubbleSizing.nameFontSize;
-  const textFontSize = bubbleSizing.textFontSize;
+  // Stacked mode: wider bubbles
+  const stackedWidth = Math.min(screenWidth - 32, screenWidth * 0.9);
 
-  // Padding from clamp system (numeric pixels)
-  const paddingH = bubbleSizing.paddingHorizontal;
-  const paddingV = bubbleSizing.paddingVertical;
+  // Final width based on mode
+  const finalWidth = isMobileStacked ? stackedWidth : bubbleWidth;
 
-  // Line height as absolute value (font size * multiplier)
-  const lineHeight = Math.round(textFontSize * bubbleSizing.lineHeightMultiplier);
+  // Simple font sizing
+  const textFontSize = Math.max(12, Math.min(18, screenWidth * 0.012));
+  const nameFontSize = Math.max(13, Math.min(20, screenWidth * 0.014));
+  const paddingH = Math.max(10, Math.min(16, screenWidth * 0.015));
+  const paddingV = Math.max(8, Math.min(12, screenWidth * 0.01));
+  const lineHeight = Math.round(textFontSize * 1.4);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -78,10 +78,9 @@ export function SimpleSpeechBubble({
   // Don't render if no text
   if (!text) return null;
 
-  // Calculate approximate characters per line based on actual bubble width and font size
-  // Assume average character width is ~0.55 of font size for proportional fonts
+  // Calculate characters per line for word wrap
   const avgCharWidth = textFontSize * 0.55;
-  const usableWidth = bubbleWidth - (paddingH * 2);
+  const usableWidth = finalWidth - (paddingH * 2);
   const charsPerLine = Math.max(20, Math.floor(usableWidth / avgCharWidth));
 
   // Simple word wrap function
@@ -119,7 +118,7 @@ export function SimpleSpeechBubble({
             paddingHorizontal: paddingH,
             paddingVertical: paddingV,
             marginBottom: spacing.xs,
-            maxWidth: bubbleWidth,
+            maxWidth: finalWidth,
           }
         ]}
       >
@@ -135,23 +134,7 @@ export function SimpleSpeechBubble({
     );
   }
 
-  // Default floating layout (absolute positioning for desktop/character display)
-  const getPositionStyle = () => {
-    const baseStyle = {
-      top: 8,
-    };
-
-    switch (position) {
-      case 'left':
-        return { ...baseStyle, right: screenWidth * 0.55 };
-      case 'right':
-        return { ...baseStyle, left: screenWidth * 0.55 };
-      case 'center':
-      default:
-        return { ...baseStyle, left: screenWidth * 0.5, transform: [{ translateX: -bubbleWidth / 2 }] };
-    }
-  };
-
+  // Floating layout - centered within wrapper (inherits floating animation)
   return (
     <Animated.View
       style={[
@@ -159,12 +142,14 @@ export function SimpleSpeechBubble({
         {
           opacity: fadeAnim,
           borderColor: characterColor,
-          width: bubbleWidth,
+          width: finalWidth,
           borderRadius: borderRadius.lg,
           paddingHorizontal: paddingH,
           paddingVertical: paddingV,
+          // Center within the wrapper
+          left: '50%',
+          transform: [{ translateX: -finalWidth / 2 }],
         },
-        getPositionStyle(),
       ]}
     >
       <Text style={[styles.name, { color: characterColor, fontSize: nameFontSize, marginBottom: 4 }]}>
@@ -182,7 +167,8 @@ export function SimpleSpeechBubble({
 const styles = StyleSheet.create({
   bubble: {
     position: 'absolute',
-    backgroundColor: 'rgba(30, 30, 40, 0.71)',
+    top: -20,  // Higher above the character
+    backgroundColor: 'rgba(30, 30, 40, 0.85)',
     borderWidth: 2,
     zIndex: 100,
     pointerEvents: 'none',

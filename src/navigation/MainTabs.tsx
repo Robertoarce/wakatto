@@ -619,8 +619,12 @@ The text behaves as it should be.`;
           onDeleteConversation={onDeleteConversation}
         />
       )}
-      {!isFullscreen && <Header />}
-      <View style={styles.contentContainer}>
+      {!isFullscreen && !isMobileLandscape && <Header />}
+      <View style={[
+        styles.contentContainer,
+        // In mobile landscape, content takes 100% since no header/tab bar
+        isMobileLandscape && { height: '100%' },
+      ]}>
         <View style={[
           styles.mainContentWrapper,
           // Only add sidebar margin on non-mobile (mobile uses overlay) and not in fullscreen
@@ -661,7 +665,8 @@ The text behaves as it should be.`;
       </View>
 
       {/* Custom Bottom Tab Bar - workaround for Tab.Navigator not working on web */}
-      {!isFullscreen && (
+      {/* Hidden in landscape mode for fullscreen experience */}
+      {!isFullscreen && !isMobileLandscape && (
         <View style={styles.customTabBar}>
           <TouchableOpacity
             style={[styles.tabItem, activeTab === 'Home' && styles.tabItemActive]}

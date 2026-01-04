@@ -65,7 +65,9 @@ import {
 } from './ChatInterface/hooks';
 import { calculateCharacterPosition } from './ChatInterface/utils/characterPositioning';
 import { SimpleSpeechBubble } from './SimpleSpeechBubble';
-import { CollaborationPanel } from './CollaborationPanel';
+import { InviteModal } from './InviteModal';
+import { JoinConversation } from './JoinConversation';
+import { loadParticipants, loadUserRole } from '../store/actions/conversationActions';
 
 interface Message {
   id: string;
@@ -358,7 +360,19 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   // Character loading (hook handles loading from both built-in and database)
   const { availableCharacters, isLoadingCharacters } = useCharacterLoading();
   const [showChatHistory, setShowChatHistory] = useState(false); // Hidden by default
-  
+
+  // Landscape fullscreen mode - input visibility
+  const [landscapeInputVisible, setLandscapeInputVisible] = useState(false);
+  const landscapeInputAnim = useRef(new Animated.Value(0)).current;
+
+  // Collaboration panel state (compact button that expands)
+  const [showCollabOptions, setShowCollabOptions] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const { participants, userRole } = useSelector((state: RootState) => state.conversations);
+  const participantCount = conversationId ? (participants[conversationId]?.length || 1) : 1;
+  const isOwner = userRole === 'owner';
+
   // Toast state for character selection feedback
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -443,6 +457,32 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       setShowChatHistory(false);
     }
   }, [isMobileLandscape]);
+
+  // Landscape fullscreen: auto-hide input bar when entering landscape
+  useEffect(() => {
+    if (isMobileLandscape) {
+      setLandscapeInputVisible(false);
+    } else {
+      setLandscapeInputVisible(true);
+    }
+  }, [isMobileLandscape]);
+
+  // Animate input bar slide in/out for landscape mode
+  useEffect(() => {
+    Animated.timing(landscapeInputAnim, {
+      toValue: landscapeInputVisible ? 0 : 150, // 0 = visible, 150 = hidden (slide down)
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [landscapeInputVisible, landscapeInputAnim]);
+
+  // Load participants when conversation changes (for collaboration button)
+  useEffect(() => {
+    if (conversationId) {
+      dispatch(loadParticipants(conversationId) as any);
+      dispatch(loadUserRole(conversationId) as any);
+    }
+  }, [conversationId, dispatch]);
 
   // Fullscreen toggle - sets Redux state (MainTabs handles UI hiding)
   const toggleFullscreen = useCallback(() => {
@@ -550,15 +590,9 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     }
   }, [handleUserTyping, notifyUserResponse, currentStory]);
 
-  // Responsive calculations for bubbles & characters (hook handles all calculations)
+  // Responsive calculations for characters (simplified - bubbles handle their own sizing now)
   const {
-    bubbleMaxWidth,
-    bubbleMaxHeight,
-    bubbleWidthPercent,
     characterScaleFactor,
-    inputAreaHeight,
-    safeTopBoundary,
-    getBubbleTopOffset,
   } = useResponsiveCharacters({
     characterCount: selectedCharacters.length,
     screenWidth,
@@ -1568,10 +1602,10 @@ Each silence, a cathedral where you still reside.`;
       {!(isMobileLandscape && showChatHistory) && (
       <View style={[
         styles.characterDisplayContainer,
-        // In mobile landscape, take available space but cap at 35%
+        // In mobile landscape fullscreen: take full available height (no cap)
         // Otherwise use characterHeight (25-35% range, user can resize)
         isMobileLandscape
-          ? { flex: 1, maxHeight: screenHeight * CHARACTER_HEIGHT.MAX_PERCENT }
+          ? { flex: 1, height: '100%' }
           : { height: characterHeight }
       ]}>
         {/* Playback Control Buttons - Flex container for Replay and Stop/Play */}
@@ -1630,6 +1664,50 @@ Each silence, a cathedral where you still reside.`;
             );
           })()}
         </View>
+
+        {/* Collaboration Button - Right side, matching playback buttons style */}
+        {conversationId && (
+          <View style={styles.collabButtonsContainer}>
+            {showCollabOptions ? (
+              <>
+                {/* Expanded: Show all 3 options */}
+                <TouchableOpacity
+                  style={[styles.collabButton, styles.collabButtonActive]}
+                  onPress={() => setShowCollabOptions(false)}
+                >
+                  <Ionicons name="close" size={scaleValue(14, 20)} color="#fff" />
+                </TouchableOpacity>
+                {isOwner && (
+                  <TouchableOpacity
+                    style={styles.collabButton}
+                    onPress={() => { setShowInviteModal(true); setShowCollabOptions(false); }}
+                  >
+                    <Ionicons name="person-add" size={scaleValue(14, 20)} color="#a855f7" />
+                    <Text style={[styles.collabButtonText, { fontSize: scaleValue(11, 16) }]}>Invite</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={styles.collabButton}
+                  onPress={() => { setShowJoinModal(true); setShowCollabOptions(false); }}
+                >
+                  <Ionicons name="enter" size={scaleValue(14, 20)} color="#10b981" />
+                  <Text style={[styles.collabButtonText, { fontSize: scaleValue(11, 16), color: '#10b981' }]}>Join</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              /* Collapsed: Single button showing participant count */
+              <TouchableOpacity
+                style={styles.collabButton}
+                onPress={() => setShowCollabOptions(true)}
+              >
+                <Ionicons name="people" size={scaleValue(14, 20)} color="#a855f7" />
+                <Text style={[styles.collabButtonText, { fontSize: scaleValue(11, 16) }]}>
+                  {participantCount}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* User Speech Bubble - Shows user's message with typing animation */}
         {pendingUserMessage && (
@@ -1754,22 +1832,15 @@ Each silence, a cathedral where you still reside.`;
               const verticalPosition = Math.cos(angleRad) * 20 - bubbleSpaceOffset; // Center gets +20%, edges get less
               
               // Scale: CENTER is smaller (further away), EDGES are larger (closer)
-              // Base scale increased for closer camera view
+              // Single character gets full scale, multiple characters use perspective scaling
               // Apply characterScaleFactor to make characters smaller when there are more of them
-              const baseScale = 0.8 + (distanceFromCenter * 0.3); // Center: 0.8, Edges: 1.1
+              const baseScale = total === 1 ? 1.0 : (0.8 + (distanceFromCenter * 0.3)); // Single: 1.0, Multi center: 0.8, edges: 1.1
               const scale = baseScale * characterScaleFactor; // Scale down based on character count
               
               // Z-index: EDGES have higher z-index (in front), CENTER has lower (behind)
               const zIndex = Math.round(distanceFromCenter * 10);
               
-              // Determine speech bubble position based on character position in scene
-              // Characters on the left side of center get bubbles on their right, and vice versa
-              const bubblePosition = horizontalOffset < 0 ? 'right' : horizontalOffset > 0 ? 'left' : (index % 2 === 0 ? 'right' : 'left');
-              
-              // Center character (odd number of characters: 3 or 5) should have bubble above (like single character)
-              const isCenterCharacter = horizontalOffset === 0 && total > 1;
-              
-              // Get text for this character's speech bubble
+              // Get playback state for this character (used for animations and action text)
               const charPlaybackState = playbackState.characterStates.get(characterId);
               const usePlayback = playbackState.isPlaying && charPlaybackState;
               // Get text from playback (during animation) OR from last message (persistence)
@@ -1830,32 +1901,27 @@ Each silence, a cathedral where you still reside.`;
                     const isHovered = hoveredCharacterId === characterId;
                     const finalIsActive = (usePlayback && charPlaybackState?.isActive) || showEntranceAnimation || !!idleState;
                     return (
-                      <MemoizedCharacterDisplay3D
-                        character={character}
-                        isActive={finalIsActive}
-                        animation={finalAnimation}
-                        isTalking={usePlayback && charPlaybackState?.isTalking}
-                        complementary={finalComplementary}
-                        showName={isHovered}
-                        nameKey={nameKey}
-                      />
-                    );
-                  })()}
-                  {/* Speech Bubble - Simple text display */}
-                  {/* On mobile portrait with multiple characters, use the stacked bubbles above instead */}
-                  {(isMobileLandscape || !(isMobile && total > 1)) && (() => {
-                    const displayText = revealedText || '';
-                    if (!displayText) return null;
-
-                    return (
-                      <SimpleSpeechBubble
-                        text={displayText}
-                        characterName={character.name}
-                        characterColor={character.color}
-                        isVisible={displayText.length > 0}
-                        position={bubblePosition}
-                        widthPercent={bubbleWidthPercent}
-                      />
+                      <>
+                        {/* Speech bubble inside wrapper - inherits floating animation */}
+                        {(isMobileLandscape || !(isMobile && selectedCharacters.length > 1)) && revealedText && (
+                          <SimpleSpeechBubble
+                            text={revealedText}
+                            characterName={character.name}
+                            characterColor={character.color}
+                            isVisible={revealedText.length > 0}
+                            characterCount={total}
+                          />
+                        )}
+                        <MemoizedCharacterDisplay3D
+                          character={character}
+                          isActive={finalIsActive}
+                          animation={finalAnimation}
+                          isTalking={usePlayback && charPlaybackState?.isTalking}
+                          complementary={finalComplementary}
+                          showName={isHovered}
+                          nameKey={nameKey}
+                        />
+                      </>
                     );
                   })()}
                 </FloatingCharacterWrapper>
@@ -1958,6 +2024,26 @@ Each silence, a cathedral where you still reside.`;
         </TouchableOpacity>
       )}
 
+      {/* Landscape Floating Menu Button (top-right) */}
+      {isMobileLandscape && (
+        <TouchableOpacity
+          onPress={onToggleSidebar}
+          style={styles.landscapeMenuButton}
+        >
+          <Ionicons name="menu" size={20} color="#fff" />
+        </TouchableOpacity>
+      )}
+
+      {/* Landscape Floating Keyboard Button (bottom-center, when input is hidden) */}
+      {isMobileLandscape && !landscapeInputVisible && (
+        <TouchableOpacity
+          onPress={() => setLandscapeInputVisible(true)}
+          style={styles.landscapeKeyboardButton}
+        >
+          <Ionicons name="keypad" size={16} color="#fff" />
+        </TouchableOpacity>
+      )}
+
       {/* Fullscreen Toggle Button (web only) */}
       {Platform.OS === 'web' && (
         <View
@@ -1992,10 +2078,10 @@ Each silence, a cathedral where you still reside.`;
       )}
 
 
-      {/* Content area - always takes remaining space (eliminates need for spacer) */}
-      <View style={{ flex: 1 }}>
-        {/* Chat Messages - Only show when showChatHistory is true */}
-        {showChatHistory && (
+      {/* Content area - only takes flex space when chat history is shown and not in landscape */}
+      <View style={{ flex: (showChatHistory && !isMobileLandscape) ? 1 : 0 }}>
+        {/* Chat Messages - Only show when showChatHistory is true and not in mobile landscape */}
+        {showChatHistory && !isMobileLandscape && (
           <ScrollView
             ref={scrollViewRef}
             contentContainerStyle={styles.messagesContainer}
@@ -2132,14 +2218,28 @@ Each silence, a cathedral where you still reside.`;
         />
       )}
 
-      {/* Multi-user Collaboration Panel */}
-      {conversationId && (
-        <CollaborationPanel
-          conversationId={conversationId}
-        />
-      )}
-
-      <View style={[styles.inputContainer, { padding: screenWidth < 360 ? spacing.sm : spacing.md }]}>
+      <Animated.View style={[
+        styles.inputContainer,
+        { padding: screenWidth < 360 ? spacing.sm : spacing.md },
+        isMobileLandscape && {
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          transform: [{ translateY: landscapeInputAnim }],
+          backgroundColor: '#0f0f0f',
+          zIndex: 500,
+        }
+      ]}>
+        {/* Hide input button in landscape */}
+        {isMobileLandscape && landscapeInputVisible && (
+          <TouchableOpacity
+            onPress={() => setLandscapeInputVisible(false)}
+            style={styles.landscapeHideInputButton}
+          >
+            <Ionicons name="chevron-down" size={20} color="#a1a1aa" />
+          </TouchableOpacity>
+        )}
         {/* Recording Status & Live Transcript */}
         {(isRecording || liveTranscript || isTranscribing) && (
           <View style={[styles.recordingStatusContainer, { paddingHorizontal: screenWidth < 360 ? spacing.sm : spacing.md }]}>
@@ -2281,7 +2381,7 @@ Each silence, a cathedral where you still reside.`;
             })()}
           </View>
         </View>
-      </View>
+      </Animated.View>
     </KeyboardAvoidingView>
       {/* Toast - only show here when NOT in mobile stacked mode (toast is inside stacked container otherwise) */}
       {!(isMobile && selectedCharacters.length > 1 && !isMobileLandscape) && (
@@ -2311,6 +2411,18 @@ Each silence, a cathedral where you still reside.`;
           />
         );
       })()}
+
+      {/* Collaboration Modals */}
+      <InviteModal
+        visible={showInviteModal}
+        conversationId={conversationId || ''}
+        onClose={() => setShowInviteModal(false)}
+      />
+      <JoinConversation
+        visible={showJoinModal}
+        onClose={() => setShowJoinModal(false)}
+        onJoined={(joinedId) => setShowJoinModal(false)}
+      />
     </>
   );
 }
@@ -2400,6 +2512,58 @@ const styles = StyleSheet.create({
   landscapeToggleBadgeText: {
     color: '#5398BE',
     fontWeight: '700',
+  },
+  // Landscape Floating Menu Button (top-right)
+  landscapeMenuButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+  },
+  // Landscape Floating Keyboard Button (bottom-center, when input hidden)
+  landscapeKeyboardButton: {
+    position: 'absolute',
+    bottom: 12,
+    left: '50%',
+    marginLeft: -18,  // Half of width to center
+    backgroundColor: 'rgba(168, 85, 247, 0.8)',
+    borderRadius: 18,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 2px 8px rgba(168, 85, 247, 0.3)',
+      },
+      ios: {
+        shadowColor: '#a855f7',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  // Landscape Hide Input Button (chevron down)
+  landscapeHideInputButton: {
+    position: 'absolute',
+    top: -24,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(39, 39, 42, 0.9)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    zIndex: 501,
   },
   // Fullscreen Button Styles
   fullscreenButton: {
@@ -2843,6 +3007,34 @@ const styles = StyleSheet.create({
   },
   playbackButtonText: {
     fontWeight: '600',
+  },
+  // Collaboration buttons container (right side, mirrors playback buttons)
+  collabButtonsContainer: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    flexDirection: 'row',
+    gap: 6,
+    zIndex: 10,
+  },
+  collabButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(15, 15, 15, 0.9)',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#27272a',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  collabButtonActive: {
+    backgroundColor: '#a855f7',
+    borderColor: '#a855f7',
+  },
+  collabButtonText: {
+    fontWeight: '600',
+    color: '#a855f7',
   },
   characterSelectorBackdrop: {
     position: 'absolute',

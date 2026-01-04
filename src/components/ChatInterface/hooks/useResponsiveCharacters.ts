@@ -50,7 +50,7 @@ function getProportionalBubbleDimensions(
   const isMobileSize = screenWidth < BREAKPOINTS.tablet;
   const baseWidthPercent = isMobileSize
     ? (characterCount > 2 ? 0.28 : 0.35)
-    : (characterCount > 2 ? 0.20 : 0.25);
+    : (characterCount > 2 ? 0.28 : 0.38);
 
   const maxWidth = proportionalWidth(baseWidthPercent, screenWidth, 120);
 
