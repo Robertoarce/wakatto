@@ -25,11 +25,24 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.wakatto.app",
+      "buildNumber": "1",
       "icon": "./src/assets/images/icon.png",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Wakatto needs microphone access for voice conversations with your characters.",
         "NSSpeechRecognitionUsageDescription": "Wakatto uses speech recognition to transcribe your voice messages.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleAllowMixedLocalizations": true
+      },
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          }
+        ]
       }
     },
     "android": {

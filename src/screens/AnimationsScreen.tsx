@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Modal, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useResponsive } from '../constants/Layout';
 import {
@@ -19,8 +19,9 @@ import {
   VisualEffect,
   ModelStyle
 } from '../components/CharacterDisplay3D';
-import { getCharacter } from '../config/characters';
+import { getCharacter, CharacterBehavior } from '../config/characters';
 import { Card, Badge } from '../components/ui';
+import { useCharacterLoading } from '../components/ChatInterface/hooks/useCharacterLoading';
 
 // All available base animations
 const ALL_ANIMATIONS: { name: AnimationState; description: string; category: string }[] = [
@@ -145,8 +146,8 @@ const SPEED_PRESETS = [
   { value: 3.0, label: '3x', description: 'Ultra Fast' },
 ];
 
-// Available test characters
-const TEST_CHARACTERS = ['freud', 'jung', 'adler'];
+// Available preset characters (built-in only)
+const PRESET_CHARACTERS = ['freud', 'adler'];
 
 // 3D Model styles
 const MODEL_STYLES: { value: ModelStyle; label: string; icon: string }[] = [
@@ -226,6 +227,7 @@ interface AnimationsScreenProps {
 
 const AnimationsScreen = ({ onNavigateToChat }: AnimationsScreenProps): JSX.Element => {
   const { fonts, spacing, layout, isMobile, isTablet, width: screenWidth, height: screenHeight } = useResponsive();
+  const { availableCharacters, isLoadingCharacters } = useCharacterLoading();
 
   // Responsive layout calculations
   const isSmallScreen = isMobile || isTablet;
@@ -241,7 +243,7 @@ const AnimationsScreen = ({ onNavigateToChat }: AnimationsScreenProps): JSX.Elem
       padding: spacing.sm,
     },
     characterPreview: {
-      height: isSmallScreen ? Math.floor(screenHeight * 0.28) : Math.floor(screenHeight * 0.35),
+      height: isSmallScreen ? Math.floor(screenHeight * 0.40) : Math.floor(screenHeight * 0.50),
       borderRadius: spacing.sm,
       overflow: 'hidden' as const,
       backgroundColor: '#1a1a1a',
@@ -380,9 +382,14 @@ const AnimationsScreen = ({ onNavigateToChat }: AnimationsScreenProps): JSX.Elem
   // Base animation state
   const [currentAnimation, setCurrentAnimation] = useState<AnimationState>('idle');
   const [isTalking, setIsTalking] = useState(false);
-  const [selectedCharacter, setSelectedCharacter] = useState('freud');
+  const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null); // null = custom mode
+  const [customCharacterId, setCustomCharacterId] = useState<string>('freud'); // Default custom selection
+  const [showCustomPicker, setShowCustomPicker] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedModelStyle, setSelectedModelStyle] = useState<ModelStyle>('blocky');
+
+  // Get the actual character ID to display (custom or preset)
+  const activeCharacterId = selectedCharacter ?? customCharacterId;
 
   // Complementary animation state
   const [lookDirection, setLookDirection] = useState<LookDirection>('center');
@@ -399,10 +406,10 @@ const AnimationsScreen = ({ onNavigateToChat }: AnimationsScreenProps): JSX.Elem
   const [speed, setSpeed] = useState(1.0);
   const [effectColor, setEffectColor] = useState('#8b5cf6');
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState<'base' | 'complementary'>('base');
+  // Tab state - default to complementary
+  const [activeTab, setActiveTab] = useState<'base' | 'complementary'>('complementary');
 
-  const character = getCharacter(selectedCharacter);
+  const character = getCharacter(activeCharacterId);
   const categories = [...new Set(ALL_ANIMATIONS.map(a => a.category))];
   
   const filteredAnimations = selectedCategory
@@ -457,25 +464,13 @@ const AnimationsScreen = ({ onNavigateToChat }: AnimationsScreenProps): JSX.Elem
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={dynamicStyles.header}>
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={dynamicStyles.title}>🎬 Animation Tester</Text>
-            <Text style={dynamicStyles.subtitle}>
-              {ALL_ANIMATIONS.length} base animations + complementary layers
-            </Text>
-          </View>
-        </View>
-      </View>
-
       <View style={dynamicStyles.content}>
         {/* 3D Character Preview */}
         <View style={dynamicStyles.previewSection}>
           <Card variant="elevated" style={styles.previewCard}>
             <View style={dynamicStyles.characterPreview}>
               <CharacterDisplay3D
-                characterId={selectedCharacter}
+                characterId={activeCharacterId}
                 isActive={true}
                 animation={currentAnimation}
                 isTalking={isTalking}
@@ -519,7 +514,25 @@ const AnimationsScreen = ({ onNavigateToChat }: AnimationsScreenProps): JSX.Elem
             <View style={styles.characterSelector}>
               <Text style={dynamicStyles.selectorLabel}>Character:</Text>
               <View style={styles.characterButtons}>
-                {TEST_CHARACTERS.map((charId) => {
+                {/* Custom button (default) */}
+                <TouchableOpacity
+                  style={[
+                    styles.characterButton,
+                    selectedCharacter === null && styles.characterButtonActive,
+                    { borderColor: character?.color || '#8b5cf6' }
+                  ]}
+                  onPress={() => setShowCustomPicker(true)}
+                >
+                  <Text style={[
+                    dynamicStyles.characterButtonText,
+                    selectedCharacter === null && { color: character?.color || '#8b5cf6' }
+                  ]}>
+                    {selectedCharacter === null ? (character?.name || 'Custom') : 'Custom'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={12} color={selectedCharacter === null ? (character?.color || '#8b5cf6') : '#71717a'} />
+                </TouchableOpacity>
+                {/* Preset characters */}
+                {PRESET_CHARACTERS.map((charId) => {
                   const char = getCharacter(charId);
                   return (
                     <TouchableOpacity
@@ -540,37 +553,6 @@ const AnimationsScreen = ({ onNavigateToChat }: AnimationsScreenProps): JSX.Elem
                     </TouchableOpacity>
                   );
                 })}
-              </View>
-            </View>
-
-            {/* Test Idle Conversation Button */}
-            <View style={styles.characterSelector}>
-              <Text style={dynamicStyles.selectorLabel}>Idle Chat:</Text>
-              <View style={styles.characterButtons}>
-                <TouchableOpacity
-                  style={[
-                    styles.styleButton,
-                    styles.idleConversationButton,
-                  ]}
-                  onPress={() => {
-                    // Trigger idle conversation test
-                    const { getIdleConversationManager } = require('../services/idleConversationService');
-                    const manager = getIdleConversationManager();
-                    if (manager) {
-                      // Force trigger by simulating inactivity timeout
-                      console.log('[AnimationsScreen] Manually triggering idle conversation');
-                      manager.recordUserActivity(); // Reset first
-                      // Then immediately trigger via the internal method
-                      (manager as any).triggerIdleConversation?.();
-                    } else {
-                      console.log('[AnimationsScreen] No idle conversation manager - go to Home tab with 2+ characters');
-                      alert('Go to Home tab with 2+ characters selected to test idle conversations');
-                    }
-                  }}
-                >
-                  <Text style={dynamicStyles.styleIcon}>🗣️</Text>
-                  <Text style={dynamicStyles.characterButtonText}>Test Idle Chat</Text>
-                </TouchableOpacity>
               </View>
             </View>
 
@@ -693,22 +675,6 @@ const AnimationsScreen = ({ onNavigateToChat }: AnimationsScreenProps): JSX.Elem
               </>
             ) : (
               <>
-                {/* Test Speech Bubbles */}
-                <View style={styles.controlGroup}>
-                  <Text style={dynamicStyles.controlGroupTitle}>💬 Test Speech Bubbles</Text>
-                  <Text style={dynamicStyles.controlGroupSubtitle}>
-                    Test the speech bubble text wrapping with a poem
-                  </Text>
-
-                  <TouchableOpacity
-                    style={styles.testPoemButton}
-                    onPress={() => onNavigateToChat?.({ triggerTestPoem: true })}
-                  >
-                    <Ionicons name="play" size={20} color="#ffffff" />
-                    <Text style={dynamicStyles.testPoemButtonText}>Play Test Poem</Text>
-                  </TouchableOpacity>
-                </View>
-
                 {/* Speed Control */}
                 <View style={styles.controlGroup}>
                   <Text style={dynamicStyles.controlGroupTitle}>⏱️ Animation Speed</Text>
@@ -1142,6 +1108,58 @@ const AnimationsScreen = ({ onNavigateToChat }: AnimationsScreenProps): JSX.Elem
           </ScrollView>
         </View>
       </View>
+
+      {/* Custom Character Picker Modal */}
+      <Modal
+        visible={showCustomPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCustomPicker(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowCustomPicker(false)}
+        >
+          <View style={styles.pickerModal}>
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>Select Character</Text>
+              <TouchableOpacity onPress={() => setShowCustomPicker(false)}>
+                <Ionicons name="close" size={24} color="#71717a" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.pickerList} showsVerticalScrollIndicator={false}>
+              {availableCharacters.map((char) => (
+                <TouchableOpacity
+                  key={char.id}
+                  style={[
+                    styles.pickerItem,
+                    customCharacterId === char.id && styles.pickerItemActive
+                  ]}
+                  onPress={() => {
+                    setCustomCharacterId(char.id);
+                    setSelectedCharacter(null); // Switch to custom mode
+                    setShowCustomPicker(false);
+                  }}
+                >
+                  <View style={[styles.pickerColorDot, { backgroundColor: char.color }]} />
+                  <View style={styles.pickerItemText}>
+                    <Text style={[
+                      styles.pickerItemName,
+                      customCharacterId === char.id && { color: char.color }
+                    ]}>
+                      {char.name}
+                    </Text>
+                    <Text style={styles.pickerItemRole}>{char.role}</Text>
+                  </View>
+                  {customCharacterId === char.id && (
+                    <Ionicons name="checkmark-circle" size={20} color={char.color} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
@@ -1171,7 +1189,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   previewCard: {
-    padding: 12,
+    padding: 8,
   },
   stateInfo: {
     flexDirection: 'row',
@@ -1202,13 +1220,16 @@ const styles = StyleSheet.create({
   },
   characterButton: {
     flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    flexDirection: 'row',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
     borderRadius: 6,
     backgroundColor: '#27272a',
     borderWidth: 2,
     borderColor: '#3f3f46',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
   characterButtonActive: {
     backgroundColor: '#1e1b4b',
@@ -1237,12 +1258,6 @@ const styles = StyleSheet.create({
   styleButtonTextActive: {
     color: '#c4b5fd',
   },
-  styleIcon: {
-  },
-  idleConversationButton: {
-    backgroundColor: '#1a2e1a',
-    borderColor: '#22c55e',
-  },
   quickControls: {
     flexDirection: 'row',
     gap: 8,
@@ -1252,8 +1267,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
+    gap: 4,
+    paddingVertical: 6,
     borderRadius: 6,
     backgroundColor: '#27272a',
     borderWidth: 1,
@@ -1279,7 +1294,7 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 8,
     alignItems: 'center',
     borderRadius: 6,
   },
@@ -1305,9 +1320,9 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   categoryChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
     backgroundColor: '#27272a',
     borderWidth: 1,
     borderColor: '#3f3f46',
@@ -1332,8 +1347,8 @@ const styles = StyleSheet.create({
   animationCard: {
     flexBasis: '48%',
     flexGrow: 0,
-    padding: 12,
-    borderRadius: 8,
+    padding: 8,
+    borderRadius: 6,
     backgroundColor: '#171717',
     borderWidth: 2,
     borderColor: '#27272a',
@@ -1374,14 +1389,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   optionButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
     backgroundColor: '#27272a',
     borderWidth: 2,
     borderColor: '#27272a',
     alignItems: 'center',
-    minWidth: 80,
+    justifyContent: 'center',
+    minWidth: 65,
+    minHeight: 44,
   },
   optionButtonActive: {
     borderColor: '#8b5cf6',
@@ -1426,8 +1443,8 @@ const styles = StyleSheet.create({
   presetButton: {
     flexBasis: '30%',
     flexGrow: 0,
-    padding: 12,
-    borderRadius: 10,
+    padding: 8,
+    borderRadius: 8,
     backgroundColor: '#27272a',
     alignItems: 'center',
     borderWidth: 1,
@@ -1459,6 +1476,67 @@ const styles = StyleSheet.create({
   testPoemButtonText: {
     fontWeight: '600',
     color: '#ffffff',
+  },
+  // Modal styles for character picker
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pickerModal: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    width: '85%',
+    maxWidth: 400,
+    maxHeight: '70%',
+    borderWidth: 1,
+    borderColor: '#27272a',
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#27272a',
+  },
+  pickerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  pickerList: {
+    padding: 8,
+  },
+  pickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 4,
+  },
+  pickerItemActive: {
+    backgroundColor: '#27272a',
+  },
+  pickerColorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 12,
+  },
+  pickerItemText: {
+    flex: 1,
+  },
+  pickerItemName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#e4e4e7',
+  },
+  pickerItemRole: {
+    fontSize: 11,
+    color: '#71717a',
+    marginTop: 2,
   },
 });
 

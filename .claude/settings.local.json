@@ -132,7 +132,8 @@
       "Bash(yarn install:*)",
       "Bash(npx expo-doctor)",
       "Bash(npm ls:*)",
-      "Bash(npx supabase@latest:*)"
+      "Bash(npx supabase@latest:*)",
+      "Bash(npm run web:dev:*)"
     ],
     "deny": [],
     "ask": []

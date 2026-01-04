@@ -212,7 +212,8 @@ const Character = React.memo(function Character({ character, isActive, animation
   }, [animation]);
 
   // Transition speed (higher = faster transitions)
-  const transitionSpeed = LERP_SPEED.slow;
+  // Use faster speed for more responsive complementary animations
+  const transitionSpeed = LERP_SPEED.normal;
 
   // Animation system with frame throttling for performance
   React.useEffect(() => {
@@ -2665,8 +2666,21 @@ const Character = React.memo(function Character({ character, isActive, animation
     prev.scale === next.scale &&
     prev.positionX === next.positionX &&
     prev.positionY === next.positionY &&
-    prev.positionZ === next.positionZ
-    // complementary changes are handled via refs, no need to compare
+    prev.positionZ === next.positionZ &&
+    // Complementary properties - all need comparison for proper updates
+    prev.complementary?.mouthState === next.complementary?.mouthState &&
+    prev.complementary?.effect === next.complementary?.effect &&
+    prev.complementary?.effectColor === next.complementary?.effectColor &&
+    prev.complementary?.eyeState === next.complementary?.eyeState &&
+    prev.complementary?.eyebrowState === next.complementary?.eyebrowState &&
+    prev.complementary?.lookDirection === next.complementary?.lookDirection &&
+    prev.complementary?.headStyle === next.complementary?.headStyle &&
+    prev.complementary?.faceState === next.complementary?.faceState &&
+    prev.complementary?.noseState === next.complementary?.noseState &&
+    prev.complementary?.cheekState === next.complementary?.cheekState &&
+    prev.complementary?.foreheadState === next.complementary?.foreheadState &&
+    prev.complementary?.jawState === next.complementary?.jawState &&
+    prev.complementary?.speed === next.complementary?.speed
   );
 });
 

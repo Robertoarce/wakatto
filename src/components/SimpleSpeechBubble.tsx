@@ -21,6 +21,10 @@ interface SimpleSpeechBubbleProps {
   isMobileStacked?: boolean;
   // Total number of characters - used to limit bubble width and prevent overlap
   characterCount?: number;
+  // For chunked responses - which chunk this is (0-indexed)
+  chunkIndex?: number;
+  // Total number of chunks in the response
+  totalChunks?: number;
 }
 
 export function SimpleSpeechBubble({
@@ -31,6 +35,8 @@ export function SimpleSpeechBubble({
   maxLines = 4,
   isMobileStacked = false,
   characterCount = 1,
+  chunkIndex = 0,
+  totalChunks = 1,
 }: SimpleSpeechBubbleProps) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const {
@@ -40,14 +46,22 @@ export function SimpleSpeechBubble({
     isMobile,
   } = useResponsive();
 
+  // Single character mode: wider bubbles, more screen real estate
+  const isSingleCharacter = characterCount === 1;
+
   // Calculate max bubble width based on character count to prevent overlap
   // Each character gets an equal slice of screen width, bubble uses 85% of that slice
   const sliceWidth = screenWidth / Math.max(1, characterCount);
   const maxSliceUsage = 0.85; // Use 85% of character's allocated space
-  const absoluteMaxWidth = 350; // Cap for readability
+
+  // Wider limits for single character
+  const absoluteMaxWidth = isSingleCharacter ? 500 : 350;
 
   // Final bubble width: min of (slice limit, absolute max, percentage of screen)
-  const bubbleWidthPercent = isMobile ? 0.38 : 0.28;
+  // Wider percentage for single character
+  const bubbleWidthPercent = isSingleCharacter
+    ? (isMobile ? 0.5 : 0.4)
+    : (isMobile ? 0.38 : 0.28);
   const bubbleWidth = Math.min(
     sliceWidth * maxSliceUsage,
     absoluteMaxWidth,
@@ -83,6 +97,10 @@ export function SimpleSpeechBubble({
   const usableWidth = finalWidth - (paddingH * 2);
   const charsPerLine = Math.max(20, Math.floor(usableWidth / avgCharWidth));
 
+  // For single character, allow very tall bubbles (no practical limit)
+  // For multiple characters, keep the original limit
+  const effectiveMaxLines = isSingleCharacter ? 50 : maxLines;
+
   // Simple word wrap function
   const wrapText = (str: string, maxChars: number): string[] => {
     const words = str.split(' ');
@@ -100,7 +118,8 @@ export function SimpleSpeechBubble({
     if (currentLine) lines.push(currentLine);
 
     // Show last N lines (scrolling effect for long text)
-    return lines.slice(-maxLines);
+    // Single character allows much more height
+    return lines.slice(-effectiveMaxLines);
   };
 
   const lines = wrapText(text, charsPerLine);
@@ -134,7 +153,17 @@ export function SimpleSpeechBubble({
     );
   }
 
-  // Floating layout - centered within wrapper (inherits floating animation)
+  // Floating layout - positioned within wrapper (inherits floating animation)
+  // Single character: offset to the right of center
+  // Multiple characters: centered
+  const horizontalPosition = isSingleCharacter ? '65%' : '50%';
+
+  // For chunked responses, stack bubbles vertically
+  // Each chunk appears higher up (negative = up)
+  const baseTop = -20;
+  const chunkSpacing = 80; // Space between chunks
+  const chunkVerticalOffset = chunkIndex * -chunkSpacing;
+
   return (
     <Animated.View
       style={[
@@ -146,8 +175,10 @@ export function SimpleSpeechBubble({
           borderRadius: borderRadius.lg,
           paddingHorizontal: paddingH,
           paddingVertical: paddingV,
-          // Center within the wrapper
-          left: '50%',
+          // Position horizontally - right of center for single character
+          left: horizontalPosition,
+          // Stack chunks vertically
+          top: baseTop + chunkVerticalOffset,
           transform: [{ translateX: -finalWidth / 2 }],
         },
       ]}
@@ -167,7 +198,7 @@ export function SimpleSpeechBubble({
 const styles = StyleSheet.create({
   bubble: {
     position: 'absolute',
-    top: -20,  // Higher above the character
+    // top is calculated dynamically based on chunkIndex
     backgroundColor: 'rgba(30, 30, 40, 0.85)',
     borderWidth: 2,
     zIndex: 100,

@@ -123,6 +123,27 @@ type IdleAnimationState = ExtractedIdleAnimationState;
 const getRandomIdleAnimation = getRandomIdleAnimationUtil;
 const getRandomIdleInterval = getRandomIdleIntervalUtil;
 
+// Split text into chunks for multiple speech bubbles
+const splitIntoChunks = (text: string, maxChars: number = 250): string[] => {
+  if (!text || text.length <= maxChars) return text ? [text] : [];
+
+  const chunks: string[] = [];
+  // Split on sentence boundaries
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  let currentChunk = '';
+
+  for (const sentence of sentences) {
+    if ((currentChunk + sentence).length > maxChars && currentChunk) {
+      chunks.push(currentChunk.trim());
+      currentChunk = sentence;
+    } else {
+      currentChunk += (currentChunk ? ' ' : '') + sentence;
+    }
+  }
+  if (currentChunk) chunks.push(currentChunk.trim());
+  return chunks;
+};
+
 // Shallow compare ComplementaryAnimation objects (all props are primitives)
 const shallowCompareComplementary = (
   prev: typeof CharacterDisplay3D extends React.ComponentType<infer P> ? P['complementary'] : never,
@@ -1900,17 +1921,25 @@ Each silence, a cathedral where you still reside.`;
                     
                     const isHovered = hoveredCharacterId === characterId;
                     const finalIsActive = (usePlayback && charPlaybackState?.isActive) || showEntranceAnimation || !!idleState;
+                    // Split text into chunks for multiple bubbles (only for single character)
+                    const textChunks = total === 1 ? splitIntoChunks(revealedText, 250) : [revealedText];
+
                     return (
                       <>
-                        {/* Speech bubble inside wrapper - inherits floating animation */}
+                        {/* Speech bubbles inside wrapper - inherits floating animation */}
                         {(isMobileLandscape || !(isMobile && selectedCharacters.length > 1)) && revealedText && (
-                          <SimpleSpeechBubble
-                            text={revealedText}
-                            characterName={character.name}
-                            characterColor={character.color}
-                            isVisible={revealedText.length > 0}
-                            characterCount={total}
-                          />
+                          textChunks.map((chunk, chunkIndex) => (
+                            <SimpleSpeechBubble
+                              key={`bubble-${characterId}-${chunkIndex}`}
+                              text={chunk}
+                              characterName={character.name}
+                              characterColor={character.color}
+                              isVisible={chunk.length > 0}
+                              characterCount={total}
+                              chunkIndex={chunkIndex}
+                              totalChunks={textChunks.length}
+                            />
+                          ))
                         )}
                         <MemoizedCharacterDisplay3D
                           character={character}
@@ -2353,18 +2382,6 @@ Each silence, a cathedral where you still reside.`;
               const iconSize = scaleValue(14, 24);
               return (
                 <>
-                  <TouchableOpacity
-                    onPress={toggleRecording}
-                    disabled={isTranscribing}
-                    style={[
-                      styles.iconButton,
-                      isRecording ? styles.recordButtonActive : styles.recordButtonInactive,
-                      isTranscribing && styles.buttonDisabled,
-                      { width: buttonSize, height: buttonSize, minWidth: buttonSize, minHeight: buttonSize }
-                    ]}
-                  >
-                    {isRecording ? <MaterialCommunityIcons name="microphone-off" size={iconSize} color="white" /> : <MaterialCommunityIcons name="microphone" size={iconSize} color="#a1a1aa" />}
-                  </TouchableOpacity>
                   {/* TTS Toggle Button */}
                   {isTTSSupported && (
                     <TouchableOpacity
