@@ -1598,8 +1598,8 @@ Each silence, a cathedral where you still reside.`;
         keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
         onLayout={handleContainerLayout}
       >
-      {/* 3D Character Display - Hidden in landscape when chat history is shown */}
-      {!(isMobileLandscape && showChatHistory) && (
+      {/* 3D Character Display - Hidden when chat history is shown */}
+      {!showChatHistory && (
       <View style={[
         styles.characterDisplayContainer,
         // In mobile landscape fullscreen: take full available height (no cap)
@@ -1665,8 +1665,8 @@ Each silence, a cathedral where you still reside.`;
           })()}
         </View>
 
-        {/* Collaboration Button - Right side, matching playback buttons style */}
-        {conversationId && (
+        {/* Collaboration Button - Right side, matching playback buttons style (hidden in landscape - uses bottom bar) */}
+        {conversationId && !isMobileLandscape && (
           <View style={styles.collabButtonsContainer}>
             {showCollabOptions ? (
               <>
@@ -1734,8 +1734,8 @@ Each silence, a cathedral where you still reside.`;
           </View>
         )}
 
-        {/* Mobile Speech Bubble Stack - 40% of screen height */}
-        {isMobile && selectedCharacters.length > 1 && !isMobileLandscape && (
+        {/* Mobile Speech Bubble Stack - 40% of screen height, hidden when chat history shown */}
+        {isMobile && selectedCharacters.length > 1 && !isMobileLandscape && !showChatHistory && (
           <View style={[styles.mobileBubbleStackContainer, { maxHeight: screenHeight * 0.4 }]}>
             <ScrollView
               style={styles.mobileBubbleStack}
@@ -1983,47 +1983,6 @@ Each silence, a cathedral where you still reside.`;
       </View>
       )}
 
-      {/* Mobile Landscape Toggle - Prominent floating button */}
-      {isMobileLandscape && (
-        <TouchableOpacity
-          onPress={() => setShowChatHistory(!showChatHistory)}
-          style={[
-            styles.landscapeToggleButton,
-            showChatHistory && styles.landscapeToggleButtonActive,
-            {
-              paddingHorizontal: scaleValue(12, 24),
-              paddingVertical: scaleValue(8, 16),
-              gap: scaleValue(6, 12),
-              borderRadius: scaleValue(18, 32),
-            }
-          ]}
-        >
-          <Ionicons
-            name={showChatHistory ? "people" : "chatbubbles"}
-            size={scaleValue(18, 32)}
-            color="#ffffff"
-          />
-          <Text style={[styles.landscapeToggleText, { fontSize: fonts.sm }]}>
-            {showChatHistory ? 'Characters' : 'Chat'}
-          </Text>
-          {!showChatHistory && messages.length > 0 && (
-            <View style={[
-              styles.landscapeToggleBadge,
-              {
-                minWidth: scaleValue(18, 28),
-                height: scaleValue(18, 28),
-                borderRadius: scaleValue(9, 14),
-                paddingHorizontal: scaleValue(5, 9),
-              }
-            ]}>
-              <Text style={[styles.landscapeToggleBadgeText, { fontSize: fonts.xs }]}>
-                {messages.length > 99 ? '99+' : messages.length}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      )}
-
       {/* Landscape Floating Menu Button (top-right) */}
       {isMobileLandscape && (
         <TouchableOpacity
@@ -2034,14 +1993,88 @@ Each silence, a cathedral where you still reside.`;
         </TouchableOpacity>
       )}
 
-      {/* Landscape Floating Keyboard Button (bottom-center, when input is hidden) */}
-      {isMobileLandscape && !landscapeInputVisible && (
-        <TouchableOpacity
-          onPress={() => setLandscapeInputVisible(true)}
-          style={styles.landscapeKeyboardButton}
-        >
-          <Ionicons name="keypad" size={16} color="#fff" />
-        </TouchableOpacity>
+      {/* Landscape Bottom Bar - Replay, Keyboard, Chat Toggle, Collab buttons */}
+      {isMobileLandscape && (
+        <View style={styles.landscapeBottomBar}>
+          {/* Replay Button */}
+          <TouchableOpacity
+            style={styles.landscapeBottomButton}
+            onPress={handleReplay}
+          >
+            <Ionicons name="refresh" size={18} color="#3b82f6" />
+          </TouchableOpacity>
+
+          {/* Keyboard Button */}
+          {!landscapeInputVisible && (
+            <TouchableOpacity
+              style={styles.landscapeBottomButton}
+              onPress={() => setLandscapeInputVisible(true)}
+            >
+              <Ionicons name="keypad" size={18} color="#a855f7" />
+            </TouchableOpacity>
+          )}
+
+          {/* Chat Toggle Button */}
+          <TouchableOpacity
+            style={[
+              styles.landscapeBottomButton,
+              showChatHistory && styles.landscapeBottomButtonActive
+            ]}
+            onPress={() => setShowChatHistory(!showChatHistory)}
+          >
+            <Ionicons
+              name={showChatHistory ? "people" : "chatbubbles"}
+              size={18}
+              color={showChatHistory ? "#fff" : "#5398BE"}
+            />
+            {!showChatHistory && messages.length > 0 && (
+              <View style={styles.landscapeBottomBadge}>
+                <Text style={styles.landscapeBottomBadgeText}>
+                  {messages.length > 99 ? '99+' : messages.length}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {/* Collab/Sharing Buttons - Expandable inline */}
+          {conversationId && (
+            showCollabOptions ? (
+              <>
+                {/* Close button */}
+                <TouchableOpacity
+                  style={[styles.landscapeBottomButton, styles.landscapeBottomButtonActive]}
+                  onPress={() => setShowCollabOptions(false)}
+                >
+                  <Ionicons name="close" size={18} color="#fff" />
+                </TouchableOpacity>
+                {/* Invite button (owner only) */}
+                {isOwner && (
+                  <TouchableOpacity
+                    style={styles.landscapeBottomButton}
+                    onPress={() => { setShowInviteModal(true); setShowCollabOptions(false); }}
+                  >
+                    <Ionicons name="person-add" size={18} color="#a855f7" />
+                  </TouchableOpacity>
+                )}
+                {/* Join button */}
+                <TouchableOpacity
+                  style={styles.landscapeBottomButton}
+                  onPress={() => { setShowJoinModal(true); setShowCollabOptions(false); }}
+                >
+                  <Ionicons name="enter" size={18} color="#10b981" />
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity
+                style={styles.landscapeBottomButton}
+                onPress={() => setShowCollabOptions(true)}
+              >
+                <Ionicons name="people" size={18} color="#10b981" />
+                <Text style={styles.landscapeBottomBadgeText}>{participantCount}</Text>
+              </TouchableOpacity>
+            )
+          )}
+        </View>
       )}
 
       {/* Fullscreen Toggle Button (web only) */}
@@ -2078,10 +2111,10 @@ Each silence, a cathedral where you still reside.`;
       )}
 
 
-      {/* Content area - only takes flex space when chat history is shown and not in landscape */}
-      <View style={{ flex: (showChatHistory && !isMobileLandscape) ? 1 : 0 }}>
-        {/* Chat Messages - Only show when showChatHistory is true and not in mobile landscape */}
-        {showChatHistory && !isMobileLandscape && (
+      {/* Content area - takes flex space when chat history is shown */}
+      <View style={{ flex: showChatHistory ? 1 : 0 }}>
+        {/* Chat Messages - Show when showChatHistory is true */}
+        {showChatHistory && (
           <ScrollView
             ref={scrollViewRef}
             contentContainerStyle={styles.messagesContainer}
@@ -2464,11 +2497,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#5398BE',
     borderColor: '#5398BE',
   },
-  // Mobile Landscape Toggle Button Styles
+  // Mobile Landscape Toggle Button Styles (bottom-right, next to keyboard)
   landscapeToggleButton: {
     position: 'absolute',
-    bottom: 100,
-    right: 16,
+    bottom: 12,
+    right: 30,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -2526,7 +2559,52 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 1000,
   },
-  // Landscape Floating Keyboard Button (bottom-center, when input hidden)
+  // Landscape Bottom Bar - horizontal flex for all action buttons
+  landscapeBottomBar: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(23, 23, 23, 0.9)',
+    borderRadius: 24,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    zIndex: 1000,
+  },
+  landscapeBottomButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(39, 39, 42, 0.8)',
+    borderRadius: 16,
+    width: 36,
+    height: 36,
+    paddingHorizontal: 8,
+  },
+  landscapeBottomButtonActive: {
+    backgroundColor: '#5398BE',
+  },
+  landscapeBottomBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#ef4444',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  landscapeBottomBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  // Landscape Floating Keyboard Button (bottom-center, when input hidden) - LEGACY, kept for reference
   landscapeKeyboardButton: {
     position: 'absolute',
     bottom: 12,
