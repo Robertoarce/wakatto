@@ -9,8 +9,35 @@
  */
 
 import React, { useRef, useEffect } from 'react';
-import { Animated, Text, StyleSheet, Platform } from 'react-native';
+import { Animated, Text, View, StyleSheet, Platform } from 'react-native';
 import { useResponsive } from '../constants/Layout';
+
+// Parse text to separate regular text from *action* text
+type TextPart = { type: 'text' | 'action'; content: string };
+
+function parseActionText(text: string): TextPart[] {
+  const parts: TextPart[] = [];
+  const regex = /(\*[^*]+\*)/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    // Add text before the match
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', content: text.slice(lastIndex, match.index) });
+    }
+    // Add the action (including asterisks)
+    parts.push({ type: 'action', content: match[1] });
+    lastIndex = regex.lastIndex;
+  }
+
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push({ type: 'text', content: text.slice(lastIndex) });
+  }
+
+  return parts;
+}
 
 interface SimpleSpeechBubbleProps {
   text: string;
@@ -92,6 +119,9 @@ export function SimpleSpeechBubble({
   // Don't render if no text
   if (!text) return null;
 
+  // Strip action text from bubble display (actions shown separately near character)
+  const strippedText = text.replace(/\*[^*]+\*/g, '').replace(/\s+/g, ' ').trim();
+
   // Calculate characters per line for word wrap
   const avgCharWidth = textFontSize * 0.55;
   const usableWidth = finalWidth - (paddingH * 2);
@@ -122,7 +152,7 @@ export function SimpleSpeechBubble({
     return lines.slice(-effectiveMaxLines);
   };
 
-  const lines = wrapText(text, charsPerLine);
+  const lines = wrapText(strippedText || text, charsPerLine);
 
   // Mobile stacked layout (relative positioning)
   if (isMobileStacked) {
@@ -195,6 +225,12 @@ export function SimpleSpeechBubble({
   );
 }
 
+// Export helper to extract action text from a string
+export function extractActionText(text: string): string[] {
+  const matches = text.match(/\*[^*]+\*/g);
+  return matches || [];
+}
+
 const styles = StyleSheet.create({
   bubble: {
     position: 'absolute',
@@ -218,6 +254,22 @@ const styles = StyleSheet.create({
   text: {
     fontFamily: 'Inter-Regular',
     color: '#ffffff',
+  },
+  actionText: {
+    fontFamily: 'Inter-Bold',
+    color: '#ffffff',
+    fontStyle: 'italic',
+    ...Platform.select({
+      web: {
+        display: 'inline-block',
+        transform: 'rotate(-50deg)',
+        transformOrigin: 'center',
+        marginHorizontal: 4,
+      } as any,
+      default: {
+        // Native doesn't support inline rotation well
+      },
+    }),
   },
 });
 

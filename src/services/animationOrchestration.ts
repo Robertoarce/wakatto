@@ -289,28 +289,297 @@ export const EXPRESSION_PRESETS: Record<string, ExpressionPreset> = {
   whatever: { ey: 'half_closed', eb: 'normal', m: 'slight_smile' },
   side_eye: { ey: 'narrow', eb: 'one_raised', m: 'closed' },
   deadpan: { ey: 'half_closed', eb: 'normal', m: 'closed' },
+
+  // Confident/Assertive
+  confident: { ey: 'soft', eb: 'slightly_raised', m: 'slight_smile', fh: 'raised' },
+  defiant: { ey: 'narrow', eb: 'furrowed', m: 'tense', j: 'protruding', fh: 'tense' },
+  triumphant: { ey: 'wide', eb: 'raised', m: 'big_grin', ck: 'flushed' },
+  cocky: { ey: 'half_closed', eb: 'one_raised', m: 'smirk', fh: 'raised' },
+  superior: { ey: 'half_closed', eb: 'raised', m: 'slight_smile' },
+
+  // Threatening/Dark
+  threatening: { ey: 'narrow', eb: 'deeply_furrowed', m: 'tense', fc: 'shadow_face', j: 'clenched' },
+  sinister: { ey: 'narrow', eb: 'furrowed', m: 'smirk', fc: 'shadow_face' },
+  menacing: { ey: 'wide', eb: 'furrowed', m: 'teeth_showing', fc: 'shadow_face', j: 'clenched' },
+  vengeful: { ey: 'narrow', eb: 'deeply_furrowed', m: 'grimace', fc: 'anger_vein', n: 'flared' },
+  intimidating: { ey: 'narrow', eb: 'furrowed', m: 'closed', fh: 'tense', j: 'clenched' },
+
+  // Romantic/Flirty
+  flirty: { ey: 'wink_left', eb: 'one_raised', m: 'smirk', ck: 'flushed' },
+  longing: { ey: 'soft', eb: 'sad', m: 'slight_smile', fc: 'heart_eyes' },
+  seductive: { ey: 'half_closed', eb: 'relaxed_upward', m: 'smirk', ck: 'flushed' },
+  adoring: { ey: 'soft', eb: 'relaxed_upward', m: 'smile', fc: 'heart_eyes', ck: 'flushed' },
+  swooning: { ey: 'closed', eb: 'relaxed_upward', m: 'smile', fc: 'heart_eyes', ck: 'flushed' },
+
+  // Distress/Pain
+  heartbroken: { ey: 'tearful', eb: 'sad', m: 'pout', fc: 'tears', ck: 'sunken' },
+  devastated: { ey: 'tearful', eb: 'worried', m: 'grimace', fc: 'tears' },
+  desperate: { ey: 'wide', eb: 'worried', m: 'open', fc: 'sweat_drop', fh: 'wrinkled' },
+  pleading: { ey: 'tearful', eb: 'worried', m: 'pout', fh: 'wrinkled' },
+  horrified: { ey: 'wide', eb: 'arched_high', m: 'o_shape', fc: 'sweat_drop', j: 'slack' },
+  terrified: { ey: 'wide', eb: 'raised', m: 'o_shape', fc: 'sweat_drop', n: 'twitching' },
+  pained: { ey: 'closed', eb: 'furrowed', m: 'grimace', fh: 'wrinkled', j: 'clenched' },
+
+  // Disgust/Disapproval
+  disgusted: { ey: 'narrow', eb: 'furrowed', m: 'grimace', n: 'wrinkled', ck: 'sunken' },
+  repulsed: { ey: 'half_closed', eb: 'furrowed', m: 'pout', n: 'wrinkled' },
+  contempt: { ey: 'half_closed', eb: 'one_raised', m: 'smirk', n: 'wrinkled' },
+  disdain: { ey: 'narrow', eb: 'raised', m: 'pursed', fh: 'raised' },
+
+  // Extreme emotions
+  ecstatic: { ey: 'wide', eb: 'raised', m: 'big_grin', fc: 'sparkle_eyes', ck: 'flushed' },
+  hysterical: { ey: 'wide', eb: 'raised', m: 'big_grin', fc: 'tears' },
+  enraged: { ey: 'wide', eb: 'deeply_furrowed', m: 'teeth_showing', fc: 'anger_vein', n: 'flared', j: 'clenched' },
+  panicked: { ey: 'wide', eb: 'arched_high', m: 'o_shape', fc: 'sweat_drop', n: 'twitching', fh: 'wrinkled' },
+  manic: { ey: 'wide', eb: 'raised', m: 'big_grin', n: 'twitching' },
+  deranged: { ey: 'wide', eb: 'asymmetrical', m: 'teeth_showing', fc: 'spiral_eyes' },
+
+  // Subtle/Complex
+  suspicious: { ey: 'narrow', eb: 'one_raised', m: 'pursed', fh: 'wrinkled' },
+  intrigued: { ey: 'wide', eb: 'one_raised', m: 'slight_smile' },
+  wistful: { ey: 'soft', eb: 'sad', m: 'slight_smile' },
+  melancholic: { ey: 'half_closed', eb: 'sad', m: 'slight_smile', ck: 'sunken' },
+  nostalgic: { ey: 'soft', eb: 'relaxed_upward', m: 'slight_smile' },
+  indifferent: { ey: 'half_closed', eb: 'normal', m: 'closed' },
+  resigned: { ey: 'half_closed', eb: 'sad', m: 'slight_smile', fh: 'wrinkled' },
+  conflicted: { ey: 'soft', eb: 'worried', m: 'tense', fh: 'wrinkled' },
+
+  // Surprise variations
+  stunned: { ey: 'wide', eb: 'raised', m: 'open', j: 'slack' },
+  bewildered: { ey: 'wide', eb: 'asymmetrical', m: 'open', fh: 'wrinkled' },
+  astonished: { ey: 'wide', eb: 'arched_high', m: 'o_shape', fc: 'sparkle_eyes' },
+  dumbfounded: { ey: 'wide', eb: 'raised', m: 'o_shape', j: 'slack', fh: 'wrinkled' },
+
+  // Physical states
+  exhausted: { ey: 'half_closed', eb: 'sad', m: 'open', j: 'slack', ck: 'sunken' },
+  dizzy: { ey: 'half_closed', eb: 'worried', fc: 'spiral_eyes' },
+  sick: { ey: 'half_closed', eb: 'worried', m: 'grimace', ck: 'sunken', fc: 'sweat_drop' },
+  drunk: { ey: 'half_closed', eb: 'relaxed_upward', m: 'big_grin', ck: 'flushed' },
+
+  // Innocent/Cute
+  innocent: { ey: 'wide', eb: 'slightly_raised', m: 'slight_smile', ck: 'flushed' },
+  puppy_eyes: { ey: 'tearful', eb: 'worried', m: 'pout', fc: 'sparkle_eyes' },
+  pouting: { ey: 'half_closed', eb: 'sad', m: 'pout', ck: 'puffed' },
+  uwu: { ey: 'closed', eb: 'relaxed_upward', m: 'smile', ck: 'flushed' },
 };
 
 export type ExpressionName = keyof typeof EXPRESSION_PRESETS;
 
 /**
- * Get list of valid expression names for LLM prompt
+ * Expression aliases - maps synonyms and variations to canonical expression names
+ * Helps LLMs match expressions even when they hallucinate or use natural language
+ */
+export const EXPRESSION_ALIASES: Record<string, string> = {
+  // Happy variants → happy/joyful
+  glad: 'happy',
+  cheerful: 'happy',
+  content: 'happy',
+  pleased: 'happy',
+  delighted: 'joyful',
+  elated: 'joyful',
+  overjoyed: 'ecstatic',
+  thrilled: 'ecstatic',
+  blissful: 'ecstatic',
+
+  // Sad variants → sad
+  unhappy: 'sad',
+  sorrowful: 'sad',
+  melancholy: 'melancholic',
+  gloomy: 'melancholic',
+  depressed: 'devastated',
+  miserable: 'devastated',
+  grief: 'heartbroken',
+  grieving: 'heartbroken',
+
+  // Angry variants → angry/enraged
+  mad: 'angry',
+  furious: 'enraged',
+  irate: 'enraged',
+  livid: 'enraged',
+  outraged: 'enraged',
+  annoying: 'annoyed',
+  irritated: 'annoyed',
+  aggravated: 'frustrated',
+
+  // Fear variants → terrified/nervous
+  scared: 'terrified',
+  afraid: 'terrified',
+  frightened: 'terrified',
+  fearful: 'terrified',
+  spooked: 'nervous',
+  anxious: 'nervous',
+  uneasy: 'nervous',
+  apprehensive: 'worried',
+  concerned: 'worried',
+
+  // Surprise variants → surprised/shocked
+  astonished: 'shocked',
+  startled: 'surprised',
+  flabbergasted: 'dumbfounded',
+  speechless: 'stunned',
+
+  // Confused variants → confused/bewildered
+  puzzled: 'confused',
+  perplexed: 'confused',
+  baffled: 'bewildered',
+  lost: 'confused',
+  uncertain: 'confused',
+
+  // Thinking variants → thoughtful
+  pondering: 'thoughtful',
+  contemplating: 'thoughtful',
+  considering: 'thoughtful',
+  reflecting: 'thoughtful',
+  wondering: 'curious',
+  inquisitive: 'curious',
+  interested: 'intrigued',
+  fascinated: 'intrigued',
+
+  // Smug/confident variants → smug/confident
+  arrogant: 'superior',
+  haughty: 'superior',
+  self_satisfied: 'smug',
+  sly: 'mischievous',
+  cunning: 'mischievous',
+  devious: 'mischievous',
+  sneaky: 'mischievous',
+
+  // Embarrassed variants → embarrassed/shy
+  ashamed: 'embarrassed',
+  humiliated: 'embarrassed',
+  flustered: 'embarrassed',
+  bashful: 'shy',
+  timid: 'shy',
+
+  // Tired variants → sleepy/exhausted
+  tired: 'sleepy',
+  drowsy: 'sleepy',
+  fatigued: 'exhausted',
+  weary: 'exhausted',
+  drained: 'exhausted',
+
+  // Love variants → loving/adoring
+  smitten: 'loving',
+  infatuated: 'loving',
+  enchanted: 'loving',
+  charmed: 'adoring',
+  romantic: 'flirty',
+  attracted: 'flirty',
+
+  // Disgust variants → disgusted
+  grossed_out: 'disgusted',
+  revolted: 'repulsed',
+  nauseated: 'sick',
+  queasy: 'sick',
+
+  // Neutral variants → neutral/calm
+  blank: 'neutral',
+  expressionless: 'neutral',
+  stoic: 'serious',
+  composed: 'calm',
+  serene: 'calm',
+  peaceful: 'calm',
+  relaxed: 'calm',
+  tranquil: 'calm',
+
+  // Bored variants → bored
+  disinterested: 'bored',
+  uninterested: 'bored',
+  apathetic: 'indifferent',
+  uncaring: 'indifferent',
+
+  // Playful variants → playful/teasing
+  silly: 'playful',
+  goofy: 'playful',
+  joking: 'teasing',
+  kidding: 'teasing',
+
+  // Pain variants → pained
+  hurting: 'pained',
+  aching: 'pained',
+  suffering: 'pained',
+  agonized: 'pained',
+
+  // Crazy variants → manic/deranged
+  crazy: 'manic',
+  insane: 'deranged',
+  unhinged: 'deranged',
+  wild: 'manic',
+  frantic: 'panicked',
+  hyper: 'excited',
+
+  // Cute variants → innocent/uwu
+  adorable: 'innocent',
+  sweet: 'innocent',
+  wholesome: 'innocent',
+  kawaii: 'uwu',
+
+  // Dark variants → threatening/sinister
+  evil: 'sinister',
+  villainous: 'sinister',
+  malicious: 'sinister',
+  wicked: 'sinister',
+  scary: 'menacing',
+  ominous: 'threatening',
+
+  // Crying variants → sad/heartbroken
+  crying: 'sad',
+  weeping: 'heartbroken',
+  sobbing: 'devastated',
+  tearful: 'sad',
+
+  // Winning variants → triumphant
+  victorious: 'triumphant',
+  champion: 'triumphant',
+  successful: 'proud',
+  accomplished: 'proud',
+
+  // Common typos/variations
+  hapyy: 'happy',
+  happpy: 'happy',
+  suprised: 'surprised',
+  suprise: 'surprised',
+  exited: 'excited',
+  angery: 'angry',
+  scarred: 'terrified',
+  confussed: 'confused',
+  embarassed: 'embarrassed',
+};
+
+/**
+ * Get list of valid expression names for LLM prompt (includes aliases)
  */
 export function getExpressionsList(): string {
-  return Object.keys(EXPRESSION_PRESETS).join(', ');
+  const presets = Object.keys(EXPRESSION_PRESETS);
+  const aliases = Object.keys(EXPRESSION_ALIASES);
+  const all = [...new Set([...presets, ...aliases])];
+  return all.join(', ');
+}
+
+/**
+ * Get canonical expression names only (for UI display)
+ */
+export function getCanonicalExpressions(): string[] {
+  return Object.keys(EXPRESSION_PRESETS);
 }
 
 /**
  * Expand an expression preset into complementary animation states
  * Allows individual overrides: "ex":"joyful","m":"smirk" → joyful but with smirk mouth
+ * Supports aliases: "glad" → "happy", "scared" → "terrified"
  */
 export function expandExpression(
   expressionName: string,
   overrides?: Partial<ExpressionPreset>
 ): ExpressionPreset {
-  const preset = EXPRESSION_PRESETS[expressionName.toLowerCase()];
+  const normalized = expressionName.toLowerCase().trim().replace(/\s+/g, '_');
+
+  // Check alias first, then use normalized name
+  const canonical = EXPRESSION_ALIASES[normalized] || normalized;
+
+  const preset = EXPRESSION_PRESETS[canonical];
   if (!preset) {
-    console.warn(`[AnimOrch] Unknown expression "${expressionName}", returning empty`);
+    console.warn(`[AnimOrch] Unknown expression "${expressionName}" (tried alias: ${canonical}), returning empty`);
     return overrides || {};
   }
 
@@ -443,6 +712,57 @@ const DEFAULT_ANIMATION_DURATIONS: Record<string, number> = {
  * Gap between character turns (ms)
  */
 const CHARACTER_TURN_GAP = 500;
+
+// ============================================
+// SENTENCE PAUSE SYSTEM
+// ============================================
+
+/**
+ * Pause duration range between sentences (in ms)
+ * Varies based on speed qualifier
+ */
+const SENTENCE_PAUSE_RANGE = {
+  min: 700,   // 0.7 seconds minimum
+  max: 2000,  // 2.0 seconds maximum
+};
+
+/**
+ * Split text into sentences by punctuation (., !, ?)
+ * Keeps the punctuation with the sentence
+ */
+function splitIntoSentences(text: string): string[] {
+  // Match sentences ending with . ! or ? followed by space or end of string
+  const sentenceRegex = /[^.!?]*[.!?]+/g;
+  const matches = text.match(sentenceRegex);
+
+  if (!matches || matches.length === 0) {
+    // No sentence-ending punctuation found, return whole text
+    return [text.trim()];
+  }
+
+  // Clean up each sentence and filter empty ones
+  return matches
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+}
+
+/**
+ * Calculate a random pause duration between sentences
+ * Takes into account the speed qualifier
+ * @param speed - Speed qualifier (slow/normal/fast/explosive)
+ * @returns Pause duration in milliseconds
+ */
+function calculateSentencePauseDuration(speed: SpeedQualifier): number {
+  const { min, max } = SENTENCE_PAUSE_RANGE;
+
+  // Base random pause between min and max
+  const basePause = min + Math.random() * (max - min);
+
+  // Apply speed multiplier (faster speeds = shorter pauses)
+  const multiplier = SPEED_MULTIPLIERS[speed];
+
+  return Math.round(basePause * multiplier);
+}
 
 // ============================================
 // CLIENT-SIDE TIMING CALCULATIONS
@@ -967,12 +1287,9 @@ function convertSimplifiedScene(
       continue; // Skip normal processing since we handled it
     }
 
-    const contentLength = cleanedContent.length;
-
     // Use flat animation fields directly (simplified format)
     const animation = validateAnimation(char.a || 'talking');
     const speed = parseSpeedQualifier(char.sp);
-    const duration = calculateTalkingDuration(contentLength, speed);
 
     // Build complementary animation from expression and overrides
     const complementary: AnimationSegment['complementary'] = {};
@@ -999,22 +1316,60 @@ function convertSimplifiedScene(
     if (char.j) complementary.jawState = char.j as JawState;
     complementary.speed = speedToNumber(speed);
 
-    // Create single talking segment
-    const segments: AnimationSegment[] = [{
-      animation,
-      duration,
-      isTalking: true,
-      complementary,
-      textReveal: { startIndex: 0, endIndex: contentLength },
-      voice: char.v ? parseSegmentVoice(char.v) : undefined,
-    }];
+    // Split content into sentences for sentence-by-sentence display with pauses
+    const sentences = splitIntoSentences(cleanedContent);
+    const formattedContent = sentences.join('\n');
+    const segments: AnimationSegment[] = [];
+    let currentCharIndex = 0;
 
-    // Add action text to the first segment (if any extracted)
-    if (actionTexts.length > 0 && segments.length > 0) {
-      segments[0].actionText = actionTexts.join(' ');
+    // Build segments: each sentence gets a talking segment, followed by a pause segment
+    for (let i = 0; i < sentences.length; i++) {
+      const sentence = sentences[i];
+      const sentenceStart = currentCharIndex;
+      const sentenceEnd = currentCharIndex + sentence.length;
+
+      // Calculate talking duration for this sentence
+      const sentenceDuration = calculateTalkingDuration(sentence.length, speed);
+
+      // Add talking segment for this sentence
+      const talkingSegment: AnimationSegment = {
+        animation,
+        duration: sentenceDuration,
+        isTalking: true,
+        complementary: { ...complementary },
+        textReveal: { startIndex: sentenceStart, endIndex: sentenceEnd },
+        voice: i === 0 && char.v ? parseSegmentVoice(char.v) : undefined,
+      };
+
+      // Add action text to the first segment only (if any extracted)
+      if (i === 0 && actionTexts.length > 0) {
+        talkingSegment.actionText = actionTexts.join(' ');
+      }
+
+      segments.push(talkingSegment);
+
+      // Add pause segment after sentence (except for the last one)
+      if (i < sentences.length - 1) {
+        const pauseDuration = calculateSentencePauseDuration(speed);
+        segments.push({
+          animation: 'idle' as AnimationState,
+          duration: pauseDuration,
+          isTalking: false,
+          complementary: { ...complementary },
+          // No text reveal during pause - keep showing what we've revealed
+        });
+
+        // Account for the newline character in the formatted content
+        currentCharIndex = sentenceEnd + 1; // +1 for '\n'
+      } else {
+        currentCharIndex = sentenceEnd;
+      }
     }
 
     const totalDuration = segments.reduce((sum, s) => sum + s.duration, 0);
+
+    // Use the formatted content with newlines between sentences
+    const finalContent = sentences.length > 1 ? formattedContent : cleanedContent;
 
     // Calculate start delay based on speaker order
     let startDelay: number;
@@ -1038,7 +1393,7 @@ function convertSimplifiedScene(
 
     timelines.push({
       characterId,
-      content: cleanedContent,
+      content: finalContent,
       totalDuration,
       segments,
       startDelay,
@@ -1061,6 +1416,50 @@ function convertSimplifiedScene(
 }
 
 /**
+ * Extract balanced JSON from a string that may contain extra text
+ * Uses brace counting to find the complete JSON object
+ */
+function extractBalancedJson(input: string): string | null {
+  const startIdx = input.indexOf('{');
+  if (startIdx === -1) return null;
+
+  let braceCount = 0;
+  let inString = false;
+  let escapeNext = false;
+
+  for (let i = startIdx; i < input.length; i++) {
+    const char = input[i];
+
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === '\\' && inString) {
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (!inString) {
+      if (char === '{') braceCount++;
+      else if (char === '}') {
+        braceCount--;
+        if (braceCount === 0) {
+          return input.substring(startIdx, i + 1);
+        }
+      }
+    }
+  }
+
+  return null; // Unbalanced braces
+}
+
+/**
  * Parse raw LLM response into OrchestrationScene
  *
  * Uses SIMPLIFIED format only - all timing is calculated client-side
@@ -1075,11 +1474,13 @@ export function parseOrchestrationScene(
     let cleaned = rawResponse.trim();
     cleaned = cleaned.replace(/```json\s*/g, '').replace(/```\s*/g, '');
 
-    // Try to find the full JSON object (may include reasoning)
-    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      cleaned = jsonMatch[0];
+    // Extract balanced JSON object (handles extra text after JSON)
+    const jsonString = extractBalancedJson(cleaned);
+    if (!jsonString) {
+      console.error('[AnimOrch] Could not find valid JSON in response');
+      return null;
     }
+    cleaned = jsonString;
 
     const parsed: any = JSON.parse(cleaned);
 
@@ -1391,18 +1792,9 @@ function resolveCharacterId(
 
 /**
  * Create default timeline when LLM doesn't provide one
- * Splits long content into multiple segments to maintain consistent reading speed
+ * Uses sentence-by-sentence display with pauses between sentences
  */
 export function createDefaultTimeline(content: string): AnimationSegment[] {
-  const totalTalkingDuration = Math.max(
-    2000,
-    content.length * DEFAULT_TALKING_SPEED
-  );
-
-  // Calculate how many segments we need (each segment max 10 seconds)
-  const maxCharsPerSegment = Math.floor(MAX_SEGMENT_DURATION / DEFAULT_TALKING_SPEED);
-  const numTalkingSegments = Math.ceil(content.length / maxCharsPerSegment);
-
   const segments: AnimationSegment[] = [
     {
       animation: 'thinking',
@@ -1412,31 +1804,40 @@ export function createDefaultTimeline(content: string): AnimationSegment[] {
     }
   ];
 
-  // Split content into multiple talking segments if needed
-  if (numTalkingSegments <= 1) {
-    // Short content - single segment
+  // Split content into sentences for sentence-by-sentence display
+  const sentences = splitIntoSentences(content);
+  let currentCharIndex = 0;
+
+  for (let i = 0; i < sentences.length; i++) {
+    const sentence = sentences[i];
+    const sentenceStart = currentCharIndex;
+    const sentenceEnd = currentCharIndex + sentence.length;
+
+    // Calculate talking duration for this sentence
+    const sentenceDuration = calculateTalkingDuration(sentence.length, 'normal');
+
+    // Add talking segment for this sentence
     segments.push({
       animation: 'talking',
-      duration: totalTalkingDuration,
+      duration: sentenceDuration,
       isTalking: true,
-      textReveal: { startIndex: 0, endIndex: content.length }
+      textReveal: { startIndex: sentenceStart, endIndex: sentenceEnd }
     });
-  } else {
-    // Long content - split into multiple segments for consistent speed
-    const charsPerSegment = Math.ceil(content.length / numTalkingSegments);
 
-    for (let i = 0; i < numTalkingSegments; i++) {
-      const startIndex = i * charsPerSegment;
-      const endIndex = Math.min((i + 1) * charsPerSegment, content.length);
-      const segmentChars = endIndex - startIndex;
-      const segmentDuration = segmentChars * DEFAULT_TALKING_SPEED;
-
+    // Add pause segment after sentence (except for the last one)
+    if (i < sentences.length - 1) {
+      const pauseDuration = calculateSentencePauseDuration('normal');
       segments.push({
-        animation: 'talking',
-        duration: segmentDuration,
-        isTalking: true,
-        textReveal: { startIndex, endIndex }
+        animation: 'idle',
+        duration: pauseDuration,
+        isTalking: false,
+        // No text reveal during pause
       });
+
+      // Account for the newline character
+      currentCharIndex = sentenceEnd + 1; // +1 for '\n'
+    } else {
+      currentCharIndex = sentenceEnd;
     }
   }
 
@@ -1452,6 +1853,15 @@ export function createDefaultTimeline(content: string): AnimationSegment[] {
 }
 
 /**
+ * Format content with newlines between sentences
+ * Used when creating default timelines
+ */
+export function formatContentWithSentenceBreaks(content: string): string {
+  const sentences = splitIntoSentences(content);
+  return sentences.join('\n');
+}
+
+/**
  * Create simple fallback timeline from plain text responses
  */
 export function createFallbackScene(
@@ -1460,22 +1870,24 @@ export function createFallbackScene(
 ): OrchestrationScene {
   let currentDelay = 0;
   const timelines: CharacterTimeline[] = [];
-  
+
   for (const response of responses) {
     const segments = createDefaultTimeline(response.content);
     const totalDuration = segments.reduce((sum, s) => sum + s.duration, 0);
-    
+    // Format content with newlines between sentences
+    const formattedContent = formatContentWithSentenceBreaks(response.content);
+
     timelines.push({
       characterId: response.characterId,
-      content: response.content,
+      content: formattedContent,
       totalDuration,
       segments,
       startDelay: currentDelay
     });
-    
+
     currentDelay += totalDuration + 500; // 500ms gap between characters
   }
-  
+
   return {
     timelines,
     sceneDuration: currentDelay,

@@ -22,6 +22,7 @@ import {
 import { getCharacter, CharacterBehavior } from '../config/characters';
 import { Card, Badge } from '../components/ui';
 import { useCharacterLoading } from '../components/ChatInterface/hooks/useCharacterLoading';
+import { expandExpression, getCanonicalExpressions } from '../services/animationOrchestration';
 
 // All available base animations
 const ALL_ANIMATIONS: { name: AnimationState; description: string; category: string }[] = [
@@ -409,6 +410,28 @@ const AnimationsScreen = ({ onNavigateToChat }: AnimationsScreenProps): JSX.Elem
   // Tab state - default to complementary
   const [activeTab, setActiveTab] = useState<'base' | 'complementary'>('complementary');
 
+  // Expression preset state
+  const [selectedExpression, setSelectedExpression] = useState<string | null>(null);
+
+  // Get all canonical expression names (no aliases - clean UI)
+  const expressionNames = getCanonicalExpressions();
+
+  // Apply expression preset to individual states
+  const applyExpression = (expressionName: string) => {
+    const expanded = expandExpression(expressionName);
+    setSelectedExpression(expressionName);
+
+    // Apply each state from the expression
+    if (expanded.ey) setEyeState(expanded.ey as EyeState);
+    if (expanded.eb) setEyebrowState(expanded.eb as EyebrowState);
+    if (expanded.m) setMouthState(expanded.m as MouthState);
+    if (expanded.fc) setFaceState(expanded.fc as FaceState);
+    if (expanded.n) setNoseState(expanded.n as NoseState);
+    if (expanded.ck) setCheekState(expanded.ck as CheekState);
+    if (expanded.fh) setForeheadState(expanded.fh as ForeheadState);
+    if (expanded.j) setJawState(expanded.j as JawState);
+  };
+
   const character = getCharacter(activeCharacterId);
   const categories = [...new Set(ALL_ANIMATIONS.map(a => a.category))];
   
@@ -435,6 +458,7 @@ const AnimationsScreen = ({ onNavigateToChat }: AnimationsScreenProps): JSX.Elem
 
   // Reset complementary to defaults
   const resetComplementary = () => {
+    setSelectedExpression(null);
     setLookDirection('center');
     setEyeState('open');
     setEyebrowState('normal');
@@ -675,6 +699,33 @@ const AnimationsScreen = ({ onNavigateToChat }: AnimationsScreenProps): JSX.Elem
               </>
             ) : (
               <>
+                {/* Expression Presets */}
+                <View style={styles.controlGroup}>
+                  <Text style={dynamicStyles.controlGroupTitle}>🎭 Expression Presets ({expressionNames.length})</Text>
+                  <Text style={dynamicStyles.controlGroupSubtitle}>
+                    Quick-apply facial expressions used by AI
+                  </Text>
+                  <View style={styles.expressionGrid}>
+                    {expressionNames.map((name) => (
+                      <TouchableOpacity
+                        key={name}
+                        style={[
+                          styles.expressionChip,
+                          selectedExpression === name && styles.expressionChipActive
+                        ]}
+                        onPress={() => applyExpression(name)}
+                      >
+                        <Text style={[
+                          styles.expressionChipText,
+                          selectedExpression === name && styles.expressionChipTextActive
+                        ]}>
+                          {name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
                 {/* Speed Control */}
                 <View style={styles.controlGroup}>
                   <Text style={dynamicStyles.controlGroupTitle}>⏱️ Animation Speed</Text>
@@ -1336,6 +1387,32 @@ const styles = StyleSheet.create({
     color: '#a1a1aa',
   },
   categoryChipTextActive: {
+    color: '#ffffff',
+  },
+  // Expression preset styles
+  expressionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  expressionChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: '#27272a',
+    borderWidth: 1,
+    borderColor: '#3f3f46',
+  },
+  expressionChipActive: {
+    backgroundColor: '#7c3aed',
+    borderColor: '#7c3aed',
+  },
+  expressionChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#a1a1aa',
+  },
+  expressionChipTextActive: {
     color: '#ffffff',
   },
   animationGrid: {

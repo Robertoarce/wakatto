@@ -31,6 +31,8 @@ import { useResponsive, BREAKPOINTS, CHARACTER_HEIGHT } from '../constants/Layou
 import { Toast } from './ui/Toast';
 import { StorySpeechBubble } from './ui/StorySpeechBubble';
 import { memDebug } from '../services/performanceLogger';
+import { FloatingActionText } from './FloatingActionText';
+import { extractActionText } from './SimpleSpeechBubble';
 import {
   IdleConversationManager,
   IdleConversationState,
@@ -1336,8 +1338,8 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   };
 
   const handleKeyPress = (e: any) => {
-    // Check for Ctrl+Enter (PC) or Cmd+Enter (Mac)
-    if (e.nativeEvent.key === 'Enter' && (e.nativeEvent.ctrlKey || e.nativeEvent.metaKey)) {
+    // Enter = send message, Shift+Enter = new line
+    if (e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) {
       e.preventDefault();
       handleSendMessagePress();
     }
@@ -1950,6 +1952,12 @@ Each silence, a cathedral where you still reside.`;
                           showName={isHovered}
                           nameKey={nameKey}
                         />
+                        {/* Floating action text like *chuckles* at character sides */}
+                        <FloatingActionText
+                          actions={extractActionText(revealedText || '')}
+                          characterColor={character.color}
+                          isVisible={!!revealedText && extractActionText(revealedText).length > 0}
+                        />
                       </>
                     );
                   })()}
@@ -2362,14 +2370,18 @@ Each silence, a cathedral where you still reside.`;
             onChangeText={handleInputChange}
             placeholder="Type in here.."
             placeholderTextColor="#71717a"
+            multiline
+            scrollEnabled
+            numberOfLines={1}
             style={[
               styles.textInput,
               {
                 fontSize: fonts.md,
-                height: scaleValue(32, 44), // Responsive single-line height
-                minHeight: scaleValue(32, 44),
-                maxHeight: scaleValue(32, 44),
-                paddingVertical: 0,
+                height: 'auto',
+                minHeight: fonts.md + 12, // Exactly one line + padding
+                maxHeight: scaleValue(60, 90), // Max 2-3 lines then scroll
+                paddingVertical: 6,
+                lineHeight: fonts.md + 4,
               }
             ]}
             onFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}

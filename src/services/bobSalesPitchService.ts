@@ -231,7 +231,31 @@ function speedToDuration(speed: string, isTalking: boolean, textLength: number):
 }
 
 /**
- * Parse Bob's response into a scene
+ * Split text into sentences by punctuation (., !, ?)
+ * Keeps the punctuation with the sentence
+ */
+function splitIntoSentences(text: string): string[] {
+  // Match sentences ending with . ! or ? followed by space or end of string
+  const sentenceRegex = /[^.!?]*[.!?]+/g;
+  const matches = text.match(sentenceRegex);
+
+  if (!matches || matches.length === 0) {
+    // No sentence-ending punctuation found, return whole text
+    return [text.trim()];
+  }
+
+  // Clean up each sentence and filter empty ones
+  return matches
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+}
+
+// Pause duration between sentences (in ms)
+const SENTENCE_PAUSE_DURATION = 1400;
+
+/**
+ * Parse Bob's response into a scene with sentence-by-sentence reveal
+ * Each sentence ends with a 1.4 second pause and displays on a new line
  */
 function parseBobResponse(rawResponse: string, isFollowUp: boolean = false): BobPitchResult {
   try {
@@ -241,33 +265,70 @@ function parseBobResponse(rawResponse: string, isFollowUp: boolean = false): Bob
       .trim();
 
     const parsed = JSON.parse(cleanJson);
-    const message = parsed.greeting || parsed.message || "Hey there!";
+    const originalMessage = parsed.greeting || parsed.message || "Hey there!";
 
     // Parse flat animation fields (new simplified format)
     const animation = (parsed.a || 'wave') as AnimationState;
     const speed = parsed.sp || 'normal';
     const lookDirection = (parsed.lk || 'center') as LookDirection;
     const expression = parsed.ex;
-    const duration = speedToDuration(speed, true, message.length);
 
-    // Build single talking segment from flat fields
-    const segments: AnimationSegment[] = [{
-      animation,
-      duration,
-      isTalking: true,
-      complementary: {
-        lookDirection,
-        expression,
-      },
-      textReveal: { startIndex: 0, endIndex: message.length },
-    }];
+    // Split message into sentences
+    const sentences = splitIntoSentences(originalMessage);
+
+    // Build the formatted message with line breaks between sentences
+    const formattedMessage = sentences.join('\n');
+
+    // Build segments: each sentence gets a talking segment, followed by a pause segment
+    const segments: AnimationSegment[] = [];
+    let currentCharIndex = 0;
+
+    for (let i = 0; i < sentences.length; i++) {
+      const sentence = sentences[i];
+      const sentenceStart = currentCharIndex;
+      const sentenceEnd = currentCharIndex + sentence.length;
+
+      // Calculate talking duration for this sentence
+      const sentenceDuration = speedToDuration(speed, true, sentence.length);
+
+      // Add talking segment for this sentence
+      segments.push({
+        animation,
+        duration: sentenceDuration,
+        isTalking: true,
+        complementary: {
+          lookDirection,
+          expression,
+        },
+        textReveal: { startIndex: sentenceStart, endIndex: sentenceEnd },
+      });
+
+      // Add pause segment after sentence (except for the last one)
+      if (i < sentences.length - 1) {
+        segments.push({
+          animation: 'idle' as AnimationState,
+          duration: SENTENCE_PAUSE_DURATION,
+          isTalking: false,
+          complementary: {
+            lookDirection,
+            expression,
+          },
+          // No text reveal during pause - keep showing what we've revealed
+        });
+
+        // Account for the newline character in the formatted message
+        currentCharIndex = sentenceEnd + 1; // +1 for '\n'
+      } else {
+        currentCharIndex = sentenceEnd;
+      }
+    }
 
     const totalDuration = segments.reduce((sum, seg) => sum + seg.duration, 0);
 
     const scene: OrchestrationScene = {
       timelines: [{
         characterId: BOB_CONFIG.characterId,
-        content: message,
+        content: formattedMessage,
         totalDuration,
         startDelay: 0,
         segments,
@@ -276,7 +337,7 @@ function parseBobResponse(rawResponse: string, isFollowUp: boolean = false): Bob
       nonSpeakerBehavior: {},
     };
 
-    return { scene, message };
+    return { scene, message: formattedMessage };
   } catch (error) {
     console.error('[BobPitch] Failed to parse response:', error);
     return isFollowUp ? createFallbackFollowUp(1) : createFallbackOpening();
@@ -284,31 +345,90 @@ function parseBobResponse(rawResponse: string, isFollowUp: boolean = false): Bob
 }
 
 /**
+ * Build segments with sentence-by-sentence reveal and pauses
+ * Helper function for fallback messages
+ */
+function buildSentenceSegments(
+  message: string,
+  speed: string = 'normal',
+  animation: AnimationState = 'talking',
+  lookDirection: LookDirection = 'center',
+  expression: string = 'friendly'
+): { segments: AnimationSegment[]; formattedMessage: string; totalDuration: number } {
+  const sentences = splitIntoSentences(message);
+  const formattedMessage = sentences.join('\n');
+  const segments: AnimationSegment[] = [];
+  let currentCharIndex = 0;
+
+  for (let i = 0; i < sentences.length; i++) {
+    const sentence = sentences[i];
+    const sentenceStart = currentCharIndex;
+    const sentenceEnd = currentCharIndex + sentence.length;
+    const sentenceDuration = speedToDuration(speed, true, sentence.length);
+
+    segments.push({
+      animation,
+      duration: sentenceDuration,
+      isTalking: true,
+      complementary: { lookDirection, expression },
+      textReveal: { startIndex: sentenceStart, endIndex: sentenceEnd },
+    });
+
+    if (i < sentences.length - 1) {
+      segments.push({
+        animation: 'idle' as AnimationState,
+        duration: SENTENCE_PAUSE_DURATION,
+        isTalking: false,
+        complementary: { lookDirection, expression },
+      });
+      currentCharIndex = sentenceEnd + 1; // +1 for '\n'
+    } else {
+      currentCharIndex = sentenceEnd;
+    }
+  }
+
+  const totalDuration = segments.reduce((sum, seg) => sum + seg.duration, 0);
+  return { segments, formattedMessage, totalDuration };
+}
+
+/**
  * Fallback opening if AI fails
  */
 function createFallbackOpening(): BobPitchResult {
-  const message = "Hey! I'm Bob, your guide to Wakatto. Think of me as the guy who actually knows where everything is. What brings you here today?";
+  const originalMessage = "Hey! I'm Bob, your guide to Wakatto. Think of me as the guy who actually knows where everything is. What brings you here today?";
 
   const waveDuration = speedToDuration('fast', false, 0);
-  const talkDuration = speedToDuration('normal', true, message.length);
+  const { segments: talkSegments, formattedMessage, totalDuration: talkDuration } = buildSentenceSegments(
+    originalMessage,
+    'normal',
+    'talking',
+    'center',
+    'playful'
+  );
+
+  // Add wave segment at the beginning
+  const waveSegment: AnimationSegment = {
+    animation: 'wave',
+    duration: waveDuration,
+    isTalking: false,
+    complementary: { lookDirection: 'center', expression: 'friendly' }
+  };
+
   const totalDuration = waveDuration + talkDuration;
 
   const scene: OrchestrationScene = {
     timelines: [{
       characterId: BOB_CONFIG.characterId,
-      content: message,
+      content: formattedMessage,
       totalDuration,
       startDelay: 0,
-      segments: [
-        { animation: 'wave', duration: waveDuration, isTalking: false, complementary: { lookDirection: 'center', expression: 'friendly' } },
-        { animation: 'talking', duration: talkDuration, isTalking: true, complementary: { lookDirection: 'center', expression: 'playful' }, textReveal: { startIndex: 0, endIndex: message.length } },
-      ],
+      segments: [waveSegment, ...talkSegments],
     }],
     sceneDuration: totalDuration,
     nonSpeakerBehavior: {},
   };
 
-  return { scene, message };
+  return { scene, message: formattedMessage };
 }
 
 /**
@@ -324,28 +444,40 @@ const FALLBACK_FOLLOWUPS = [
 
 function createFallbackFollowUp(followUpNumber: number): BobPitchResult {
   const index = Math.min(followUpNumber - 1, FALLBACK_FOLLOWUPS.length - 1);
-  const message = FALLBACK_FOLLOWUPS[index];
+  const originalMessage = FALLBACK_FOLLOWUPS[index];
 
   const shrugDuration = speedToDuration('fast', false, 0);
-  const talkDuration = speedToDuration('normal', true, message.length);
+  const { segments: talkSegments, formattedMessage, totalDuration: talkDuration } = buildSentenceSegments(
+    originalMessage,
+    'normal',
+    'talking',
+    'center',
+    'friendly'
+  );
+
+  // Add shrug segment at the beginning
+  const shrugSegment: AnimationSegment = {
+    animation: 'shrug',
+    duration: shrugDuration,
+    isTalking: false,
+    complementary: { lookDirection: 'center', expression: 'playful' }
+  };
+
   const totalDuration = shrugDuration + talkDuration;
 
   const scene: OrchestrationScene = {
     timelines: [{
       characterId: BOB_CONFIG.characterId,
-      content: message,
+      content: formattedMessage,
       totalDuration,
       startDelay: 0,
-      segments: [
-        { animation: 'shrug', duration: shrugDuration, isTalking: false, complementary: { lookDirection: 'center', expression: 'playful' } },
-        { animation: 'talking', duration: talkDuration, isTalking: true, complementary: { lookDirection: 'center', expression: 'friendly' }, textReveal: { startIndex: 0, endIndex: message.length } },
-      ],
+      segments: [shrugSegment, ...talkSegments],
     }],
     sceneDuration: totalDuration,
     nonSpeakerBehavior: {},
   };
 
-  return { scene, message };
+  return { scene, message: formattedMessage };
 }
 
 // ============================================
