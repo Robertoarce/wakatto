@@ -120,7 +120,12 @@ export function SimpleSpeechBubble({
   if (!text) return null;
 
   // Strip action text from bubble display (actions shown separately near character)
-  const strippedText = text.replace(/\*[^*]+\*/g, '').replace(/\s+/g, ' ').trim();
+  // Preserve newlines, only collapse consecutive spaces
+  const strippedText = text
+    .replace(/\*[^*]+\*/g, '')  // Remove action text
+    .replace(/[^\S\n]+/g, ' ')   // Collapse spaces (but NOT newlines)
+    .replace(/\n\s*/g, '\n')     // Clean up whitespace after newlines
+    .trim();
 
   // Calculate characters per line for word wrap
   const avgCharWidth = textFontSize * 0.55;
@@ -131,25 +136,38 @@ export function SimpleSpeechBubble({
   // For multiple characters, keep the original limit
   const effectiveMaxLines = isSingleCharacter ? 50 : maxLines;
 
-  // Simple word wrap function
+  // Word wrap function that respects explicit newlines
   const wrapText = (str: string, maxChars: number): string[] => {
-    const words = str.split(' ');
-    const lines: string[] = [];
-    let currentLine = '';
+    const allLines: string[] = [];
 
-    for (const word of words) {
-      if ((currentLine + ' ' + word).trim().length <= maxChars) {
-        currentLine = (currentLine + ' ' + word).trim();
-      } else {
-        if (currentLine) lines.push(currentLine);
-        currentLine = word;
+    // First split by explicit newlines
+    const paragraphs = str.split('\n');
+
+    for (const paragraph of paragraphs) {
+      if (!paragraph.trim()) {
+        // Empty line - preserve as blank line
+        allLines.push('');
+        continue;
       }
+
+      // Word wrap each paragraph
+      const words = paragraph.split(' ');
+      let currentLine = '';
+
+      for (const word of words) {
+        if ((currentLine + ' ' + word).trim().length <= maxChars) {
+          currentLine = (currentLine + ' ' + word).trim();
+        } else {
+          if (currentLine) allLines.push(currentLine);
+          currentLine = word;
+        }
+      }
+      if (currentLine) allLines.push(currentLine);
     }
-    if (currentLine) lines.push(currentLine);
 
     // Show last N lines (scrolling effect for long text)
     // Single character allows much more height
-    return lines.slice(-effectiveMaxLines);
+    return allLines.slice(-effectiveMaxLines);
   };
 
   const lines = wrapText(strippedText || text, charsPerLine);

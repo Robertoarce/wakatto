@@ -33,6 +33,8 @@ export function FloatingActionText({
   const indexRef = useRef(0);
   const positionRef = useRef(0); // 0: -30deg, 1: +30deg (both on left side)
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const cycleCountRef = useRef(0); // Track number of cycles
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fontSize = Math.max(16, Math.min(24, screenWidth * 0.018));
 
@@ -43,11 +45,28 @@ export function FloatingActionText({
     }
 
     const showNextAction = () => {
+      // Stop after 5 cycles
+      if (cycleCountRef.current >= 5) {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        fadeAnim.setValue(0);
+        return;
+      }
+
       const currentAction = actions[indexRef.current % actions.length];
       // Position cycle: 0=-30deg, 1=+30deg, random left/right side
       const pos = positionRef.current;
       const rotation = pos === 0 ? -30 : 30;
       const isLeft = Math.random() > 0.5; // Random side each time
+
+      // Count words (strip asterisks first)
+      const wordCount = currentAction.replace(/\*/g, '').trim().split(/\s+/).length;
+      const displayTime = wordCount > 2 ? 400 : 200; // Double time for longer actions
+
+      // Increment cycle count
+      cycleCountRef.current++;
 
       setDisplayState({
         text: currentAction,
@@ -63,7 +82,7 @@ export function FloatingActionText({
         useNativeDriver: Platform.OS !== 'web',
       }).start();
 
-      // Fade out after short delay
+      // Fade out after delay (longer for multi-word actions)
       timerRef.current = setTimeout(() => {
         Animated.timing(fadeAnim, {
           toValue: 0,
@@ -77,15 +96,18 @@ export function FloatingActionText({
             indexRef.current = (indexRef.current + 1) % actions.length;
           }
         });
-      }, 200); // Show for 0.2 seconds
+      }, displayTime); // Show longer for multi-word actions
     };
+
+    // Reset cycle count for new actions
+    cycleCountRef.current = 0;
 
     // Start animation cycle
     showNextAction();
-    const interval = setInterval(showNextAction, 650); // Cycle every 1.5 seconds
+    intervalRef.current = setInterval(showNextAction, 650);
 
     return () => {
-      clearInterval(interval);
+      if (intervalRef.current) clearInterval(intervalRef.current);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [isVisible, actions.length]); // Only depend on length, not the array itself
