@@ -207,12 +207,15 @@ export async function clearAPIKey() {
 /**
  * Generate AI response using the configured provider
  * Uses Supabase Edge Function to avoid CORS issues
+ * 
+ * @param conversationId - Optional conversation ID for tutorial token limit multiplier
  */
 export async function generateAIResponse(
   messages: AIMessage[],
   systemPrompt?: string,
   characterId?: string,
-  parameterOverrides?: Partial<ModelParameters>
+  parameterOverrides?: Partial<ModelParameters>,
+  conversationId?: string
 ): Promise<string> {
   const fullMessages: AIMessage[] = systemPrompt
     ? [{ role: 'system', content: systemPrompt }, ...messages]
@@ -262,6 +265,7 @@ export async function generateAIResponse(
           provider: config.provider,
           model: config.model,
           parameters: finalParameters,
+          conversationId, // For tutorial token limit multiplier
         }),
       }
     );
@@ -354,13 +358,16 @@ export class TokenLimitExceededError extends Error {
  *     onDelta: (text, accumulated) => updateUI(accumulated),
  *     onDone: (fullText) => saveToDatabase(fullText),
  *   });
+ * 
+ * @param conversationId - Optional conversation ID for tutorial token limit multiplier
  */
 export async function generateAIResponseStreaming(
   messages: AIMessage[],
   systemPrompt?: string,
   characterId?: string,
   callbacks?: StreamingCallbacks,
-  parameterOverrides?: Partial<ModelParameters>
+  parameterOverrides?: Partial<ModelParameters>,
+  conversationId?: string
 ): Promise<string> {
   const fullMessages: AIMessage[] = systemPrompt
     ? [{ role: 'system', content: systemPrompt }, ...messages]
@@ -418,6 +425,7 @@ export async function generateAIResponseStreaming(
           model: config.model,
           parameters: finalParameters,
           stream: true, // Enable streaming
+          conversationId, // For tutorial token limit multiplier
         }),
       }
     );

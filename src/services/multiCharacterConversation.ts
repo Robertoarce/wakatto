@@ -354,11 +354,13 @@ export async function generateMultiCharacterResponses(
 /**
  * Simplified single character response (backward compatible)
  * Now includes responseStyle modifiers for authentic character voice
+ * @param conversationId - Optional conversation ID for tutorial token limit multiplier
  */
 export async function generateSingleCharacterResponse(
   userMessage: string,
   characterId: string,
-  messageHistory: ConversationMessage[]
+  messageHistory: ConversationMessage[],
+  conversationId?: string
 ): Promise<string> {
   const character = getCharacter(characterId);
   const basePrompt = getCharacterPrompt(character);
@@ -390,7 +392,9 @@ export async function generateSingleCharacterResponse(
   return await generateAIResponse(
     conversationMessages,
     systemPrompt,
-    characterId
+    characterId,
+    undefined,      // parameterOverrides
+    conversationId  // For tutorial token limit multiplier
   );
 }
 

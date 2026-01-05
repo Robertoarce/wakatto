@@ -14,6 +14,9 @@ interface UsageCheck {
   reset_period_days: number;
 }
 
+// Tutorial conversations get 3x token limit
+const TUTORIAL_TOKEN_MULTIPLIER = 3
+
 // Allowed origins for CORS - production and development
 const ALLOWED_ORIGINS = [
   'https://www.wakatto.com',
@@ -96,6 +99,25 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    // Parse request body first to get conversationId
+    const { messages, provider = 'anthropic', model, parameters = {}, stream = false, enablePromptCache = true, conversationId } = await req.json()
+
+    // Check if this is a tutorial conversation (gets 3x token limit)
+    let isTutorial = false
+    if (conversationId) {
+      const { data: convData, error: convError } = await supabaseAdmin
+        .from('conversations')
+        .select('is_tutorial')
+        .eq('id', conversationId)
+        .eq('user_id', user.id)  // Security: verify conversation belongs to user
+        .single()
+
+      if (!convError && convData?.is_tutorial) {
+        isTutorial = true
+        console.log(`[AI-Chat] Tutorial conversation detected - applying ${TUTORIAL_TOKEN_MULTIPLIER}x token limit`)
+      }
+    }
+
     // Check usage limit before proceeding
     const { data: usageCheckData, error: usageError } = await supabaseAdmin.rpc(
       'check_usage_limit',
@@ -107,11 +129,30 @@ serve(async (req) => {
       // Continue anyway - don't block on usage check failures
     }
 
-    const usageCheck: UsageCheck | null = usageCheckData?.[0] || null
+    let usageCheck: UsageCheck | null = usageCheckData?.[0] || null
+
+    // Apply tutorial multiplier to token limit if applicable
+    if (usageCheck && isTutorial) {
+      const adjustedLimit = usageCheck.token_limit * TUTORIAL_TOKEN_MULTIPLIER
+      const adjustedRemaining = Math.max(0, adjustedLimit - usageCheck.tokens_used)
+      const adjustedPercentage = (usageCheck.tokens_used / adjustedLimit) * 100
+      const adjustedWarning = adjustedPercentage >= 100 ? 'blocked' :
+                              adjustedPercentage >= 90 ? 'critical' :
+                              adjustedPercentage >= 80 ? 'warning' : null
+      
+      usageCheck = {
+        ...usageCheck,
+        token_limit: adjustedLimit,
+        remaining_tokens: adjustedRemaining,
+        usage_percentage: adjustedPercentage,
+        warning_level: adjustedWarning,
+        can_proceed: adjustedPercentage < 100
+      }
+    }
 
     // Block if at limit (unless we couldn't check)
     if (usageCheck && !usageCheck.can_proceed) {
-      console.log(`[AI-Chat] User ${user.id} blocked - token limit exceeded`)
+      console.log(`[AI-Chat] User ${user.id} blocked - token limit exceeded${isTutorial ? ' (tutorial 3x limit)' : ''}`)
       return new Response(
         JSON.stringify({
           error: 'Token limit exceeded',
@@ -133,9 +174,6 @@ serve(async (req) => {
         }
       )
     }
-
-    // Parse request body
-    const { messages, provider = 'anthropic', model, parameters = {}, stream = false, enablePromptCache = true } = await req.json()
 
     // Log only non-sensitive metadata
     console.log(`[AI-Chat] Provider: ${provider}, Stream: ${stream}, Messages: ${messages.length}`)

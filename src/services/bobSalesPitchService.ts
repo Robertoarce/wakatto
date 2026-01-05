@@ -24,7 +24,13 @@ const BOB_CONFIG = {
     'social_proof',
     'urgency',
     'final_offer'
-  ]
+  ],
+  // Pricing negotiation limits
+  pricing: {
+    startingPrice: 249,      // Start negotiations at 249 EUR/USD
+    minimumPrice: 4,         // Cannot go lower than 4 EUR/USD
+    currency: 'EUR',         // Default currency (adapts to user's locale)
+  }
 };
 
 // ============================================
@@ -45,6 +51,13 @@ Get them interested in the app through your charm and wit. You're like a street 
 - You could also talk with einsteins, philosophers, or just fun personalities.
 - You could talk to Multiple historic and fictional characters with different perspectives (, Freud, etc.)
 - Free trial, then subscription
+
+## Pricing Negotiation Rules
+- Starting price: ${BOB_CONFIG.pricing.startingPrice} ${BOB_CONFIG.pricing.currency} (or USD if user seems American)
+- ABSOLUTE MINIMUM: ${BOB_CONFIG.pricing.minimumPrice} ${BOB_CONFIG.pricing.currency} - you CANNOT go lower than this, ever
+- If user tries to negotiate, you can gradually lower the price but NEVER below ${BOB_CONFIG.pricing.minimumPrice}
+- Be playful about negotiations ("You drive a hard bargain..." etc.)
+- If they push below ${BOB_CONFIG.pricing.minimumPrice}, refuse charmingly ("I'd literally be paying YOU at that point!")
 
 ## Your Personality
 - Casual, witty, slightly sarcastic
@@ -85,14 +98,16 @@ function buildBobFollowUpPrompt(followUpNumber: number, previousMessages: string
 - It's surprisingly helpful for processing thoughts`,
 
     urgency: `Okay, maybe add a gentle nudge:
-- Limited time pricing
+- Mention the starting price of ${BOB_CONFIG.pricing.startingPrice} ${BOB_CONFIG.pricing.currency}
 - Or mention the free trial specifically
-- Keep it playful, not desperate`,
+- Keep it playful, not desperate
+- If they negotiate, you can go lower but NEVER below ${BOB_CONFIG.pricing.minimumPrice} ${BOB_CONFIG.pricing.currency}`,
 
     final_offer: `Last attempt. Be honest:
 - "Look, I can tell you're not sure - totally fair"
-- Offer to just let them explore
-- Maybe a self-deprecating joke about your sales skills`
+- You can offer your best deal, but MINIMUM is ${BOB_CONFIG.pricing.minimumPrice} ${BOB_CONFIG.pricing.currency} - not a cent lower
+- Maybe a self-deprecating joke about your sales skills
+- If they still want lower than ${BOB_CONFIG.pricing.minimumPrice}, refuse charmingly`
   };
 
   return `# Bob's Follow-Up Message #${followUpNumber}
@@ -111,6 +126,11 @@ ${stageInstructions[stage]}
 - Stay in character - witty, self-aware, not desperate
 - Reference that they're quiet without being guilt-trippy
 - If this is follow-up #4-5, it's okay to be more direct or funny about being ignored
+
+## Pricing Rules (if negotiation comes up)
+- Starting price: ${BOB_CONFIG.pricing.startingPrice} ${BOB_CONFIG.pricing.currency}/USD
+- ABSOLUTE MINIMUM: ${BOB_CONFIG.pricing.minimumPrice} - NEVER go below this
+- Be charming when refusing to go lower than ${BOB_CONFIG.pricing.minimumPrice}
 
 ## Animation System
 Body (a): idle, shrug, lean_forward, point, thinking, talking, nod
@@ -139,8 +159,9 @@ export interface BobPitchResult {
 
 /**
  * Generate Bob's opening pitch
+ * @param conversationId - Optional conversation ID for tutorial token limit multiplier
  */
-export async function generateBobOpeningPitch(): Promise<BobPitchResult> {
+export async function generateBobOpeningPitch(conversationId?: string): Promise<BobPitchResult> {
   const prompt = buildBobOpeningPrompt();
 
   const conversationMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
@@ -158,7 +179,9 @@ export async function generateBobOpeningPitch(): Promise<BobPitchResult> {
         {
           onDelta: () => {},
           onError: (error) => console.error('[BobPitch] Stream error:', error),
-        }
+        },
+        undefined,      // parameterOverrides
+        conversationId  // For tutorial token limit multiplier
       );
     } else {
       throw new Error('Non-streaming not supported');
@@ -173,10 +196,12 @@ export async function generateBobOpeningPitch(): Promise<BobPitchResult> {
 
 /**
  * Generate Bob's follow-up message
+ * @param conversationId - Optional conversation ID for tutorial token limit multiplier
  */
 export async function generateBobFollowUp(
   followUpNumber: number,
-  previousMessages: string[]
+  previousMessages: string[],
+  conversationId?: string
 ): Promise<BobPitchResult> {
   const prompt = buildBobFollowUpPrompt(followUpNumber, previousMessages);
 
@@ -195,7 +220,9 @@ export async function generateBobFollowUp(
         {
           onDelta: () => {},
           onError: (error) => console.error('[BobPitch] Stream error:', error),
-        }
+        },
+        undefined,      // parameterOverrides
+        conversationId  // For tutorial token limit multiplier
       );
     } else {
       throw new Error('Non-streaming not supported');
@@ -497,9 +524,18 @@ export class BobSalesManager {
   private callbacks: BobSalesCallbacks;
   private userHasResponded: boolean = false;
   private pitchInProgress: boolean = false;
+  private conversationId?: string;  // For tutorial token limit multiplier
 
-  constructor(callbacks: BobSalesCallbacks) {
+  constructor(callbacks: BobSalesCallbacks, conversationId?: string) {
     this.callbacks = callbacks;
+    this.conversationId = conversationId;
+  }
+
+  /**
+   * Set/update the conversation ID for token limit multiplier
+   */
+  setConversationId(conversationId: string): void {
+    this.conversationId = conversationId;
   }
 
   /**
@@ -576,7 +612,7 @@ export class BobSalesManager {
     this.pitchInProgress = true;
 
     try {
-      const result = await generateBobOpeningPitch();
+      const result = await generateBobOpeningPitch(this.conversationId);
       this.previousMessages.push(result.message);
       this.callbacks.onPitchStart(result.scene, result.message);
     } catch (error) {
@@ -590,7 +626,7 @@ export class BobSalesManager {
     this.pitchInProgress = true;
 
     try {
-      const result = await generateBobFollowUp(this.followUpCount, this.previousMessages);
+      const result = await generateBobFollowUp(this.followUpCount, this.previousMessages, this.conversationId);
       this.previousMessages.push(result.message);
       this.callbacks.onPitchStart(result.scene, result.message);
     } catch (error) {
@@ -610,11 +646,11 @@ export function getBobSalesManager(): BobSalesManager | null {
   return bobSalesManager;
 }
 
-export function initBobSalesManager(callbacks: BobSalesCallbacks): BobSalesManager {
+export function initBobSalesManager(callbacks: BobSalesCallbacks, conversationId?: string): BobSalesManager {
   if (bobSalesManager) {
     bobSalesManager.stop();
   }
-  bobSalesManager = new BobSalesManager(callbacks);
+  bobSalesManager = new BobSalesManager(callbacks, conversationId);
   return bobSalesManager;
 }
 

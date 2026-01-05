@@ -1225,6 +1225,15 @@ function convertSimplifiedScene(
   // Sort characters by speaker order
   const sorted = [...simplified.s.ch].sort((a, b) => a.ord - b.ord);
 
+  // Log each character's input from the LLM
+  console.log('\n---------- CHARACTER INPUTS (Animated Scene) ----------');
+  sorted.forEach((char, index) => {
+    console.log(`[${index + 1}] ${char.c} (order: ${char.ord}):`);
+    console.log(`    Text: "${char.t}"`);
+    console.log(`    Animation: ${char.a || 'talking'}, Speed: ${char.sp || 'normal'}, Look: ${char.lk || 'center'}, Expression: ${char.ex || 'neutral'}`);
+  });
+  console.log('-------------------------------------------------------\n');
+
   const timelines: CharacterTimeline[] = [];
   let previousEndTime = 0;
 

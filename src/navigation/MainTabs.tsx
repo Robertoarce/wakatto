@@ -409,7 +409,9 @@ The text behaves as it should be.`;
                     onError: () => {
                       setEarlyAnimationSetup(null);
                     },
-                  }
+                  },
+                  undefined,        // config overrides
+                  conversation.id   // For tutorial token limit multiplier (3x)
                 );
                 scene = result.scene;
                 characterResponses = result.responses;
@@ -418,7 +420,9 @@ The text behaves as it should be.`;
                 const result = await generateAnimatedSceneOrchestration(
                   content,
                   selectedCharacters,
-                  conversationHistory
+                  conversationHistory,
+                  undefined,        // config overrides
+                  conversation.id   // For tutorial token limit multiplier (3x)
                 );
                 scene = result.scene;
                 characterResponses = result.responses;
@@ -458,7 +462,8 @@ The text behaves as it should be.`;
             const aiResponse = await generateSingleCharacterResponse(
               content,
               selectedCharacters[0],
-              conversationHistory
+              conversationHistory,
+              conversation.id  // For tutorial token limit multiplier (3x)
             );
 
             // Create simple animation scene for single character

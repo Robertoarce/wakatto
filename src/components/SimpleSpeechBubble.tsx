@@ -12,10 +12,10 @@ import React, { useRef, useEffect } from 'react';
 import { Animated, Text, View, StyleSheet, Platform } from 'react-native';
 import { useResponsive } from '../constants/Layout';
 
-// Parse text to separate regular text from *action* text
+// Parse text to separate regular text from *action* text (long actions only - 3+ words)
 type TextPart = { type: 'text' | 'action'; content: string };
 
-function parseActionText(text: string): TextPart[] {
+function parseLongActionText(text: string): TextPart[] {
   const parts: TextPart[] = [];
   const regex = /(\*[^*]+\*)/g;
   let lastIndex = 0;
@@ -26,8 +26,14 @@ function parseActionText(text: string): TextPart[] {
     if (match.index > lastIndex) {
       parts.push({ type: 'text', content: text.slice(lastIndex, match.index) });
     }
-    // Add the action (including asterisks)
-    parts.push({ type: 'action', content: match[1] });
+    // Only mark as action if it's a long action (3+ words)
+    const wordCount = match[1].replace(/\*/g, '').trim().split(/\s+/).length;
+    if (wordCount > 2) {
+      parts.push({ type: 'action', content: match[1] });
+    } else {
+      // Short actions are already stripped, but just in case
+      parts.push({ type: 'text', content: match[1] });
+    }
     lastIndex = regex.lastIndex;
   }
 
@@ -39,6 +45,31 @@ function parseActionText(text: string): TextPart[] {
   return parts;
 }
 
+// Render text with bold styling for long action words
+function renderTextWithBoldActions(
+  line: string,
+  textStyle: any,
+  actionStyle: any
+): React.ReactNode {
+  const parts = parseLongActionText(line);
+  
+  if (parts.length === 1 && parts[0].type === 'text') {
+    // No actions, just return plain text
+    return parts[0].content;
+  }
+
+  return parts.map((part, index) => {
+    if (part.type === 'action') {
+      return (
+        <Text key={index} style={actionStyle}>
+          {part.content}
+        </Text>
+      );
+    }
+    return part.content;
+  });
+}
+
 interface SimpleSpeechBubbleProps {
   text: string;
   characterName: string;
@@ -48,10 +79,6 @@ interface SimpleSpeechBubbleProps {
   isMobileStacked?: boolean;
   // Total number of characters - used to limit bubble width and prevent overlap
   characterCount?: number;
-  // For chunked responses - which chunk this is (0-indexed)
-  chunkIndex?: number;
-  // Total number of chunks in the response
-  totalChunks?: number;
 }
 
 export function SimpleSpeechBubble({
@@ -62,8 +89,6 @@ export function SimpleSpeechBubble({
   maxLines = 4,
   isMobileStacked = false,
   characterCount = 1,
-  chunkIndex = 0,
-  totalChunks = 1,
 }: SimpleSpeechBubbleProps) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const {
@@ -119,10 +144,14 @@ export function SimpleSpeechBubble({
   // Don't render if no text
   if (!text) return null;
 
-  // Strip action text from bubble display (actions shown separately near character)
+  // Strip only SHORT action text (1-2 words) from bubble display
+  // Long actions (3+ words) stay in the bubble and are rendered bold
   // Preserve newlines, only collapse consecutive spaces
   const strippedText = text
-    .replace(/\*[^*]+\*/g, '')  // Remove action text
+    .replace(/\*[^*]+\*/g, (match) => {
+      const wordCount = match.replace(/\*/g, '').trim().split(/\s+/).length;
+      return wordCount <= 2 ? '' : match; // Keep long actions, remove short ones
+    })
     .replace(/[^\S\n]+/g, ' ')   // Collapse spaces (but NOT newlines)
     .replace(/\n\s*/g, '\n')     // Clean up whitespace after newlines
     .trim();
@@ -194,7 +223,11 @@ export function SimpleSpeechBubble({
         </Text>
         {lines.map((line, i) => (
           <Text key={i} style={[styles.text, { fontSize: textFontSize, lineHeight }]}>
-            {line}
+            {renderTextWithBoldActions(
+              line,
+              [styles.text, { fontSize: textFontSize, lineHeight }],
+              styles.boldActionText
+            )}
           </Text>
         ))}
       </Animated.View>
@@ -205,12 +238,6 @@ export function SimpleSpeechBubble({
   // Single character: offset to the right of center
   // Multiple characters: centered
   const horizontalPosition = isSingleCharacter ? '65%' : '50%';
-
-  // For chunked responses, stack bubbles vertically
-  // Each chunk appears higher up (negative = up)
-  const baseTop = -20;
-  const chunkSpacing = 80; // Space between chunks
-  const chunkVerticalOffset = chunkIndex * -chunkSpacing;
 
   return (
     <Animated.View
@@ -225,8 +252,7 @@ export function SimpleSpeechBubble({
           paddingVertical: paddingV,
           // Position horizontally - right of center for single character
           left: horizontalPosition,
-          // Stack chunks vertically
-          top: baseTop + chunkVerticalOffset,
+          top: -20,
           transform: [{ translateX: -finalWidth / 2 }],
         },
       ]}
@@ -236,23 +262,33 @@ export function SimpleSpeechBubble({
       </Text>
       {lines.map((line, i) => (
         <Text key={i} style={[styles.text, { fontSize: textFontSize, lineHeight }]}>
-          {line}
+          {renderTextWithBoldActions(
+            line,
+            [styles.text, { fontSize: textFontSize, lineHeight }],
+            styles.boldActionText
+          )}
         </Text>
       ))}
     </Animated.View>
   );
 }
 
+// Helper to count words in an action (excluding asterisks)
+function getActionWordCount(action: string): number {
+  return action.replace(/\*/g, '').trim().split(/\s+/).length;
+}
+
 // Export helper to extract action text from a string
+// Only returns SHORT actions (1-2 words) for floating display
 export function extractActionText(text: string): string[] {
   const matches = text.match(/\*[^*]+\*/g);
-  return matches || [];
+  // Only return actions with 1-2 words (short actions float near character)
+  return (matches || []).filter(action => getActionWordCount(action) <= 2);
 }
 
 const styles = StyleSheet.create({
   bubble: {
     position: 'absolute',
-    // top is calculated dynamically based on chunkIndex
     backgroundColor: 'rgba(30, 30, 40, 0.85)',
     borderWidth: 2,
     zIndex: 100,
@@ -271,6 +307,11 @@ const styles = StyleSheet.create({
   },
   text: {
     fontFamily: 'Inter-Regular',
+    color: '#ffffff',
+  },
+  boldActionText: {
+    fontFamily: 'Inter-Bold',
+    fontWeight: 'bold',
     color: '#ffffff',
   },
   actionText: {

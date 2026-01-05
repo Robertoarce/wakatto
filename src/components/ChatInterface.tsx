@@ -125,26 +125,59 @@ type IdleAnimationState = ExtractedIdleAnimationState;
 const getRandomIdleAnimation = getRandomIdleAnimationUtil;
 const getRandomIdleInterval = getRandomIdleIntervalUtil;
 
-// Split text into chunks for multiple speech bubbles
-const splitIntoChunks = (text: string, maxChars: number = 250): string[] => {
-  if (!text || text.length <= maxChars) return text ? [text] : [];
+// Parse text to identify long action words (3+ words) for bold rendering
+type ActionTextPart = { type: 'text' | 'action'; content: string };
 
-  const chunks: string[] = [];
-  // Split on sentence boundaries
-  const sentences = text.split(/(?<=[.!?])\s+/);
-  let currentChunk = '';
+function parseLongActions(text: string): ActionTextPart[] {
+  const parts: ActionTextPart[] = [];
+  const regex = /(\*[^*]+\*)/g;
+  let lastIndex = 0;
+  let match;
 
-  for (const sentence of sentences) {
-    if ((currentChunk + sentence).length > maxChars && currentChunk) {
-      chunks.push(currentChunk.trim());
-      currentChunk = sentence;
-    } else {
-      currentChunk += (currentChunk ? ' ' : '') + sentence;
+  while ((match = regex.exec(text)) !== null) {
+    // Add text before the match
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', content: text.slice(lastIndex, match.index) });
     }
+    // Only mark as action if it's a long action (3+ words)
+    const wordCount = match[1].replace(/\*/g, '').trim().split(/\s+/).length;
+    if (wordCount > 2) {
+      parts.push({ type: 'action', content: match[1] });
+    } else {
+      // Short actions stay as regular text (they may appear in history)
+      parts.push({ type: 'text', content: match[1] });
+    }
+    lastIndex = regex.lastIndex;
   }
-  if (currentChunk) chunks.push(currentChunk.trim());
-  return chunks;
-};
+
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push({ type: 'text', content: text.slice(lastIndex) });
+  }
+
+  return parts;
+}
+
+// Render text with bold styling for long action words (3+ words)
+function renderTextWithBoldActions(text: string): React.ReactNode {
+  const parts = parseLongActions(text);
+  
+  if (parts.length === 1 && parts[0].type === 'text') {
+    // No long actions, just return plain text
+    return text;
+  }
+
+  return parts.map((part, index) => {
+    if (part.type === 'action') {
+      return (
+        <Text key={index} style={{ fontWeight: 'bold', fontFamily: 'Inter-Bold' }}>
+          {part.content}
+        </Text>
+      );
+    }
+    return part.content;
+  });
+}
 
 // Shallow compare ComplementaryAnimation objects (all props are primitives)
 const shallowCompareComplementary = (
@@ -1923,25 +1956,29 @@ Each silence, a cathedral where you still reside.`;
                     
                     const isHovered = hoveredCharacterId === characterId;
                     const finalIsActive = (usePlayback && charPlaybackState?.isActive) || showEntranceAnimation || !!idleState;
-                    // Split text into chunks for multiple bubbles (only for single character)
-                    const textChunks = total === 1 ? splitIntoChunks(revealedText, 250) : [revealedText];
+                    // Format text with newlines after sentences for single character (readable line breaks)
+                    // - Add newline BEFORE numbered list items (e.g., "text 1. Item" -> "text\n1. Item")
+                    // - Add newline after sentence endings [.!?] BUT NOT when preceded by digit (preserves "3.14", "$1.50", etc.)
+                    const formattedText = total === 1 
+                      ? revealedText
+                          // Add newline before numbered list items (e.g., "something 1. First" -> "something\n1. First")
+                          .replace(/(\S)(\s+)(\d+\.\s+)(?=[A-Z])/g, '$1\n$3')
+                          // Add newline after sentence-ending punctuation, but NOT for decimals/currency
+                          .replace(/(?<!\d)([.!?])\s+/g, '$1\n')
+                      : revealedText;
 
                     return (
                       <>
-                        {/* Speech bubbles inside wrapper - inherits floating animation */}
-                        {(isMobileLandscape || !(isMobile && selectedCharacters.length > 1)) && revealedText && (
-                          textChunks.map((chunk, chunkIndex) => (
-                            <SimpleSpeechBubble
-                              key={`bubble-${characterId}-${chunkIndex}`}
-                              text={chunk}
-                              characterName={character.name}
-                              characterColor={character.color}
-                              isVisible={chunk.length > 0}
-                              characterCount={total}
-                              chunkIndex={chunkIndex}
-                              totalChunks={textChunks.length}
-                            />
-                          ))
+                        {/* Speech bubble inside wrapper - inherits floating animation */}
+                        {(isMobileLandscape || !(isMobile && selectedCharacters.length > 1)) && formattedText && (
+                          <SimpleSpeechBubble
+                            key={`bubble-${characterId}`}
+                            text={formattedText}
+                            characterName={character.name}
+                            characterColor={character.color}
+                            isVisible={formattedText.length > 0}
+                            characterCount={total}
+                          />
                         )}
                         <MemoizedCharacterDisplay3D
                           character={character}
@@ -2239,7 +2276,7 @@ Each silence, a cathedral where you still reside.`;
                               <View>
                                 {lines.map((line, lineIndex) => (
                                   <Text key={lineIndex} style={[styles.messageText, { fontSize: fonts.md }]}>
-                                    {line}
+                                    {renderTextWithBoldActions(line)}
                                     {showCursor && lineIndex === lines.length - 1 && (
                                       <Text style={styles.messageTypingCursor}>|</Text>
                                     )}
@@ -2249,8 +2286,8 @@ Each silence, a cathedral where you still reside.`;
                             );
                           }
 
-                          // Show full text when not animating
-                          return <Text style={[styles.messageText, { fontSize: fonts.md }]}>{message.content}</Text>;
+                          // Show full text when not animating - long actions (3+ words) are bold
+                          return <Text style={[styles.messageText, { fontSize: fonts.md }]}>{renderTextWithBoldActions(message.content)}</Text>;
                         })()}
                         {message.created_at && (
                           <Text style={[styles.messageTimestamp, { fontSize: fonts.xs }]}>

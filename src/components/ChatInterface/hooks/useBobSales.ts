@@ -93,10 +93,13 @@ export function useBobSales({
     if (bobJustAppeared && conversationId && !hasPitchedThisSessionRef.current) {
       hasPitchedThisSessionRef.current = true;
 
-      bobManagerRef.current = initBobSalesManager({
-        onPitchStart: handlePitchStart,
-        onPitchComplete: handlePitchComplete,
-      });
+      bobManagerRef.current = initBobSalesManager(
+        {
+          onPitchStart: handlePitchStart,
+          onPitchComplete: handlePitchComplete,
+        },
+        conversationId  // For tutorial token limit multiplier (3x)
+      );
 
       // Start Bob's pitch after a brief delay (let any animations settle)
       setTimeout(() => {
@@ -124,10 +127,13 @@ export function useBobSales({
       hasPitchedThisSessionRef.current = true;
       wasBobSelectedRef.current = true;
 
-      bobManagerRef.current = initBobSalesManager({
-        onPitchStart: handlePitchStart,
-        onPitchComplete: handlePitchComplete,
-      });
+      bobManagerRef.current = initBobSalesManager(
+        {
+          onPitchStart: handlePitchStart,
+          onPitchComplete: handlePitchComplete,
+        },
+        conversationId  // For tutorial token limit multiplier (3x)
+      );
 
       // Start Bob's pitch after entrance animations
       setTimeout(() => {

@@ -144,12 +144,14 @@ interface OrchestrationResult {
 
 /**
  * Generate multi-character responses in a single LLM call
+ * @param conversationId - Optional conversation ID for tutorial token limit multiplier
  */
 export async function generateSingleCallOrchestration(
   userMessage: string,
   selectedCharacters: string[],
   messageHistory: ConversationMessage[],
-  config: Partial<OrchestrationConfig> = {}
+  config: Partial<OrchestrationConfig> = {},
+  conversationId?: string
 ): Promise<CharacterResponse[]> {
   const finalConfig = { ...DEFAULT_CONFIG, ...config };
 
@@ -189,13 +191,26 @@ export async function generateSingleCallOrchestration(
     const rawResponse = await generateAIResponse(
       conversationMessages,
       orchestrationPrompt,
-      'orchestrator' // Special ID for orchestration
+      'orchestrator', // Special ID for orchestration
+      undefined,      // parameterOverrides
+      conversationId  // For tutorial token limit multiplier
     );
 
-    console.log('[SingleCall] Raw response:', rawResponse);
+    console.log('\n========== LLM RAW OUTPUT (SingleCall) ==========');
+    console.log(rawResponse);
+    console.log('=================================================\n');
 
     // Parse the structured response
     const orchestrationResult = parseOrchestrationResponse(rawResponse);
+
+    // Log each character's input
+    console.log('\n---------- CHARACTER INPUTS ----------');
+    orchestrationResult.responses.forEach((resp, index) => {
+      console.log(`[${index + 1}] ${resp.character}:`);
+      console.log(`    Content: "${resp.content}"`);
+      console.log(`    Gesture: ${resp.gesture || 'none'}, Interrupts: ${resp.interrupts}, ReactsTo: ${resp.reactsTo || 'none'}`);
+    });
+    console.log('--------------------------------------\n');
 
     // Convert to standard CharacterResponse format
     const characterResponses: CharacterResponse[] = orchestrationResult.responses.map(resp => ({
@@ -224,12 +239,14 @@ export async function generateSingleCallOrchestration(
 /**
  * Generate multi-character animated scene in a single LLM call
  * Returns a fully choreographed scene with animation timelines
+ * @param conversationId - Optional conversation ID for tutorial token limit multiplier
  */
 export async function generateAnimatedSceneOrchestration(
   userMessage: string,
   selectedCharacters: string[],
   messageHistory: ConversationMessage[],
-  config: Partial<OrchestrationConfig> = {}
+  config: Partial<OrchestrationConfig> = {},
+  conversationId?: string
 ): Promise<{ scene: OrchestrationScene; responses: CharacterResponse[] }> {
   const profiler = getProfiler();
   const finalConfig = { ...DEFAULT_CONFIG, ...config, enableAnimatedScene: true };
@@ -267,8 +284,14 @@ export async function generateAnimatedSceneOrchestration(
     const rawResponse = await generateAIResponse(
       conversationMessages,
       animatedPrompt,
-      'orchestrator'
+      'orchestrator',
+      undefined,      // parameterOverrides
+      conversationId  // For tutorial token limit multiplier
     );
+
+    console.log('\n========== LLM RAW OUTPUT (AnimatedScene) ==========');
+    console.log(rawResponse);
+    console.log('====================================================\n');
 
     // Profile scene parsing
     const parseTimer = profiler.start(PROFILE_OPS.SCENE_PARSE);
@@ -342,20 +365,23 @@ export interface StreamingOrchestrationCallbacks {
  * 
  * Note: Since we need complete JSON for animations, text is shown after
  * full response is received. The streaming benefit is faster initial response.
+ * 
+ * @param conversationId - Optional conversation ID for tutorial token limit multiplier
  */
 export async function generateAnimatedSceneOrchestrationStreaming(
   userMessage: string,
   selectedCharacters: string[],
   messageHistory: ConversationMessage[],
   callbacks?: StreamingOrchestrationCallbacks,
-  config: Partial<OrchestrationConfig> = {}
+  config: Partial<OrchestrationConfig> = {},
+  conversationId?: string
 ): Promise<{ scene: OrchestrationScene; responses: CharacterResponse[] }> {
   const profiler = getProfiler();
   const finalConfig = { ...DEFAULT_CONFIG, ...config, enableAnimatedScene: true };
 
   // Check if streaming is supported
   if (!isStreamingSupported()) {
-    return generateAnimatedSceneOrchestration(userMessage, selectedCharacters, messageHistory, config);
+    return generateAnimatedSceneOrchestration(userMessage, selectedCharacters, messageHistory, config, conversationId);
   }
 
   // Set available characters for parsing
@@ -420,8 +446,14 @@ export async function generateAnimatedSceneOrchestrationStreaming(
         onError: (error) => {
           callbacks?.onError?.(error);
         },
-      }
+      },
+      undefined,      // parameterOverrides
+      conversationId  // For tutorial token limit multiplier
     );
+
+    console.log('\n========== LLM RAW OUTPUT (Streaming) ==========');
+    console.log(rawResponse);
+    console.log('=================================================\n');
 
     // Parse scene
     const parseTimer = profiler.start(PROFILE_OPS.SCENE_PARSE);
