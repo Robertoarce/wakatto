@@ -21,7 +21,7 @@ import {
 } from '../components/CharacterDisplay3D';
 import { getCharacter } from '../config/characters';
 import { SegmentVoice, parseSegmentVoice } from '../config/voiceConfig';
-import { resolveEffect } from './emojiAnimations';
+import { resolveEffect, extractExpressionFromEmojis } from './emojiAnimations';
 
 // ============================================
 // TYPE DEFINITIONS
@@ -1265,6 +1265,22 @@ function convertSimplifiedScene(
 
         // Create default talking segment for this split
         const splitDuration = Math.round(splitContentLength * DEFAULT_TALKING_SPEED);
+        
+        // Check for face emoji expressions in this split's content
+        const splitComplementary: AnimationSegment['complementary'] = {};
+        const splitEmojiExpression = extractExpressionFromEmojis(splitCleanContent);
+        if (splitEmojiExpression) {
+          const expanded = expandExpression(splitEmojiExpression);
+          if (expanded.ey) splitComplementary.eyeState = expanded.ey;
+          if (expanded.eb) splitComplementary.eyebrowState = expanded.eb;
+          if (expanded.m) splitComplementary.mouthState = expanded.m;
+          if (expanded.fc) splitComplementary.faceState = expanded.fc;
+          if (expanded.n) splitComplementary.noseState = expanded.n;
+          if (expanded.ck) splitComplementary.cheekState = expanded.ck;
+          if (expanded.fh) splitComplementary.foreheadState = expanded.fh;
+          if (expanded.j) splitComplementary.jawState = expanded.j;
+        }
+        
         const splitSegments: AnimationSegment[] = [{
           animation: 'talking' as AnimationState,
           duration: splitDuration,
@@ -1273,6 +1289,8 @@ function convertSimplifiedScene(
             startIndex: 0,
             endIndex: splitContentLength
           },
+          // Add complementary animation from emoji detection
+          complementary: Object.keys(splitComplementary).length > 0 ? splitComplementary : undefined,
           // Add action text if present
           actionText: splitActionTexts.length > 0 ? splitActionTexts.join(' ') : undefined
         }];
@@ -1313,6 +1331,20 @@ function convertSimplifiedScene(
       if (expanded.eb) complementary.eyebrowState = expanded.eb;
       if (expanded.m) complementary.mouthState = expanded.m;
       if (expanded.fc) complementary.faceState = expanded.fc;
+    } else {
+      // No explicit expression - check for face emojis in text content
+      const emojiExpression = extractExpressionFromEmojis(cleanedContent);
+      if (emojiExpression) {
+        const expanded = expandExpression(emojiExpression);
+        if (expanded.ey) complementary.eyeState = expanded.ey;
+        if (expanded.eb) complementary.eyebrowState = expanded.eb;
+        if (expanded.m) complementary.mouthState = expanded.m;
+        if (expanded.fc) complementary.faceState = expanded.fc;
+        if (expanded.n) complementary.noseState = expanded.n;
+        if (expanded.ck) complementary.cheekState = expanded.ck;
+        if (expanded.fh) complementary.foreheadState = expanded.fh;
+        if (expanded.j) complementary.jawState = expanded.j;
+      }
     }
 
     // Apply individual overrides
@@ -1735,6 +1767,25 @@ function parseSegment(
   const explicitEffect = validateEffect(raw.effect);
   const resolvedEffect = resolveEffect(explicitEffect, content);
   if (resolvedEffect && resolvedEffect !== 'none') complementary.effect = resolvedEffect;
+
+  // NEW: Detect face emojis and apply expression if no explicit facial states set
+  // Only apply if no eyeState, mouthState, or faceState was explicitly provided
+  const hasExplicitFacialState = eyeState || mouthState || faceState;
+  if (!hasExplicitFacialState) {
+    const emojiExpression = extractExpressionFromEmojis(content);
+    if (emojiExpression) {
+      // Expand the expression and merge into complementary
+      const expanded = expandExpression(emojiExpression);
+      if (expanded.ey && !complementary.eyeState) complementary.eyeState = expanded.ey;
+      if (expanded.eb && !complementary.eyebrowState) complementary.eyebrowState = expanded.eb;
+      if (expanded.m && !complementary.mouthState) complementary.mouthState = expanded.m;
+      if (expanded.fc && !complementary.faceState) complementary.faceState = expanded.fc;
+      if (expanded.n && !complementary.noseState) complementary.noseState = expanded.n;
+      if (expanded.ck && !complementary.cheekState) complementary.cheekState = expanded.ck;
+      if (expanded.fh && !complementary.foreheadState) complementary.foreheadState = expanded.fh;
+      if (expanded.j && !complementary.jawState) complementary.jawState = expanded.j;
+    }
+  }
 
   const segment: AnimationSegment = {
     animation,
