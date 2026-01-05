@@ -532,6 +532,10 @@ Override specific parts if needed: "ex":"joyful","m":"smirk" (joyful expression 
 ## Voice (optional "v" object per segment)
 ${getVoiceOptionsForPrompt()}
 
+## Emojis → Visual Effects
+Use emojis in text to trigger visual effects:
+❤️💕→hearts, ✨⭐→sparkles, 🎉🎊→confetti, 🔥💥→fire, 🎵🎶→music, 😢😭→tears, 😡💢→anger, ❄️🥶→snow, 🌈→rainbow
+
 ## Output Format (JSON REQUIRED - NO PLAIN TEXT!)
 ⚠️ RESPOND WITH JSON ONLY - not "[Name]: text" format!
 

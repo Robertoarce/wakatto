@@ -21,6 +21,7 @@ import {
 } from '../components/CharacterDisplay3D';
 import { getCharacter } from '../config/characters';
 import { SegmentVoice, parseSegmentVoice } from '../config/voiceConfig';
+import { resolveEffect } from './emojiAnimations';
 
 // ============================================
 // TYPE DEFINITIONS
@@ -211,7 +212,9 @@ const VALID_JAW_STATES: JawState[] = [
 ];
 
 const VALID_EFFECTS: VisualEffect[] = [
-  'none', 'confetti', 'spotlight', 'sparkles', 'hearts'
+  'none', 'confetti', 'spotlight', 'sparkles', 'hearts',
+  // New emoji-triggered effects
+  'fire', 'stars', 'music_notes', 'tears', 'anger', 'snow', 'rainbow'
 ];
 
 // ============================================
@@ -1636,7 +1639,7 @@ function parseCharacterTimeline(
   
   if (Array.isArray(response.timeline) && response.timeline.length > 0) {
     for (const seg of response.timeline) {
-      const segment = parseSegment(seg, response.content.length);
+      const segment = parseSegment(seg, response.content);
       segments.push(segment);
       totalDuration += segment.duration;
     }
@@ -1663,11 +1666,13 @@ function parseCharacterTimeline(
 /**
  * Parse a single animation segment
  * For talking segments, recalculates duration based on text length to ensure consistent speed
+ * Also detects emojis in text content to automatically trigger visual effects
  */
 function parseSegment(
   raw: LLMCharacterResponse['timeline'][0],
-  contentLength: number
+  content: string
 ): AnimationSegment {
+  const contentLength = content.length;
   const animation = validateAnimation(raw.animation || 'idle');
   const isTalking = raw.talking === true;
 
@@ -1717,8 +1722,10 @@ function parseSegment(
   const jawState = validateJawState(raw.jaw);
   if (jawState) complementary.jawState = jawState;
 
-  const effect = validateEffect(raw.effect);
-  if (effect && effect !== 'none') complementary.effect = effect;
+  // Resolve effect: explicit fx takes priority, then emoji detection
+  const explicitEffect = validateEffect(raw.effect);
+  const resolvedEffect = resolveEffect(explicitEffect, content);
+  if (resolvedEffect && resolvedEffect !== 'none') complementary.effect = resolvedEffect;
 
   const segment: AnimationSegment = {
     animation,

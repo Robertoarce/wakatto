@@ -141,7 +141,20 @@ export type JawState =
   | 'slack';            // Hanging open
 
 // Visual effect types
-export type VisualEffect = 'none' | 'confetti' | 'spotlight' | 'sparkles' | 'hearts';
+export type VisualEffect = 
+  | 'none' 
+  | 'confetti' 
+  | 'spotlight' 
+  | 'sparkles' 
+  | 'hearts'
+  // New emoji-triggered effects
+  | 'fire'         // 🔥💥💪 - Rising flame particles
+  | 'stars'        // ⭐🌟💫 - Twinkling star shapes
+  | 'music_notes'  // 🎵🎶🎤🎸 - Floating musical notes
+  | 'tears'        // 😢😭💧 - Falling tear drops
+  | 'anger'        // 😡😤💢 - Anime-style anger steam
+  | 'snow'         // ❄️🥶☃️ - Falling snowflakes
+  | 'rainbow';     // 🌈 - Arcing rainbow bands
 
 // 3D Model style types
 export type ModelStyle = 'blocky';

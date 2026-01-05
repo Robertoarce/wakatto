@@ -93,6 +93,14 @@ import {
   SpotlightEffect,
   SparklesEffect,
   HeartsEffect,
+  // New emoji-triggered effects
+  FireEffect,
+  StarsEffect,
+  MusicNotesEffect,
+  TearsEffect,
+  AngerEffect,
+  SnowEffect,
+  RainbowEffect,
 } from './character3d/VisualEffects';
 import { FaceDecorations } from './character3d/parts/FaceDecorations';
 import { Clothing } from './character3d/parts/Clothing';
@@ -2910,6 +2918,28 @@ export function CharacterDisplay3D({
         )}
         {complementary?.effect === 'hearts' && (
           <HeartsEffect color={effectColor} speed={complementary?.speed} />
+        )}
+        {/* New emoji-triggered effects */}
+        {complementary?.effect === 'fire' && (
+          <FireEffect color={effectColor} speed={complementary?.speed} />
+        )}
+        {complementary?.effect === 'stars' && (
+          <StarsEffect color={effectColor} speed={complementary?.speed} />
+        )}
+        {complementary?.effect === 'music_notes' && (
+          <MusicNotesEffect color={effectColor} speed={complementary?.speed} />
+        )}
+        {complementary?.effect === 'tears' && (
+          <TearsEffect color={effectColor} speed={complementary?.speed} />
+        )}
+        {complementary?.effect === 'anger' && (
+          <AngerEffect color={effectColor} speed={complementary?.speed} />
+        )}
+        {complementary?.effect === 'snow' && (
+          <SnowEffect color={effectColor} speed={complementary?.speed} />
+        )}
+        {complementary?.effect === 'rainbow' && (
+          <RainbowEffect color={effectColor} speed={complementary?.speed} />
         )}
 
         <OrbitControls

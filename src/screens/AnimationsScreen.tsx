@@ -135,6 +135,14 @@ const VISUAL_EFFECTS: { value: VisualEffect; label: string; icon: string }[] = [
   { value: 'spotlight', label: 'Spotlight', icon: '🔦' },
   { value: 'sparkles', label: 'Sparkles', icon: '✨' },
   { value: 'hearts', label: 'Hearts', icon: '💕' },
+  // New emoji-triggered effects
+  { value: 'fire', label: 'Fire', icon: '🔥' },
+  { value: 'stars', label: 'Stars', icon: '⭐' },
+  { value: 'music_notes', label: 'Music', icon: '🎵' },
+  { value: 'tears', label: 'Tears', icon: '😢' },
+  { value: 'anger', label: 'Anger', icon: '😡' },
+  { value: 'snow', label: 'Snow', icon: '❄️' },
+  { value: 'rainbow', label: 'Rainbow', icon: '🌈' },
 ];
 
 // Speed presets
