@@ -54,6 +54,13 @@
     ::-webkit-scrollbar-thumb:hover {
       background: rgba(82, 82, 91, 0.8);
     }
+
+    /* Hide scrollbar for speech bubbles (works with scrollbar-width: none for Firefox) */
+    [data-speechbubble-scroll]::-webkit-scrollbar {
+      display: none;
+      width: 0;
+      height: 0;
+    }
   </style>
 </head>
 <body>

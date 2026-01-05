@@ -9,7 +9,7 @@
  */
 
 import React, { useRef, useEffect } from 'react';
-import { Animated, Text, View, StyleSheet, Platform } from 'react-native';
+import { Animated, Text, View, StyleSheet, Platform, ScrollView } from 'react-native';
 import { useResponsive } from '../constants/Layout';
 
 // Parse text to separate regular text from *action* text (long actions only - 3+ words)
@@ -161,9 +161,22 @@ export function SimpleSpeechBubble({
   const usableWidth = finalWidth - (paddingH * 2);
   const charsPerLine = Math.max(20, Math.floor(usableWidth / avgCharWidth));
 
-  // For single character, allow very tall bubbles (no practical limit)
-  // For multiple characters, keep the original limit
-  const effectiveMaxLines = isSingleCharacter ? 50 : maxLines;
+  // Limit bubble height to ~15 lines for readability
+  // For multiple characters, use the smaller maxLines prop
+  const effectiveMaxLines = isSingleCharacter ? 15 : maxLines;
+
+  // Max height for scrollable content (based on ~15 lines)
+  const maxContentHeight = lineHeight * effectiveMaxLines;
+
+  // Ref for auto-scrolling to bottom
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  // Auto-scroll to bottom when text changes
+  useEffect(() => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollToEnd({ animated: false });
+    }
+  }, [text]);
 
   // Word wrap function that respects explicit newlines
   const wrapText = (str: string, maxChars: number): string[] => {
@@ -194,9 +207,8 @@ export function SimpleSpeechBubble({
       if (currentLine) allLines.push(currentLine);
     }
 
-    // Show last N lines (scrolling effect for long text)
-    // Single character allows much more height
-    return allLines.slice(-effectiveMaxLines);
+    // Return all lines - scrolling handles overflow
+    return allLines;
   };
 
   const lines = wrapText(strippedText || text, charsPerLine);
@@ -221,15 +233,25 @@ export function SimpleSpeechBubble({
         <Text style={[styles.name, { color: characterColor, fontSize: nameFontSize, marginBottom: 4 }]}>
           {characterName}
         </Text>
-        {lines.map((line, i) => (
-          <Text key={i} style={[styles.text, { fontSize: textFontSize, lineHeight }]}>
-            {renderTextWithBoldActions(
-              line,
-              [styles.text, { fontSize: textFontSize, lineHeight }],
-              styles.boldActionText
-            )}
-          </Text>
-        ))}
+        <ScrollView
+          ref={scrollViewRef}
+          style={[styles.scrollContainer, { maxHeight: maxContentHeight }]}
+          showsVerticalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: false })}
+          // @ts-ignore - dataSet is valid for React Native Web
+          dataSet={{ speechbubbleScroll: true }}
+        >
+          {lines.map((line, i) => (
+            <Text key={i} style={[styles.text, { fontSize: textFontSize, lineHeight }]}>
+              {renderTextWithBoldActions(
+                line,
+                [styles.text, { fontSize: textFontSize, lineHeight }],
+                styles.boldActionText
+              )}
+            </Text>
+          ))}
+        </ScrollView>
       </Animated.View>
     );
   }
@@ -260,15 +282,28 @@ export function SimpleSpeechBubble({
       <Text style={[styles.name, { color: characterColor, fontSize: nameFontSize, marginBottom: 4 }]}>
         {characterName}
       </Text>
-      {lines.map((line, i) => (
-        <Text key={i} style={[styles.text, { fontSize: textFontSize, lineHeight }]}>
-          {renderTextWithBoldActions(
-            line,
-            [styles.text, { fontSize: textFontSize, lineHeight }],
-            styles.boldActionText
-          )}
-        </Text>
-      ))}
+      <ScrollView
+        ref={scrollViewRef}
+        style={[
+          styles.scrollContainer,
+          { maxHeight: maxContentHeight },
+        ]}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: false })}
+        // @ts-ignore - dataSet is valid for React Native Web
+        dataSet={{ speechbubbleScroll: true }}
+      >
+        {lines.map((line, i) => (
+          <Text key={i} style={[styles.text, { fontSize: textFontSize, lineHeight }]}>
+            {renderTextWithBoldActions(
+              line,
+              [styles.text, { fontSize: textFontSize, lineHeight }],
+              styles.boldActionText
+            )}
+          </Text>
+        ))}
+      </ScrollView>
     </Animated.View>
   );
 }
@@ -292,14 +327,24 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(30, 30, 40, 0.85)',
     borderWidth: 2,
     zIndex: 100,
-    pointerEvents: 'none',
+    pointerEvents: 'box-none', // Allow scroll interaction but don't block touches outside
   },
   bubbleMobileStacked: {
     position: 'relative',
     backgroundColor: 'rgba(30, 30, 40, 0.95)',
     borderWidth: 2,
     alignSelf: 'center',
-    pointerEvents: 'none',
+    pointerEvents: 'box-none',
+  },
+  scrollContainer: {
+    // Hide scrollbar on web (Firefox & IE/Edge)
+    ...Platform.select({
+      web: {
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none',
+      } as any,
+      default: {},
+    }),
   },
   name: {
     fontFamily: 'Inter-Bold',
