@@ -1380,6 +1380,7 @@ const Character = React.memo(function Character({ character, isActive, animation
   const hasShield = accessories.includes('shield');
   const hasBook = accessories.includes('book');
   const hasGun = accessories.includes('gun');
+  const hasPapyrus = accessories.includes('papyrus');
 
   // Companions
   const hasParrot = accessories.includes('parrot');
@@ -1723,31 +1724,6 @@ const Character = React.memo(function Character({ character, isActive, animation
             </group>
           )}
 
-          {/* BOOK - held in left hand (moves with left arm) */}
-          {hasBook && (
-            <group position={[0, body.handY - 0.05, 0.12]} rotation={[0, 0.3, 0]}>
-              {/* Book cover */}
-              <mesh position={[0, 0, 0]} castShadow>
-                <boxGeometry args={[0.12, 0.16, 0.03]} />
-                <meshStandardMaterial color="#8B4513" roughness={0.8} />
-              </mesh>
-              {/* Pages */}
-              <mesh position={[0, 0, 0.018]} castShadow>
-                <boxGeometry args={[0.1, 0.14, 0.02]} />
-                <meshStandardMaterial color="#f5f5dc" roughness={0.9} />
-              </mesh>
-              {/* Spine detail */}
-              <mesh position={[-0.065, 0, 0]} castShadow>
-                <boxGeometry args={[0.01, 0.16, 0.035]} />
-                <meshStandardMaterial color="#654321" roughness={0.7} />
-              </mesh>
-              {/* Gold emblem */}
-              <mesh position={[0, 0, -0.02]} castShadow>
-                <boxGeometry args={[0.04, 0.04, 0.005]} />
-                <meshStandardMaterial color="#c9a227" metalness={0.6} roughness={0.4} />
-              </mesh>
-            </group>
-          )}
         </group>
       </group>
       {/* Right Arm */}
@@ -2643,6 +2619,110 @@ const Character = React.memo(function Character({ character, isActive, animation
           </group>
         );
       })()}
+
+      {/* BOOKS - pile on the ground next to character */}
+      {hasBook && (
+        <group position={[-body.armX - 0.35, body.legY - body.upperLeg.height - 0.32, 0.15]}>
+          {/* Book 1 - closed, bottom of pile */}
+          <mesh position={[0, 0, 0]} rotation={[0, 0.1, 0]} castShadow>
+            <boxGeometry args={[0.18, 0.03, 0.24]} />
+            <meshStandardMaterial color="#8B4513" roughness={0.8} />
+          </mesh>
+          {/* Book 2 - closed, slightly rotated */}
+          <mesh position={[0.02, 0.035, 0.01]} rotation={[0, -0.15, 0]} castShadow>
+            <boxGeometry args={[0.17, 0.025, 0.22]} />
+            <meshStandardMaterial color="#2d5a27" roughness={0.8} />
+          </mesh>
+          {/* Book 3 - closed, different angle */}
+          <mesh position={[-0.01, 0.065, -0.02]} rotation={[0, 0.25, 0]} castShadow>
+            <boxGeometry args={[0.16, 0.028, 0.21]} />
+            <meshStandardMaterial color="#8b1a1a" roughness={0.8} />
+          </mesh>
+          {/* Book 4 - OPEN book on top */}
+          <group position={[0, 0.1, 0.02]} rotation={[0, -0.1, 0]}>
+            {/* Left page spread */}
+            <mesh position={[-0.085, 0.005, 0]} rotation={[0, 0, 0.08]} castShadow>
+              <boxGeometry args={[0.15, 0.015, 0.2]} />
+              <meshStandardMaterial color="#f5f5dc" roughness={0.95} />
+            </mesh>
+            {/* Right page spread */}
+            <mesh position={[0.085, 0.005, 0]} rotation={[0, 0, -0.08]} castShadow>
+              <boxGeometry args={[0.15, 0.015, 0.2]} />
+              <meshStandardMaterial color="#f5f5dc" roughness={0.95} />
+            </mesh>
+            {/* Spine (center crease) */}
+            <mesh position={[0, -0.005, 0]} castShadow>
+              <boxGeometry args={[0.02, 0.02, 0.2]} />
+              <meshStandardMaterial color="#654321" roughness={0.7} />
+            </mesh>
+            {/* Text lines on left page */}
+            {[-0.06, -0.03, 0, 0.03, 0.06].map((z, i) => (
+              <mesh key={`left-${i}`} position={[-0.08, 0.015, z]} castShadow>
+                <boxGeometry args={[0.1, 0.002, 0.015]} />
+                <meshStandardMaterial color="#2a2a2a" roughness={0.9} />
+              </mesh>
+            ))}
+            {/* Text lines on right page */}
+            {[-0.06, -0.03, 0, 0.03, 0.06].map((z, i) => (
+              <mesh key={`right-${i}`} position={[0.08, 0.015, z]} castShadow>
+                <boxGeometry args={[0.1, 0.002, 0.015]} />
+                <meshStandardMaterial color="#2a2a2a" roughness={0.9} />
+              </mesh>
+            ))}
+          </group>
+          {/* Scattered book - lying flat beside pile */}
+          <mesh position={[0.22, 0.015, 0.08]} rotation={[0, 0.6, 0]} castShadow>
+            <boxGeometry args={[0.14, 0.025, 0.18]} />
+            <meshStandardMaterial color="#1e3a5f" roughness={0.8} />
+          </mesh>
+        </group>
+      )}
+
+      {/* PAPYRUS - long scroll held, almost touching ground */}
+      {hasPapyrus && (
+        <group position={[body.armX + 0.15, body.armY - 0.2, 0.15]} rotation={[0.1, -0.3, 0]}>
+          {/* Main scroll body - long and curved slightly */}
+          <mesh position={[0, -0.3, 0]} castShadow>
+            <boxGeometry args={[0.18, 0.9, 0.02]} />
+            <meshStandardMaterial color="#d4b896" roughness={0.95} />
+          </mesh>
+          {/* Top roll */}
+          <mesh position={[0, 0.15, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+            <cylinderGeometry args={[0.025, 0.025, 0.2, 8]} />
+            <meshStandardMaterial color="#c4a876" roughness={0.85} />
+          </mesh>
+          {/* Top roll end caps */}
+          <mesh position={[-0.11, 0.15, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+            <cylinderGeometry args={[0.03, 0.03, 0.02, 8]} />
+            <meshStandardMaterial color="#8B4513" roughness={0.7} />
+          </mesh>
+          <mesh position={[0.11, 0.15, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+            <cylinderGeometry args={[0.03, 0.03, 0.02, 8]} />
+            <meshStandardMaterial color="#8B4513" roughness={0.7} />
+          </mesh>
+          {/* Bottom curl - slightly rolled */}
+          <mesh position={[0, -0.78, 0.02]} rotation={[0.3, 0, 0]} castShadow>
+            <boxGeometry args={[0.17, 0.08, 0.025]} />
+            <meshStandardMaterial color="#d4b896" roughness={0.95} />
+          </mesh>
+          {/* Written text lines */}
+          {[-0.25, -0.18, -0.11, -0.04, 0.03, 0.1, -0.32, -0.39, -0.46, -0.53, -0.6].map((y, i) => (
+            <mesh key={`text-${i}`} position={[0, y, 0.012]} castShadow>
+              <boxGeometry args={[0.12 - (i % 3) * 0.02, 0.008, 0.002]} />
+              <meshStandardMaterial color="#3a2a1a" roughness={0.9} />
+            </mesh>
+          ))}
+          {/* Decorative hieroglyph-style marks */}
+          <mesh position={[-0.06, -0.67, 0.012]} castShadow>
+            <boxGeometry args={[0.015, 0.015, 0.002]} />
+            <meshStandardMaterial color="#3a2a1a" roughness={0.9} />
+          </mesh>
+          <mesh position={[0.04, -0.67, 0.012]} castShadow>
+            <boxGeometry args={[0.02, 0.012, 0.002]} />
+            <meshStandardMaterial color="#3a2a1a" roughness={0.9} />
+          </mesh>
+        </group>
+      )}
     </>
   );
 

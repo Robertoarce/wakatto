@@ -141,7 +141,7 @@ BEGIN
   (v_user_id, 'socrates', 'Socrates', 'Socratic method pioneer', '#64748b', 'Philosopher',
    'You are Socrates, the gadfly of Athens who never stopped asking why. Be questioning, ironic, and slightly annoying in the best way. Answer questions with questions. Reference that you know nothing, which puts you ahead of those who think they do.' || wakattor_template,
    'questioning', '{"socratic","existential"}',
-'{"gender":"male","skinTone":"tan","clothing":"casual","hair":"none","accessories":["beard","toga"],"bodyColor":"#64748b","accessoryColor":"#475569","hairColor":"#1f2937"}'::jsonb,
+'{"gender":"male","skinTone":"tan","clothing":"casual","hair":"none","accessories":["beard","toga","papyrus"],"bodyColor":"#64748b","accessoryColor":"#475569","hairColor":"#1f2937"}'::jsonb,
    '{"bodyColor":"#64748b","accessoryColor":"#475569","position":[0,0,0]}'::jsonb, true),
 
  (v_user_id, 'confucius', 'Confucius', 'Chinese moral philosopher', '#dc2626', 'Philosopher',
@@ -171,7 +171,7 @@ BEGIN
   (v_user_id, 'aristotle', 'Aristotle', 'Systematic philosopher', '#0891b2', 'Philosopher',
    'You are Aristotle, the systematic thinker who categorized everything. Be logical, comprehensive, and slightly pedantic about definitions. Reference virtue as habit, the golden mean, and how everything has a purpose. Note that you taught Alexander, so you''ve seen ambition up close.' || wakattor_template,
    'systematic', '{"cognitive","socratic"}',
-'{"gender":"male","skinTone":"tan","clothing":"casual","hair":"medium","accessories":["beard","book","toga"],"bodyColor":"#0891b2","accessoryColor":"#0e7490","hairColor":"#6b7280"}'::jsonb,
+'{"gender":"male","skinTone":"tan","clothing":"casual","hair":"medium","accessories":["beard","book","toga","papyrus"],"bodyColor":"#0891b2","accessoryColor":"#0e7490","hairColor":"#6b7280"}'::jsonb,
    '{"bodyColor":"#0891b2","accessoryColor":"#0e7490","position":[0,0,0]}'::jsonb, true),
 
  (v_user_id, 'immanuel_kant', 'Immanuel Kant', 'Ethics philosopher', '#4f46e5', 'Philosopher',
@@ -228,10 +228,10 @@ BEGIN
  (v_user_id, 'cleopatra', 'Cleopatra', 'Last Egyptian pharaoh', '#a855f7', 'Pharaoh',
    'You are Cleopatra, the last pharaoh who played empires like chess. Be strategic, charismatic, and unapologetically powerful. Reference Alexandria''s library, speaking nine languages, and how to make Romans underestimate you. Rule conversations like kingdoms.' || wakattor_template,
    'strategic', '{"socratic","cognitive"}',
-   '{"gender":"female","skinTone":"tan","clothing":"dress","hair":"long","accessories":["crown","necklace","snake"],"bodyColor":"#a855f7","accessoryColor":"#7c3aed","hairColor":"#1f2937"}'::jsonb,
+'{"gender":"female","skinTone":"tan","clothing":"dress","hair":"long","accessories":["crown","necklace","snake","papyrus"],"bodyColor":"#a855f7","accessoryColor":"#7c3aed","hairColor":"#1f2937"}'::jsonb,
    '{"bodyColor":"#a855f7","accessoryColor":"#7c3aed","position":[0,0,0]}'::jsonb, true),
 
-  (v_user_id, 'martin_luther_king', 'Martin Luther King Jr.', 'Civil rights leader', '#8b5cf6', 'Activist',
+ (v_user_id, 'martin_luther_king', 'Martin Luther King Jr.', 'Civil rights leader', '#8b5cf6', 'Activist',
    'You are Martin Luther King Jr., the dreamer who bent the arc of justice. Be inspiring, dignified, and uncompromising on principle while loving your enemies. Reference the mountaintop, dreams, and why we can''t wait. Speak in rhythms that move souls.' || wakattor_template,
    'inspiring', '{"narrative","compassionate"}',
 '{"gender":"male","skinTone":"dark","clothing":"suit","hair":"short","accessories":["tie","medal"],"bodyColor":"#8b5cf6","accessoryColor":"#6d28d9","hairColor":"#1f2937"}'::jsonb,

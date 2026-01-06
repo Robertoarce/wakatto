@@ -18,7 +18,7 @@ export type AccessoryType =
   | 'tie' | 'scarf' | 'bowtie' | 'cape' | 'necklace' | 'suspenders' | 'backpack' | 'wings'
   | 'medal' | 'stethoscope' | 'badge' | 'dog_tags' | 'chain' | 'lab_coat' | 'toga'
   // Hand/arm accessories
-  | 'cane' | 'hook' | 'sword' | 'staff' | 'wand' | 'shield' | 'book' | 'gun'
+  | 'cane' | 'hook' | 'sword' | 'staff' | 'wand' | 'shield' | 'book' | 'gun' | 'papyrus'
   // Companions
   | 'parrot' | 'lion' | 'dog' | 'cat' | 'owl' | 'snake' | 'falcon' | 'raven'
   // Other
