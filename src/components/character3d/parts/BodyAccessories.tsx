@@ -19,6 +19,7 @@ interface BodyAccessoriesProps {
   hasWheelchair: boolean;
   hasLion: boolean;
   hasLabCoat: boolean;
+  hasToga: boolean;
 }
 
 /**
@@ -37,6 +38,7 @@ export function BodyAccessories({
   hasWheelchair,
   hasLion,
   hasLabCoat,
+  hasToga,
 }: BodyAccessoriesProps) {
   return (
     <>
@@ -432,6 +434,52 @@ export function BodyAccessories({
           <mesh position={[-body.torso.width * 0.25, body.torso.y + 0.24, body.frontZ + 0.05]} castShadow>
             <boxGeometry args={[0.015, 0.08, 0.015]} />
             <meshStandardMaterial color="#1a1a1a" roughness={0.5} />
+          </mesh>
+        </>
+      )}
+
+      {/* TOGA - Ancient Greek/Roman garment */}
+      {hasToga && (
+        <>
+          {/* Main toga drape - wraps around body */}
+          <mesh position={[0, body.torso.y - 0.1, body.frontZ + 0.02]} castShadow>
+            <boxGeometry args={[body.torso.width * 1.1, body.torso.height * 1.4, 0.03]} />
+            <meshStandardMaterial color="#f5f5dc" roughness={0.85} />
+          </mesh>
+          {/* Back panel */}
+          <mesh position={[0, body.torso.y - 0.1, body.backZ - 0.02]} castShadow>
+            <boxGeometry args={[body.torso.width * 1.1, body.torso.height * 1.4, 0.03]} />
+            <meshStandardMaterial color="#f5f5dc" roughness={0.85} />
+          </mesh>
+          {/* Left side wrap */}
+          <mesh position={[-body.torso.width * 0.53, body.torso.y - 0.1, 0]} castShadow>
+            <boxGeometry args={[0.04, body.torso.height * 1.4, body.torso.depth * 0.95]} />
+            <meshStandardMaterial color="#f5f5dc" roughness={0.85} />
+          </mesh>
+          {/* Shoulder drape - over left shoulder diagonally */}
+          <mesh position={[-body.torso.width * 0.25, body.torso.y + 0.25, body.frontZ + 0.04]} rotation={[0, 0, 0.5]} castShadow>
+            <boxGeometry args={[0.18, body.torso.height * 0.9, 0.03]} />
+            <meshStandardMaterial color="#f5f5dc" roughness={0.85} />
+          </mesh>
+          {/* Shoulder drape back */}
+          <mesh position={[-body.torso.width * 0.2, body.torso.y + 0.1, body.backZ - 0.03]} rotation={[0, 0, -0.3]} castShadow>
+            <boxGeometry args={[0.15, body.torso.height * 0.8, 0.03]} />
+            <meshStandardMaterial color="#f5f5dc" roughness={0.85} />
+          </mesh>
+          {/* Decorative gold border at bottom hem */}
+          <mesh position={[0, body.torsoBottom - 0.35, body.frontZ + 0.04]} castShadow>
+            <boxGeometry args={[body.torso.width * 1.05, 0.04, 0.02]} />
+            <meshStandardMaterial color="#c9a227" metalness={0.5} roughness={0.4} />
+          </mesh>
+          {/* Decorative gold border on shoulder drape */}
+          <mesh position={[-body.torso.width * 0.35, body.shoulderY, body.frontZ + 0.05]} rotation={[0, 0, 0.5]} castShadow>
+            <boxGeometry args={[0.03, 0.25, 0.015]} />
+            <meshStandardMaterial color="#c9a227" metalness={0.5} roughness={0.4} />
+          </mesh>
+          {/* Fibula brooch pin at shoulder */}
+          <mesh position={[-body.torso.width * 0.2, body.shoulderY + 0.08, body.frontZ + 0.06]} castShadow>
+            <sphereGeometry args={[0.04, 8, 8]} />
+            <meshStandardMaterial color="#c9a227" metalness={0.7} roughness={0.3} />
           </mesh>
         </>
       )}

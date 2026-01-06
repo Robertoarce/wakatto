@@ -16,7 +16,7 @@ export type AccessoryType =
   | 'beard' | 'moustache' | 'eye_patch' | 'scar' | 'pipe' | 'cigar'
   // Body/clothing accessories
   | 'tie' | 'scarf' | 'bowtie' | 'cape' | 'necklace' | 'suspenders' | 'backpack' | 'wings'
-  | 'medal' | 'stethoscope' | 'badge' | 'dog_tags' | 'chain' | 'lab_coat'
+  | 'medal' | 'stethoscope' | 'badge' | 'dog_tags' | 'chain' | 'lab_coat' | 'toga'
   // Hand/arm accessories
   | 'cane' | 'hook' | 'sword' | 'staff' | 'wand' | 'shield' | 'book' | 'gun'
   // Companions

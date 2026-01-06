@@ -1369,6 +1369,7 @@ const Character = React.memo(function Character({ character, isActive, animation
   const hasDogTags = accessories.includes('dog_tags');
   const hasChain = accessories.includes('chain');
   const hasLabCoat = accessories.includes('lab_coat');
+  const hasToga = accessories.includes('toga');
 
   // Hand/arm accessories
   const hasCane = accessories.includes('cane');
@@ -1594,6 +1595,7 @@ const Character = React.memo(function Character({ character, isActive, animation
         hasWheelchair={hasWheelchair}
         hasLion={hasLion}
         hasLabCoat={hasLabCoat}
+        hasToga={hasToga}
       />
 
       {/* Body Accessories 2 - medal, stethoscope, badge, dog_tags, chain */}
