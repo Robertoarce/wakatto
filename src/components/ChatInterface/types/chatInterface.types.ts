@@ -36,7 +36,6 @@ export interface ChatInterfaceProps {
   showSidebar: boolean;
   onToggleSidebar: () => void;
   isLoading?: boolean;
-  onEditMessage?: (messageId: string, newContent: string) => void;
   onDeleteMessage?: (messageId: string) => void;
   // Animation orchestration
   animationScene?: OrchestrationScene | null;

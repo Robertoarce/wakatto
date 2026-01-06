@@ -92,7 +92,6 @@ interface ChatInterfaceProps {
   showSidebar: boolean;
   onToggleSidebar: () => void;
   isLoading?: boolean;
-  onEditMessage?: (messageId: string, newContent: string) => void;
   onDeleteMessage?: (messageId: string) => void;
   // Animation orchestration
   animationScene?: OrchestrationScene | null;
@@ -264,7 +263,7 @@ const ThinkingDots = memo(() => {
   );
 });
 
-export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onEditMessage, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting, conversationId, savedCharacters, onSaveIdleMessage }: ChatInterfaceProps) {
+export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting, conversationId, savedCharacters, onSaveIdleMessage }: ChatInterfaceProps) {
   const dispatch = useDispatch();
   const { isFullscreen } = useSelector((state: RootState) => state.ui);
   const { currentUsage, lastWarningDismissed, lastFetchedAt } = useSelector((state: RootState) => state.usage);
@@ -301,9 +300,6 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     messageTimestamp: { fontSize: fonts.xs },
     loadingText: { fontSize: fonts.sm },
     textInput: { fontSize: fonts.md },
-    editMessageInput: { fontSize: fonts.md, borderRadius: borderRadius.sm },
-    cancelText: { fontSize: fonts.sm },
-    saveText: { fontSize: fonts.sm },
     characterNameText: { fontSize: fonts.lg },
     hoverNameText: { fontSize: fonts.xl },
     // Drawer text: percentage-based sizing (scales with parent/viewport)
@@ -361,19 +357,12 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     },
     showAlert,
   });
-  // Message editing (hook handles edit/delete/long press logic)
+  // Message actions (hook handles delete/long press logic)
   const {
-    editingMessageId,
-    editingContent,
-    setEditingContent,
-    startEditingMessage,
-    saveEditedMessage,
-    cancelEditing,
     confirmDeleteMessage,
     handleLongPressMessage,
   } = useMessageEditing({
     isLoading,
-    onEditMessage,
     onDeleteMessage,
     showAlert,
   });
@@ -1380,7 +1369,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
   // Voice recording functions (toggleRecording, cancelRecording, restartRecording, togglePause) provided by useVoiceRecording hook
 
-  // Message editing functions (startEditingMessage, saveEditedMessage, cancelEditing, confirmDeleteMessage, handleLongPressMessage) provided by useMessageEditing hook
+  // Message actions (confirmDeleteMessage, handleLongPressMessage) provided by useMessageEditing hook
   // Alias for backwards compatibility in JSX
   const handleLongPress = handleLongPressMessage;
 
@@ -2239,62 +2228,38 @@ Each silence, a cathedral where you still reside.`;
                       message.role === 'assistant' && character && { backgroundColor: character.color + '20', borderColor: character.color, borderWidth: 2 },
                     ]}
                   >
-                    {editingMessageId === message.id ? (
-                      <View style={styles.editingMessageContainer}>
-                        <TextInput
-                          style={[styles.editMessageInput, { fontSize: fonts.md }]}
-                          value={editingContent}
-                          onChangeText={setEditingContent}
-                          multiline
-                          autoFocus
-                          placeholder="Edit message..."
-                          placeholderTextColor="#71717a"
-                        />
-                        <View style={styles.editActions}>
-                          <TouchableOpacity onPress={cancelEditing} style={styles.editActionButton}>
-                            <Text style={[styles.cancelText, { fontSize: fonts.sm }]}>Cancel</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity onPress={saveEditedMessage} style={[styles.editActionButton, styles.saveButton]}>
-                            <Text style={[styles.saveText, { fontSize: fonts.sm }]}>Save</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    ) : (
-                      <>
-                        {/* Character Name for Assistant Messages */}
-                        {message.role === 'assistant' && character && (
-                          <Text style={[styles.characterName, { color: character.color, fontSize: fonts.lg }]}>
-                            {character.name}
-                          </Text>
-                        )}
-                        {(() => {
-                          if (isAnimating && revealedText !== null) {
-                            // Pre-calculated line wrapping - prevents words jumping between lines
-                            const lines = wrapTextWithReveal(message.content, revealedText.length, 60);
-                            const showCursor = revealedText.length < message.content.length;
-                            return (
-                              <View>
-                                {lines.map((line, lineIndex) => (
-                                  <Text key={lineIndex} style={[styles.messageText, { fontSize: fonts.md }]}>
-                                    {renderTextWithBoldActions(line)}
-                                    {showCursor && lineIndex === lines.length - 1 && (
-                                      <Text style={styles.messageTypingCursor}>|</Text>
-                                    )}
-                                  </Text>
-                                ))}
-                              </View>
-                            );
-                          }
+                    {/* Character Name for Assistant Messages */}
+                    {message.role === 'assistant' && character && (
+                      <Text style={[styles.characterName, { color: character.color, fontSize: fonts.lg }]}>
+                        {character.name}
+                      </Text>
+                    )}
+                    {(() => {
+                      if (isAnimating && revealedText !== null) {
+                        // Pre-calculated line wrapping - prevents words jumping between lines
+                        const lines = wrapTextWithReveal(message.content, revealedText.length, 60);
+                        const showCursor = revealedText.length < message.content.length;
+                        return (
+                          <View>
+                            {lines.map((line, lineIndex) => (
+                              <Text key={lineIndex} style={[styles.messageText, { fontSize: fonts.md }]}>
+                                {renderTextWithBoldActions(line)}
+                                {showCursor && lineIndex === lines.length - 1 && (
+                                  <Text style={styles.messageTypingCursor}>|</Text>
+                                )}
+                              </Text>
+                            ))}
+                          </View>
+                        );
+                      }
 
-                          // Show full text when not animating - long actions (3+ words) are bold
-                          return <Text style={[styles.messageText, { fontSize: fonts.md }]}>{renderTextWithBoldActions(message.content)}</Text>;
-                        })()}
-                        {message.created_at && (
-                          <Text style={[styles.messageTimestamp, { fontSize: fonts.xs }]}>
-                            {formatTimestamp(message.created_at)}
-                          </Text>
-                        )}
-                      </>
+                      // Show full text when not animating - long actions (3+ words) are bold
+                      return <Text style={[styles.messageText, { fontSize: fonts.md }]}>{renderTextWithBoldActions(message.content)}</Text>;
+                    })()}
+                    {message.created_at && (
+                      <Text style={[styles.messageTimestamp, { fontSize: fonts.xs }]}>
+                        {formatTimestamp(message.created_at)}
+                      </Text>
                     )}
                   </TouchableOpacity>
                 </View>
@@ -2969,39 +2934,6 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.5,
-  },
-  editingMessageContainer: {
-    width: '100%',
-  },
-  editMessageInput: {
-    backgroundColor: '#18181b',
-    color: 'white',
-    padding: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#5398BE',
-    minHeight: 60,
-    marginBottom: 8,
-  },
-  editActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-  },
-  editActionButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  saveButton: {
-    backgroundColor: '#5398BE',
-  },
-  cancelText: {
-    color: '#a1a1aa',
-  },
-  saveText: {
-    color: 'white',
-    fontWeight: '600',
   },
   charactersRow: {
     flex: 1,

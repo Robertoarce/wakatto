@@ -19,7 +19,6 @@ import {
   saveMessage,
   renameConversation,
   deleteConversation,
-  updateMessage,
   deleteMessage,
 } from '../store/actions/conversationActions';
 import { getCharacter } from '../config/characters';
@@ -203,14 +202,6 @@ export default function MainTabs() {
         error.message || 'Failed to delete conversation. Please try again.',
         [{ text: 'OK' }]
       );
-    }
-  };
-
-  const onEditMessage = async (messageId: string, newContent: string) => {
-    try {
-      await dispatch(updateMessage(messageId, newContent) as any);
-    } catch (error: any) {
-      showAlert('Error', 'Failed to edit message: ' + error.message);
     }
   };
 
@@ -653,7 +644,6 @@ The text behaves as it should be.`;
             showSidebar={showSidebar}
             onToggleSidebar={onToggleSidebar}
             isLoading={isLoadingAI}
-            onEditMessage={onEditMessage}
             onDeleteMessage={onDeleteMessage}
             animationScene={animationScene}
             earlyAnimationSetup={earlyAnimationSetup}
