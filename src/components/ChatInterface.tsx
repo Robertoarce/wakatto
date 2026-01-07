@@ -432,6 +432,9 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const participantCount = conversationId ? (participants[conversationId]?.length || 1) : 1;
   const currentParticipants = conversationId ? (participants[conversationId] || []) : [];
   const isAdmin = userRole === 'admin';
+  
+  // Bob tutorial conversation should not allow collaboration (it's personal for each user)
+  const isBobTutorialConversation = selectedCharacters.length === 1 && selectedCharacters[0] === 'bob-tutorial';
 
   // Get current user ID for participant list
   useEffect(() => {
@@ -1746,7 +1749,8 @@ Each silence, a cathedral where you still reside.`;
         </View>
 
         {/* Collaboration Button - Right side, matching playback buttons style (hidden in landscape - uses bottom bar) */}
-        {conversationId && !isMobileLandscape && (
+        {/* Hidden for Bob tutorial conversation (personal for each user) */}
+        {conversationId && !isMobileLandscape && !isBobTutorialConversation && (
           <View style={styles.collabButtonsContainer}>
             {showCollabOptions ? (
               <>
@@ -2145,7 +2149,8 @@ Each silence, a cathedral where you still reside.`;
           </TouchableOpacity>
 
           {/* Collab/Sharing Buttons - Expandable inline */}
-          {conversationId && (
+          {/* Hidden for Bob tutorial conversation (personal for each user) */}
+          {conversationId && !isBobTutorialConversation && (
             showCollabOptions ? (
               <>
                 {/* Close button */}
