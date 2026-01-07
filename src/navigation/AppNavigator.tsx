@@ -10,6 +10,8 @@ import { clearInvalidSession, isRefreshTokenError } from '../lib/supabase';
 import { setSession, setLoading } from '../store/actions/authActions';
 import { RootState } from '../store';
 import { ActivityIndicator, View, StyleSheet, Text, Platform } from 'react-native';
+import * as Linking from 'expo-linking';
+import { checkForJoinCode, clearJoinCodeFromUrl, parseDeepLink } from '../utils/deepLinkHandler';
 
 const Stack = createStackNavigator();
 
@@ -18,6 +20,8 @@ type SimpleNavScreen = 'Login' | 'Register' | 'Main';
 interface SimpleNavContextType {
   navigate: (screen: SimpleNavScreen) => void;
   currentScreen: SimpleNavScreen;
+  pendingJoinCode: string | null;
+  consumeJoinCode: () => void;
 }
 const SimpleNavContext = createContext<SimpleNavContextType | null>(null);
 
@@ -38,6 +42,59 @@ export default function AppNavigator() {
   // Stack.Navigator has issues on web with React Navigation v7
   // IMPORTANT: This must be declared before any early returns to satisfy React hooks rules
   const [currentScreen, setCurrentScreen] = useState<SimpleNavScreen>('Login');
+  
+  // Deep link state - stores pending join code from URL
+  const [pendingJoinCode, setPendingJoinCode] = useState<string | null>(null);
+
+  // Handle incoming deep link URL
+  const handleDeepLinkUrl = (url: string | null) => {
+    if (!url) return;
+    
+    const result = parseDeepLink(url);
+    if (result.type === 'join' && result.inviteCode) {
+      console.log('[AppNavigator] Found join code in deep link:', result.inviteCode);
+      setPendingJoinCode(result.inviteCode);
+    }
+  };
+
+  // Check for deep link on mount
+  useEffect(() => {
+    // Web: Check window.location
+    if (Platform.OS === 'web') {
+      const joinCode = checkForJoinCode();
+      if (joinCode) {
+        console.log('[AppNavigator] Found join code in URL:', joinCode);
+        setPendingJoinCode(joinCode);
+        // Clear the URL so it doesn't trigger again on refresh
+        clearJoinCodeFromUrl();
+      }
+    } else {
+      // Native: Check initial URL using Expo Linking
+      const checkInitialUrl = async () => {
+        try {
+          const initialUrl = await Linking.getInitialURL();
+          handleDeepLinkUrl(initialUrl);
+        } catch (error) {
+          console.error('[AppNavigator] Error getting initial URL:', error);
+        }
+      };
+      checkInitialUrl();
+    }
+  }, []);
+
+  // Listen for incoming deep links (native only)
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+
+    // Set up listener for incoming URLs
+    const subscription = Linking.addEventListener('url', (event) => {
+      handleDeepLinkUrl(event.url);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   // Check initial session on mount
   useEffect(() => {
@@ -85,9 +142,15 @@ export default function AppNavigator() {
     );
   }
 
+  const consumeJoinCode = () => {
+    setPendingJoinCode(null);
+  };
+
   const simpleNav: SimpleNavContextType = {
     navigate: (screen) => setCurrentScreen(screen),
     currentScreen,
+    pendingJoinCode,
+    consumeJoinCode,
   };
 
   const renderScreen = () => {

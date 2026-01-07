@@ -10,6 +10,7 @@
     ],
     "version": "1.0.0",
     "orientation": "portrait",
+    "scheme": "wakatto",
     "icon": "./src/assets/images/icon.png",
     "splash": {
       "image": "./src/assets/images/splash.png",
@@ -43,7 +44,8 @@
             "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
           }
         ]
-      }
+      },
+      "associatedDomains": ["applinks:wakatto.com"]
     },
     "android": {
       "package": "com.wakatto.app",
@@ -55,6 +57,20 @@
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "wakatto.com",
+              "pathPrefix": "/join"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
       ]
     },
     "web": {

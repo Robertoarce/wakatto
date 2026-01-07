@@ -3,7 +3,7 @@ export interface Participant {
   id: string;
   conversation_id: string;
   user_id: string;
-  role: 'owner' | 'editor' | 'viewer';
+  role: 'admin' | 'participant' | 'viewer';
   invited_by: string | null;
   email?: string;
   display_name?: string;
@@ -20,7 +20,7 @@ interface ConversationState {
   participants: { [conversationId: string]: Participant[] };
   typingUsers: { [conversationId: string]: string[] }; // User IDs currently typing
   isSubscribed: { [conversationId: string]: boolean }; // Real-time subscription status
-  userRole: 'owner' | 'editor' | 'viewer' | null; // Current user's role in current conversation
+  userRole: 'admin' | 'participant' | 'viewer' | null; // Current user's role in current conversation
 }
 
 const initialState: ConversationState = {

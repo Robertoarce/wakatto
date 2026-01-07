@@ -37,7 +37,7 @@ export function InviteModal({ visible, conversationId, onClose }: InviteModalPro
 
   // New invite form state
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newRole, setNewRole] = useState<'editor' | 'viewer'>('viewer');
+  const [newRole, setNewRole] = useState<'participant' | 'viewer'>('viewer');
   const [expiresInHours, setExpiresInHours] = useState<string>('24');
   const [maxUses, setMaxUses] = useState<string>('');
 
@@ -73,7 +73,7 @@ export function InviteModal({ visible, conversationId, onClose }: InviteModalPro
       setInvites([newInvite, ...invites]);
       setShowCreateForm(false);
       // Reset form
-      setNewRole('viewer');
+      setNewRole('viewer' as 'participant' | 'viewer');
       setExpiresInHours('24');
       setMaxUses('');
     } catch (err) {
@@ -197,22 +197,22 @@ export function InviteModal({ visible, conversationId, onClose }: InviteModalPro
                 <TouchableOpacity
                   style={[
                     styles.roleOption,
-                    newRole === 'editor' && styles.roleOptionActive,
+                    newRole === 'participant' && styles.roleOptionActive,
                   ]}
-                  onPress={() => setNewRole('editor')}
+                  onPress={() => setNewRole('participant')}
                 >
                   <Ionicons
-                    name="pencil"
+                    name="people"
                     size={16}
-                    color={newRole === 'editor' ? '#fff' : '#10b981'}
+                    color={newRole === 'participant' ? '#fff' : '#10b981'}
                   />
                   <Text
                     style={[
                       styles.roleOptionText,
-                      newRole === 'editor' && styles.roleOptionTextActive,
+                      newRole === 'participant' && styles.roleOptionTextActive,
                     ]}
                   >
-                    Editor
+                    Participant
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -341,21 +341,21 @@ export function InviteModal({ visible, conversationId, onClose }: InviteModalPro
                         <View
                           style={[
                             styles.roleBadge,
-                            invite.role === 'editor'
-                              ? styles.roleBadgeEditor
+                            invite.role === 'participant'
+                              ? styles.roleBadgeParticipant
                               : styles.roleBadgeViewer,
                           ]}
                         >
                           <Ionicons
-                            name={invite.role === 'editor' ? 'pencil' : 'eye'}
+                            name={invite.role === 'participant' ? 'people' : 'eye'}
                             size={10}
-                            color={invite.role === 'editor' ? '#10b981' : '#6b7280'}
+                            color={invite.role === 'participant' ? '#10b981' : '#6b7280'}
                           />
                           <Text
                             style={[
                               styles.roleBadgeText,
-                              invite.role === 'editor'
-                                ? styles.roleBadgeTextEditor
+                              invite.role === 'participant'
+                                ? styles.roleBadgeTextParticipant
                                 : styles.roleBadgeTextViewer,
                             ]}
                           >
@@ -665,7 +665,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 12,
   },
-  roleBadgeEditor: {
+  roleBadgeParticipant: {
     backgroundColor: 'rgba(16, 185, 129, 0.15)',
   },
   roleBadgeViewer: {
@@ -676,7 +676,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Medium',
     textTransform: 'capitalize',
   },
-  roleBadgeTextEditor: {
+  roleBadgeTextParticipant: {
     color: '#10b981',
   },
   roleBadgeTextViewer: {

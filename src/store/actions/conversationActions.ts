@@ -713,7 +713,7 @@ export const removeParticipant = (conversationId: string, userId: string) => asy
 };
 
 // Async action to update a participant's role
-export const updateParticipantRole = (conversationId: string, userId: string, role: 'editor' | 'viewer') => async (dispatch: any) => {
+export const updateParticipantRole = (conversationId: string, userId: string, role: 'participant' | 'viewer') => async (dispatch: any) => {
   try {
     await updateRoleService(conversationId, userId, role);
     // Reload participants to get updated state

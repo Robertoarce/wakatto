@@ -69,7 +69,9 @@ import { calculateCharacterPosition } from './ChatInterface/utils/characterPosit
 import { SimpleSpeechBubble } from './SimpleSpeechBubble';
 import { InviteModal } from './InviteModal';
 import { JoinConversation } from './JoinConversation';
-import { loadParticipants, loadUserRole } from '../store/actions/conversationActions';
+import { ParticipantList } from './ParticipantList';
+import { loadParticipants, loadUserRole, updateParticipantRole, removeParticipant } from '../store/actions/conversationActions';
+import { supabase } from '../lib/supabase';
 
 interface Message {
   id: string;
@@ -105,6 +107,10 @@ interface ChatInterfaceProps {
   savedCharacters?: string[] | null;
   // Callback to save idle conversation messages
   onSaveIdleMessage?: (characterId: string, content: string, metadata?: Record<string, any>) => void;
+  // Deep link: Join code from URL
+  initialJoinCode?: string | null;
+  // Deep link: Callback to consume (clear) the join code after use
+  onConsumeJoinCode?: () => void;
 }
 
 // Export function to start animation playback from external components
@@ -263,7 +269,7 @@ const ThinkingDots = memo(() => {
   );
 });
 
-export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting, conversationId, savedCharacters, onSaveIdleMessage }: ChatInterfaceProps) {
+export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting, conversationId, savedCharacters, onSaveIdleMessage, initialJoinCode, onConsumeJoinCode }: ChatInterfaceProps) {
   const dispatch = useDispatch();
   const { isFullscreen } = useSelector((state: RootState) => state.ui);
   const { currentUsage, lastWarningDismissed, lastFetchedAt } = useSelector((state: RootState) => state.usage);
@@ -414,9 +420,29 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [showCollabOptions, setShowCollabOptions] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showParticipantList, setShowParticipantList] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string>('');
   const { participants, userRole } = useSelector((state: RootState) => state.conversations);
   const participantCount = conversationId ? (participants[conversationId]?.length || 1) : 1;
-  const isOwner = userRole === 'owner';
+  const currentParticipants = conversationId ? (participants[conversationId] || []) : [];
+  const isAdmin = userRole === 'admin';
+
+  // Get current user ID for participant list
+  useEffect(() => {
+    const getUserId = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setCurrentUserId(user.id);
+    };
+    getUserId();
+  }, []);
+
+  // Deep link: Auto-open join modal when initialJoinCode is present
+  useEffect(() => {
+    if (initialJoinCode) {
+      console.log('[ChatInterface] Opening join modal with code:', initialJoinCode);
+      setShowJoinModal(true);
+    }
+  }, [initialJoinCode]);
 
   // Toast state for character selection feedback
   const [toastVisible, setToastVisible] = useState(false);
@@ -1722,7 +1748,15 @@ Each silence, a cathedral where you still reside.`;
                 >
                   <Ionicons name="close" size={scaleValue(14, 20)} color="#fff" />
                 </TouchableOpacity>
-                {isOwner && (
+                {/* View Participants button */}
+                <TouchableOpacity
+                  style={styles.collabButton}
+                  onPress={() => { setShowParticipantList(true); setShowCollabOptions(false); }}
+                >
+                  <Ionicons name="people" size={scaleValue(14, 20)} color="#60a5fa" />
+                  <Text style={[styles.collabButtonText, { fontSize: scaleValue(11, 16), color: '#60a5fa' }]}>View</Text>
+                </TouchableOpacity>
+                {isAdmin && (
                   <TouchableOpacity
                     style={styles.collabButton}
                     onPress={() => { setShowInviteModal(true); setShowCollabOptions(false); }}
@@ -2110,8 +2144,15 @@ Each silence, a cathedral where you still reside.`;
                 >
                   <Ionicons name="close" size={18} color="#fff" />
                 </TouchableOpacity>
-                {/* Invite button (owner only) */}
-                {isOwner && (
+                {/* View Participants button */}
+                <TouchableOpacity
+                  style={styles.landscapeBottomButton}
+                  onPress={() => { setShowParticipantList(true); setShowCollabOptions(false); }}
+                >
+                  <Ionicons name="people" size={18} color="#60a5fa" />
+                </TouchableOpacity>
+                {/* Invite button (admin only) */}
+                {isAdmin && (
                   <TouchableOpacity
                     style={styles.landscapeBottomButton}
                     onPress={() => { setShowInviteModal(true); setShowCollabOptions(false); }}
@@ -2484,9 +2525,56 @@ Each silence, a cathedral where you still reside.`;
       />
       <JoinConversation
         visible={showJoinModal}
-        onClose={() => setShowJoinModal(false)}
-        onJoined={(joinedId) => setShowJoinModal(false)}
+        initialCode={initialJoinCode || undefined}
+        onClose={() => {
+          setShowJoinModal(false);
+          // Consume the join code so it doesn't reopen
+          if (initialJoinCode && onConsumeJoinCode) {
+            onConsumeJoinCode();
+          }
+        }}
+        onJoined={(joinedId) => {
+          setShowJoinModal(false);
+          // Consume the join code after successful join
+          if (initialJoinCode && onConsumeJoinCode) {
+            onConsumeJoinCode();
+          }
+        }}
       />
+
+      {/* Participant List Modal */}
+      {showParticipantList && (
+        <View style={styles.participantListOverlay}>
+          <View style={styles.participantListModal}>
+            <View style={styles.participantListHeader}>
+              <Text style={styles.participantListTitle}>Participants</Text>
+              <TouchableOpacity onPress={() => setShowParticipantList(false)} style={styles.participantListCloseBtn}>
+                <Ionicons name="close" size={24} color="#9ca3af" />
+              </TouchableOpacity>
+            </View>
+            <ParticipantList
+              participants={currentParticipants}
+              currentUserId={currentUserId}
+              userRole={userRole}
+              onRemoveParticipant={async (userId) => {
+                if (conversationId) {
+                  await dispatch(removeParticipant(conversationId, userId) as any);
+                }
+              }}
+              onChangeRole={async (userId, role) => {
+                if (conversationId) {
+                  await dispatch(updateParticipantRole(conversationId, userId, role) as any);
+                }
+              }}
+              onInvite={() => {
+                setShowParticipantList(false);
+                setShowInviteModal(true);
+              }}
+              onClose={() => setShowParticipantList(false)}
+            />
+          </View>
+        </View>
+      )}
     </>
   );
 }
@@ -3528,5 +3616,44 @@ const styles = StyleSheet.create({
   speechBubbleCursor: {
     fontWeight: 'bold',
     opacity: 0.8,
+  },
+  // Participant List Modal Styles
+  participantListOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  participantListModal: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    width: '90%',
+    maxWidth: 400,
+    maxHeight: '80%',
+    borderWidth: 1,
+    borderColor: '#333',
+    overflow: 'hidden',
+  },
+  participantListHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  participantListTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 18,
+    color: '#fff',
+  },
+  participantListCloseBtn: {
+    padding: 4,
   },
 });

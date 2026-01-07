@@ -1,6 +1,6 @@
 /**
  * ParticipantList - Shows all participants in a conversation
- * Displays roles, online status, and management controls for owners
+ * Displays roles, online status, and management controls for admins
  */
 
 import React, { useState } from 'react';
@@ -18,10 +18,10 @@ import type { Participant } from '../services/participantService';
 interface ParticipantListProps {
   participants: Participant[];
   currentUserId: string;
-  userRole: 'owner' | 'editor' | 'viewer' | null;
+  userRole: 'admin' | 'participant' | 'viewer' | null;
   typingUsers?: string[];
   onRemoveParticipant?: (userId: string) => Promise<void>;
-  onChangeRole?: (userId: string, role: 'editor' | 'viewer') => Promise<void>;
+  onChangeRole?: (userId: string, role: 'participant' | 'viewer') => Promise<void>;
   onInvite?: () => void;
   onClose?: () => void;
   isLoading?: boolean;
@@ -41,13 +41,13 @@ export function ParticipantList({
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const isOwner = userRole === 'owner';
+  const isAdmin = userRole === 'admin';
 
   const getRoleColor = (role: string) => {
     switch (role) {
-      case 'owner':
+      case 'admin':
         return '#f59e0b'; // Amber
-      case 'editor':
+      case 'participant':
         return '#10b981'; // Green
       case 'viewer':
         return '#6b7280'; // Gray
@@ -58,10 +58,10 @@ export function ParticipantList({
 
   const getRoleIcon = (role: string) => {
     switch (role) {
-      case 'owner':
+      case 'admin':
         return 'shield';
-      case 'editor':
-        return 'pencil';
+      case 'participant':
+        return 'people';
       case 'viewer':
         return 'eye';
       default:
@@ -80,7 +80,7 @@ export function ParticipantList({
     }
   };
 
-  const handleRoleChange = async (userId: string, newRole: 'editor' | 'viewer') => {
+  const handleRoleChange = async (userId: string, newRole: 'participant' | 'viewer') => {
     if (!onChangeRole) return;
     setActionLoading(userId);
     try {
@@ -91,10 +91,15 @@ export function ParticipantList({
   };
 
   const getDisplayName = (participant: Participant) => {
+    // Prefer display_name if available
+    if (participant.display_name) {
+      return participant.display_name;
+    }
+    // Fall back to email username
     if (participant.email) {
       return participant.email.split('@')[0];
     }
-    return 'User';
+    return 'Unknown User';
   };
 
   return (
@@ -116,7 +121,7 @@ export function ParticipantList({
       </View>
 
       {/* Invite Button */}
-      {isOwner && onInvite && (
+      {isAdmin && onInvite && (
         <TouchableOpacity style={styles.inviteButton} onPress={onInvite}>
           <Ionicons name="person-add" size={18} color="#a855f7" />
           <Text style={styles.inviteButtonText}>Invite People</Text>
@@ -144,11 +149,11 @@ export function ParticipantList({
                     isExpanded && styles.participantRowExpanded,
                   ]}
                   onPress={() => {
-                    if (isOwner && !isCurrentUser && participant.role !== 'owner') {
+                    if (isAdmin && !isCurrentUser && participant.role !== 'admin') {
                       setExpandedUserId(isExpanded ? null : participant.user_id);
                     }
                   }}
-                  disabled={!isOwner || isCurrentUser || participant.role === 'owner'}
+                  disabled={!isAdmin || isCurrentUser || participant.role === 'admin'}
                 >
                   {/* Avatar */}
                   <View style={[styles.avatar, { borderColor: getRoleColor(participant.role) }]}>
@@ -184,7 +189,7 @@ export function ParticipantList({
                   </View>
 
                   {/* Expand Indicator */}
-                  {isOwner && !isCurrentUser && participant.role !== 'owner' && (
+                  {isAdmin && !isCurrentUser && participant.role !== 'admin' && (
                     <Ionicons
                       name={isExpanded ? 'chevron-up' : 'chevron-down'}
                       size={16}
@@ -205,15 +210,15 @@ export function ParticipantList({
                           <TouchableOpacity
                             style={[
                               styles.roleButton,
-                              participant.role === 'editor' && styles.roleButtonActive,
+                              participant.role === 'participant' && styles.roleButtonActive,
                             ]}
-                            onPress={() => handleRoleChange(participant.user_id, 'editor')}
+                            onPress={() => handleRoleChange(participant.user_id, 'participant')}
                           >
-                            <Ionicons name="pencil" size={14} color={participant.role === 'editor' ? '#fff' : '#10b981'} />
+                            <Ionicons name="people" size={14} color={participant.role === 'participant' ? '#fff' : '#10b981'} />
                             <Text style={[
                               styles.roleButtonText,
-                              participant.role === 'editor' && styles.roleButtonTextActive,
-                            ]}>Editor</Text>
+                              participant.role === 'participant' && styles.roleButtonTextActive,
+                            ]}>Participant</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={[

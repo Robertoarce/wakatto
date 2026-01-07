@@ -32,7 +32,7 @@ export interface ParticipantChange {
   id: string;
   conversation_id: string;
   user_id: string;
-  role: 'owner' | 'editor' | 'viewer';
+  role: 'admin' | 'participant' | 'viewer';
   joined_at: string;
 }
 

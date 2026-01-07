@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ChatInterface } from '../components/ChatInterface';
+import { JoinConversation } from '../components/JoinConversation';
 import { View, StyleSheet, Platform, TouchableOpacity, Text } from 'react-native';
 import { useSelector, useDispatch, useStore } from 'react-redux';
 import { RootState } from '../store';
@@ -11,6 +12,7 @@ import { ChatSidebar } from '../components/ChatSidebar';
 import { useCustomAlert } from '../components/CustomAlert';
 import { toggleSidebar, setSidebarOpen } from '../store/actions/uiActions';
 import { useResponsive } from '../constants/Layout';
+import { useSimpleNavigation } from './AppNavigator';
 import {
   loadConversations,
   selectConversation,
@@ -53,9 +55,12 @@ export default function MainTabs() {
   const { showSidebar, isFullscreen } = useSelector((state: RootState) => state.ui);
   const { currentUsage } = useSelector((state: RootState) => state.usage);
   const { layout, isMobile, isMobileLandscape, spacing } = useResponsive();
+  
+  // Deep link: Get pending join code from navigation context
+  const { pendingJoinCode, consumeJoinCode } = useSimpleNavigation();
 
   // Check if user is admin (for restricted features)
-  const isAdmin = currentUsage?.tier === 'admin';
+  const isAdminUser = currentUsage?.tier === 'admin';
   
   // Ref to prevent duplicate greeting processing
   const isProcessingGreeting = useRef(false);
@@ -68,6 +73,9 @@ export default function MainTabs() {
 
   // State for character selection screen (new conversation flow)
   const [showCharacterSelection, setShowCharacterSelection] = useState(false);
+
+  // State for join conversation modal (from sidebar)
+  const [showJoinModalFromSidebar, setShowJoinModalFromSidebar] = useState(false);
 
   // State for active tab (custom tab bar since Tab.Navigator doesn't work on web)
   type TabName = 'Home' | 'Wakattors' | 'Library' | 'Animations' | 'Settings';
@@ -149,24 +157,36 @@ export default function MainTabs() {
     setShowCharacterSelection(true);
   };
 
-  // Start or navigate to tutorial conversation with Bob
-  const onTutorial = async () => {
-    // Prevent double-click issues
-    if (isCreatingTutorial.current) return;
+  // Open premium upgrade flow
+  const onBecomePremium = () => {
+    // Close sidebar on mobile
+    if (isMobile && showSidebar) {
+      dispatch(setSidebarOpen(false));
+    }
+    // TODO: Implement premium upgrade flow
+    showAlert(
+      'Become Premium',
+      'Premium features coming soon! Get unlimited conversations, priority support, and exclusive characters.',
+      [{ text: 'OK' }]
+    );
+  };
 
-    isCreatingTutorial.current = true;
+  // Open join conversation modal from sidebar
+  const onJoinConversation = () => {
+    // Close sidebar on mobile
+    if (isMobile && showSidebar) {
+      dispatch(setSidebarOpen(false));
+    }
+    setShowJoinModalFromSidebar(true);
+  };
 
+  // Handle successful join from sidebar modal
+  const handleJoinedFromSidebar = async (conversationId: string) => {
+    setShowJoinModalFromSidebar(false);
     try {
-      await dispatch(createOrNavigateToTutorial() as any);
-
-      // Close sidebar on mobile after navigation
-      if (isMobile && showSidebar) {
-        dispatch(setSidebarOpen(false));
-      }
+      await dispatch(selectConversation(conversationId) as any);
     } catch (error: any) {
-      showAlert('Error', 'Failed to open tutorial: ' + error.message);
-    } finally {
-      isCreatingTutorial.current = false;
+      showAlert('Error', 'Failed to load conversation: ' + error.message);
     }
   };
 
@@ -601,6 +621,12 @@ The text behaves as it should be.`;
   return (
     <View style={styles.fullContainer}>
       <AlertComponent />
+      {/* Join conversation modal (from sidebar) */}
+      <JoinConversation
+        visible={showJoinModalFromSidebar}
+        onClose={() => setShowJoinModalFromSidebar(false)}
+        onJoined={handleJoinedFromSidebar}
+      />
       {/* Sidebar rendered at root level to cover entire screen including header and tab bar */}
       {!isFullscreen && (
         <ChatSidebar
@@ -610,7 +636,8 @@ The text behaves as it should be.`;
           onToggleSidebar={onToggleSidebar}
           isOpen={showSidebar}
           onNewConversation={onNewConversation}
-          onTutorial={onTutorial}
+          onBecomePremium={onBecomePremium}
+          onJoinConversation={onJoinConversation}
           onRenameConversation={onRenameConversation}
           onDeleteConversation={onDeleteConversation}
         />
@@ -651,6 +678,8 @@ The text behaves as it should be.`;
             conversationId={currentConversation?.id}
             savedCharacters={currentConversation?.selected_characters}
             onSaveIdleMessage={handleSaveIdleMessage}
+            initialJoinCode={pendingJoinCode}
+            onConsumeJoinCode={consumeJoinCode}
           />
         )}
         {activeTab === 'Library' && <LibraryScreen />}

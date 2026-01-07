@@ -127,7 +127,7 @@ export function JoinConversation({
 
   const getRoleDescription = (role: string) => {
     switch (role) {
-      case 'editor':
+      case 'participant':
         return 'You can send messages and participate in the conversation';
       case 'viewer':
         return 'You can read messages but cannot send any';
@@ -210,21 +210,21 @@ export function JoinConversation({
                     <View
                       style={[
                         styles.roleBadge,
-                        preview.invite.role === 'editor'
-                          ? styles.roleBadgeEditor
+                        preview.invite.role === 'participant'
+                          ? styles.roleBadgeParticipant
                           : styles.roleBadgeViewer,
                       ]}
                     >
                       <Ionicons
-                        name={preview.invite.role === 'editor' ? 'pencil' : 'eye'}
+                        name={preview.invite.role === 'participant' ? 'people' : 'eye'}
                         size={12}
-                        color={preview.invite.role === 'editor' ? '#10b981' : '#6b7280'}
+                        color={preview.invite.role === 'participant' ? '#10b981' : '#6b7280'}
                       />
                       <Text
                         style={[
                           styles.roleBadgeText,
-                          preview.invite.role === 'editor'
-                            ? styles.roleBadgeTextEditor
+                          preview.invite.role === 'participant'
+                            ? styles.roleBadgeTextParticipant
                             : styles.roleBadgeTextViewer,
                         ]}
                       >
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
-  roleBadgeEditor: {
+  roleBadgeParticipant: {
     backgroundColor: 'rgba(16, 185, 129, 0.15)',
   },
   roleBadgeViewer: {
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Medium',
     textTransform: 'capitalize',
   },
-  roleBadgeTextEditor: {
+  roleBadgeTextParticipant: {
     color: '#10b981',
   },
   roleBadgeTextViewer: {

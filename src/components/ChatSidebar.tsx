@@ -21,12 +21,13 @@ interface ChatSidebarProps {
   onToggleSidebar: () => void;
   isOpen: boolean;
   onNewConversation?: () => void;
-  onTutorial?: () => void;
+  onBecomePremium?: () => void;
+  onJoinConversation?: () => void;
   onRenameConversation?: (conversationId: string, newTitle: string) => void;
   onDeleteConversation?: (conversationId: string) => void;
 }
 
-export function ChatSidebar({ conversations, currentConversation, onSelectConversation, onToggleSidebar, isOpen, onNewConversation, onTutorial, onRenameConversation, onDeleteConversation }: ChatSidebarProps) {
+export function ChatSidebar({ conversations, currentConversation, onSelectConversation, onToggleSidebar, isOpen, onNewConversation, onBecomePremium, onJoinConversation, onRenameConversation, onDeleteConversation }: ChatSidebarProps) {
   const { showAlert, AlertComponent } = useCustomAlert();
   const { fonts, spacing, layout, isMobile, width: screenWidth } = useResponsive();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -351,16 +352,29 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
           </TouchableOpacity>
           <TouchableOpacity
             style={[
-              styles.tutorialButton,
+              styles.joinConversationButton,
               {
                 minHeight: layout.minTouchTarget,
                 paddingVertical: spacing.md,
               }
             ]}
-            onPress={onTutorial}
+            onPress={onJoinConversation}
           >
-            <Ionicons name="school-outline" size={20} color="#f59e0b" />
-            <Text style={[styles.tutorialButtonText, { fontSize: fonts.sm }]}>Tutorial</Text>
+            <Ionicons name="enter-outline" size={20} color="#10b981" />
+            <Text style={[styles.joinConversationButtonText, { fontSize: fonts.sm }]}>Join a Conversation</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.premiumButton,
+              {
+                minHeight: layout.minTouchTarget,
+                paddingVertical: spacing.md,
+              }
+            ]}
+            onPress={onBecomePremium}
+          >
+            <Ionicons name="star" size={20} color="#fbbf24" />
+            <Text style={[styles.premiumButtonText, { fontSize: fonts.sm }]}>Become Premium!</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={onToggleSidebar}
@@ -613,7 +627,7 @@ const styles = StyleSheet.create({
   sidebarHeader: {
   },
   newConversationButton: {
-    backgroundColor: '#27272a',
+    backgroundColor: '#10b981',
     borderRadius: 6,
     flexDirection: 'row',
     alignItems: 'center',
@@ -622,19 +636,34 @@ const styles = StyleSheet.create({
   },
   newConversationButtonText: {
     color: 'white',
+    fontWeight: '600',
   },
-  tutorialButton: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+  joinConversationButton: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
-  tutorialButtonText: {
-    color: '#f59e0b',
+  joinConversationButtonText: {
+    color: '#10b981',
+  },
+  premiumButton: {
+    backgroundColor: 'rgba(251, 191, 36, 0.15)',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(251, 191, 36, 0.4)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  premiumButtonText: {
+    color: '#fbbf24',
+    fontWeight: '600',
   },
   toggleButton: {
     paddingVertical: 8,

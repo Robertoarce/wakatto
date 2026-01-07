@@ -11,7 +11,7 @@
 import { supabase } from '../lib/supabase';
 
 // Types
-export type ParticipantRole = 'owner' | 'editor' | 'viewer';
+export type ParticipantRole = 'admin' | 'participant' | 'viewer';
 
 export interface Participant {
   id: string;
@@ -29,7 +29,7 @@ export interface ConversationInvite {
   id: string;
   conversation_id: string;
   code: string;
-  role: 'editor' | 'viewer';
+  role: 'participant' | 'viewer';
   created_by: string;
   expires_at: string | null;
   max_uses: number | null;
@@ -59,7 +59,7 @@ export interface UserSearchResult {
  */
 export async function getParticipants(conversationId: string): Promise<Participant[]> {
   try {
-    // First get the conversation owner
+    // First get the conversation admin (creator)
     const { data: conversation, error: convError } = await supabase
       .from('conversations')
       .select('user_id')
@@ -91,7 +91,7 @@ export async function getParticipants(conversationId: string): Promise<Participa
 
     const { data: profiles, error: profileError } = await supabase
       .from('user_profiles')
-      .select('id, email')
+      .select('id, email, display_name')
       .in('id', userIds);
 
     if (profileError) {
@@ -100,19 +100,20 @@ export async function getParticipants(conversationId: string): Promise<Participa
 
     const profileMap = new Map(profiles?.map((p) => [p.id, p]) || []);
 
-    // Build result with owner first
+    // Build result with admin first
     const result: Participant[] = [];
 
-    // Add owner as first participant
-    const ownerProfile = profileMap.get(conversation.user_id);
+    // Add admin (conversation creator) as first participant
+    const adminProfile = profileMap.get(conversation.user_id);
     result.push({
-      id: 'owner',
+      id: 'admin',
       conversation_id: conversationId,
       user_id: conversation.user_id,
-      role: 'owner',
+      role: 'admin',
       invited_by: null,
-      joined_at: '', // Owner doesn't have a join date in participants table
-      email: ownerProfile?.email,
+      joined_at: '', // Admin doesn't have a join date in participants table
+      email: adminProfile?.email,
+      display_name: adminProfile?.display_name,
     });
 
     // Add other participants
@@ -121,6 +122,7 @@ export async function getParticipants(conversationId: string): Promise<Participa
       result.push({
         ...participant,
         email: profile?.email,
+        display_name: profile?.display_name,
       });
     }
 
@@ -132,12 +134,12 @@ export async function getParticipants(conversationId: string): Promise<Participa
 }
 
 /**
- * Add a participant to a conversation (owner only)
+ * Add a participant to a conversation (admin only)
  */
 export async function addParticipant(
   conversationId: string,
   userId: string,
-  role: 'editor' | 'viewer' = 'viewer'
+  role: 'participant' | 'viewer' = 'viewer'
 ): Promise<Participant> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -170,7 +172,7 @@ export async function addParticipant(
 }
 
 /**
- * Remove a participant from a conversation (owner can remove anyone, users can remove themselves)
+ * Remove a participant from a conversation (admin can remove anyone, users can remove themselves)
  */
 export async function removeParticipant(
   conversationId: string,
@@ -205,12 +207,12 @@ export async function removeParticipant(
 }
 
 /**
- * Update a participant's role (owner only)
+ * Update a participant's role (admin only)
  */
 export async function updateParticipantRole(
   conversationId: string,
   userId: string,
-  role: 'editor' | 'viewer'
+  role: 'participant' | 'viewer'
 ): Promise<void> {
   try {
     const { error } = await supabase
@@ -258,12 +260,12 @@ function generateInviteCode(length: number = 6): string {
 }
 
 /**
- * Create an invite link for a conversation (owner only)
+ * Create an invite link for a conversation (admin only)
  */
 export async function createInvite(
   conversationId: string,
   options: {
-    role?: 'editor' | 'viewer';
+    role?: 'participant' | 'viewer';
     expiresInHours?: number;
     maxUses?: number;
   } = {}
@@ -319,7 +321,7 @@ export async function createInvite(
 }
 
 /**
- * Get all invites for a conversation (owner only)
+ * Get all invites for a conversation (admin only)
  */
 export async function getInvites(conversationId: string): Promise<ConversationInvite[]> {
   try {
@@ -338,7 +340,7 @@ export async function getInvites(conversationId: string): Promise<ConversationIn
 }
 
 /**
- * Delete an invite (owner only)
+ * Delete an invite (admin only)
  */
 export async function deleteInvite(inviteId: string): Promise<void> {
   try {
@@ -387,7 +389,7 @@ export async function getInviteByCode(code: string): Promise<{
     return {
       invite,
       conversationTitle: conversation?.title || 'Untitled',
-      participantCount: (count || 0) + 1, // +1 for owner
+      participantCount: (count || 0) + 1, // +1 for admin
     };
   } catch (error) {
     console.error('[ParticipantService] Error getting invite by code:', error);
@@ -456,9 +458,9 @@ export async function searchUsers(query: string): Promise<UserSearchResult[]> {
 }
 
 /**
- * Check if current user is the owner of a conversation
+ * Check if current user is the admin of a conversation
  */
-export async function isConversationOwner(conversationId: string): Promise<boolean> {
+export async function isConversationAdmin(conversationId: string): Promise<boolean> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
@@ -472,7 +474,7 @@ export async function isConversationOwner(conversationId: string): Promise<boole
     if (error) return false;
     return data.user_id === user.id;
   } catch (error) {
-    console.error('[ParticipantService] Error checking ownership:', error);
+    console.error('[ParticipantService] Error checking admin status:', error);
     return false;
   }
 }
@@ -485,7 +487,7 @@ export async function getUserRole(conversationId: string): Promise<ParticipantRo
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
 
-    // Check if owner
+    // Check if admin (conversation creator)
     const { data: conversation } = await supabase
       .from('conversations')
       .select('user_id')
@@ -493,7 +495,7 @@ export async function getUserRole(conversationId: string): Promise<ParticipantRo
       .single();
 
     if (conversation?.user_id === user.id) {
-      return 'owner';
+      return 'admin';
     }
 
     // Check participants table
@@ -524,6 +526,6 @@ export default {
   getInviteByCode,
   joinViaInvite,
   searchUsers,
-  isConversationOwner,
+  isConversationAdmin,
   getUserRole,
 };

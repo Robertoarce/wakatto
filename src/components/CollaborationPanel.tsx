@@ -1,6 +1,6 @@
 /**
  * CollaborationPanel - Multi-user collaboration controls for conversations
- * Shows participant list with invite controls for owners
+ * Shows participant list with invite controls for admins
  */
 
 import React, { useState, useEffect } from 'react';
@@ -117,7 +117,7 @@ export function CollaborationPanel({
   };
 
   const participantCount = currentParticipants.length;
-  const isOwner = userRole === 'owner';
+  const isAdmin = userRole === 'admin';
   const isShared = participantCount > 1;
 
   // Calculate panel height
@@ -162,7 +162,7 @@ export function CollaborationPanel({
         </TouchableOpacity>
 
         {/* Quick actions */}
-        {isOwner && (
+        {isAdmin && (
           <TouchableOpacity
             style={styles.quickInviteButton}
             onPress={handleInvite}
