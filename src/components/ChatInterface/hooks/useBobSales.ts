@@ -6,6 +6,7 @@
  * - Bob is added to any conversation
  * - App starts with Bob selected
  * - User switches to a conversation with Bob
+ * - User clicks "Become Premium" (premium pitch mode)
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -18,6 +19,7 @@ import {
   getBobSalesManager,
   BOB_CONFIG,
 } from '../../../services/bobSalesPitchService';
+import { generatePremiumPitchScene } from '../../../services/bobPremiumPitchService';
 
 interface UseBobSalesOptions {
   selectedCharacters: string[];
@@ -25,12 +27,18 @@ interface UseBobSalesOptions {
   onSaveMessage?: (characterId: string, content: string) => void;
   isPlaying: boolean;
   hasUserMessages: boolean;
+  // External trigger for premium pitch (from "Become Premium" button)
+  triggerPremiumPitch?: boolean;
+  onPremiumPitchConsumed?: () => void;
 }
 
 interface UseBobSalesResult {
   isBobPitching: boolean;
   bobSceneOverride: OrchestrationScene | null;
   notifyUserResponse: () => void;
+  // Premium pitch mode
+  isPremiumPitch: boolean;
+  triggerPremiumPitch: () => void;
 }
 
 export function useBobSales({
@@ -39,9 +47,12 @@ export function useBobSales({
   onSaveMessage,
   isPlaying,
   hasUserMessages,
+  triggerPremiumPitch: externalPremiumTrigger,
+  onPremiumPitchConsumed,
 }: UseBobSalesOptions): UseBobSalesResult {
   const [isBobPitching, setIsBobPitching] = useState(false);
   const [bobSceneOverride, setBobSceneOverride] = useState<OrchestrationScene | null>(null);
+  const [isPremiumPitch, setIsPremiumPitch] = useState(false);
   const bobManagerRef = useRef<BobSalesManager | null>(null);
   const pendingMessageRef = useRef<{ characterId: string; content: string } | null>(null);
 
@@ -49,6 +60,8 @@ export function useBobSales({
   const wasBobSelectedRef = useRef(false);
   // Track if we've already pitched in this Bob session (resets when Bob leaves)
   const hasPitchedThisSessionRef = useRef(false);
+  // Track if premium pitch was triggered
+  const premiumPitchTriggeredRef = useRef(false);
 
   // Handle Bob pitch start - play animation, queue message save
   const handlePitchStart = useCallback((scene: OrchestrationScene, message: string) => {
@@ -175,10 +188,66 @@ export function useBobSales({
     }
   }, []);
 
+  // Trigger premium pitch manually (turn-around animation)
+  const triggerPremiumPitch = useCallback(() => {
+    if (premiumPitchTriggeredRef.current || isBobPitching) {
+      return; // Already triggered or currently pitching
+    }
+
+    premiumPitchTriggeredRef.current = true;
+    setIsPremiumPitch(true);
+    setIsBobPitching(true);
+
+    // Generate and play the premium pitch scene
+    const { scene, message } = generatePremiumPitchScene();
+    setBobSceneOverride(scene);
+
+    // Start playback
+    const engine = getPlaybackEngine();
+    engine.play(scene);
+
+    // Queue message to save after playback completes
+    if (onSaveMessage && conversationId) {
+      pendingMessageRef.current = {
+        characterId: BOB_CONFIG.characterId,
+        content: message,
+      };
+    }
+  }, [isBobPitching, onSaveMessage, conversationId]);
+
+  // Handle external premium pitch trigger (from navigation/props)
+  useEffect(() => {
+    if (externalPremiumTrigger && !premiumPitchTriggeredRef.current) {
+      // Delay to allow conversation to load
+      setTimeout(() => {
+        triggerPremiumPitch();
+        onPremiumPitchConsumed?.();
+      }, 800);
+    }
+  }, [externalPremiumTrigger, triggerPremiumPitch, onPremiumPitchConsumed]);
+
+  // Handle premium pitch completion
+  useEffect(() => {
+    if (!isPlaying && isPremiumPitch && bobSceneOverride) {
+      // Premium pitch playback completed
+      setIsBobPitching(false);
+      // Don't clear bobSceneOverride yet - keep buttons visible
+      // The scene will be cleared when user interacts or sends a message
+      
+      // Save pending message
+      if (onSaveMessage && pendingMessageRef.current) {
+        onSaveMessage(pendingMessageRef.current.characterId, pendingMessageRef.current.content);
+        pendingMessageRef.current = null;
+      }
+    }
+  }, [isPlaying, isPremiumPitch, bobSceneOverride, onSaveMessage]);
+
   return {
     isBobPitching,
     bobSceneOverride,
     notifyUserResponse,
+    isPremiumPitch,
+    triggerPremiumPitch,
   };
 }
 

@@ -4,6 +4,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCustomAlert } from './CustomAlert';
 import { useResponsive } from '../constants/Layout';
 import { shadows } from '../utils/shadow';
+import { InviteModal } from './InviteModal';
 
 interface Conversation {
   id: string;
@@ -36,6 +37,7 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
   const [hoveredConvId, setHoveredConvId] = useState<string | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null); // Track which conversation is being deleted
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   // Drag gesture state
   const sidebarWidth = isMobile ? screenWidth : layout.sidebarWidth;
@@ -300,6 +302,7 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
   return (
     <>
       <AlertComponent />
+      <InviteModal visible={showInviteModal} onClose={() => setShowInviteModal(false)} />
       {/* Burger button moved to Header component */}
 
       {/* Edge gesture zone for opening sidebar when closed */}
@@ -349,6 +352,19 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
           >
             <Ionicons name="add" size={20} color="white" />
             <Text style={[styles.newConversationButtonText, { fontSize: fonts.sm }]}>New Conversation</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.inviteButton,
+              {
+                minHeight: layout.minTouchTarget,
+                paddingVertical: spacing.md,
+              }
+            ]}
+            onPress={() => setShowInviteModal(true)}
+          >
+            <Ionicons name="gift-outline" size={20} color="#ea580c" />
+            <Text style={[styles.inviteButtonText, { fontSize: fonts.sm }]}>Invite & Earn</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
@@ -663,6 +679,20 @@ const styles = StyleSheet.create({
   },
   premiumButtonText: {
     color: '#fbbf24',
+    fontWeight: '600',
+  },
+  inviteButton: {
+    backgroundColor: 'rgba(234, 88, 12, 0.15)',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(234, 88, 12, 0.4)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  inviteButtonText: {
+    color: '#ea580c',
     fontWeight: '600',
   },
   toggleButton: {

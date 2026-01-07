@@ -38,6 +38,13 @@ export async function resendConfirmationEmail(email: string) {
   if (error) throw error;
 }
 
+export async function resetPassword(email: string) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: 'https://www.wakatto.com/reset-password',
+  });
+  if (error) throw error;
+}
+
 export async function getSession() {
   try {
     const { data: { session }, error } = await supabase.auth.getSession();

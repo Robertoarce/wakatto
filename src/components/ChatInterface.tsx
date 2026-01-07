@@ -111,6 +111,12 @@ interface ChatInterfaceProps {
   initialJoinCode?: string | null;
   // Deep link: Callback to consume (clear) the join code after use
   onConsumeJoinCode?: () => void;
+  // Premium pitch: External trigger for Bob's premium pitch
+  triggerPremiumPitch?: boolean;
+  // Premium pitch: Callback when trigger is consumed
+  onPremiumPitchConsumed?: () => void;
+  // Premium pitch: Callback when user selects a payment tier
+  onPaymentSelect?: (tier: 'premium' | 'gold') => void;
 }
 
 // Export function to start animation playback from external components
@@ -269,7 +275,7 @@ const ThinkingDots = memo(() => {
   );
 });
 
-export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting, conversationId, savedCharacters, onSaveIdleMessage, initialJoinCode, onConsumeJoinCode }: ChatInterfaceProps) {
+export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting, conversationId, savedCharacters, onSaveIdleMessage, initialJoinCode, onConsumeJoinCode, triggerPremiumPitch, onPremiumPitchConsumed, onPaymentSelect }: ChatInterfaceProps) {
   const dispatch = useDispatch();
   const { isFullscreen } = useSelector((state: RootState) => state.ui);
   const { currentUsage, lastWarningDismissed, lastFetchedAt } = useSelector((state: RootState) => state.usage);
@@ -634,12 +640,15 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     isBobPitching,
     bobSceneOverride,
     notifyUserResponse,
+    isPremiumPitch,
   } = useBobSales({
     selectedCharacters,
     conversationId,
     onSaveMessage: onGreeting, // Use greeting callback to save Bob's messages
     isPlaying: playbackState.isPlaying,
     hasUserMessages,
+    triggerPremiumPitch,
+    onPremiumPitchConsumed,
   });
 
   // Handle user input change with idle conversation, Bob sales, and story interruption
@@ -1844,6 +1853,7 @@ Each silence, a cathedral where you still reside.`;
                     characterColor={character.color}
                     isVisible={displayText.length > 0}
                     isMobileStacked={true}
+                    onPaymentSelect={onPaymentSelect}
                   />
                 );
               })}
@@ -2001,6 +2011,7 @@ Each silence, a cathedral where you still reside.`;
                             characterColor={character.color}
                             isVisible={formattedText.length > 0}
                             characterCount={total}
+                            onPaymentSelect={onPaymentSelect}
                           />
                         )}
                         <MemoizedCharacterDisplay3D

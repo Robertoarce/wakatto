@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 
@@ -24,7 +23,7 @@ function getCorsHeaders(req: Request): Record<string, string> {
 }
 
 // Email types for different transactional emails
-type EmailType = 'welcome' | 'password_reset' | 'notification' | 'custom'
+type EmailType = 'welcome' | 'password_reset' | 'notification' | 'invitation' | 'custom'
 
 interface SendEmailRequest {
   to: string
@@ -334,6 +333,10 @@ const templates: Record<EmailType, { subject: string; html: (data: Record<string
 </body>
 </html>`,
   },
+  invitation: {
+    subject: "You're invited to join Wakatto! 🎁",
+    html: (data) => data.html || '', // HTML provided by client
+  },
   custom: {
     subject: 'Message from Wakatto',
     html: (data) => data.html || '',
@@ -374,7 +377,10 @@ serve(async (req) => {
     // Get template or use custom content
     const template = templates[type]
     const emailSubject = subject || template.subject
-    const emailHtml = type === 'custom' ? (html || '') : template.html(data)
+    // For invitation and custom types, use the HTML provided directly
+    const emailHtml = (type === 'custom' || type === 'invitation') 
+      ? (html || template.html({ ...data, html })) 
+      : template.html(data)
 
     console.log(`[send-email] Sending ${type} email to ${to}`)
 

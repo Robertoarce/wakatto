@@ -11,15 +11,12 @@ import { useSimpleNavigation } from '../navigation/AppNavigator';
 import { runAllTests, TestResult } from '../services/aiConnectionTest';
 import { useCustomAlert } from '../components/CustomAlert';
 import { Button, Input, Card, Badge } from '../components/ui';
+import { DisclaimerButton } from '../components/Disclaimer';
+import { InviteButton } from '../components/InviteModal';
 import { useResponsive } from '../constants/Layout';
 import { runQuickBenchmark, runAnimationBenchmark, BenchmarkReport } from '../services/benchmarkService';
 import { getProfiler } from '../services/profilingService';
-import Slider from '@react-native-community/slider';
-import {
-  getGlobalTemperature,
-  setGlobalTemperature,
-  DEFAULT_GLOBAL_TEMPERATURE,
-} from '../config/llmConfig';
+// Temperature is now configured in code, not UI
 
 type AIProvider = 'mock' | 'openai' | 'anthropic' | 'gemini';
 
@@ -70,10 +67,7 @@ const SettingsScreen = (): JSX.Element => {
     testButton: { paddingVertical: spacing.lg, borderRadius: borderRadius.sm, marginTop: spacing.md, gap: spacing.sm },
     testButtonText: { fontSize: fonts.lg, fontWeight: '600' as const },
     versionText: { fontSize: fonts.xs },
-    temperatureLabel: { width: scalePx(50), fontSize: scalePx(11) },
-    resetTempButton: { gap: spacing.xs, marginTop: spacing.sm },
-    resetTempText: { fontSize: fonts.xs },
-  }), [fonts, spacing, layout, borderRadius, scalePx]);
+    }), [fonts, spacing, layout, borderRadius, scalePx]);
 
   const [aiProvider, setAIProvider] = useState<AIProvider>('anthropic');
   const [apiKey, setApiKey] = useState('');
@@ -86,9 +80,6 @@ const SettingsScreen = (): JSX.Element => {
   const [benchmarking, setBenchmarking] = useState(false);
   const [benchmarkReport, setBenchmarkReport] = useState<BenchmarkReport | null>(null);
   const [profilingEnabled, setProfilingEnabled] = useState(true);
-
-  // Global temperature state
-  const [temperature, setTemperature] = useState(getGlobalTemperature());
 
   useEffect(() => {
     // Load current AI configuration
@@ -461,52 +452,6 @@ const SettingsScreen = (): JSX.Element => {
                 helperText="Leave empty to use default model"
               />
 
-              {/* Global Temperature Control */}
-              <View style={{ marginTop: spacing.md }}>
-                <Text style={[styles.label, { fontSize: fonts.sm, marginBottom: spacing.xs }]}>
-                  Response Creativity (Temperature): {temperature.toFixed(2)}
-                </Text>
-                <View style={styles.temperatureContainer}>
-                  <Text style={styles.temperatureLabel}>Focused</Text>
-                  <Slider
-                    style={{ flex: 1, height: 40 }}
-                    minimumValue={0}
-                    maximumValue={2}
-                    step={0.05}
-                    value={temperature}
-                    onValueChange={(value) => setTemperature(value)}
-                    onSlidingComplete={(value) => {
-                      setGlobalTemperature(value);
-                      showAlert('Temperature Updated', `Set to ${value.toFixed(2)} - ${
-                        value <= 0.2 ? 'Very deterministic' :
-                        value <= 0.5 ? 'Low creativity' :
-                        value <= 0.8 ? 'Balanced' :
-                        value <= 1.2 ? 'High creativity' :
-                        'Very creative'
-                      }`);
-                    }}
-                    minimumTrackTintColor="#8b5cf6"
-                    maximumTrackTintColor="#3f3f46"
-                    thumbTintColor="#8b5cf6"
-                  />
-                  <Text style={styles.temperatureLabel}>Creative</Text>
-                </View>
-                <Text style={[styles.helperText, { marginTop: spacing.xs }]}>
-                  Default: {DEFAULT_GLOBAL_TEMPERATURE} (extremely low). Same for all characters.
-                </Text>
-                <TouchableOpacity
-                  style={styles.resetTempButton}
-                  onPress={() => {
-                    setTemperature(DEFAULT_GLOBAL_TEMPERATURE);
-                    setGlobalTemperature(DEFAULT_GLOBAL_TEMPERATURE);
-                    showAlert('Reset', `Temperature reset to ${DEFAULT_GLOBAL_TEMPERATURE}`);
-                  }}
-                >
-                  <Ionicons name="refresh-outline" size={14} color="#8b5cf6" />
-                  <Text style={styles.resetTempText}>Reset to default</Text>
-                </TouchableOpacity>
-              </View>
-
               <View style={styles.infoBox}>
                 <Ionicons name="information-circle-outline" size={20} color="#c4b5fd" />
                 <Text style={styles.infoBoxText}>
@@ -586,7 +531,8 @@ const SettingsScreen = (): JSX.Element => {
         </Card>
       </View>
 
-      {/* Developer Tools Section */}
+      {/* Developer Tools Section - Only for admin */}
+      {user?.email === 'roberto@briatti.com' && (
       <View style={[styles.section, { padding: spacing.lg }]}>
         <Text style={[styles.sectionTitle, { fontSize: fonts.lg, marginBottom: spacing.md }]}>
           🛠️ Developer Tools
@@ -677,16 +623,29 @@ const SettingsScreen = (): JSX.Element => {
           )}
         </Card>
       </View>
+      )}
+
+      {/* Invite Friends Section */}
+      <View style={[styles.section, { padding: spacing.lg }]}>
+        <Text style={[styles.sectionTitle, { fontSize: fonts.lg, marginBottom: spacing.md }]}>Invite & Earn</Text>
+        <InviteButton />
+      </View>
 
       <View style={styles.section}>
         <Text style={dynamicStyles.sectionTitle}>About</Text>
         <Card variant="elevated">
-          <Text style={dynamicStyles.aboutText}>Psyche AI - Your Personal Journal Companion</Text>
+          <Text style={dynamicStyles.aboutText}>Wakatto - AI Conversation Companions</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm }}>
             <Badge label="Version 0.1.0" variant="info" />
             <Badge label="Beta" variant="warning" />
           </View>
         </Card>
+      </View>
+
+      {/* Legal Section */}
+      <View style={[styles.section, { padding: spacing.lg }]}>
+        <Text style={[styles.sectionTitle, { fontSize: fonts.lg, marginBottom: spacing.md }]}>Legal</Text>
+        <DisclaimerButton />
       </View>
     </ScrollView>
   );
@@ -843,22 +802,6 @@ const styles = StyleSheet.create({
   },
   helperText: {
     color: '#71717a',
-  },
-  temperatureContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  temperatureLabel: {
-    color: '#71717a',
-    textAlign: 'center',
-  },
-  resetTempButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-  },
-  resetTempText: {
-    color: '#8b5cf6',
   },
   // Usage section styles
   loadingContainer: {

@@ -4,6 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { useDispatch, useSelector } from 'react-redux';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
+import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import MainScreen from '../screens/MainScreen';
 import { getSession } from '../services/supabaseService';
 import { clearInvalidSession, isRefreshTokenError } from '../lib/supabase';
@@ -16,7 +17,7 @@ import { checkForJoinCode, clearJoinCodeFromUrl, parseDeepLink } from '../utils/
 const Stack = createStackNavigator();
 
 // Simple navigation context for web workaround
-type SimpleNavScreen = 'Login' | 'Register' | 'Main';
+type SimpleNavScreen = 'Login' | 'Register' | 'ResetPassword' | 'Main';
 interface SimpleNavContextType {
   navigate: (screen: SimpleNavScreen) => void;
   currentScreen: SimpleNavScreen;
@@ -61,6 +62,20 @@ export default function AppNavigator() {
   useEffect(() => {
     // Web: Check window.location
     if (Platform.OS === 'web') {
+      // Check for password reset URL
+      const pathname = window.location.pathname;
+      const hash = window.location.hash;
+      
+      if (pathname === '/reset-password' || pathname.includes('reset-password')) {
+        // Check if there's a recovery token in the hash
+        if (hash && hash.includes('access_token') && hash.includes('type=recovery')) {
+          console.log('[AppNavigator] Found password reset token, navigating to ResetPassword');
+          setCurrentScreen('ResetPassword');
+          return;
+        }
+      }
+
+      // Check for join code
       const joinCode = checkForJoinCode();
       if (joinCode) {
         console.log('[AppNavigator] Found join code in URL:', joinCode);
@@ -159,6 +174,8 @@ export default function AppNavigator() {
         return <LoginScreen />;
       case 'Register':
         return <RegisterScreen />;
+      case 'ResetPassword':
+        return <ResetPasswordScreen />;
       case 'Main':
         return <MainScreen />;
       default:

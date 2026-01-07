@@ -5,6 +5,7 @@ import { signUp } from '../services/supabaseService';
 import { sendWelcomeEmail } from '../services/emailService';
 import { useCustomAlert } from '../components/CustomAlert';
 import { AnimatedBackground3D } from '../components/AnimatedBackground3D';
+import { Disclaimer } from '../components/Disclaimer';
 import { Button, Input } from '../components/ui';
 import { useResponsive } from '../constants/Layout';
 import { useSimpleNavigation } from '../navigation/AppNavigator';
@@ -97,6 +98,8 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'signIn' | 'signUp'>('signUp');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
 
   async function signUpWithEmail() {
     // Validation
@@ -114,6 +117,10 @@ export default function RegisterScreen() {
     }
     if (password.length < 6) {
       showAlert('Validation Error', 'Password must be at least 6 characters long.');
+      return;
+    }
+    if (!agreedToTerms) {
+      showAlert('Agreement Required', 'Please read and agree to the Terms of Use to continue.');
       return;
     }
 
@@ -250,18 +257,61 @@ export default function RegisterScreen() {
               containerStyle={dynamicStyles.inputMargin}
             />
 
+            {/* Terms & Disclaimer Agreement */}
+            <View style={[styles.agreementContainer, { marginBottom: scaleHeight(spacing.md) }]}>
+              <TouchableOpacity
+                style={styles.checkbox}
+                onPress={() => setAgreedToTerms(!agreedToTerms)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: agreedToTerms }}
+              >
+                <Ionicons
+                  name={agreedToTerms ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={agreedToTerms ? '#8b5cf6' : '#71717a'}
+                />
+              </TouchableOpacity>
+              <View style={styles.agreementTextContainer}>
+                <Text style={[styles.agreementText, { fontSize: Math.max(fonts.xs, scaleHeight(fonts.sm)) }]}>
+                  I have read and agree to the{' '}
+                </Text>
+                <TouchableOpacity onPress={() => setShowDisclaimer(true)}>
+                  <Text style={[styles.agreementLink, { fontSize: Math.max(fonts.xs, scaleHeight(fonts.sm)) }]}>
+                    Terms of Use
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
             <Button
               title={loading ? 'Creating Account...' : 'Sign Up'}
               onPress={signUpWithEmail}
-              disabled={loading}
+              disabled={loading || !agreedToTerms}
               loading={loading}
               fullWidth
               size={isVeryCompactScreen ? 'sm' : isCompactScreen ? 'md' : 'lg'}
-              style={dynamicStyles.formSpacing}
+              style={[dynamicStyles.formSpacing, !agreedToTerms && styles.buttonDisabledHint]}
             />
+
+            {!agreedToTerms && (
+              <Text style={[styles.agreementHint, { fontSize: Math.max(fonts.xs - 1, scaleHeight(fonts.xs)), marginTop: spacing.sm }]}>
+                Please agree to the Terms of Use to continue
+              </Text>
+            )}
           </View>
         </View>
       </ScrollView>
+
+      {/* Disclaimer Modal */}
+      <Disclaimer
+        visible={showDisclaimer}
+        onClose={() => setShowDisclaimer(false)}
+        onAccept={() => {
+          setAgreedToTerms(true);
+          setShowDisclaimer(false);
+        }}
+        showAcceptButton={!agreedToTerms}
+      />
     </View>
   );
 }
@@ -312,5 +362,37 @@ const styles = StyleSheet.create({
   },
   form: {
     width: '100%',
+  },
+  // Agreement checkbox styles
+  agreementContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  checkbox: {
+    padding: 2,
+    marginTop: -2,
+  },
+  agreementTextContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  agreementText: {
+    color: '#9ca3af',
+    lineHeight: 20,
+  },
+  agreementLink: {
+    color: '#8b5cf6',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  agreementHint: {
+    color: '#71717a',
+    textAlign: 'center',
+  },
+  buttonDisabledHint: {
+    opacity: 0.6,
   },
 });

@@ -52,7 +52,7 @@ export type AnimationState =
   | 'chin_stroke';
 
 // Look direction types
-export type LookDirection = 'center' | 'left' | 'right' | 'up' | 'down' | 'at_left_character' | 'at_right_character';
+export type LookDirection = 'center' | 'left' | 'right' | 'up' | 'down' | 'at_left_character' | 'at_right_character' | 'away';
 
 // Eye state types
 export type EyeState =

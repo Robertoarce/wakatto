@@ -1,717 +1,613 @@
 /**
- * InviteModal - Generate and manage conversation invite links
- * Allows owners to create invite codes with configurable roles and expiration
+ * Invite Modal Component
+ * 
+ * Allows users to invite friends to Wakatto
+ * Tracks invitations for future rewards
  */
 
 import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
-  Modal,
   StyleSheet,
-  TextInput,
-  ActivityIndicator,
+  Modal,
+  TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
+  Platform,
+  Share,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useResponsive } from '../constants/Layout';
+import { Button, Input } from './ui';
+import { useCustomAlert } from './CustomAlert';
 import {
-  createInvite,
-  getInvites,
-  deleteInvite,
-  type ConversationInvite,
-} from '../services/participantService';
+  createInvitation,
+  getMyInvitations,
+  getInvitationStats,
+  cancelInvitation,
+  copyInviteLink,
+  Invitation,
+  InvitationStats,
+} from '../services/invitationService';
 
 interface InviteModalProps {
   visible: boolean;
-  conversationId: string;
   onClose: () => void;
 }
 
-export function InviteModal({ visible, conversationId, onClose }: InviteModalProps) {
-  const [invites, setInvites] = useState<ConversationInvite[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+export const InviteModal: React.FC<InviteModalProps> = ({ visible, onClose }) => {
+  const { fonts, spacing, borderRadius, isMobile } = useResponsive();
+  const { showAlert, AlertComponent } = useCustomAlert();
 
-  // New invite form state
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newRole, setNewRole] = useState<'participant' | 'viewer'>('viewer');
-  const [expiresInHours, setExpiresInHours] = useState<string>('24');
-  const [maxUses, setMaxUses] = useState<string>('');
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [sendingInvite, setSendingInvite] = useState(false);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [stats, setStats] = useState<InvitationStats | null>(null);
+  const [activeTab, setActiveTab] = useState<'invite' | 'history'>('invite');
 
+  // Load invitations and stats when modal opens
   useEffect(() => {
-    if (visible && conversationId) {
-      loadInvites();
+    if (visible) {
+      loadData();
     }
-  }, [visible, conversationId]);
+  }, [visible]);
 
-  const loadInvites = async () => {
-    setIsLoading(true);
-    setError(null);
+  const loadData = async () => {
+    setLoading(true);
     try {
-      const data = await getInvites(conversationId);
-      setInvites(data);
-    } catch (err) {
-      setError('Failed to load invites');
-      console.error('[InviteModal] Error loading invites:', err);
+      const [invites, statistics] = await Promise.all([
+        getMyInvitations(),
+        getInvitationStats(),
+      ]);
+      setInvitations(invites);
+      setStats(statistics);
+    } catch (error) {
+      console.error('[InviteModal] Error loading data:', error);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleCreateInvite = async () => {
-    setIsCreating(true);
-    setError(null);
+  const handleSendInvite = async () => {
+    if (!email.trim()) {
+      showAlert('Email Required', 'Please enter an email address to invite.');
+      return;
+    }
+
+    if (!email.includes('@') || !email.includes('.')) {
+      showAlert('Invalid Email', 'Please enter a valid email address.');
+      return;
+    }
+
+    setSendingInvite(true);
     try {
-      const newInvite = await createInvite(conversationId, {
-        role: newRole,
-        expiresInHours: expiresInHours ? parseInt(expiresInHours, 10) : undefined,
-        maxUses: maxUses ? parseInt(maxUses, 10) : undefined,
-      });
-      setInvites([newInvite, ...invites]);
-      setShowCreateForm(false);
-      // Reset form
-      setNewRole('viewer' as 'participant' | 'viewer');
-      setExpiresInHours('24');
-      setMaxUses('');
-    } catch (err) {
-      setError('Failed to create invite');
-      console.error('[InviteModal] Error creating invite:', err);
+      const { invitation, inviteUrl } = await createInvitation(email.trim());
+      
+      showAlert(
+        'Invitation Sent! 🎉',
+        `An invitation has been sent to ${email}. You'll be rewarded when they join!`,
+        [{ text: 'Great!' }]
+      );
+
+      setEmail('');
+      await loadData(); // Refresh the list
+    } catch (error: any) {
+      showAlert('Error', error.message || 'Failed to send invitation. Please try again.');
     } finally {
-      setIsCreating(false);
+      setSendingInvite(false);
     }
   };
 
-  const handleDeleteInvite = async (inviteId: string) => {
-    try {
-      await deleteInvite(inviteId);
-      setInvites(invites.filter((inv) => inv.id !== inviteId));
-    } catch (err) {
-      setError('Failed to delete invite');
-      console.error('[InviteModal] Error deleting invite:', err);
+  const handleCopyLink = async (inviteCode: string) => {
+    const success = await copyInviteLink(inviteCode);
+    if (success) {
+      showAlert('Copied!', 'Invite link copied to clipboard.');
+    } else {
+      showAlert('Error', 'Failed to copy link. Please try manually.');
     }
   };
 
-  const copyToClipboard = async (code: string, inviteId: string) => {
-    try {
-      // Create invite URL
-      // eslint-disable-next-line no-undef
-      const globalWindow = typeof globalThis !== 'undefined' ? (globalThis as any) : {};
-      const origin = globalWindow.window?.location?.origin || 'https://wakatto.com';
-      const inviteUrl = `${origin}/join/${code}`;
+  const handleShare = async (inviteCode: string) => {
+    const inviteUrl = `https://www.wakatto.com/invite/${inviteCode}`;
+    const message = `Join me on Wakatto - AI companions that listen and understand! 🤖✨\n\n${inviteUrl}`;
 
-      if (typeof navigator !== 'undefined' && (navigator as any).clipboard) {
-        await (navigator as any).clipboard.writeText(inviteUrl);
-        setCopiedId(inviteId);
-        setTimeout(() => setCopiedId(null), 2000);
-      } else {
-        // Fallback: just show success (native apps may handle differently)
-        setCopiedId(inviteId);
-        setTimeout(() => setCopiedId(null), 2000);
-      }
-    } catch (err) {
-      // Fallback: copy just the code
-      try {
-        if (typeof navigator !== 'undefined' && (navigator as any).clipboard) {
-          await (navigator as any).clipboard.writeText(code);
+    try {
+      if (Platform.OS === 'web') {
+        if (navigator.share) {
+          await navigator.share({
+            title: 'Join Wakatto',
+            text: message,
+            url: inviteUrl,
+          });
+        } else {
+          await copyInviteLink(inviteCode);
+          showAlert('Link Copied!', 'Share this link with your friend.');
         }
-        setCopiedId(inviteId);
-        setTimeout(() => setCopiedId(null), 2000);
-      } catch {
-        setError('Failed to copy');
+      } else {
+        await Share.share({ message });
       }
+    } catch (error) {
+      console.error('[InviteModal] Share error:', error);
     }
   };
 
-  const formatExpiry = (expiresAt: string | null) => {
-    if (!expiresAt) return 'Never';
-    const date = new Date(expiresAt);
-    const now = new Date();
-    if (date < now) return 'Expired';
-
-    const diff = date.getTime() - now.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(hours / 24);
-
-    if (days > 0) return `${days}d ${hours % 24}h`;
-    if (hours > 0) return `${hours}h`;
-    return 'Soon';
+  const handleCancelInvite = async (invitationId: string) => {
+    showAlert(
+      'Cancel Invitation?',
+      'Are you sure you want to cancel this invitation?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            const success = await cancelInvitation(invitationId);
+            if (success) {
+              await loadData();
+            }
+          },
+        },
+      ]
+    );
   };
 
-  const isExpired = (invite: ConversationInvite) => {
-    if (!invite.expires_at) return false;
-    return new Date(invite.expires_at) < new Date();
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'accepted': return '#10b981';
+      case 'pending': return '#f59e0b';
+      case 'expired': return '#6b7280';
+      case 'cancelled': return '#ef4444';
+      default: return '#6b7280';
+    }
   };
 
-  const isMaxedOut = (invite: ConversationInvite) => {
-    if (!invite.max_uses) return false;
-    return invite.use_count >= invite.max_uses;
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'accepted': return 'checkmark-circle';
+      case 'pending': return 'time';
+      case 'expired': return 'close-circle';
+      case 'cancelled': return 'ban';
+      default: return 'help-circle';
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   return (
     <Modal
       visible={visible}
-      animationType="fade"
-      transparent
+      animationType="slide"
+      transparent={true}
       onRequestClose={onClose}
     >
+      <AlertComponent />
       <View style={styles.overlay}>
-        <View style={styles.modal}>
+        <View style={[
+          styles.container,
+          {
+            maxWidth: isMobile ? '100%' : 500,
+            maxHeight: isMobile ? '95%' : '85%',
+            margin: isMobile ? 0 : spacing.xl,
+            borderRadius: isMobile ? 0 : 16,
+          }
+        ]}>
           {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <Ionicons name="link" size={20} color="#a855f7" />
-              <Text style={styles.headerTitle}>Invite Links</Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#9ca3af" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Error Message */}
-          {error && (
-            <View style={styles.errorContainer}>
-              <Ionicons name="alert-circle" size={16} color="#ef4444" />
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          )}
-
-          {/* Create New Invite Button/Form */}
-          {!showCreateForm ? (
-            <TouchableOpacity
-              style={styles.createButton}
-              onPress={() => setShowCreateForm(true)}
-            >
-              <Ionicons name="add-circle" size={20} color="#a855f7" />
-              <Text style={styles.createButtonText}>Create New Invite</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.createForm}>
-              <Text style={styles.formLabel}>New Invite</Text>
-
-              {/* Role Selection */}
-              <Text style={styles.inputLabel}>Role for invitee</Text>
-              <View style={styles.roleSelector}>
-                <TouchableOpacity
-                  style={[
-                    styles.roleOption,
-                    newRole === 'participant' && styles.roleOptionActive,
-                  ]}
-                  onPress={() => setNewRole('participant')}
-                >
-                  <Ionicons
-                    name="people"
-                    size={16}
-                    color={newRole === 'participant' ? '#fff' : '#10b981'}
-                  />
-                  <Text
-                    style={[
-                      styles.roleOptionText,
-                      newRole === 'participant' && styles.roleOptionTextActive,
-                    ]}
-                  >
-                    Participant
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.roleOption,
-                    newRole === 'viewer' && styles.roleOptionActive,
-                  ]}
-                  onPress={() => setNewRole('viewer')}
-                >
-                  <Ionicons
-                    name="eye"
-                    size={16}
-                    color={newRole === 'viewer' ? '#fff' : '#6b7280'}
-                  />
-                  <Text
-                    style={[
-                      styles.roleOptionText,
-                      newRole === 'viewer' && styles.roleOptionTextActive,
-                    ]}
-                  >
-                    Viewer
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Expiry */}
-              <Text style={styles.inputLabel}>Expires in (hours)</Text>
-              <TextInput
-                style={styles.input}
-                value={expiresInHours}
-                onChangeText={setExpiresInHours}
-                placeholder="24 (leave empty for never)"
-                placeholderTextColor="#6b7280"
-                keyboardType="numeric"
-              />
-
-              {/* Max Uses */}
-              <Text style={styles.inputLabel}>Max uses</Text>
-              <TextInput
-                style={styles.input}
-                value={maxUses}
-                onChangeText={setMaxUses}
-                placeholder="Unlimited"
-                placeholderTextColor="#6b7280"
-                keyboardType="numeric"
-              />
-
-              {/* Form Actions */}
-              <View style={styles.formActions}>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => setShowCreateForm(false)}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.submitButton}
-                  onPress={handleCreateInvite}
-                  disabled={isCreating}
-                >
-                  {isCreating ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <>
-                      <Ionicons name="checkmark" size={18} color="#fff" />
-                      <Text style={styles.submitButtonText}>Create</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          {/* Existing Invites List */}
-          <View style={styles.listHeader}>
-            <Text style={styles.listTitle}>Active Invites</Text>
-            <Text style={styles.listCount}>{invites.length}</Text>
-          </View>
-
-          {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator color="#a855f7" />
-            </View>
-          ) : invites.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="link-outline" size={40} color="#4b5563" />
-              <Text style={styles.emptyText}>No invite links yet</Text>
-              <Text style={styles.emptySubtext}>
-                Create one to share this conversation
+          <View style={[styles.header, { padding: spacing.lg }]}>
+            <View style={styles.headerContent}>
+              <Ionicons name="gift" size={28} color="#ea580c" />
+              <Text style={[styles.title, { fontSize: fonts.xl, marginLeft: spacing.sm }]}>
+                Invite Friends
               </Text>
             </View>
-          ) : (
-            <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
-              {invites.map((invite) => {
-                const expired = isExpired(invite);
-                const maxedOut = isMaxedOut(invite);
-                const isInactive = expired || maxedOut;
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color="#a1a1aa" />
+            </TouchableOpacity>
+          </View>
 
-                return (
-                  <View
-                    key={invite.id}
-                    style={[styles.inviteItem, isInactive && styles.inviteItemInactive]}
-                  >
-                    <View style={styles.inviteMain}>
-                      {/* Code */}
-                      <View style={styles.codeContainer}>
-                        <Text style={[styles.code, isInactive && styles.codeInactive]}>
-                          {invite.code}
-                        </Text>
-                        <TouchableOpacity
-                          style={styles.copyButton}
-                          onPress={() => copyToClipboard(invite.code, invite.id)}
-                          disabled={isInactive}
-                        >
-                          <Ionicons
-                            name={copiedId === invite.id ? 'checkmark' : 'copy'}
-                            size={16}
-                            color={copiedId === invite.id ? '#10b981' : '#a855f7'}
-                          />
-                        </TouchableOpacity>
-                      </View>
-
-                      {/* Info Row */}
-                      <View style={styles.inviteInfo}>
-                        {/* Role Badge */}
-                        <View
-                          style={[
-                            styles.roleBadge,
-                            invite.role === 'participant'
-                              ? styles.roleBadgeParticipant
-                              : styles.roleBadgeViewer,
-                          ]}
-                        >
-                          <Ionicons
-                            name={invite.role === 'participant' ? 'people' : 'eye'}
-                            size={10}
-                            color={invite.role === 'participant' ? '#10b981' : '#6b7280'}
-                          />
-                          <Text
-                            style={[
-                              styles.roleBadgeText,
-                              invite.role === 'participant'
-                                ? styles.roleBadgeTextParticipant
-                                : styles.roleBadgeTextViewer,
-                            ]}
-                          >
-                            {invite.role}
-                          </Text>
-                        </View>
-
-                        {/* Stats */}
-                        <View style={styles.statItem}>
-                          <Ionicons name="people-outline" size={12} color="#6b7280" />
-                          <Text style={styles.statText}>
-                            {invite.use_count}
-                            {invite.max_uses ? `/${invite.max_uses}` : ''}
-                          </Text>
-                        </View>
-
-                        <View style={styles.statItem}>
-                          <Ionicons name="time-outline" size={12} color="#6b7280" />
-                          <Text
-                            style={[
-                              styles.statText,
-                              expired && styles.statTextExpired,
-                            ]}
-                          >
-                            {formatExpiry(invite.expires_at)}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Delete Button */}
-                    <TouchableOpacity
-                      style={styles.deleteButton}
-                      onPress={() => handleDeleteInvite(invite.id)}
-                    >
-                      <Ionicons name="trash-outline" size={18} color="#ef4444" />
-                    </TouchableOpacity>
-                  </View>
-                );
-              })}
-            </ScrollView>
+          {/* Stats Bar */}
+          {stats && (
+            <View style={[styles.statsBar, { padding: spacing.md }]}>
+              <View style={styles.statItem}>
+                <Text style={[styles.statValue, { fontSize: fonts.lg }]}>{stats.total_sent}</Text>
+                <Text style={[styles.statLabel, { fontSize: fonts.xs }]}>Sent</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={[styles.statValue, { fontSize: fonts.lg }]}>{stats.pending_count}</Text>
+                <Text style={[styles.statLabel, { fontSize: fonts.xs }]}>Pending</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={[styles.statValue, { fontSize: fonts.lg, color: '#10b981' }]}>{stats.accepted_count}</Text>
+                <Text style={[styles.statLabel, { fontSize: fonts.xs }]}>Joined</Text>
+              </View>
+            </View>
           )}
 
-          {/* Help Text */}
-          <View style={styles.helpContainer}>
-            <Ionicons name="information-circle-outline" size={14} color="#6b7280" />
-            <Text style={styles.helpText}>
-              Share the invite link with others to let them join this conversation.
-            </Text>
+          {/* Tabs */}
+          <View style={[styles.tabs, { padding: spacing.sm }]}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'invite' && styles.tabActive]}
+              onPress={() => setActiveTab('invite')}
+            >
+              <Ionicons 
+                name="paper-plane" 
+                size={18} 
+                color={activeTab === 'invite' ? '#ea580c' : '#71717a'} 
+              />
+              <Text style={[
+                styles.tabText, 
+                { fontSize: fonts.sm },
+                activeTab === 'invite' && styles.tabTextActive
+              ]}>
+                Send Invite
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'history' && styles.tabActive]}
+              onPress={() => setActiveTab('history')}
+            >
+              <Ionicons 
+                name="list" 
+                size={18} 
+                color={activeTab === 'history' ? '#ea580c' : '#71717a'} 
+              />
+              <Text style={[
+                styles.tabText, 
+                { fontSize: fonts.sm },
+                activeTab === 'history' && styles.tabTextActive
+              ]}>
+                History ({invitations.length})
+              </Text>
+            </TouchableOpacity>
           </View>
+
+          {/* Content */}
+          <ScrollView style={styles.content} contentContainerStyle={{ padding: spacing.lg }}>
+            {activeTab === 'invite' ? (
+              <>
+                {/* Invite Form */}
+                <View style={[styles.rewardBanner, { borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.lg }]}>
+                  <Ionicons name="gift" size={24} color="#ea580c" />
+                  <View style={{ flex: 1, marginLeft: spacing.sm }}>
+                    <Text style={[styles.rewardTitle, { fontSize: fonts.sm }]}>
+                      Earn Rewards! 🎁
+                    </Text>
+                    <Text style={[styles.rewardText, { fontSize: fonts.xs }]}>
+                      Invite friends and earn rewards when they join Wakatto.
+                    </Text>
+                  </View>
+                </View>
+
+                <Input
+                  label="Friend's Email"
+                  placeholder="friend@example.com"
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  icon="mail-outline"
+                  containerStyle={{ marginBottom: spacing.lg }}
+                />
+
+                <Button
+                  title={sendingInvite ? 'Sending...' : 'Send Invitation'}
+                  onPress={handleSendInvite}
+                  disabled={sendingInvite}
+                  loading={sendingInvite}
+                  fullWidth
+                  size="lg"
+                  icon="paper-plane"
+                />
+
+                <Text style={[styles.helperText, { fontSize: fonts.xs, marginTop: spacing.lg }]}>
+                  Your friend will receive an email with a link to join Wakatto. 
+                  You'll be notified when they sign up!
+                </Text>
+              </>
+            ) : (
+              <>
+                {/* Invitation History */}
+                {loading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#ea580c" />
+                  </View>
+                ) : invitations.length === 0 ? (
+                  <View style={styles.emptyContainer}>
+                    <Ionicons name="mail-unread-outline" size={48} color="#3f3f46" />
+                    <Text style={[styles.emptyText, { fontSize: fonts.md, marginTop: spacing.md }]}>
+                      No invitations yet
+                    </Text>
+                    <Text style={[styles.emptySubtext, { fontSize: fonts.sm }]}>
+                      Start inviting friends to earn rewards!
+                    </Text>
+                  </View>
+                ) : (
+                  invitations.map((invite) => (
+                    <View key={invite.id} style={[styles.inviteCard, { borderRadius: borderRadius.md, marginBottom: spacing.md }]}>
+                      <View style={styles.inviteHeader}>
+                        <Text style={[styles.inviteEmail, { fontSize: fonts.sm }]} numberOfLines={1}>
+                          {invite.invitee_email}
+                        </Text>
+                        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(invite.status) + '20' }]}>
+                          <Ionicons name={getStatusIcon(invite.status) as any} size={12} color={getStatusColor(invite.status)} />
+                          <Text style={[styles.statusText, { color: getStatusColor(invite.status), fontSize: fonts.xs - 1 }]}>
+                            {invite.status.charAt(0).toUpperCase() + invite.status.slice(1)}
+                          </Text>
+                        </View>
+                      </View>
+                      
+                      <Text style={[styles.inviteDate, { fontSize: fonts.xs }]}>
+                        Sent {formatDate(invite.created_at)}
+                        {invite.accepted_at && ` • Joined ${formatDate(invite.accepted_at)}`}
+                      </Text>
+
+                      {invite.status === 'pending' && (
+                        <View style={[styles.inviteActions, { marginTop: spacing.sm }]}>
+                          <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={() => handleCopyLink(invite.invite_code)}
+                          >
+                            <Ionicons name="copy-outline" size={16} color="#8b5cf6" />
+                            <Text style={styles.actionText}>Copy Link</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={() => handleShare(invite.invite_code)}
+                          >
+                            <Ionicons name="share-outline" size={16} color="#3b82f6" />
+                            <Text style={[styles.actionText, { color: '#3b82f6' }]}>Share</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={() => handleCancelInvite(invite.id)}
+                          >
+                            <Ionicons name="close-circle-outline" size={16} color="#ef4444" />
+                            <Text style={[styles.actionText, { color: '#ef4444' }]}>Cancel</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+
+                      {invite.status === 'accepted' && invite.rewarded && (
+                        <View style={[styles.rewardedBadge, { marginTop: spacing.sm }]}>
+                          <Ionicons name="trophy" size={14} color="#f59e0b" />
+                          <Text style={styles.rewardedText}>
+                            +{invite.reward_amount} tokens earned!
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  ))
+                )}
+              </>
+            )}
+          </ScrollView>
         </View>
       </View>
     </Modal>
   );
-}
+};
+
+/**
+ * Invite Button - Use this to open the invite modal
+ */
+export const InviteButton: React.FC<{ style?: any }> = ({ style }) => {
+  const [showModal, setShowModal] = useState(false);
+  const { fonts, spacing } = useResponsive();
+
+  return (
+    <>
+      <TouchableOpacity
+        style={[styles.inviteButton, style]}
+        onPress={() => setShowModal(true)}
+      >
+        <Ionicons name="gift-outline" size={18} color="#ea580c" />
+        <Text style={[styles.inviteButtonText, { fontSize: fonts.sm }]}>
+          Invite Friends
+        </Text>
+        <Ionicons name="chevron-forward" size={18} color="#71717a" />
+      </TouchableOpacity>
+      <InviteModal
+        visible={showModal}
+        onClose={() => setShowModal(false)}
+      />
+    </>
+  );
+};
 
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
   },
-  modal: {
+  container: {
+    flex: 1,
+    backgroundColor: '#171717',
     width: '100%',
-    maxWidth: 420,
-    maxHeight: '80%',
-    backgroundColor: '#1a1a2e',
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(168, 85, 247, 0.2)',
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: '#27272a',
   },
-  headerLeft: {
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontFamily: 'Inter-SemiBold',
+  title: {
     color: '#fff',
+    fontWeight: 'bold',
   },
   closeButton: {
-    padding: 4,
+    padding: 8,
   },
-  errorContainer: {
+  statsBar: {
     flexDirection: 'row',
+    backgroundColor: '#1f1f1f',
+    justifyContent: 'space-around',
     alignItems: 'center',
-    gap: 8,
-    margin: 12,
-    padding: 12,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-  },
-  errorText: {
-    color: '#ef4444',
-    fontSize: 13,
-    fontFamily: 'Inter-Medium',
-  },
-  createButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    margin: 12,
-    padding: 14,
-    backgroundColor: 'rgba(168, 85, 247, 0.1)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(168, 85, 247, 0.3)',
-    borderStyle: 'dashed',
-  },
-  createButtonText: {
-    fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
-    color: '#a855f7',
-  },
-  createForm: {
-    margin: 12,
-    padding: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  formLabel: {
-    fontSize: 15,
-    fontFamily: 'Inter-SemiBold',
-    color: '#fff',
-    marginBottom: 12,
-  },
-  inputLabel: {
-    fontSize: 12,
-    fontFamily: 'Inter-Medium',
-    color: '#9ca3af',
-    marginBottom: 6,
-    marginTop: 8,
-  },
-  input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 8,
-    padding: 12,
-    color: '#fff',
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  roleSelector: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  roleOption: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  roleOptionActive: {
-    backgroundColor: '#a855f7',
-    borderColor: '#a855f7',
-  },
-  roleOptionText: {
-    fontSize: 14,
-    fontFamily: 'Inter-Medium',
-    color: '#9ca3af',
-  },
-  roleOptionTextActive: {
-    color: '#fff',
-  },
-  formActions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 16,
-  },
-  cancelButton: {
-    flex: 1,
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  cancelButtonText: {
-    fontSize: 14,
-    fontFamily: 'Inter-Medium',
-    color: '#9ca3af',
-  },
-  submitButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#a855f7',
-  },
-  submitButtonText: {
-    fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
-    color: '#fff',
-  },
-  listHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  listTitle: {
-    fontSize: 13,
-    fontFamily: 'Inter-SemiBold',
-    color: '#9ca3af',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  listCount: {
-    fontSize: 12,
-    fontFamily: 'Inter-Medium',
-    color: '#6b7280',
-  },
-  loadingContainer: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyContainer: {
-    padding: 40,
-    alignItems: 'center',
-    gap: 8,
-  },
-  emptyText: {
-    fontSize: 15,
-    fontFamily: 'Inter-Medium',
-    color: '#9ca3af',
-  },
-  emptySubtext: {
-    fontSize: 13,
-    fontFamily: 'Inter-Regular',
-    color: '#6b7280',
-  },
-  list: {
-    maxHeight: 200,
-    paddingHorizontal: 12,
-  },
-  inviteItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    marginBottom: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  inviteItemInactive: {
-    opacity: 0.5,
-  },
-  inviteMain: {
-    flex: 1,
-  },
-  codeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  code: {
-    fontSize: 18,
-    fontFamily: 'Inter-Bold',
-    color: '#a855f7',
-    letterSpacing: 2,
-  },
-  codeInactive: {
-    color: '#6b7280',
-  },
-  copyButton: {
-    padding: 4,
-  },
-  inviteInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  roleBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-  },
-  roleBadgeParticipant: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-  },
-  roleBadgeViewer: {
-    backgroundColor: 'rgba(107, 114, 128, 0.2)',
-  },
-  roleBadgeText: {
-    fontSize: 11,
-    fontFamily: 'Inter-Medium',
-    textTransform: 'capitalize',
-  },
-  roleBadgeTextParticipant: {
-    color: '#10b981',
-  },
-  roleBadgeTextViewer: {
-    color: '#9ca3af',
   },
   statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statValue: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  statLabel: {
+    color: '#71717a',
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: '#27272a',
+  },
+  tabs: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#27272a',
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 6,
+  },
+  tabActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#ea580c',
+  },
+  tabText: {
+    color: '#71717a',
+    fontWeight: '500',
+  },
+  tabTextActive: {
+    color: '#ea580c',
+  },
+  content: {
+    flex: 1,
+  },
+  rewardBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffedd520',
+    borderWidth: 1,
+    borderColor: '#ea580c30',
+  },
+  rewardTitle: {
+    color: '#ea580c',
+    fontWeight: '600',
+  },
+  rewardText: {
+    color: '#a1a1aa',
+    marginTop: 2,
+  },
+  helperText: {
+    color: '#71717a',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    color: '#71717a',
+    fontWeight: '500',
+  },
+  emptySubtext: {
+    color: '#52525b',
+    marginTop: 4,
+  },
+  inviteCard: {
+    backgroundColor: '#1f1f1f',
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#27272a',
+  },
+  inviteHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  inviteEmail: {
+    color: '#fff',
+    fontWeight: '500',
+    flex: 1,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  statusText: {
+    fontWeight: '500',
+  },
+  inviteDate: {
+    color: '#71717a',
+    marginTop: 6,
+  },
+  inviteActions: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  statText: {
-    fontSize: 11,
-    fontFamily: 'Inter-Regular',
-    color: '#6b7280',
+  actionText: {
+    color: '#8b5cf6',
+    fontWeight: '500',
+    fontSize: 13,
   },
-  statTextExpired: {
-    color: '#ef4444',
-  },
-  deleteButton: {
-    padding: 8,
-    marginLeft: 8,
-  },
-  helpContainer: {
+  rewardedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    padding: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+    gap: 4,
   },
-  helpText: {
+  rewardedText: {
+    color: '#f59e0b',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  inviteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#ffedd520',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ea580c30',
+    gap: 10,
+  },
+  inviteButtonText: {
+    color: '#ea580c',
     flex: 1,
-    fontSize: 12,
-    fontFamily: 'Inter-Regular',
-    color: '#6b7280',
+    fontWeight: '500',
   },
 });
 

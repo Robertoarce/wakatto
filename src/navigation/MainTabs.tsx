@@ -77,6 +77,9 @@ export default function MainTabs() {
   // State for join conversation modal (from sidebar)
   const [showJoinModalFromSidebar, setShowJoinModalFromSidebar] = useState(false);
 
+  // State for premium pitch trigger (from "Become Premium" button)
+  const [triggerPremiumPitch, setTriggerPremiumPitch] = useState(false);
+
   // State for active tab (custom tab bar since Tab.Navigator doesn't work on web)
   type TabName = 'Home' | 'Wakattors' | 'Library' | 'Animations' | 'Settings';
   const [activeTab, setActiveTab] = useState<TabName>('Home');
@@ -157,19 +160,42 @@ export default function MainTabs() {
     setShowCharacterSelection(true);
   };
 
-  // Open premium upgrade flow
-  const onBecomePremium = () => {
+  // Open premium upgrade flow - navigate to Bob's tutorial and trigger premium pitch
+  const onBecomePremium = async () => {
     // Close sidebar on mobile
     if (isMobile && showSidebar) {
       dispatch(setSidebarOpen(false));
     }
-    // TODO: Implement premium upgrade flow
+    
+    try {
+      // Navigate to tutorial (creates one if doesn't exist, or opens existing)
+      await dispatch(createOrNavigateToTutorial() as any);
+      
+      // Switch to Home tab if not already there
+      setActiveTab('Home');
+      
+      // Trigger the premium pitch animation (Bob turns around)
+      setTriggerPremiumPitch(true);
+    } catch (error: any) {
+      showAlert('Error', 'Failed to open premium consultation: ' + error.message);
+    }
+  };
+
+  // Callback when premium pitch trigger is consumed
+  const onPremiumPitchConsumed = useCallback(() => {
+    setTriggerPremiumPitch(false);
+  }, []);
+
+  // Handle payment selection (placeholder for now)
+  const onPaymentSelect = useCallback((tier: 'premium' | 'gold') => {
+    const tierNames = { premium: 'Premium', gold: 'Gold' };
+    const tierPrices = { premium: '$9.99/mo', gold: '$24.99/mo' };
     showAlert(
-      'Become Premium',
-      'Premium features coming soon! Get unlimited conversations, priority support, and exclusive characters.',
+      'Payment Coming Soon! 🚀',
+      `You selected ${tierNames[tier]} (${tierPrices[tier]})\n\nStripe payment integration will be available soon. Stay tuned!`,
       [{ text: 'OK' }]
     );
-  };
+  }, [showAlert]);
 
   // Open join conversation modal from sidebar
   const onJoinConversation = () => {
@@ -680,6 +706,9 @@ The text behaves as it should be.`;
             onSaveIdleMessage={handleSaveIdleMessage}
             initialJoinCode={pendingJoinCode}
             onConsumeJoinCode={consumeJoinCode}
+            triggerPremiumPitch={triggerPremiumPitch}
+            onPremiumPitchConsumed={onPremiumPitchConsumed}
+            onPaymentSelect={onPaymentSelect}
           />
         )}
         {activeTab === 'Library' && <LibraryScreen />}

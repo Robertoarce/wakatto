@@ -9,8 +9,9 @@
  */
 
 import React, { useRef, useEffect } from 'react';
-import { Animated, Text, View, StyleSheet, Platform, ScrollView } from 'react-native';
+import { Animated, Text, View, StyleSheet, Platform, ScrollView, TouchableOpacity } from 'react-native';
 import { useResponsive } from '../constants/Layout';
+import { PAYMENT_BUTTONS_MARKER, PremiumTierOption, PREMIUM_TIER_OPTIONS } from '../services/bobPremiumPitchService';
 
 // Parse text to separate regular text from *action* text (long actions only - 3+ words)
 type TextPart = { type: 'text' | 'action'; content: string };
@@ -79,6 +80,8 @@ interface SimpleSpeechBubbleProps {
   isMobileStacked?: boolean;
   // Total number of characters - used to limit bubble width and prevent overlap
   characterCount?: number;
+  // Payment button support
+  onPaymentSelect?: (tier: 'premium' | 'gold') => void;
 }
 
 export function SimpleSpeechBubble({
@@ -89,6 +92,7 @@ export function SimpleSpeechBubble({
   maxLines = 4,
   isMobileStacked = false,
   characterCount = 1,
+  onPaymentSelect,
 }: SimpleSpeechBubbleProps) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const {
@@ -144,10 +148,15 @@ export function SimpleSpeechBubble({
   // Don't render if no text
   if (!text) return null;
 
+  // Check if this message should show payment buttons
+  const hasPaymentButtons = text.includes(PAYMENT_BUTTONS_MARKER);
+
   // Strip only SHORT action text (1-2 words) from bubble display
   // Long actions (3+ words) stay in the bubble and are rendered bold
+  // Also strip the payment buttons marker (we'll render buttons separately)
   // Preserve newlines, only collapse consecutive spaces
   const strippedText = text
+    .replace(PAYMENT_BUTTONS_MARKER, '') // Remove payment marker
     .replace(/\*[^*]+\*/g, (match) => {
       const wordCount = match.replace(/\*/g, '').trim().split(/\s+/).length;
       return wordCount <= 2 ? '' : match; // Keep long actions, remove short ones
@@ -155,6 +164,44 @@ export function SimpleSpeechBubble({
     .replace(/[^\S\n]+/g, ' ')   // Collapse spaces (but NOT newlines)
     .replace(/\n\s*/g, '\n')     // Clean up whitespace after newlines
     .trim();
+
+  // Payment buttons component
+  const PaymentButtons = () => {
+    if (!hasPaymentButtons || !onPaymentSelect) return null;
+    
+    return (
+      <View style={styles.paymentButtonsContainer}>
+        {PREMIUM_TIER_OPTIONS.map((option) => (
+          <TouchableOpacity
+            key={option.tier}
+            style={[
+              styles.paymentButton,
+              option.recommended && styles.paymentButtonRecommended,
+            ]}
+            onPress={() => onPaymentSelect(option.tier)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.paymentButtonContent}>
+              <Text style={[
+                styles.paymentButtonTier,
+                option.recommended && styles.paymentButtonTierRecommended,
+              ]}>
+                {option.name}
+              </Text>
+              <Text style={styles.paymentButtonPrice}>
+                {option.price}
+              </Text>
+              {option.recommended && (
+                <View style={styles.recommendedBadge}>
+                  <Text style={styles.recommendedBadgeText}>BEST VALUE</Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  };
 
   // Calculate characters per line for word wrap
   const avgCharWidth = textFontSize * 0.55;
@@ -251,6 +298,7 @@ export function SimpleSpeechBubble({
               )}
             </Text>
           ))}
+          <PaymentButtons />
         </ScrollView>
       </Animated.View>
     );
@@ -303,6 +351,7 @@ export function SimpleSpeechBubble({
             )}
           </Text>
         ))}
+        <PaymentButtons />
       </ScrollView>
     </Animated.View>
   );
@@ -374,6 +423,55 @@ const styles = StyleSheet.create({
         // Native doesn't support inline rotation well
       },
     }),
+  },
+  // Payment button styles
+  paymentButtonsContainer: {
+    marginTop: 12,
+    gap: 8,
+  },
+  paymentButton: {
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    borderWidth: 1,
+    borderColor: '#3b82f6',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  paymentButtonRecommended: {
+    backgroundColor: 'rgba(251, 191, 36, 0.2)',
+    borderColor: '#fbbf24',
+    borderWidth: 2,
+  },
+  paymentButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  paymentButtonTier: {
+    fontFamily: 'Inter-Bold',
+    color: '#3b82f6',
+    fontSize: 14,
+  },
+  paymentButtonTierRecommended: {
+    color: '#fbbf24',
+  },
+  paymentButtonPrice: {
+    fontFamily: 'Inter-Bold',
+    color: '#ffffff',
+    fontSize: 14,
+  },
+  recommendedBadge: {
+    backgroundColor: '#fbbf24',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  recommendedBadgeText: {
+    fontFamily: 'Inter-Bold',
+    color: '#000000',
+    fontSize: 9,
   },
 });
 

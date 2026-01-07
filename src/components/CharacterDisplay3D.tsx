@@ -337,6 +337,11 @@ const Character = React.memo(function Character({ character, isActive, animation
           lookXOffset = 0.1;
           targetMeshRotY = 0.65;
           break;
+        case 'away':
+          // Character turned away from viewer (back facing camera)
+          targetMeshRotY = 2.8; // Almost fully turned away (~160 degrees)
+          lookYOffset = 0;
+          break;
       }
 
       // =========================================

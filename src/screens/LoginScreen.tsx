@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, useWindowDimensions } from 'react-native';
 import { useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
-import { signIn, signOut, resendConfirmationEmail } from '../services/supabaseService';
+import { signIn, signOut, resendConfirmationEmail, resetPassword } from '../services/supabaseService';
 import { getCurrentUsage } from '../services/usageTrackingService';
 import { setSession } from '../store/actions/authActions';
 import { useCustomAlert } from '../components/CustomAlert';
 import { AnimatedBackground3D } from '../components/AnimatedBackground3D';
+import { Disclaimer } from '../components/Disclaimer';
 import { Button, Input, Card } from '../components/ui';
 import { useResponsive } from '../constants/Layout';
 import { useSimpleNavigation } from '../navigation/AppNavigator';
@@ -23,8 +24,10 @@ export default function LoginScreen() {
   const [resendingEmail, setResendingEmail] = useState(false);
   const [resendCount, setResendCount] = useState(0);
   const MAX_RESEND_ATTEMPTS = 2;
+  const [sendingPasswordReset, setSendingPasswordReset] = useState(false);
   const [activeTab, setActiveTab] = useState<'signIn' | 'signUp'>('signIn');
   const [showConfirmationBanner, setShowConfirmationBanner] = useState(false);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
 
   // Calculate scale factor based on screen height (reference: 800px = 100%)
   const heightScale = Math.min(1, screenHeight / 800);
@@ -135,6 +138,34 @@ export default function LoginScreen() {
       showAlert('Failed to Send', errorMessage);
     } finally {
       setResendingEmail(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    if (!email.trim()) {
+      showAlert('Email Required', 'Please enter your email address to reset your password.');
+      return;
+    }
+    if (!email.includes('@')) {
+      showAlert('Invalid Email', 'Please enter a valid email address.');
+      return;
+    }
+
+    setSendingPasswordReset(true);
+    try {
+      await resetPassword(email.trim().toLowerCase());
+      showAlert(
+        'Password Reset Email Sent',
+        'If an account exists with this email, you will receive a password reset link. Please check your inbox and spam folder.'
+      );
+    } catch (error: any) {
+      let errorMessage = error.message;
+      if (errorMessage.includes('rate limit')) {
+        errorMessage = 'Please wait a few minutes before requesting another password reset email.';
+      }
+      showAlert('Failed to Send', errorMessage);
+    } finally {
+      setSendingPasswordReset(false);
     }
   }
 
@@ -253,8 +284,19 @@ export default function LoginScreen() {
               secureTextEntry
               showPasswordToggle
               icon="lock-closed-outline"
-              containerStyle={{ marginBottom: scaleHeight(spacing.lg) }}
+              containerStyle={{ marginBottom: scaleHeight(spacing.sm) }}
             />
+
+            {/* Forgot Password Link */}
+            <TouchableOpacity
+              onPress={handleForgotPassword}
+              disabled={sendingPasswordReset || loading}
+              style={[styles.forgotPasswordLink, { marginBottom: scaleHeight(spacing.md) }]}
+            >
+              <Text style={[styles.forgotPasswordText, { fontSize: Math.max(fonts.xs, scaleHeight(fonts.sm)) }, (sendingPasswordReset || loading) && styles.forgotPasswordDisabled]}>
+                {sendingPasswordReset ? 'Sending...' : 'Forgot Password?'}
+              </Text>
+            </TouchableOpacity>
 
             <Button
               title={loading ? 'Signing In...' : 'Sign In'}
@@ -283,9 +325,26 @@ export default function LoginScreen() {
                 Resend limit reached. Check spam or contact support.
               </Text>
             )}
+
+            {/* Terms of Use Link */}
+            <TouchableOpacity
+              onPress={() => setShowDisclaimer(true)}
+              style={[styles.disclaimerLink, { marginTop: scaleHeight(spacing.lg) }]}
+            >
+              <Ionicons name="document-text-outline" size={scaleHeight(14)} color="#71717a" style={{ marginRight: 6 }} />
+              <Text style={[styles.disclaimerLinkText, { fontSize: Math.max(fonts.xs - 1, scaleHeight(fonts.xs)) }]}>
+                Read our Terms of Use
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
+
+      {/* Disclaimer Modal */}
+      <Disclaimer
+        visible={showDisclaimer}
+        onClose={() => setShowDisclaimer(false)}
+      />
     </View>
   );
 }
@@ -407,5 +466,26 @@ const styles = StyleSheet.create({
   resendLimitText: {
     color: '#9ca3af',
     textAlign: 'center',
+  },
+  // Forgot password link styles
+  forgotPasswordLink: {
+    alignSelf: 'flex-end',
+  },
+  forgotPasswordText: {
+    color: '#5b7ef6',
+    fontWeight: '500',
+  },
+  forgotPasswordDisabled: {
+    opacity: 0.5,
+  },
+  // Disclaimer link styles
+  disclaimerLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
+  disclaimerLinkText: {
+    color: '#71717a',
   },
 });
