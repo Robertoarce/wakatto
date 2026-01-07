@@ -240,24 +240,38 @@ export async function acceptInvitation(code: string): Promise<boolean> {
  * Cancel a pending invitation
  */
 export async function cancelInvitation(invitationId: string): Promise<boolean> {
+  console.log('[Invitation] Cancelling invitation:', invitationId);
+  
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) {
+    console.error('[Invitation] No user logged in');
     throw new Error('You must be logged in to cancel invitations');
   }
 
-  const { error } = await supabase
+  console.log('[Invitation] User ID:', user.id);
+
+  const { data, error } = await supabase
     .from('invitations')
     .update({ status: 'cancelled' })
     .eq('id', invitationId)
     .eq('inviter_id', user.id)
-    .eq('status', 'pending');
+    .eq('status', 'pending')
+    .select();
 
   if (error) {
     console.error('[Invitation] Error cancelling invitation:', error);
     return false;
   }
 
+  console.log('[Invitation] Cancel result:', data);
+  
+  if (!data || data.length === 0) {
+    console.warn('[Invitation] No rows updated - invitation may not exist or already cancelled');
+    return false;
+  }
+
+  console.log('[Invitation] Successfully cancelled invitation');
   return true;
 }
 

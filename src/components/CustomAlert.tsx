@@ -66,11 +66,18 @@ export function CustomAlert({ visible, title, message, buttons, onClose }: Custo
     },
   }), [fonts, spacing, borderRadius, scalePx, components]);
 
-  const handleButtonPress = (button: AlertButton) => {
-    if (button.onPress) {
-      button.onPress();
-    }
+  const handleButtonPress = async (button: AlertButton) => {
+    // Close the modal first to provide immediate feedback
     onClose();
+    
+    // Then execute the callback (allow async callbacks to complete)
+    if (button.onPress) {
+      try {
+        await button.onPress();
+      } catch (error) {
+        console.error('[CustomAlert] Button onPress error:', error);
+      }
+    }
   };
 
   return (
