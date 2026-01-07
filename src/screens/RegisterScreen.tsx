@@ -11,7 +11,7 @@ import { useResponsive } from '../constants/Layout';
 import { useSimpleNavigation } from '../navigation/AppNavigator';
 
 export default function RegisterScreen() {
-  const { navigate } = useSimpleNavigation();
+  const { navigate, pendingInviteCode } = useSimpleNavigation();
   const { showAlert, AlertComponent } = useCustomAlert();
   const { fonts, spacing, borderRadius, layout, isMobile, isTablet } = useResponsive();
   const { height: screenHeight, width: screenWidth } = useWindowDimensions();
@@ -187,7 +187,21 @@ export default function RegisterScreen() {
 
           {/* Welcome Text */}
           <Text style={dynamicStyles.title}>Welcome to Wakatto</Text>
-          <Text style={dynamicStyles.subtitle}>Organize social events with friends effortlessly</Text>
+          <Text style={dynamicStyles.subtitle}>
+            {pendingInviteCode 
+              ? "You've been invited! Sign up to join." 
+              : "Organize social events with friends effortlessly"}
+          </Text>
+
+          {/* Invite Banner */}
+          {pendingInviteCode && (
+            <View style={styles.inviteBanner}>
+              <Ionicons name="gift" size={20} color="#ea580c" />
+              <Text style={styles.inviteBannerText}>
+                Special invitation! Sign up now to claim your welcome bonus.
+              </Text>
+            </View>
+          )}
 
           {/* Tabs */}
           <View style={[styles.tabContainer, dynamicStyles.tabContainer, { marginBottom: scaleHeight(spacing.xl) }]}>
@@ -394,5 +408,22 @@ const styles = StyleSheet.create({
   },
   buttonDisabledHint: {
     opacity: 0.6,
+  },
+  inviteBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(234, 88, 12, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(234, 88, 12, 0.3)',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    gap: 10,
+  },
+  inviteBannerText: {
+    flex: 1,
+    color: '#ea580c',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

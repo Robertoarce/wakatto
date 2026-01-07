@@ -12,7 +12,8 @@ import { setSession, setLoading } from '../store/actions/authActions';
 import { RootState } from '../store';
 import { ActivityIndicator, View, StyleSheet, Text, Platform } from 'react-native';
 import * as Linking from 'expo-linking';
-import { checkForJoinCode, clearJoinCodeFromUrl, parseDeepLink } from '../utils/deepLinkHandler';
+import { checkForJoinCode, checkForInviteCode, clearJoinCodeFromUrl, parseDeepLink } from '../utils/deepLinkHandler';
+import { acceptInvitation, getInvitationByCode } from '../services/invitationService';
 
 const Stack = createStackNavigator();
 
@@ -23,6 +24,9 @@ interface SimpleNavContextType {
   currentScreen: SimpleNavScreen;
   pendingJoinCode: string | null;
   consumeJoinCode: () => void;
+  // Referral invitation code (from /invite/:code)
+  pendingInviteCode: string | null;
+  consumeInviteCode: () => void;
 }
 const SimpleNavContext = createContext<SimpleNavContextType | null>(null);
 
@@ -44,8 +48,10 @@ export default function AppNavigator() {
   // IMPORTANT: This must be declared before any early returns to satisfy React hooks rules
   const [currentScreen, setCurrentScreen] = useState<SimpleNavScreen>('Login');
   
-  // Deep link state - stores pending join code from URL
+  // Deep link state - stores pending join code from URL (conversation collaboration)
   const [pendingJoinCode, setPendingJoinCode] = useState<string | null>(null);
+  // Deep link state - stores pending invite code from URL (user referral)
+  const [pendingInviteCode, setPendingInviteCode] = useState<string | null>(null);
 
   // Handle incoming deep link URL
   const handleDeepLinkUrl = (url: string | null) => {
@@ -55,6 +61,9 @@ export default function AppNavigator() {
     if (result.type === 'join' && result.inviteCode) {
       console.log('[AppNavigator] Found join code in deep link:', result.inviteCode);
       setPendingJoinCode(result.inviteCode);
+    } else if (result.type === 'invite' && result.inviteCode) {
+      console.log('[AppNavigator] Found invite code in deep link:', result.inviteCode);
+      setPendingInviteCode(result.inviteCode);
     }
   };
 
@@ -75,11 +84,20 @@ export default function AppNavigator() {
         }
       }
 
-      // Check for join code
+      // Check for join code (conversation collaboration)
       const joinCode = checkForJoinCode();
       if (joinCode) {
         console.log('[AppNavigator] Found join code in URL:', joinCode);
         setPendingJoinCode(joinCode);
+        // Clear the URL so it doesn't trigger again on refresh
+        clearJoinCodeFromUrl();
+      }
+
+      // Check for invite code (user referral)
+      const inviteCode = checkForInviteCode();
+      if (inviteCode) {
+        console.log('[AppNavigator] Found invite code in URL:', inviteCode);
+        setPendingInviteCode(inviteCode);
         // Clear the URL so it doesn't trigger again on refresh
         clearJoinCodeFromUrl();
       }
@@ -161,11 +179,38 @@ export default function AppNavigator() {
     setPendingJoinCode(null);
   };
 
+  const consumeInviteCode = () => {
+    setPendingInviteCode(null);
+  };
+
+  // Handle invite code when user is logged in
+  useEffect(() => {
+    const handlePendingInvite = async () => {
+      if (pendingInviteCode && session) {
+        console.log('[AppNavigator] User logged in with pending invite, accepting:', pendingInviteCode);
+        try {
+          const success = await acceptInvitation(pendingInviteCode);
+          if (success) {
+            console.log('[AppNavigator] Invitation accepted successfully');
+          } else {
+            console.log('[AppNavigator] Invitation already used or expired');
+          }
+        } catch (error) {
+          console.error('[AppNavigator] Error accepting invitation:', error);
+        }
+        consumeInviteCode();
+      }
+    };
+    handlePendingInvite();
+  }, [pendingInviteCode, session]);
+
   const simpleNav: SimpleNavContextType = {
     navigate: (screen) => setCurrentScreen(screen),
     currentScreen,
     pendingJoinCode,
     consumeJoinCode,
+    pendingInviteCode,
+    consumeInviteCode,
   };
 
   const renderScreen = () => {
