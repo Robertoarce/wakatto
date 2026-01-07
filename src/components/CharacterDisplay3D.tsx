@@ -183,6 +183,14 @@ const Character = React.memo(function Character({ character, isActive, animation
   const animationCompleted = useRef<boolean>(false);
   const lastAnimation = useRef<AnimationState>(animation);
 
+  // Compute hasWheelchair early for animation loop access
+  const hasWheelchairEarly = useMemo(() => {
+    const customization = character.customization;
+    const accessories = customization.accessories ||
+      (customization.accessory && customization.accessory !== 'none' ? [customization.accessory] : []);
+    return accessories.includes('wheelchair');
+  }, [character.customization]);
+
   // Store props in refs to avoid restarting animation loop on every prop change
   const complementaryRef = useRef(complementary);
   const isTalkingRef = useRef(isTalking);
@@ -191,6 +199,7 @@ const Character = React.memo(function Character({ character, isActive, animation
   const onAnimationCompleteRef = useRef(onAnimationComplete);
   const animationRef = useRef(animation);
   const isActiveRef = useRef(isActive);
+  const hasWheelchairRef = useRef(hasWheelchairEarly);
 
   // Track if component is mounted to prevent RAF scheduling after unmount
   const isMountedRef = useRef(true);
@@ -204,7 +213,8 @@ const Character = React.memo(function Character({ character, isActive, animation
     onAnimationCompleteRef.current = onAnimationComplete;
     animationRef.current = animation;
     isActiveRef.current = isActive;
-  }, [complementary, isTalking, positionY, onAnimationComplete, animation, isActive]);
+    hasWheelchairRef.current = hasWheelchairEarly;
+  }, [complementary, isTalking, positionY, onAnimationComplete, animation, isActive, hasWheelchairEarly]);
 
   // Automatic blink timing
   const nextBlinkTime = useRef<number>(Date.now() / 1000 + AUTO_BLINK.minInterval + Math.random() * (AUTO_BLINK.maxInterval - AUTO_BLINK.minInterval));
@@ -1191,6 +1201,19 @@ const Character = React.memo(function Character({ character, isActive, animation
           targetLeftArmRotZ = -0.15;
           targetLeftArmRotX = 0.1;
           break;
+      }
+
+      // WHEELCHAIR OVERRIDE: Keep legs in seated position, no leg movement
+      if (hasWheelchairRef.current) {
+        // Thighs horizontal (bent at hip ~90 degrees forward)
+        targetLeftLegRotX = -Math.PI / 2;  // -90 degrees (forward/horizontal)
+        targetRightLegRotX = -Math.PI / 2;
+        // Lower legs hanging down (bent at knee ~90 degrees)
+        targetLeftLowerLegRotX = Math.PI / 2;  // 90 degrees (down)
+        targetRightLowerLegRotX = Math.PI / 2;
+        // Feet flat on footrest
+        targetLeftFootRotX = 0;
+        targetRightFootRotX = 0;
       }
 
       // Apply smooth transitions using lerp

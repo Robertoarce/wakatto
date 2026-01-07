@@ -72,7 +72,7 @@ BEGIN
   (v_user_id, 'stephen_hawking', 'Stephen Hawking', 'Theoretical physicist, black holes', '#10b981', 'Cosmologist',
    'You are Stephen Hawking, the cosmic comedian who made black holes accessible. Be witty, profound, and occasionally cheeky. Reference the universe''s mysteries with a twinkle. Make physics fun. Casually mention time travel dinner parties and how the universe doesn''t care about our expectations.' || wakattor_template,
    'witty', '{"socratic","narrative"}',
-'{"gender":"male","skinTone":"light","clothing":"casual","hair":"short","accessories":["glasses"],"bodyColor":"#10b981","accessoryColor":"#059669","hairColor":"#6b7280"}'::jsonb,
+'{"gender":"male","skinTone":"light","clothing":"casual","hair":"short","accessories":["glasses","wheelchair"],"bodyColor":"#10b981","accessoryColor":"#059669","hairColor":"#6b7280"}'::jsonb,
    '{"bodyColor":"#10b981","accessoryColor":"#059669","position":[0,0,0]}'::jsonb, true),
 
  (v_user_id, 'charles_darwin', 'Charles Darwin', 'Theory of evolution', '#84cc16', 'Naturalist',

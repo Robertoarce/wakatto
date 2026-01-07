@@ -23,10 +23,14 @@ import { Button, Input } from './ui';
 import { useCustomAlert } from './CustomAlert';
 import {
   createInvitation,
+  createOpenInvite,
   getMyInvitations,
   getInvitationStats,
   cancelInvitation,
+  deleteInvitation,
+  updateInviteLimit,
   copyInviteLink,
+  copyInviteCode,
   Invitation,
   InvitationStats,
 } from '../services/invitationService';
@@ -46,6 +50,16 @@ export const InviteModal: React.FC<InviteModalProps> = ({ visible, onClose }) =>
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [stats, setStats] = useState<InvitationStats | null>(null);
   const [activeTab, setActiveTab] = useState<'invite' | 'history'>('invite');
+  
+  // Open invite state
+  const [inviteMode, setInviteMode] = useState<'email' | 'open'>('email');
+  const [maxUses, setMaxUses] = useState('');
+  const [creatingOpenInvite, setCreatingOpenInvite] = useState(false);
+  const [generatedInvite, setGeneratedInvite] = useState<{ code: string; url: string } | null>(null);
+  
+  // Limit editing state
+  const [editingLimitId, setEditingLimitId] = useState<string | null>(null);
+  const [editingLimitValue, setEditingLimitValue] = useState('');
 
   // Load invitations and stats when modal opens
   useEffect(() => {
@@ -162,6 +176,82 @@ export const InviteModal: React.FC<InviteModalProps> = ({ visible, onClose }) =>
         },
       ]
     );
+  };
+
+  const handleCreateOpenInvite = async () => {
+    setCreatingOpenInvite(true);
+    try {
+      const maxUsesNum = maxUses ? parseInt(maxUses, 10) : undefined;
+      if (maxUses && (isNaN(maxUsesNum!) || maxUsesNum! < 1)) {
+        showAlert('Invalid Limit', 'Please enter a valid number for the usage limit.');
+        return;
+      }
+
+      const { inviteCode, inviteUrl } = await createOpenInvite({ 
+        maxUses: maxUsesNum 
+      });
+      
+      setGeneratedInvite({ code: inviteCode, url: inviteUrl });
+      setMaxUses('');
+      await loadData(); // Refresh the list
+    } catch (error: any) {
+      showAlert('Error', error.message || 'Failed to create invite code. Please try again.');
+    } finally {
+      setCreatingOpenInvite(false);
+    }
+  };
+
+  const handleCopyCode = async (code: string) => {
+    const success = await copyInviteCode(code);
+    if (success) {
+      showAlert('Copied!', 'Invite code copied to clipboard.');
+    } else {
+      showAlert('Error', 'Failed to copy code. Please try manually.');
+    }
+  };
+
+  const handleDeleteOpenInvite = async (invitationId: string) => {
+    showAlert(
+      'Delete Open Invite?',
+      'This will permanently delete the invite code. It cannot be undone.',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const success = await deleteInvitation(invitationId);
+            if (success) {
+              await loadData();
+            } else {
+              showAlert('Error', 'Failed to delete invite. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleUpdateLimit = async (invitationId: string) => {
+    const newLimit = editingLimitValue ? parseInt(editingLimitValue, 10) : null;
+    if (editingLimitValue && (isNaN(newLimit!) || newLimit! < 1)) {
+      showAlert('Invalid Limit', 'Please enter a valid number or leave empty for unlimited.');
+      return;
+    }
+
+    const success = await updateInviteLimit(invitationId, newLimit);
+    if (success) {
+      setEditingLimitId(null);
+      setEditingLimitValue('');
+      await loadData();
+    } else {
+      showAlert('Error', 'Failed to update limit. Please try again.');
+    }
+  };
+
+  const startEditingLimit = (invite: Invitation) => {
+    setEditingLimitId(invite.id);
+    setEditingLimitValue(invite.max_uses?.toString() || '');
   };
 
   const getStatusColor = (status: string) => {
@@ -295,31 +385,170 @@ export const InviteModal: React.FC<InviteModalProps> = ({ visible, onClose }) =>
                   </View>
                 </View>
 
-                <Input
-                  label="Friend's Email"
-                  placeholder="friend@example.com"
-                  value={email}
-                  onChangeText={setEmail}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  icon="mail-outline"
-                  containerStyle={{ marginBottom: spacing.lg }}
-                />
+                {/* Mode Toggle */}
+                <View style={[styles.modeToggle, { marginBottom: spacing.lg }]}>
+                  <TouchableOpacity
+                    style={[
+                      styles.modeButton,
+                      inviteMode === 'email' && styles.modeButtonActive,
+                      { borderRadius: borderRadius.sm }
+                    ]}
+                    onPress={() => {
+                      setInviteMode('email');
+                      setGeneratedInvite(null);
+                    }}
+                  >
+                    <Ionicons 
+                      name="mail" 
+                      size={16} 
+                      color={inviteMode === 'email' ? '#fff' : '#71717a'} 
+                    />
+                    <Text style={[
+                      styles.modeButtonText, 
+                      { fontSize: fonts.sm },
+                      inviteMode === 'email' && styles.modeButtonTextActive
+                    ]}>
+                      By Email
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.modeButton,
+                      inviteMode === 'open' && styles.modeButtonActive,
+                      { borderRadius: borderRadius.sm }
+                    ]}
+                    onPress={() => {
+                      setInviteMode('open');
+                      setGeneratedInvite(null);
+                    }}
+                  >
+                    <Ionicons 
+                      name="link" 
+                      size={16} 
+                      color={inviteMode === 'open' ? '#fff' : '#71717a'} 
+                    />
+                    <Text style={[
+                      styles.modeButtonText, 
+                      { fontSize: fonts.sm },
+                      inviteMode === 'open' && styles.modeButtonTextActive
+                    ]}>
+                      Open Code
+                    </Text>
+                  </TouchableOpacity>
+                </View>
 
-                <Button
-                  title={sendingInvite ? 'Sending...' : 'Send Invitation'}
-                  onPress={handleSendInvite}
-                  disabled={sendingInvite}
-                  loading={sendingInvite}
-                  fullWidth
-                  size="lg"
-                  icon="paper-plane"
-                />
+                {inviteMode === 'email' ? (
+                  <>
+                    <Input
+                      label="Friend's Email"
+                      placeholder="friend@example.com"
+                      value={email}
+                      onChangeText={setEmail}
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                      icon="mail-outline"
+                      containerStyle={{ marginBottom: spacing.lg }}
+                    />
 
-                <Text style={[styles.helperText, { fontSize: fonts.xs, marginTop: spacing.lg }]}>
-                  Your friend will receive an email with a link to join Wakatto. 
-                  You'll be notified when they sign up!
-                </Text>
+                    <Button
+                      title={sendingInvite ? 'Sending...' : 'Send Invitation'}
+                      onPress={handleSendInvite}
+                      disabled={sendingInvite}
+                      loading={sendingInvite}
+                      fullWidth
+                      size="lg"
+                      icon="paper-plane"
+                    />
+
+                    <Text style={[styles.helperText, { fontSize: fonts.xs, marginTop: spacing.lg }]}>
+                      Your friend will receive an email with a link to join Wakatto. 
+                      You'll be notified when they sign up!
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    {/* Open Invite Creation */}
+                    {generatedInvite ? (
+                      <View style={[styles.generatedCodeCard, { borderRadius: borderRadius.md, padding: spacing.lg }]}>
+                        <View style={styles.generatedCodeHeader}>
+                          <Ionicons name="checkmark-circle" size={24} color="#10b981" />
+                          <Text style={[styles.generatedCodeTitle, { fontSize: fonts.md, marginLeft: spacing.sm }]}>
+                            Invite Code Created!
+                          </Text>
+                        </View>
+                        
+                        <View style={[styles.codeDisplay, { marginTop: spacing.md, borderRadius: borderRadius.sm }]}>
+                          <Text style={[styles.codeText, { fontSize: fonts.xl }]}>
+                            {generatedInvite.code}
+                          </Text>
+                        </View>
+
+                        <View style={[styles.codeActions, { marginTop: spacing.md }]}>
+                          <TouchableOpacity
+                            style={[styles.codeActionButton, { borderRadius: borderRadius.sm }]}
+                            onPress={() => handleCopyCode(generatedInvite.code)}
+                          >
+                            <Ionicons name="copy-outline" size={18} color="#8b5cf6" />
+                            <Text style={[styles.codeActionText, { fontSize: fonts.sm }]}>Copy Code</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.codeActionButton, { borderRadius: borderRadius.sm }]}
+                            onPress={() => handleCopyLink(generatedInvite.code)}
+                          >
+                            <Ionicons name="link-outline" size={18} color="#3b82f6" />
+                            <Text style={[styles.codeActionText, { color: '#3b82f6', fontSize: fonts.sm }]}>Copy Link</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.codeActionButton, { borderRadius: borderRadius.sm }]}
+                            onPress={() => handleShare(generatedInvite.code)}
+                          >
+                            <Ionicons name="share-outline" size={18} color="#10b981" />
+                            <Text style={[styles.codeActionText, { color: '#10b981', fontSize: fonts.sm }]}>Share</Text>
+                          </TouchableOpacity>
+                        </View>
+
+                        <Button
+                          title="Create Another"
+                          onPress={() => setGeneratedInvite(null)}
+                          variant="outline"
+                          fullWidth
+                          size="md"
+                          style={{ marginTop: spacing.lg }}
+                        />
+                      </View>
+                    ) : (
+                      <>
+                        <Text style={[styles.sectionLabel, { fontSize: fonts.sm, marginBottom: spacing.sm }]}>
+                          Create a shareable invite code
+                        </Text>
+                        <Text style={[styles.helperText, { fontSize: fonts.xs, marginBottom: spacing.lg, textAlign: 'left' }]}>
+                          Generate a code or link that you can share with anyone. 
+                          Optionally set a limit on how many times it can be used.
+                        </Text>
+
+                        <Input
+                          label="Usage Limit (optional)"
+                          placeholder="Leave empty for unlimited"
+                          value={maxUses}
+                          onChangeText={setMaxUses}
+                          keyboardType="number-pad"
+                          icon="people-outline"
+                          containerStyle={{ marginBottom: spacing.lg }}
+                        />
+
+                        <Button
+                          title={creatingOpenInvite ? 'Creating...' : 'Generate Invite Code'}
+                          onPress={handleCreateOpenInvite}
+                          disabled={creatingOpenInvite}
+                          loading={creatingOpenInvite}
+                          fullWidth
+                          size="lg"
+                          icon="link"
+                        />
+                      </>
+                    )}
+                  </>
+                )}
               </>
             ) : (
               <>
@@ -342,9 +571,18 @@ export const InviteModal: React.FC<InviteModalProps> = ({ visible, onClose }) =>
                   invitations.map((invite) => (
                     <View key={invite.id} style={[styles.inviteCard, { borderRadius: borderRadius.md, marginBottom: spacing.md }]}>
                       <View style={styles.inviteHeader}>
-                        <Text style={[styles.inviteEmail, { fontSize: fonts.sm }]} numberOfLines={1}>
-                          {invite.invitee_email}
-                        </Text>
+                        {invite.invite_type === 'open' ? (
+                          <View style={styles.openInviteLabel}>
+                            <Ionicons name="link" size={14} color="#8b5cf6" />
+                            <Text style={[styles.inviteCode, { fontSize: fonts.sm, marginLeft: 4 }]}>
+                              {invite.invite_code}
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text style={[styles.inviteEmail, { fontSize: fonts.sm }]} numberOfLines={1}>
+                            {invite.invitee_email}
+                          </Text>
+                        )}
                         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(invite.status) + '20' }]}>
                           <Ionicons name={getStatusIcon(invite.status) as any} size={12} color={getStatusColor(invite.status)} />
                           <Text style={[styles.statusText, { color: getStatusColor(invite.status), fontSize: fonts.xs - 1 }]}>
@@ -352,11 +590,58 @@ export const InviteModal: React.FC<InviteModalProps> = ({ visible, onClose }) =>
                           </Text>
                         </View>
                       </View>
+
+                      {/* Type badge */}
+                      <View style={[styles.typeBadgeRow, { marginTop: spacing.xs }]}>
+                        <View style={[styles.typeBadge, { backgroundColor: invite.invite_type === 'open' ? '#8b5cf620' : '#3b82f620' }]}>
+                          <Text style={[styles.typeBadgeText, { color: invite.invite_type === 'open' ? '#8b5cf6' : '#3b82f6', fontSize: fonts.xs - 2 }]}>
+                            {invite.invite_type === 'open' ? 'Open Code' : 'Email Invite'}
+                          </Text>
+                        </View>
+                        
+                        {/* Usage stats for open invites */}
+                        {invite.invite_type === 'open' && (
+                          <View style={styles.usageStats}>
+                            <Ionicons name="people-outline" size={12} color="#71717a" />
+                            <Text style={[styles.usageText, { fontSize: fonts.xs - 1 }]}>
+                              {invite.use_count}{invite.max_uses ? `/${invite.max_uses}` : ''} uses
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                       
                       <Text style={[styles.inviteDate, { fontSize: fonts.xs }]}>
-                        Sent {formatDate(invite.created_at)}
-                        {invite.accepted_at && ` • Joined ${formatDate(invite.accepted_at)}`}
+                        Created {formatDate(invite.created_at)}
+                        {invite.invite_type === 'email' && invite.accepted_at && ` • Joined ${formatDate(invite.accepted_at)}`}
                       </Text>
+
+                      {/* Limit editing for open invites */}
+                      {invite.invite_type === 'open' && invite.status === 'pending' && editingLimitId === invite.id && (
+                        <View style={[styles.limitEditRow, { marginTop: spacing.sm }]}>
+                          <Input
+                            placeholder="Unlimited"
+                            value={editingLimitValue}
+                            onChangeText={setEditingLimitValue}
+                            keyboardType="number-pad"
+                            containerStyle={{ flex: 1, marginBottom: 0 }}
+                          />
+                          <TouchableOpacity
+                            style={[styles.limitSaveButton, { marginLeft: spacing.sm }]}
+                            onPress={() => handleUpdateLimit(invite.id)}
+                          >
+                            <Ionicons name="checkmark" size={20} color="#10b981" />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.limitCancelButton, { marginLeft: spacing.xs }]}
+                            onPress={() => {
+                              setEditingLimitId(null);
+                              setEditingLimitValue('');
+                            }}
+                          >
+                            <Ionicons name="close" size={20} color="#ef4444" />
+                          </TouchableOpacity>
+                        </View>
+                      )}
 
                       {invite.status === 'pending' && (
                         <View style={[styles.inviteActions, { marginTop: spacing.sm }]}>
@@ -374,13 +659,35 @@ export const InviteModal: React.FC<InviteModalProps> = ({ visible, onClose }) =>
                             <Ionicons name="share-outline" size={16} color="#3b82f6" />
                             <Text style={[styles.actionText, { color: '#3b82f6' }]}>Share</Text>
                           </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={() => handleCancelInvite(invite.id)}
-                          >
-                            <Ionicons name="close-circle-outline" size={16} color="#ef4444" />
-                            <Text style={[styles.actionText, { color: '#ef4444' }]}>Cancel</Text>
-                          </TouchableOpacity>
+                          
+                          {invite.invite_type === 'open' ? (
+                            <>
+                              {editingLimitId !== invite.id && (
+                                <TouchableOpacity
+                                  style={styles.actionButton}
+                                  onPress={() => startEditingLimit(invite)}
+                                >
+                                  <Ionicons name="options-outline" size={16} color="#f59e0b" />
+                                  <Text style={[styles.actionText, { color: '#f59e0b' }]}>Limit</Text>
+                                </TouchableOpacity>
+                              )}
+                              <TouchableOpacity
+                                style={styles.actionButton}
+                                onPress={() => handleDeleteOpenInvite(invite.id)}
+                              >
+                                <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                                <Text style={[styles.actionText, { color: '#ef4444' }]}>Delete</Text>
+                              </TouchableOpacity>
+                            </>
+                          ) : (
+                            <TouchableOpacity
+                              style={styles.actionButton}
+                              onPress={() => handleCancelInvite(invite.id)}
+                            >
+                              <Ionicons name="close-circle-outline" size={16} color="#ef4444" />
+                              <Text style={[styles.actionText, { color: '#ef4444' }]}>Cancel</Text>
+                            </TouchableOpacity>
+                          )}
                         </View>
                       )}
 
@@ -583,6 +890,7 @@ const styles = StyleSheet.create({
   inviteActions: {
     flexDirection: 'row',
     gap: 16,
+    flexWrap: 'wrap',
   },
   actionButton: {
     flexDirection: 'row',
@@ -619,6 +927,123 @@ const styles = StyleSheet.create({
     color: '#ea580c',
     flex: 1,
     fontWeight: '500',
+  },
+  // Mode toggle styles
+  modeToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#27272a',
+    borderRadius: 8,
+    padding: 4,
+  },
+  modeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    gap: 6,
+  },
+  modeButtonActive: {
+    backgroundColor: '#ea580c',
+  },
+  modeButtonText: {
+    color: '#71717a',
+    fontWeight: '500',
+  },
+  modeButtonTextActive: {
+    color: '#fff',
+  },
+  // Generated code display
+  generatedCodeCard: {
+    backgroundColor: '#10b98110',
+    borderWidth: 1,
+    borderColor: '#10b98130',
+  },
+  generatedCodeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  generatedCodeTitle: {
+    color: '#10b981',
+    fontWeight: '600',
+  },
+  codeDisplay: {
+    backgroundColor: '#27272a',
+    padding: 16,
+    alignItems: 'center',
+  },
+  codeText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    letterSpacing: 4,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  codeActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  codeActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#27272a',
+    gap: 6,
+  },
+  codeActionText: {
+    color: '#8b5cf6',
+    fontWeight: '500',
+  },
+  sectionLabel: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  // Open invite in history
+  openInviteLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  inviteCode: {
+    color: '#8b5cf6',
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  typeBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  typeBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  typeBadgeText: {
+    fontWeight: '500',
+  },
+  usageStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  usageText: {
+    color: '#71717a',
+  },
+  // Limit editing
+  limitEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  limitSaveButton: {
+    padding: 8,
+    backgroundColor: '#10b98120',
+    borderRadius: 6,
+  },
+  limitCancelButton: {
+    padding: 8,
+    backgroundColor: '#ef444420',
+    borderRadius: 6,
   },
 });
 

@@ -220,64 +220,185 @@ export function BodyAccessories({
         </group>
       )}
 
-      {/* WHEELCHAIR - Full wheelchair model */}
+      {/* MOTORIZED WHEELCHAIR - Stephen Hawking style with computer/voice synthesizer */}
       {hasWheelchair && (
         <group position={[0, body.torsoBottom - 0.2, 0]}>
-          {/* Seat */}
-          <mesh position={[0, 0.05, 0]} castShadow>
-            <boxGeometry args={[body.torso.width * 0.67, 0.08, body.torso.width * 0.67]} />
-            <meshStandardMaterial color="#2c2c2c" roughness={0.7} />
+          {/* === MAIN CHAIR FRAME === */}
+          {/* Seat - padded motorized wheelchair seat */}
+          <mesh position={[0, 0.05, 0.02]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.75, 0.1, body.torso.width * 0.7]} />
+            <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
           </mesh>
-          {/* Backrest */}
-          <mesh position={[0, 0.25, -body.torso.width * 0.27]} castShadow>
-            <boxGeometry args={[body.torso.width * 0.67, 0.4, 0.05]} />
-            <meshStandardMaterial color="#2c2c2c" roughness={0.7} />
+          {/* Seat cushion */}
+          <mesh position={[0, 0.11, 0.02]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.7, 0.04, body.torso.width * 0.65]} />
+            <meshStandardMaterial color="#2d2d2d" roughness={0.9} />
           </mesh>
-          {/* Left wheel */}
-          <group position={[-body.torso.width * 0.37, -0.05, body.torso.width * 0.13]}>
+          
+          {/* High backrest with head support */}
+          <mesh position={[0, 0.35, -body.torso.width * 0.32]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.72, 0.6, 0.08]} />
+            <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
+          </mesh>
+          {/* Backrest cushion */}
+          <mesh position={[0, 0.35, -body.torso.width * 0.27]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.65, 0.55, 0.04]} />
+            <meshStandardMaterial color="#2d2d2d" roughness={0.9} />
+          </mesh>
+          {/* Headrest */}
+          <mesh position={[0, 0.72, -body.torso.width * 0.3]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.4, 0.15, 0.1]} />
+            <meshStandardMaterial color="#2d2d2d" roughness={0.9} />
+          </mesh>
+          
+          {/* === ARMRESTS WITH CONTROLS === */}
+          {/* Left armrest */}
+          <mesh position={[-body.torso.width * 0.42, 0.2, 0]} castShadow>
+            <boxGeometry args={[0.08, 0.06, body.torso.width * 0.5]} />
+            <meshStandardMaterial color="#1a1a1a" roughness={0.7} />
+          </mesh>
+          {/* Right armrest */}
+          <mesh position={[body.torso.width * 0.42, 0.2, 0]} castShadow>
+            <boxGeometry args={[0.08, 0.06, body.torso.width * 0.5]} />
+            <meshStandardMaterial color="#1a1a1a" roughness={0.7} />
+          </mesh>
+          {/* Right armrest joystick control */}
+          <mesh position={[body.torso.width * 0.42, 0.24, body.torso.width * 0.15]} castShadow>
+            <boxGeometry args={[0.06, 0.04, 0.08]} />
+            <meshStandardMaterial color="#333333" roughness={0.6} />
+          </mesh>
+          {/* Joystick */}
+          <mesh position={[body.torso.width * 0.42, 0.28, body.torso.width * 0.15]} castShadow>
+            <cylinderGeometry args={[0.015, 0.015, 0.05, 8]} />
+            <meshStandardMaterial color="#dc2626" roughness={0.5} />
+          </mesh>
+          
+          {/* === COMPUTER SCREEN MOUNT - Hawking's voice synthesizer === */}
+          {/* Screen arm */}
+          <mesh position={[body.torso.width * 0.5, 0.35, body.torso.width * 0.1]} castShadow>
+            <boxGeometry args={[0.04, 0.04, 0.25]} />
+            <meshStandardMaterial color="#1a1a1a" metalness={0.5} roughness={0.4} />
+          </mesh>
+          {/* Screen arm vertical */}
+          <mesh position={[body.torso.width * 0.5, 0.5, body.torso.width * 0.22]} castShadow>
+            <boxGeometry args={[0.04, 0.3, 0.04]} />
+            <meshStandardMaterial color="#1a1a1a" metalness={0.5} roughness={0.4} />
+          </mesh>
+          {/* Screen frame */}
+          <mesh position={[body.torso.width * 0.48, 0.65, body.torso.width * 0.32]} castShadow>
+            <boxGeometry args={[0.25, 0.18, 0.04]} />
+            <meshStandardMaterial color="#1a1a1a" roughness={0.7} />
+          </mesh>
+          {/* Screen display (glowing) */}
+          <mesh position={[body.torso.width * 0.48, 0.65, body.torso.width * 0.35]} castShadow>
+            <boxGeometry args={[0.22, 0.14, 0.01]} />
+            <meshStandardMaterial color="#1e3a5f" emissive="#1e88e5" emissiveIntensity={0.4} roughness={0.3} />
+          </mesh>
+          {/* Text lines on screen (representing voice output) */}
+          <mesh position={[body.torso.width * 0.48, 0.67, body.torso.width * 0.36]} castShadow>
+            <boxGeometry args={[0.18, 0.015, 0.005]} />
+            <meshStandardMaterial color="#64b5f6" emissive="#64b5f6" emissiveIntensity={0.8} />
+          </mesh>
+          <mesh position={[body.torso.width * 0.48, 0.645, body.torso.width * 0.36]} castShadow>
+            <boxGeometry args={[0.14, 0.015, 0.005]} />
+            <meshStandardMaterial color="#64b5f6" emissive="#64b5f6" emissiveIntensity={0.6} />
+          </mesh>
+          <mesh position={[body.torso.width * 0.48, 0.62, body.torso.width * 0.36]} castShadow>
+            <boxGeometry args={[0.16, 0.015, 0.005]} />
+            <meshStandardMaterial color="#64b5f6" emissive="#64b5f6" emissiveIntensity={0.5} />
+          </mesh>
+          
+          {/* === MOTORIZED BASE === */}
+          {/* Motor housing - front */}
+          <mesh position={[0, -0.08, body.torso.width * 0.35]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.8, 0.12, 0.15]} />
+            <meshStandardMaterial color="#2a2a2a" roughness={0.6} />
+          </mesh>
+          {/* Motor housing - back */}
+          <mesh position={[0, -0.08, -body.torso.width * 0.2]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.6, 0.12, 0.2]} />
+            <meshStandardMaterial color="#2a2a2a" roughness={0.6} />
+          </mesh>
+          {/* Battery pack indicator */}
+          <mesh position={[-body.torso.width * 0.25, -0.02, -body.torso.width * 0.2]} castShadow>
+            <boxGeometry args={[0.08, 0.04, 0.15]} />
+            <meshStandardMaterial color="#059669" emissive="#059669" emissiveIntensity={0.3} />
+          </mesh>
+          
+          {/* === WHEELS === */}
+          {/* Large back wheels (motorized) */}
+          <group position={[-body.torso.width * 0.45, -0.1, -body.torso.width * 0.1]}>
+            {/* Tire */}
             <mesh rotation={[0, Math.PI / 2, 0]} castShadow>
-              <torusGeometry args={[0.15, 0.03, 8, 16]} />
-              <meshStandardMaterial color="#3a3a3a" roughness={0.5} />
+              <torusGeometry args={[0.18, 0.05, 12, 24]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.9} />
             </mesh>
-            {/* Spokes */}
-            <mesh rotation={[0, 0, 0]}>
-              <boxGeometry args={[0.02, 0.24, 0.02]} />
-              <meshStandardMaterial color="#5a5a5a" metalness={0.6} roughness={0.4} />
+            {/* Wheel hub */}
+            <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+              <cylinderGeometry args={[0.12, 0.12, 0.04, 16]} />
+              <meshStandardMaterial color="#4a4a4a" metalness={0.6} roughness={0.4} />
             </mesh>
-            <mesh rotation={[0, 0, Math.PI / 2]}>
-              <boxGeometry args={[0.02, 0.24, 0.02]} />
-              <meshStandardMaterial color="#5a5a5a" metalness={0.6} roughness={0.4} />
+            {/* Hub cap */}
+            <mesh position={[-0.03, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+              <cylinderGeometry args={[0.06, 0.06, 0.02, 16]} />
+              <meshStandardMaterial color="#2a2a2a" metalness={0.7} roughness={0.3} />
             </mesh>
           </group>
-          {/* Right wheel */}
-          <group position={[body.torso.width * 0.37, -0.05, body.torso.width * 0.13]}>
-            <mesh rotation={[0, Math.PI / 2, 0]} castShadow>
-              <torusGeometry args={[0.15, 0.03, 8, 16]} />
-              <meshStandardMaterial color="#3a3a3a" roughness={0.5} />
+          <group position={[body.torso.width * 0.45, -0.1, -body.torso.width * 0.1]}>
+            {/* Tire */}
+            <mesh rotation={[0,Math.PI / 2, 0]} castShadow>
+              <torusGeometry args={[0.18, 0.05, 12, 24]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.9} />
             </mesh>
-            {/* Spokes */}
-            <mesh rotation={[0, 0, 0]}>
-              <boxGeometry args={[0.02, 0.24, 0.02]} />
-              <meshStandardMaterial color="#5a5a5a" metalness={0.6} roughness={0.4} />
+            {/* Wheel hub */}
+            <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+              <cylinderGeometry args={[0.12, 0.12, 0.04, 16]} />
+              <meshStandardMaterial color="#4a4a4a" metalness={0.6} roughness={0.4} />
             </mesh>
-            <mesh rotation={[0, 0, Math.PI / 2]}>
-              <boxGeometry args={[0.02, 0.24, 0.02]} />
-              <meshStandardMaterial color="#5a5a5a" metalness={0.6} roughness={0.4} />
+            {/* Hub cap */}
+            <mesh position={[0.03, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+              <cylinderGeometry args={[0.06, 0.06, 0.02, 16]} />
+              <meshStandardMaterial color="#2a2a2a" metalness={0.7} roughness={0.3} />
             </mesh>
           </group>
-          {/* Front caster wheels */}
-          <mesh position={[-body.torso.width * 0.27, -0.15, body.torso.width * 0.47]} rotation={[0, Math.PI / 2, 0]} castShadow>
-            <torusGeometry args={[0.06, 0.02, 6, 12]} />
-            <meshStandardMaterial color="#3a3a3a" roughness={0.5} />
+          
+          {/* Small front caster wheels */}
+          <group position={[-body.torso.width * 0.3, -0.18, body.torso.width * 0.4]}>
+            <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+              <torusGeometry args={[0.06, 0.025, 8, 16]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
+            </mesh>
+            {/* Caster fork */}
+            <mesh position={[0, 0.08, 0]} castShadow>
+              <boxGeometry args={[0.03, 0.1, 0.03]} />
+              <meshStandardMaterial color="#3a3a3a" metalness={0.5} roughness={0.5} />
+            </mesh>
+          </group>
+          <group position={[body.torso.width * 0.3, -0.18, body.torso.width * 0.4]}>
+            <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+              <torusGeometry args={[0.06, 0.025, 8, 16]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
+            </mesh>
+            {/* Caster fork */}
+            <mesh position={[0, 0.08, 0]} castShadow>
+              <boxGeometry args={[0.03, 0.1, 0.03]} />
+              <meshStandardMaterial color="#3a3a3a" metalness={0.5} roughness={0.5} />
+            </mesh>
+          </group>
+          
+          {/* === FOOTREST === */}
+          <mesh position={[0, -0.15, body.torso.width * 0.55]} castShadow>
+            <boxGeometry args={[body.torso.width * 0.55, 0.04, 0.15]} />
+            <meshStandardMaterial color="#2a2a2a" roughness={0.7} />
           </mesh>
-          <mesh position={[body.torso.width * 0.27, -0.15, body.torso.width * 0.47]} rotation={[0, Math.PI / 2, 0]} castShadow>
-            <torusGeometry args={[0.06, 0.02, 6, 12]} />
-            <meshStandardMaterial color="#3a3a3a" roughness={0.5} />
+          {/* Footrest support bars */}
+          <mesh position={[-body.torso.width * 0.2, -0.08, body.torso.width * 0.48]} rotation={[0.3, 0, 0]} castShadow>
+            <boxGeometry args={[0.03, 0.15, 0.03]} />
+            <meshStandardMaterial color="#3a3a3a" metalness={0.5} roughness={0.5} />
           </mesh>
-          {/* Frame */}
-          <mesh position={[0, 0.05, body.torso.width * 0.33]} castShadow>
-            <boxGeometry args={[body.torso.width * 0.67, 0.03, 0.03]} />
-            <meshStandardMaterial color="#4a4a4a" metalness={0.7} roughness={0.3} />
+          <mesh position={[body.torso.width * 0.2, -0.08, body.torso.width * 0.48]} rotation={[0.3, 0, 0]} castShadow>
+            <boxGeometry args={[0.03, 0.15, 0.03]} />
+            <meshStandardMaterial color="#3a3a3a" metalness={0.5} roughness={0.5} />
           </mesh>
         </group>
       )}

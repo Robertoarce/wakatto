@@ -23,6 +23,7 @@ import { getCharacter, CharacterBehavior } from '../config/characters';
 import { Card, Badge } from '../components/ui';
 import { useCharacterLoading } from '../components/ChatInterface/hooks/useCharacterLoading';
 import { expandExpression, getCanonicalExpressions } from '../services/animationOrchestration';
+import { getTalkingSoundsService, TALKING_SOUND_TYPES, TalkingSoundType } from '../services/talkingSoundsService';
 
 // All available base animations
 const ALL_ANIMATIONS: { name: AnimationState; description: string; category: string }[] = [
@@ -153,6 +154,25 @@ const SPEED_PRESETS = [
   { value: 1.5, label: '1.5x', description: 'Fast' },
   { value: 2.0, label: '2x', description: 'Very Fast' },
   { value: 3.0, label: '3x', description: 'Ultra Fast' },
+];
+
+// Talking sound types with descriptions and icons
+const TALKING_SOUNDS: { value: TalkingSoundType; label: string; icon: string; description: string }[] = [
+  { value: 'beep', label: 'Beep', icon: '🎮', description: 'Undertale-style' },
+  { value: 'blip', label: 'Blip', icon: '🐾', description: 'Animal Crossing' },
+  { value: 'bubble', label: 'Bubble', icon: '🫧', description: 'Bubbly & friendly' },
+  { value: 'chime', label: 'Chime', icon: '🔔', description: 'Musical tones' },
+  { value: 'chirp', label: 'Chirp', icon: '🐦', description: 'Bird-like' },
+  { value: 'squeak', label: 'Squeak', icon: '🐭', description: 'Cute & squeaky' },
+  { value: 'pop', label: 'Pop', icon: '💥', description: 'Popping sounds' },
+  { value: 'click', label: 'Click', icon: '⌨️', description: 'Mechanical' },
+  { value: 'whisper', label: 'Whisper', icon: '🌬️', description: 'Soft & airy' },
+  { value: 'robotic', label: 'Robotic', icon: '🤖', description: 'Electronic' },
+  { value: 'warm', label: 'Warm', icon: '☕', description: 'Resonant tones' },
+  { value: 'crystal', label: 'Crystal', icon: '💎', description: 'Sparkly & clear' },
+  { value: 'deep', label: 'Deep', icon: '🎸', description: 'Bass-heavy' },
+  { value: 'playful', label: 'Playful', icon: '🎪', description: 'Bouncy & fun' },
+  { value: 'mysterious', label: 'Mysterious', icon: '🔮', description: 'Ethereal' },
 ];
 
 // Available preset characters (built-in only)
@@ -416,10 +436,55 @@ const AnimationsScreen = ({ onNavigateToChat }: AnimationsScreenProps): JSX.Elem
   const [effectColor, setEffectColor] = useState('#8b5cf6');
 
   // Tab state - default to complementary
-  const [activeTab, setActiveTab] = useState<'base' | 'complementary'>('complementary');
+  const [activeTab, setActiveTab] = useState<'base' | 'complementary' | 'sounds'>('complementary');
 
   // Expression preset state
   const [selectedExpression, setSelectedExpression] = useState<string | null>(null);
+
+  // Talking sounds state
+  const [selectedSoundType, setSelectedSoundType] = useState<TalkingSoundType>('blip');
+  const [soundsEnabled, setSoundsEnabled] = useState(true);
+  const [soundVolume, setSoundVolume] = useState(0.5);
+  const soundsService = getTalkingSoundsService();
+
+  // Load character's default sound when character changes
+  useEffect(() => {
+    const char = getCharacter(activeCharacterId);
+    if (char?.voiceProfile?.talkingSound) {
+      setSelectedSoundType(char.voiceProfile.talkingSound);
+    }
+  }, [activeCharacterId]);
+
+  // Play a test sound
+  const playTestSound = (soundType: TalkingSoundType) => {
+    setSelectedSoundType(soundType);
+    soundsService.playDirect({ type: soundType, volume: soundVolume });
+  };
+
+  // Play a sequence of sounds (simulating talking)
+  const playTalkingDemo = (soundType: TalkingSoundType) => {
+    setSelectedSoundType(soundType);
+    // Play 5-8 sounds in sequence to simulate talking
+    const count = 5 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < count; i++) {
+      setTimeout(() => {
+        soundsService.playDirect({ type: soundType, volume: soundVolume });
+      }, i * 80);
+    }
+  };
+
+  // Toggle sounds enabled
+  const toggleSounds = () => {
+    const newEnabled = !soundsEnabled;
+    setSoundsEnabled(newEnabled);
+    soundsService.setEnabled(newEnabled);
+  };
+
+  // Update volume
+  const updateVolume = (vol: number) => {
+    setSoundVolume(vol);
+    soundsService.setVolume(vol);
+  };
 
   // Get all canonical expression names (no aliases - clean UI)
   const expressionNames = getCanonicalExpressions();
@@ -624,7 +689,7 @@ const AnimationsScreen = ({ onNavigateToChat }: AnimationsScreenProps): JSX.Elem
               onPress={() => setActiveTab('base')}
             >
               <Text style={[dynamicStyles.tabText, activeTab === 'base' && styles.tabTextActive]}>
-                Base Animations
+                Animations
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -632,7 +697,15 @@ const AnimationsScreen = ({ onNavigateToChat }: AnimationsScreenProps): JSX.Elem
               onPress={() => setActiveTab('complementary')}
             >
               <Text style={[dynamicStyles.tabText, activeTab === 'complementary' && styles.tabTextActive]}>
-                Complementary
+                Expressions
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'sounds' && styles.tabActive]}
+              onPress={() => setActiveTab('sounds')}
+            >
+              <Text style={[dynamicStyles.tabText, activeTab === 'sounds' && styles.tabTextActive]}>
+                🔊 Sounds
               </Text>
             </TouchableOpacity>
           </View>
@@ -705,7 +778,7 @@ const AnimationsScreen = ({ onNavigateToChat }: AnimationsScreenProps): JSX.Elem
                   ))}
                 </View>
               </>
-            ) : (
+            ) : activeTab === 'complementary' ? (
               <>
                 {/* Expression Presets */}
                 <View style={styles.controlGroup}>
@@ -1163,7 +1236,170 @@ const AnimationsScreen = ({ onNavigateToChat }: AnimationsScreenProps): JSX.Elem
 
                 <View style={{ height: 150, marginBottom: 20 }} />
               </>
-            )}
+            ) : activeTab === 'sounds' ? (
+              <>
+                {/* Sounds Enable/Disable */}
+                <View style={styles.controlGroup}>
+                  <Text style={dynamicStyles.controlGroupTitle}>🎛️ Sound Settings</Text>
+                  <View style={styles.soundSettingsRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.soundToggleButton,
+                        soundsEnabled ? styles.soundToggleEnabled : styles.soundToggleDisabled
+                      ]}
+                      onPress={toggleSounds}
+                    >
+                      <Ionicons
+                        name={soundsEnabled ? "volume-high" : "volume-mute"}
+                        size={20}
+                        color={soundsEnabled ? "#10b981" : "#71717a"}
+                      />
+                      <Text style={[
+                        styles.soundToggleText,
+                        soundsEnabled && styles.soundToggleTextEnabled
+                      ]}>
+                        {soundsEnabled ? 'Sounds ON' : 'Sounds OFF'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Volume Control */}
+                <View style={styles.controlGroup}>
+                  <Text style={dynamicStyles.controlGroupTitle}>🔊 Volume</Text>
+                  <View style={styles.volumeRow}>
+                    {[0.25, 0.5, 0.75, 1.0].map((vol) => (
+                      <TouchableOpacity
+                        key={vol}
+                        style={[
+                          styles.volumeButton,
+                          soundVolume === vol && styles.volumeButtonActive
+                        ]}
+                        onPress={() => updateVolume(vol)}
+                      >
+                        <Text style={[
+                          styles.volumeButtonText,
+                          soundVolume === vol && styles.volumeButtonTextActive
+                        ]}>
+                          {Math.round(vol * 100)}%
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Sound Types Grid */}
+                <View style={styles.controlGroup}>
+                  <Text style={dynamicStyles.controlGroupTitle}>🎵 Talking Sound Types</Text>
+                  <Text style={dynamicStyles.controlGroupSubtitle}>
+                    Tap to preview • Long-press for talking demo
+                  </Text>
+                  <View style={styles.soundsGrid}>
+                    {TALKING_SOUNDS.map((sound) => (
+                      <TouchableOpacity
+                        key={sound.value}
+                        style={[
+                          styles.soundCard,
+                          selectedSoundType === sound.value && styles.soundCardActive
+                        ]}
+                        onPress={() => playTestSound(sound.value)}
+                        onLongPress={() => playTalkingDemo(sound.value)}
+                        delayLongPress={300}
+                      >
+                        <Text style={styles.soundIcon}>{sound.icon}</Text>
+                        <Text style={[
+                          styles.soundName,
+                          selectedSoundType === sound.value && styles.soundNameActive
+                        ]}>
+                          {sound.label}
+                        </Text>
+                        <Text style={styles.soundDescription}>{sound.description}</Text>
+                        {selectedSoundType === sound.value && (
+                          <View style={styles.soundActiveIndicator}>
+                            <Ionicons name="checkmark-circle" size={14} color="#8b5cf6" />
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Demo Button */}
+                <View style={styles.controlGroup}>
+                  <Text style={dynamicStyles.controlGroupTitle}>🎤 Test with Talking</Text>
+                  <Text style={dynamicStyles.controlGroupSubtitle}>
+                    Enable "Talk" mode above and select a sound to hear it during animation
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.demoButton}
+                    onPress={() => {
+                      setIsTalking(true);
+                      setCurrentAnimation('talking');
+                      playTalkingDemo(selectedSoundType);
+                    }}
+                  >
+                    <Ionicons name="play-circle" size={24} color="#ffffff" />
+                    <Text style={styles.demoButtonText}>Play Talking Demo</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Character Sound Info */}
+                <View style={styles.controlGroup}>
+                  <Text style={dynamicStyles.controlGroupTitle}>📝 Character Default Sounds</Text>
+                  <Text style={dynamicStyles.controlGroupSubtitle}>
+                    Each wakattor has a unique talking sound based on their personality
+                  </Text>
+                  <View style={styles.characterSoundsList}>
+                    <View style={styles.characterSoundRow}>
+                      <Text style={styles.characterSoundName}>☕ Freud</Text>
+                      <Badge label="warm" variant="secondary" size="sm" />
+                    </View>
+                    <View style={styles.characterSoundRow}>
+                      <Text style={styles.characterSoundName}>🔮 Jung</Text>
+                      <Badge label="mysterious" variant="secondary" size="sm" />
+                    </View>
+                    <View style={styles.characterSoundRow}>
+                      <Text style={styles.characterSoundName}>⌨️ Adler</Text>
+                      <Badge label="click" variant="secondary" size="sm" />
+                    </View>
+                    <View style={styles.characterSoundRow}>
+                      <Text style={styles.characterSoundName}>🔔 Seligman</Text>
+                      <Badge label="chime" variant="secondary" size="sm" />
+                    </View>
+                    <View style={styles.characterSoundRow}>
+                      <Text style={styles.characterSoundName}>🫧 Brown</Text>
+                      <Badge label="bubble" variant="secondary" size="sm" />
+                    </View>
+                    <View style={styles.characterSoundRow}>
+                      <Text style={styles.characterSoundName}>🎸 Frankl</Text>
+                      <Badge label="deep" variant="secondary" size="sm" />
+                    </View>
+                    <View style={styles.characterSoundRow}>
+                      <Text style={styles.characterSoundName}>🌬️ Epictetus</Text>
+                      <Badge label="whisper" variant="secondary" size="sm" />
+                    </View>
+                    <View style={styles.characterSoundRow}>
+                      <Text style={styles.characterSoundName}>🎮 Nietzsche</Text>
+                      <Badge label="beep" variant="secondary" size="sm" />
+                    </View>
+                    <View style={styles.characterSoundRow}>
+                      <Text style={styles.characterSoundName}>🎪 Csikszentmihalyi</Text>
+                      <Badge label="playful" variant="secondary" size="sm" />
+                    </View>
+                    <View style={styles.characterSoundRow}>
+                      <Text style={styles.characterSoundName}>🐾 Bob</Text>
+                      <Badge label="blip" variant="secondary" size="sm" />
+                    </View>
+                    <View style={styles.characterSoundRow}>
+                      <Text style={styles.characterSoundName}>💥 Blackbeard</Text>
+                      <Badge label="pop" variant="secondary" size="sm" />
+                    </View>
+                  </View>
+                </View>
+
+                <View style={{ height: 150, marginBottom: 20 }} />
+              </>
+            ) : null}
           </ScrollView>
         </View>
       </View>
@@ -1622,6 +1858,141 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#71717a',
     marginTop: 2,
+  },
+  // Sounds tab styles
+  soundSettingsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  soundToggleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: '#27272a',
+    borderWidth: 2,
+    borderColor: '#3f3f46',
+  },
+  soundToggleEnabled: {
+    backgroundColor: '#064e3b',
+    borderColor: '#10b981',
+  },
+  soundToggleDisabled: {
+    backgroundColor: '#27272a',
+    borderColor: '#3f3f46',
+  },
+  soundToggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#71717a',
+  },
+  soundToggleTextEnabled: {
+    color: '#10b981',
+  },
+  volumeRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  volumeButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#27272a',
+    borderWidth: 2,
+    borderColor: '#27272a',
+    alignItems: 'center',
+  },
+  volumeButtonActive: {
+    backgroundColor: '#1e1b4b',
+    borderColor: '#8b5cf6',
+  },
+  volumeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#a1a1aa',
+  },
+  volumeButtonTextActive: {
+    color: '#c4b5fd',
+  },
+  soundsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  soundCard: {
+    flexBasis: '31%',
+    flexGrow: 0,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#27272a',
+    borderWidth: 2,
+    borderColor: '#27272a',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  soundCardActive: {
+    backgroundColor: '#1e1b4b',
+    borderColor: '#8b5cf6',
+  },
+  soundIcon: {
+    fontSize: 24,
+    marginBottom: 6,
+  },
+  soundName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#e4e4e7',
+    textAlign: 'center',
+  },
+  soundNameActive: {
+    color: '#c4b5fd',
+  },
+  soundDescription: {
+    fontSize: 10,
+    color: '#71717a',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  soundActiveIndicator: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+  },
+  demoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+    backgroundColor: '#7c3aed',
+  },
+  demoButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  characterSoundsList: {
+    backgroundColor: '#171717',
+    borderRadius: 10,
+    padding: 12,
+    gap: 8,
+  },
+  characterSoundRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#27272a',
+  },
+  characterSoundName: {
+    fontSize: 13,
+    color: '#a1a1aa',
   },
 });
 

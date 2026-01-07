@@ -89,7 +89,8 @@ Otherwise, favor concise, impactful insights.`,
       volume: 'soft',
       pace: 'slow',
       defaultMood: 'calm',
-      defaultIntent: 'explaining'
+      defaultIntent: 'explaining',
+      talkingSound: 'warm'  // Deep, resonant tones for Freud
     },
     model3D: {
       bodyColor: '#5c4a3a',
@@ -136,7 +137,8 @@ Otherwise, favor concise, impactful insights.`,
       volume: 'soft',
       pace: 'slow',
       defaultMood: 'melancholic',
-      defaultIntent: 'questioning'
+      defaultIntent: 'questioning',
+      talkingSound: 'mysterious'  // Ethereal sounds for Jung's dreamlike approach
     },
     model3D: {
       bodyColor: '#9a9a9a',
@@ -183,7 +185,8 @@ Otherwise, favor concise, impactful insights.`,
       volume: 'normal',
       pace: 'normal',
       defaultMood: 'confident',
-      defaultIntent: 'encouraging'
+      defaultIntent: 'encouraging',
+      talkingSound: 'click'  // Crisp, practical sounds for Adler
     },
     model3D: {
       bodyColor: '#4a7c59',
@@ -230,7 +233,8 @@ Otherwise, favor concise, impactful insights.`,
       volume: 'normal',
       pace: 'normal',
       defaultMood: 'hopeful',
-      defaultIntent: 'encouraging'
+      defaultIntent: 'encouraging',
+      talkingSound: 'chime'  // Bright, hopeful chimes for Seligman
     },
     model3D: {
       bodyColor: '#059669',
@@ -277,7 +281,8 @@ Otherwise, favor concise, impactful insights.`,
       volume: 'soft',
       pace: 'slow',
       defaultMood: 'calm',
-      defaultIntent: 'reassuring'
+      defaultIntent: 'reassuring',
+      talkingSound: 'bubble'  // Soft, friendly bubbles for Brown
     },
     model3D: {
       bodyColor: '#db2777',
@@ -324,7 +329,8 @@ Otherwise, favor concise, impactful insights.`,
       volume: 'soft',
       pace: 'slow',
       defaultMood: 'melancholic',
-      defaultIntent: 'explaining'
+      defaultIntent: 'explaining',
+      talkingSound: 'deep'  // Deep, meaningful tones for Frankl
     },
     model3D: {
       bodyColor: '#475569',
@@ -371,7 +377,8 @@ Otherwise, favor concise, impactful insights.`,
       volume: 'normal',
       pace: 'slow',
       defaultMood: 'calm',
-      defaultIntent: 'explaining'
+      defaultIntent: 'explaining',
+      talkingSound: 'whisper'  // Stoic, airy tones for Epictetus
     },
     model3D: {
       bodyColor: '#57534e',
@@ -418,7 +425,8 @@ Otherwise, favor concise, impactful insights.`,
       volume: 'loud',
       pace: 'fast',
       defaultMood: 'confident',
-      defaultIntent: 'commanding'
+      defaultIntent: 'commanding',
+      talkingSound: 'beep'  // Sharp, fierce beeps for Nietzsche
     },
     model3D: {
       bodyColor: '#991b1b',
@@ -465,7 +473,8 @@ Otherwise, favor concise, impactful insights.`,
       volume: 'normal',
       pace: 'fast',
       defaultMood: 'excited',
-      defaultIntent: 'explaining'
+      defaultIntent: 'explaining',
+      talkingSound: 'playful'  // Bouncy, energetic sounds for Csikszentmihalyi
     },
     model3D: {
       bodyColor: '#2563eb',
@@ -531,7 +540,8 @@ Remember: You're the cheeky employee who became a reliable assistant. Helpful, h
       volume: 'normal',
       pace: 'normal',
       defaultMood: 'amused',
-      defaultIntent: 'explaining'
+      defaultIntent: 'explaining',
+      talkingSound: 'blip'  // Casual, friendly blips for Bob
     },
     model3D: {
       bodyColor: '#f59e0b',
@@ -578,7 +588,8 @@ Otherwise, favor concise, impactful insights.`,
       volume: 'loud',
       pace: 'normal',
       defaultMood: 'confident',
-      defaultIntent: 'commanding'
+      defaultIntent: 'commanding',
+      talkingSound: 'pop'  // Bold, adventurous pops for Blackbeard
     },
     model3D: {
       bodyColor: '#1e293b',

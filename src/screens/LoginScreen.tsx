@@ -336,6 +336,37 @@ export default function LoginScreen() {
                 Read our Terms of Use
               </Text>
             </TouchableOpacity>
+
+            {/* Test Mode Button - Skip Authentication */}
+            {__DEV__ && (
+              <TouchableOpacity
+                onPress={() => {
+                  // Create a mock session for testing
+                  const mockUser = {
+                    id: 'test-user-id-12345',
+                    email: 'test@wakatto.dev',
+                    email_confirmed_at: new Date().toISOString(),
+                    user_metadata: { name: 'Test User' },
+                    created_at: new Date().toISOString(),
+                  };
+                  const mockSession = {
+                    access_token: 'test-access-token',
+                    refresh_token: 'test-refresh-token',
+                    expires_in: 3600,
+                    expires_at: Math.floor(Date.now() / 1000) + 3600,
+                    user: mockUser,
+                  };
+                  dispatch(setSession(mockSession, mockUser));
+                  navigate('Main');
+                }}
+                style={[styles.testModeButton, { marginTop: scaleHeight(spacing.lg) }]}
+              >
+                <Ionicons name="flask-outline" size={scaleHeight(16)} color="#f97316" style={{ marginRight: 6 }} />
+                <Text style={[styles.testModeText, { fontSize: Math.max(fonts.xs, scaleHeight(fonts.sm)) }]}>
+                  🧪 Test Mode (Skip Auth)
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -487,5 +518,22 @@ const styles = StyleSheet.create({
   },
   disclaimerLinkText: {
     color: '#71717a',
+  },
+  // Test mode button styles
+  testModeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.3)',
+    borderStyle: 'dashed',
+  },
+  testModeText: {
+    color: '#f97316',
+    fontWeight: '600',
   },
 });

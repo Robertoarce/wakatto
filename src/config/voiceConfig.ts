@@ -6,6 +6,8 @@
  * emotional/dramatic context.
  */
 
+import { TalkingSoundType } from '../services/talkingSoundsService';
+
 // ============================================
 // BASIC VOICE DESCRIPTION
 // ============================================
@@ -127,6 +129,8 @@ export interface CharacterVoiceProfile {
   pace: VoicePace;
   defaultMood: VoiceMood;
   defaultIntent: VoiceIntent;
+  /** Talking sound type for character speech effects (game-like sounds) */
+  talkingSound?: TalkingSoundType;
 }
 
 /**

@@ -25,6 +25,7 @@ import {
   mergeVoiceWithDefaults
 } from '../config/voiceConfig';
 import { performanceLogger } from './performanceLogger';
+import { getTalkingSoundsService, TalkingSoundType } from './talkingSoundsService';
 
 // ============================================
 // POST-SPEAKING EXPRESSIONS
@@ -119,6 +120,12 @@ export class AnimationPlaybackEngine {
   private gracefulStopRequested: boolean = false;
   private gracefulStopCallback: (() => void) | null = null;
 
+  // Talking sounds
+  private talkingSoundsEnabled: boolean = true;
+  private lastSoundTimes: Map<string, number> = new Map();
+  private lastRevealedLengths: Map<string, number> = new Map();
+  private soundInterval: number = 65; // ms between sounds (roughly per character)
+
   // ============================================
   // PUBLIC METHODS
   // ============================================
@@ -129,6 +136,36 @@ export class AnimationPlaybackEngine {
    */
   setCharacterVoiceProfiles(profiles: Map<string, CharacterVoiceProfile>): void {
     this.characterVoiceProfiles = new Map(profiles);
+    
+    // Also set up talking sounds for each character
+    const soundsService = getTalkingSoundsService();
+    for (const [characterId, profile] of profiles) {
+      if (profile.talkingSound) {
+        soundsService.setCharacterSound(characterId, { type: profile.talkingSound });
+      }
+    }
+  }
+
+  /**
+   * Enable or disable talking sounds
+   */
+  setTalkingSoundsEnabled(enabled: boolean): void {
+    this.talkingSoundsEnabled = enabled;
+    getTalkingSoundsService().setEnabled(enabled);
+  }
+
+  /**
+   * Check if talking sounds are enabled
+   */
+  isTalkingSoundsEnabled(): boolean {
+    return this.talkingSoundsEnabled;
+  }
+
+  /**
+   * Set talking sounds volume (0-1)
+   */
+  setTalkingSoundsVolume(volume: number): void {
+    getTalkingSoundsService().setVolume(volume);
   }
 
   /**
@@ -224,6 +261,9 @@ export class AnimationPlaybackEngine {
     this.lastTTSUpdateTime = 0;
     this.gracefulStopRequested = false;
     this.gracefulStopCallback = null;
+    // Clear sound state
+    this.lastSoundTimes.clear();
+    this.lastRevealedLengths.clear();
 
     // Build timeline cache once at start (not every frame)
     this.buildTimelinesCache();
@@ -312,6 +352,9 @@ export class AnimationPlaybackEngine {
     // Reset graceful stop flag
     this.gracefulStopRequested = false;
     this.gracefulStopCallback = null;
+    // Clear sound state
+    this.lastSoundTimes.clear();
+    this.lastRevealedLengths.clear();
 
     // Notify subscribers that playback has stopped
     this.notifyCallbacks();
@@ -726,6 +769,9 @@ export class AnimationPlaybackEngine {
       }
     }
 
+    // Play talking sounds for active speakers
+    this.playTalkingSounds();
+
     // Notify callbacks with current state
     this.notifyCallbacks();
 
@@ -877,6 +923,51 @@ export class AnimationPlaybackEngine {
       blinkDuration: segment.complementary.blinkDuration,
       blinkPeriod: segment.complementary.blinkPeriod
     };
+  }
+
+  /**
+   * Play talking sounds for characters that are currently speaking
+   * Sounds are played based on text reveal progress, not just time
+   */
+  private playTalkingSounds(): void {
+    if (!this.talkingSoundsEnabled || !this.scene) return;
+
+    const soundsService = getTalkingSoundsService();
+    const now = performance.now();
+
+    // Check each character with an active timeline
+    for (const [characterId, timelines] of this.characterTimelinesCache) {
+      const elapsed = this.getElapsedTime();
+      const timeline = this.findActiveTimeline(timelines, elapsed);
+      
+      if (!timeline) continue;
+
+      const characterElapsed = elapsed - timeline.startDelay;
+      
+      // Only play sounds when character is actively talking
+      if (characterElapsed < 0 || characterElapsed >= timeline.totalDuration) continue;
+
+      // Find current segment and check if it's a talking segment
+      const currentSegment = this.findCurrentSegment(timeline.segments, characterElapsed);
+      if (!currentSegment.isTalking) continue;
+
+      // Get revealed text length
+      const revealedText = this.getRevealedText(characterId);
+      const currentLength = revealedText.length;
+      const lastLength = this.lastRevealedLengths.get(characterId) ?? 0;
+      const lastSoundTime = this.lastSoundTimes.get(characterId) ?? 0;
+
+      // Play sound if text has advanced and enough time has passed
+      if (currentLength > lastLength && (now - lastSoundTime) >= this.soundInterval) {
+        // Skip sounds for whitespace and punctuation
+        const newChar = revealedText.charAt(currentLength - 1);
+        if (newChar && !/[\s.,!?;:'"\-—()[\]{}]/.test(newChar)) {
+          soundsService.play(characterId);
+          this.lastSoundTimes.set(characterId, now);
+        }
+        this.lastRevealedLengths.set(characterId, currentLength);
+      }
+    }
   }
 }
 

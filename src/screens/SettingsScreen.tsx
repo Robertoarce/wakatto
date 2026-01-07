@@ -16,6 +16,7 @@ import { InviteButton } from '../components/InviteModal';
 import { useResponsive } from '../constants/Layout';
 import { runQuickBenchmark, runAnimationBenchmark, BenchmarkReport } from '../services/benchmarkService';
 import { getProfiler } from '../services/profilingService';
+import { getTalkingSoundsService } from '../services/talkingSoundsService';
 // Temperature is now configured in code, not UI
 
 type AIProvider = 'mock' | 'openai' | 'anthropic' | 'gemini';
@@ -80,6 +81,11 @@ const SettingsScreen = (): JSX.Element => {
   const [benchmarking, setBenchmarking] = useState(false);
   const [benchmarkReport, setBenchmarkReport] = useState<BenchmarkReport | null>(null);
   const [profilingEnabled, setProfilingEnabled] = useState(true);
+
+  // Sound settings state
+  const soundsService = getTalkingSoundsService();
+  const [soundsEnabled, setSoundsEnabled] = useState(soundsService.isEnabled());
+  const [soundVolume, setSoundVolume] = useState(0.5);
 
   useEffect(() => {
     // Load current AI configuration
@@ -624,6 +630,92 @@ const SettingsScreen = (): JSX.Element => {
         </Card>
       </View>
       )}
+
+      {/* Sound Settings Section */}
+      <View style={[styles.section, { padding: spacing.lg }]}>
+        <Text style={[styles.sectionTitle, { fontSize: fonts.lg, marginBottom: spacing.md }]}>🔊 Sound Settings</Text>
+        <Card variant="elevated">
+          <View style={styles.infoBox}>
+            <Ionicons name="musical-notes-outline" size={20} color="#c4b5fd" />
+            <Text style={styles.infoBoxText}>
+              Talking sounds play when wakattors speak, creating game-like audio feedback (similar to Animal Crossing).
+            </Text>
+          </View>
+
+          <View style={{ marginTop: spacing.md }}>
+            <Text style={[styles.label, { fontSize: fonts.sm, marginBottom: spacing.sm }]}>
+              Talking Sounds
+            </Text>
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <TouchableOpacity
+                style={[
+                  styles.providerButton,
+                  soundsEnabled && styles.providerButtonActive,
+                  { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, flex: 1, alignItems: 'center' }
+                ]}
+                onPress={() => {
+                  const newState = !soundsEnabled;
+                  setSoundsEnabled(newState);
+                  soundsService.setEnabled(newState);
+                }}
+              >
+                <Ionicons
+                  name={soundsEnabled ? "volume-high" : "volume-mute"}
+                  size={18}
+                  color={soundsEnabled ? "#ffffff" : "#71717a"}
+                  style={{ marginRight: spacing.xs }}
+                />
+                <Text style={[
+                  styles.providerButtonText,
+                  { fontSize: fonts.sm },
+                  soundsEnabled && styles.providerButtonTextActive
+                ]}>
+                  {soundsEnabled ? 'Sounds ON' : 'Sounds OFF'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={{ marginTop: spacing.lg }}>
+            <Text style={[styles.label, { fontSize: fonts.sm, marginBottom: spacing.sm }]}>
+              Volume
+            </Text>
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              {[0.25, 0.5, 0.75, 1.0].map((vol) => (
+                <TouchableOpacity
+                  key={vol}
+                  style={[
+                    styles.providerButton,
+                    soundVolume === vol && styles.providerButtonActive,
+                    { flex: 1, alignItems: 'center', paddingVertical: spacing.md }
+                  ]}
+                  onPress={() => {
+                    setSoundVolume(vol);
+                    soundsService.setVolume(vol);
+                    // Play a test sound
+                    soundsService.playDirect({ type: 'blip', volume: vol });
+                  }}
+                >
+                  <Text style={[
+                    styles.providerButtonText,
+                    { fontSize: fonts.sm },
+                    soundVolume === vol && styles.providerButtonTextActive
+                  ]}>
+                    {Math.round(vol * 100)}%
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={[styles.infoBox, { marginTop: spacing.lg }]}>
+            <Ionicons name="information-circle-outline" size={20} color="#c4b5fd" />
+            <Text style={styles.infoBoxText}>
+              Each wakattor has a unique talking sound based on their personality. You can preview all sounds in the Animations screen → Sounds tab.
+            </Text>
+          </View>
+        </Card>
+      </View>
 
       {/* Invite Friends Section */}
       <View style={[styles.section, { padding: spacing.lg }]}>

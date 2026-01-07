@@ -26,6 +26,7 @@ import { getRandomGreeting } from '../services/characterGreetings';
 import { EntranceConfig, generateEntranceSequence, getTotalEntranceDuration } from '../services/entranceAnimations';
 import { generateConversationStarter } from '../services/conversationStarterPrompts';
 import { getRandomStory, Story } from '../services/storyLibrary';
+import { getTalkingSoundsService } from '../services/talkingSoundsService';
 import { setStoryContext, clearStoryContext } from '../store/actions/conversationActions';
 import { useResponsive, BREAKPOINTS, CHARACTER_HEIGHT } from '../constants/Layout';
 import { Toast } from './ui/Toast';
@@ -299,6 +300,11 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
   // Upgrade prompt modal state
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  
+  // Sound settings - talking sounds toggle
+  const soundsService = getTalkingSoundsService();
+  const [soundsEnabled, setSoundsEnabled] = useState(soundsService.isEnabled());
+  
   const { fonts, spacing, layout, borderRadius, scalePx, isMobile, isTablet, isDesktop, isMobileLandscape, width: screenWidth, height: screenHeight } = useResponsive();
 
   // Responsive dynamic styles for text and spacing
@@ -1728,22 +1734,43 @@ Each silence, a cathedral where you still reside.`;
             const isPlaying = playbackState.isPlaying;
 
             return (
-              <TouchableOpacity
-                style={[
-                  styles.playbackButton,
-                  { paddingHorizontal: btnPadH, paddingVertical: btnPadV, gap: btnGap }
-                ]}
-                onPress={isPlaying ? stopPlayback : handleTestSpeech}
-              >
-                <Ionicons
-                  name={isPlaying ? "stop-circle" : "play-circle"}
-                  size={iconSize}
-                  color={isPlaying ? "#ef4444" : "#22c55e"}
-                />
-                <Text style={[styles.playbackButtonText, { fontSize, color: isPlaying ? "#ef4444" : "#22c55e" }]}>
-                  {isPlaying ? 'Stop' : 'Poem'}
-                </Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: scaleValue(4, 8) }}>
+                <TouchableOpacity
+                  style={[
+                    styles.playbackButton,
+                    { paddingHorizontal: btnPadH, paddingVertical: btnPadV, gap: btnGap }
+                  ]}
+                  onPress={isPlaying ? stopPlayback : handleTestSpeech}
+                >
+                  <Ionicons
+                    name={isPlaying ? "stop-circle" : "play-circle"}
+                    size={iconSize}
+                    color={isPlaying ? "#ef4444" : "#22c55e"}
+                  />
+                  <Text style={[styles.playbackButtonText, { fontSize, color: isPlaying ? "#ef4444" : "#22c55e" }]}>
+                    {isPlaying ? 'Stop' : 'Poem'}
+                  </Text>
+                </TouchableOpacity>
+                
+                {/* Sound Toggle Button */}
+                <TouchableOpacity
+                  style={[
+                    styles.playbackButton,
+                    { paddingHorizontal: btnPadH, paddingVertical: btnPadV }
+                  ]}
+                  onPress={() => {
+                    const newState = !soundsEnabled;
+                    setSoundsEnabled(newState);
+                    soundsService.setEnabled(newState);
+                  }}
+                >
+                  <MaterialCommunityIcons
+                    name={soundsEnabled ? "account-voice" : "account-voice-off"}
+                    size={iconSize}
+                    color={soundsEnabled ? "#a855f7" : "#71717a"}
+                  />
+                </TouchableOpacity>
+              </View>
             );
           })()}
         </View>
