@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+// Brevo (formerly Sendinblue) API key
+const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY')
 
 // Allowed origins for CORS
 const ALLOWED_ORIGINS = [
@@ -353,8 +354,8 @@ serve(async (req) => {
 
   try {
     // Verify API key is configured
-    if (!RESEND_API_KEY) {
-      console.error('[send-email] RESEND_API_KEY not configured')
+    if (!BREVO_API_KEY) {
+      console.error('[send-email] BREVO_API_KEY not configured')
       return new Response(
         JSON.stringify({ error: 'Email service not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -384,36 +385,37 @@ serve(async (req) => {
 
     console.log(`[send-email] Sending ${type} email to ${to}`)
 
-    // Send via Resend API
-    const response = await fetch('https://api.resend.com/emails', {
+    // Send via Brevo (Sendinblue) API
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'api-key': BREVO_API_KEY,
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
       body: JSON.stringify({
-        from: 'Wakatto <noreply@wakatto.com>',
-        to: [to],
+        sender: { name: 'Wakatto', email: 'noreply@wakatto.com' },
+        to: [{ email: to }],
         subject: emailSubject,
-        html: emailHtml,
-        text: text,
+        htmlContent: emailHtml,
+        textContent: text,
       }),
     })
 
     const result = await response.json()
 
     if (!response.ok) {
-      console.error('[send-email] Resend API error:', result)
+      console.error('[send-email] Brevo API error:', result)
       return new Response(
         JSON.stringify({ error: result.message || 'Failed to send email' }),
         { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log(`[send-email] Email sent successfully: ${result.id}`)
+    console.log(`[send-email] Email sent successfully: ${result.messageId}`)
 
     return new Response(
-      JSON.stringify({ success: true, id: result.id }),
+      JSON.stringify({ success: true, messageId: result.messageId }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
