@@ -18,30 +18,35 @@ CREATE TABLE IF NOT EXISTS invitations (
 );
 
 -- Create indexes for efficient queries
-CREATE INDEX idx_invitations_inviter_id ON invitations(inviter_id);
-CREATE INDEX idx_invitations_invitee_email ON invitations(invitee_email);
-CREATE INDEX idx_invitations_invite_code ON invitations(invite_code);
-CREATE INDEX idx_invitations_status ON invitations(status);
+CREATE INDEX IF NOT EXISTS idx_invitations_inviter_id ON invitations(inviter_id);
+CREATE INDEX IF NOT EXISTS idx_invitations_invitee_email ON invitations(invitee_email);
+CREATE INDEX IF NOT EXISTS idx_invitations_invite_code ON invitations(invite_code);
+CREATE INDEX IF NOT EXISTS idx_invitations_status ON invitations(status);
 
 -- Enable RLS
 ALTER TABLE invitations ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Users can view their own sent invitations
+DROP POLICY IF EXISTS "Users can view own invitations" ON invitations;
 CREATE POLICY "Users can view own invitations"
   ON invitations FOR SELECT
   USING (auth.uid() = inviter_id);
 
 -- Policy: Users can create invitations
+DROP POLICY IF EXISTS "Users can create invitations" ON invitations;
 CREATE POLICY "Users can create invitations"
   ON invitations FOR INSERT
   WITH CHECK (auth.uid() = inviter_id);
 
 -- Policy: Users can update their own pending invitations (e.g., cancel)
+DROP POLICY IF EXISTS "Users can update own pending invitations" ON invitations;
 CREATE POLICY "Users can update own pending invitations"
   ON invitations FOR UPDATE
-  USING (auth.uid() = inviter_id AND status = 'pending');
+  USING (auth.uid() = inviter_id AND status = 'pending')
+  WITH CHECK (auth.uid() = inviter_id);
 
 -- Policy: Anyone can view invitation by code (for accepting)
+DROP POLICY IF EXISTS "Anyone can view invitation by code" ON invitations;
 CREATE POLICY "Anyone can view invitation by code"
   ON invitations FOR SELECT
   USING (true);
