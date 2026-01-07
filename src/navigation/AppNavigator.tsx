@@ -167,6 +167,28 @@ export default function AppNavigator() {
     }
   }, [session]);
 
+  // Handle invite code when user is logged in
+  // NOTE: This hook must be before the early return to satisfy React's rules of hooks
+  useEffect(() => {
+    const handlePendingInvite = async () => {
+      if (pendingInviteCode && session) {
+        console.log('[AppNavigator] User logged in with pending invite, accepting:', pendingInviteCode);
+        try {
+          const success = await acceptInvitation(pendingInviteCode);
+          if (success) {
+            console.log('[AppNavigator] Invitation accepted successfully');
+          } else {
+            console.log('[AppNavigator] Invitation already used or expired');
+          }
+        } catch (error) {
+          console.error('[AppNavigator] Error accepting invitation:', error);
+        }
+        setPendingInviteCode(null);
+      }
+    };
+    handlePendingInvite();
+  }, [pendingInviteCode, session]);
+
   if (loading || !isReady) {
     return (
       <View style={styles.loadingContainer}>
@@ -182,27 +204,6 @@ export default function AppNavigator() {
   const consumeInviteCode = () => {
     setPendingInviteCode(null);
   };
-
-  // Handle invite code when user is logged in
-  useEffect(() => {
-    const handlePendingInvite = async () => {
-      if (pendingInviteCode && session) {
-        console.log('[AppNavigator] User logged in with pending invite, accepting:', pendingInviteCode);
-        try {
-          const success = await acceptInvitation(pendingInviteCode);
-          if (success) {
-            console.log('[AppNavigator] Invitation accepted successfully');
-          } else {
-            console.log('[AppNavigator] Invitation already used or expired');
-          }
-        } catch (error) {
-          console.error('[AppNavigator] Error accepting invitation:', error);
-        }
-        consumeInviteCode();
-      }
-    };
-    handlePendingInvite();
-  }, [pendingInviteCode, session]);
 
   const simpleNav: SimpleNavContextType = {
     navigate: (screen) => setCurrentScreen(screen),
