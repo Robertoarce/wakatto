@@ -46,13 +46,32 @@ function generateInviteCode(): string {
 }
 
 /**
+ * Validate email format
+ */
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+/**
  * Create a new invitation
  */
 export async function createInvitation(inviteeEmail: string): Promise<{ invitation: Invitation; inviteUrl: string }> {
+  // Validate email format
+  const normalizedEmail = inviteeEmail.trim().toLowerCase();
+  if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
+    throw new Error('Please enter a valid email address');
+  }
+
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) {
     throw new Error('You must be logged in to send invitations');
+  }
+
+  // Prevent self-invitation
+  if (normalizedEmail === user.email?.toLowerCase()) {
+    throw new Error("You can't invite yourself!");
   }
 
   // Check if user has already invited this email
@@ -60,7 +79,7 @@ export async function createInvitation(inviteeEmail: string): Promise<{ invitati
     .from('invitations')
     .select('id, status')
     .eq('inviter_id', user.id)
-    .eq('invitee_email', inviteeEmail.toLowerCase())
+    .eq('invitee_email', normalizedEmail)
     .eq('status', 'pending')
     .single();
 
@@ -92,7 +111,7 @@ export async function createInvitation(inviteeEmail: string): Promise<{ invitati
     .from('invitations')
     .insert({
       inviter_id: user.id,
-      invitee_email: inviteeEmail.toLowerCase(),
+      invitee_email: normalizedEmail,
       invite_code: inviteCode,
       status: 'pending',
       metadata: {
@@ -110,13 +129,13 @@ export async function createInvitation(inviteeEmail: string): Promise<{ invitati
   const inviteUrl = `https://www.wakatto.com/invite/${inviteCode}`;
 
   // Send invitation email (fire and forget - don't block on email delivery)
-  sendInvitationEmail(inviteeEmail.toLowerCase(), {
+  sendInvitationEmail(normalizedEmail, {
     inviterEmail: user.email || undefined,
     inviteCode,
     inviteUrl,
   }).then((result) => {
     if (result.success) {
-      console.log('[Invitation] Email sent successfully to:', inviteeEmail);
+      console.log('[Invitation] Email sent successfully to:', normalizedEmail);
     } else {
       console.warn('[Invitation] Failed to send email:', result.error);
     }

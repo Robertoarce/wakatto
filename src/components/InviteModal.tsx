@@ -71,23 +71,34 @@ export const InviteModal: React.FC<InviteModalProps> = ({ visible, onClose }) =>
   };
 
   const handleSendInvite = async () => {
-    if (!email.trim()) {
+    const trimmedEmail = email.trim().toLowerCase();
+    
+    if (!trimmedEmail) {
       showAlert('Email Required', 'Please enter an email address to invite.');
       return;
     }
 
-    if (!email.includes('@') || !email.includes('.')) {
-      showAlert('Invalid Email', 'Please enter a valid email address.');
+    // Proper email validation regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      showAlert('Invalid Email', 'Please enter a valid email address (e.g., friend@example.com).');
+      return;
+    }
+
+    // Check for common typos
+    const invalidDomains = ['@gmial.com', '@gmal.com', '@gamil.com', '@hotmal.com', '@yahooo.com'];
+    if (invalidDomains.some(typo => trimmedEmail.includes(typo))) {
+      showAlert('Check Email', 'Did you mean gmail.com, hotmail.com, or yahoo.com? Please check for typos.');
       return;
     }
 
     setSendingInvite(true);
     try {
-      const { invitation, inviteUrl } = await createInvitation(email.trim());
+      const { invitation, inviteUrl } = await createInvitation(trimmedEmail);
       
       showAlert(
         'Invitation Sent! 🎉',
-        `An invitation has been sent to ${email}. You'll be rewarded when they join!`,
+        `An invitation has been sent to ${trimmedEmail}. You'll be rewarded when they join!`,
         [{ text: 'Great!' }]
       );
 
