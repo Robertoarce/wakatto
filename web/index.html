@@ -64,6 +64,17 @@
   </style>
 </head>
 <body>
+  <script>
+    // SPA routing for GitHub Pages - restore path from 404 redirect
+    (function() {
+      var redirectPath = sessionStorage.getItem('wakatto_redirect_path');
+      if (redirectPath) {
+        sessionStorage.removeItem('wakatto_redirect_path');
+        // Use replaceState to set the correct URL without reloading
+        window.history.replaceState(null, '', redirectPath);
+      }
+    })();
+  </script>
   <div id="root"></div>
   <noscript>You need to enable JavaScript to run this app.</noscript>
 </body>
