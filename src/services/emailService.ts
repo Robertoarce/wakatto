@@ -268,3 +268,178 @@ export async function sendCustomEmail(
     text,
   });
 }
+
+/**
+ * Send a conversation invite email (for sharing a specific conversation)
+ * Uses /join/:code links, NOT /invite/:code links
+ */
+export async function sendConversationInviteEmail(
+  to: string,
+  options: {
+    inviteCode: string;
+    joinUrl: string;
+    conversationTitle?: string;
+    inviterName?: string;
+    inviterEmail?: string;
+  }
+): Promise<EmailResponse> {
+  const html = generateConversationInviteEmailHtml(options);
+  
+  return sendEmail({
+    to,
+    type: 'custom',
+    subject: `You're invited to join a conversation on Wakatto! 💬`,
+    html,
+    data: {
+      inviteCode: options.inviteCode,
+      joinUrl: options.joinUrl,
+      conversationTitle: options.conversationTitle || '',
+    },
+  });
+}
+
+/**
+ * Generate conversation invite email HTML
+ */
+function generateConversationInviteEmailHtml(options: {
+  inviteCode: string;
+  joinUrl: string;
+  conversationTitle?: string;
+  inviterName?: string;
+  inviterEmail?: string;
+}): string {
+  const { inviteCode, joinUrl, conversationTitle, inviterName, inviterEmail } = options;
+  const inviterDisplay = inviterName || inviterEmail || 'Someone';
+  const title = conversationTitle || 'a conversation';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Join a Conversation on Wakatto</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="min-height: 100vh;">
+    <tr>
+      <td align="center" style="padding: 40px 16px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 440px; background-color: #1f1f3a; border-radius: 16px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3); border: 1px solid rgba(168, 85, 247, 0.2);">
+          <tr>
+            <td style="padding: 40px 32px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="center" style="padding-bottom: 24px;">
+                    <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #a855f7, #6366f1); border-radius: 50%; display: inline-block; text-align: center; line-height: 80px;">
+                      <span style="font-size: 40px;">💬</span>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="center" style="padding-bottom: 16px;">
+                    <h1 style="margin: 0; font-size: 24px; font-weight: 600; color: #ffffff;">
+                      Join the Conversation!
+                    </h1>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="center" style="padding-bottom: 24px;">
+                    <p style="margin: 0; font-size: 16px; line-height: 1.6; color: #d1d5db;">
+                      <strong style="color: #a855f7;">${inviterDisplay}</strong> has invited you to join <strong style="color: #ffffff;">"${title}"</strong> on Wakatto.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="padding-bottom: 24px;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: rgba(168, 85, 247, 0.1); border-radius: 12px; padding: 20px; border: 1px solid rgba(168, 85, 247, 0.2);">
+                      <tr>
+                        <td>
+                          <p style="margin: 0 0 12px 0; font-size: 14px; color: #d1d5db;">
+                            🗣️ <strong>Real-time collaboration</strong> — Chat together with AI companions
+                          </p>
+                          <p style="margin: 0 0 12px 0; font-size: 14px; color: #d1d5db;">
+                            👥 <strong>Shared experience</strong> — See messages and responses in real-time
+                          </p>
+                          <p style="margin: 0; font-size: 14px; color: #d1d5db;">
+                            🎭 <strong>Multiple Wakattors</strong> — Interact with unique AI personalities
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="center" style="padding-bottom: 24px;">
+                    <a href="${joinUrl}" style="display: inline-block; background: linear-gradient(135deg, #a855f7, #6366f1); color: #ffffff; font-size: 16px; font-weight: 600; text-decoration: none; padding: 14px 32px; border-radius: 8px;">
+                      Join Conversation
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="padding: 16px; background-color: rgba(255, 255, 255, 0.05); border-radius: 8px; text-align: center;">
+                    <p style="margin: 0 0 8px 0; font-size: 12px; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px;">
+                      Your Join Code
+                    </p>
+                    <p style="margin: 0; font-size: 24px; font-weight: 700; color: #a855f7; letter-spacing: 3px;">
+                      ${inviteCode}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="padding: 24px 0;">
+                    <hr style="border: none; border-top: 1px solid rgba(255, 255, 255, 0.1); margin: 0;" />
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="center">
+                    <p style="margin: 0 0 8px 0; font-size: 13px; color: #9ca3af;">
+                      Don't have an account? <a href="https://www.wakatto.com" style="color: #a855f7; text-decoration: none;">Sign up free</a>
+                    </p>
+                    <p style="margin: 0; font-size: 12px; color: #6b7280;">
+                      Questions? <a href="https://www.wakatto.com/support" style="color: #a855f7; text-decoration: none;">Contact Support</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 440px;">
+          <tr>
+            <td align="center" style="padding: 24px 0;">
+              <p style="margin: 0; font-size: 14px; font-weight: 600; color: #6b7280;">
+                Wakatto
+              </p>
+              <p style="margin: 4px 0 0 0; font-size: 12px; color: #4b5563;">
+                AI companions that listen and understand
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}

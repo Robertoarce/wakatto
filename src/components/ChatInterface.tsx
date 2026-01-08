@@ -68,7 +68,7 @@ import {
 } from './ChatInterface/hooks';
 import { calculateCharacterPosition } from './ChatInterface/utils/characterPositioning';
 import { SimpleSpeechBubble } from './SimpleSpeechBubble';
-import { InviteModal } from './InviteModal';
+import { ConversationInviteModal } from './ConversationInviteModal';
 import { JoinConversation } from './JoinConversation';
 import { ParticipantList } from './ParticipantList';
 import { loadParticipants, loadUserRole, updateParticipantRole, removeParticipant } from '../store/actions/conversationActions';
@@ -118,6 +118,8 @@ interface ChatInterfaceProps {
   onPremiumPitchConsumed?: () => void;
   // Premium pitch: Callback when user selects a payment tier
   onPaymentSelect?: (tier: 'premium' | 'gold') => void;
+  // Callback when user successfully joins a conversation via invite
+  onJoinedConversation?: (conversationId: string) => void;
 }
 
 // Export function to start animation playback from external components
@@ -276,7 +278,7 @@ const ThinkingDots = memo(() => {
   );
 });
 
-export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting, conversationId, savedCharacters, onSaveIdleMessage, initialJoinCode, onConsumeJoinCode, triggerPremiumPitch, onPremiumPitchConsumed, onPaymentSelect }: ChatInterfaceProps) {
+export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting, conversationId, savedCharacters, onSaveIdleMessage, initialJoinCode, onConsumeJoinCode, triggerPremiumPitch, onPremiumPitchConsumed, onPaymentSelect, onJoinedConversation }: ChatInterfaceProps) {
   const dispatch = useDispatch();
   const { isFullscreen } = useSelector((state: RootState) => state.ui);
   const { currentUsage, lastWarningDismissed, lastFetchedAt } = useSelector((state: RootState) => state.usage);
@@ -2561,7 +2563,7 @@ Each silence, a cathedral where you still reside.`;
       })()}
 
       {/* Collaboration Modals */}
-      <InviteModal
+      <ConversationInviteModal
         visible={showInviteModal}
         conversationId={conversationId || ''}
         onClose={() => setShowInviteModal(false)}
@@ -2581,6 +2583,10 @@ Each silence, a cathedral where you still reside.`;
           // Consume the join code after successful join
           if (initialJoinCode && onConsumeJoinCode) {
             onConsumeJoinCode();
+          }
+          // Navigate to the joined conversation
+          if (onJoinedConversation) {
+            onJoinedConversation(joinedId);
           }
         }}
       />

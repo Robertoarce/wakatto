@@ -88,7 +88,7 @@ function buildBobFollowUpPrompt(followUpNumber: number, previousMessages: string
     casual_intro: `The user hasn't responded yet. Keep it light - maybe crack a joke about being ignored. Don't be needy.`,
 
     value_proposition: `Still no response. Time to highlight what makes Wakatto special:
-- Different AI therapists with unique perspectives
+- Different Wakattors with unique perspectives
 - It's like journaling but with someone who talks back
 - Privacy-focused, your thoughts stay yours`,
 
@@ -465,7 +465,7 @@ const FALLBACK_FOLLOWUPS = [
   "Still there? No pressure, just checking if the Wi-Fi ate my message.",
   "Look, I get it - talking to an AI about buying an app is weird. But trust me, the other characters here are way more interesting than me.",
   "Okay, I'll level with you: Freud, Jung, and the gang? They're actually pretty good at helping you think through stuff. Just saying.",
-  "Last pitch, I promise: free trial, cool AI therapists, zero judgment. What've you got to lose?",
+  "Last pitch, I promise: free trial, cool Wakattors, zero judgment. What've you got to lose?",
   "Alright, I'll be here if you need me. No hard feelings - I know my sales game needs work.",
 ];
 

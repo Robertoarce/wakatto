@@ -31,6 +31,77 @@ const getTimestamp = (): number => {
   return Date.now();
 };
 
+// ============================================
+// LLM Call Logging
+// ============================================
+
+interface LLMCallLogEntry {
+  conversation_id?: string;
+  user_id: string;
+  provider: string;
+  model: string;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+  latency_ms?: number;
+  estimated_cost_usd?: number;
+  streaming?: boolean;
+  error_message?: string;
+}
+
+// Cost per 1M tokens (approximate, as of 2025)
+const TOKEN_COSTS: Record<string, { input: number; output: number }> = {
+  'claude-3-5-haiku-20241022': { input: 0.25, output: 1.25 },
+  'claude-3-5-sonnet-20241022': { input: 3, output: 15 },
+  'claude-3-opus-20240229': { input: 15, output: 75 },
+  'gpt-4': { input: 30, output: 60 },
+  'gpt-4-turbo': { input: 10, output: 30 },
+  'gpt-3.5-turbo': { input: 0.5, output: 1.5 },
+  'gemini-1.5-flash': { input: 0.075, output: 0.30 },
+  'gemini-1.5-pro': { input: 1.25, output: 5 },
+};
+
+/**
+ * Calculate estimated cost based on token usage
+ */
+function calculateCost(model: string, promptTokens: number, completionTokens: number): number {
+  const costs = TOKEN_COSTS[model] || { input: 1, output: 3 }; // Default fallback
+  const inputCost = (promptTokens / 1_000_000) * costs.input;
+  const outputCost = (completionTokens / 1_000_000) * costs.output;
+  return inputCost + outputCost;
+}
+
+/**
+ * Log LLM call metadata to the database
+ * Fire-and-forget to avoid blocking the response
+ */
+async function logLLMCall(entry: LLMCallLogEntry): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('llm_call_logs')
+      .insert({
+        conversation_id: entry.conversation_id || null,
+        user_id: entry.user_id,
+        provider: entry.provider,
+        model: entry.model,
+        prompt_tokens: entry.prompt_tokens || null,
+        completion_tokens: entry.completion_tokens || null,
+        total_tokens: entry.total_tokens || null,
+        latency_ms: entry.latency_ms || null,
+        estimated_cost_usd: entry.estimated_cost_usd || null,
+        streaming: entry.streaming || false,
+        error_message: entry.error_message || null,
+      });
+
+    if (error) {
+      console.warn('[AI] Failed to log LLM call:', error.message);
+    }
+  } catch (err) {
+    // Silently fail - logging shouldn't block the response
+    console.warn('[AI] Error logging LLM call:', err);
+  }
+}
+
 // AI Provider configuration
 interface AIConfig {
   provider: 'openai' | 'anthropic' | 'gemini' | 'mock';
@@ -235,6 +306,7 @@ export async function generateAIResponse(
   }
 
   const profiler = getProfiler();
+  const requestStartTime = getTimestamp();
   
   // Estimate prompt tokens for profiling
   const promptText = fullMessages.map(m => m.content).join(' ');
@@ -314,6 +386,26 @@ export async function generateAIResponse(
       }
     }
 
+    // Log LLM call to database (fire and forget)
+    const latencyMs = Math.round(getTimestamp() - requestStartTime);
+    const promptTokens = data.usage?.input_tokens || data.usage?.prompt_tokens || estimatedPromptTokens;
+    const completionTokens = data.usage?.output_tokens || data.usage?.completion_tokens || estimatedResponseTokens;
+    const totalTokens = promptTokens + completionTokens;
+    const estimatedCost = calculateCost(config.model || '', promptTokens, completionTokens);
+
+    logLLMCall({
+      conversation_id: conversationId,
+      user_id: session.user.id,
+      provider: config.provider,
+      model: config.model || '',
+      prompt_tokens: promptTokens,
+      completion_tokens: completionTokens,
+      total_tokens: totalTokens,
+      latency_ms: latencyMs,
+      estimated_cost_usd: estimatedCost,
+      streaming: false,
+    });
+
     return data.content;
   } catch (error: any) {
     console.error('[AI] Error:', error);
@@ -391,6 +483,7 @@ export async function generateAIResponseStreaming(
   let accumulatedText = '';
   let timeToFirstToken: number | null = null;
   let edgeTimerStopped = false;
+  let streamingUsageData: Partial<UsageInfo> | null = null;
 
   // Profile auth session fetch
   const authTimer = profiler.start(PROFILE_OPS.AUTH_SESSION);
@@ -488,6 +581,7 @@ export async function generateAIResponseStreaming(
               } else if (parsed.type === 'usage') {
                 // Handle usage update from Edge Function
                 const usage = parsed.usage as Partial<UsageInfo>;
+                streamingUsageData = usage; // Save for logging
                 callbacks?.onUsageUpdate?.(usage);
 
                 // Dispatch warning if at threshold
@@ -518,6 +612,25 @@ export async function generateAIResponseStreaming(
                 }
                 const durationMs = getTimestamp() - startTime;
                 callbacks?.onDone?.(accumulatedText, durationMs);
+
+                // Log LLM call to database (fire and forget)
+                const promptTokens = (streamingUsageData as any)?.input_tokens || profiler.estimateTokens(fullMessages.map(m => m.content).join(' '));
+                const completionTokens = (streamingUsageData as any)?.output_tokens || profiler.estimateTokens(accumulatedText);
+                const totalTokens = promptTokens + completionTokens;
+                const estimatedCost = calculateCost(config.model || '', promptTokens, completionTokens);
+
+                logLLMCall({
+                  conversation_id: conversationId,
+                  user_id: session.user.id,
+                  provider: config.provider,
+                  model: config.model || '',
+                  prompt_tokens: promptTokens,
+                  completion_tokens: completionTokens,
+                  total_tokens: totalTokens,
+                  latency_ms: Math.round(durationMs),
+                  estimated_cost_usd: estimatedCost,
+                  streaming: true,
+                });
               } else if (parsed.type === 'error') {
                 if (edgeTimer && !edgeTimerStopped) {
                   edgeTimer.stop({ error: parsed.message, streaming: true });
@@ -558,6 +671,25 @@ export async function generateAIResponseStreaming(
       callbacks?.onDelta?.(content, content);
       const durationMs = getTimestamp() - startTime;
       callbacks?.onDone?.(content, durationMs);
+
+      // Log LLM call for fallback case (fire and forget)
+      const fallbackPromptTokens = json.usage?.input_tokens || json.usage?.prompt_tokens || profiler.estimateTokens(fullMessages.map(m => m.content).join(' '));
+      const fallbackCompletionTokens = json.usage?.output_tokens || json.usage?.completion_tokens || profiler.estimateTokens(content);
+      const fallbackTotalTokens = fallbackPromptTokens + fallbackCompletionTokens;
+      const fallbackEstimatedCost = calculateCost(config.model || '', fallbackPromptTokens, fallbackCompletionTokens);
+
+      logLLMCall({
+        conversation_id: conversationId,
+        user_id: session.user.id,
+        provider: config.provider,
+        model: config.model || '',
+        prompt_tokens: fallbackPromptTokens,
+        completion_tokens: fallbackCompletionTokens,
+        total_tokens: fallbackTotalTokens,
+        latency_ms: Math.round(durationMs),
+        estimated_cost_usd: fallbackEstimatedCost,
+        streaming: false,
+      });
 
       return content;
     }

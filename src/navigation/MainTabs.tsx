@@ -39,6 +39,14 @@ import { ORCHESTRATION_CONFIG } from '../config/llmConfig';
 import { isStreamingSupported, warmupAuthCache, warmupEdgeFunction } from '../services/aiService';
 import { generateConversationTitle } from '../services/conversationTitleGenerator';
 import { getProfiler, PROFILE_OPS, ProfileSession } from '../services/profilingService';
+import { 
+  messageQueueService, 
+  formatBatchedMessages, 
+  hasMultipleUsers,
+  type MessageBatch,
+  type QueuedMessage 
+} from '../services/messageQueueService';
+import { supabase } from '../lib/supabase';
 import { ProfilingDashboard, useProfilingDashboard } from '../components/ProfilingDashboard';
 import SettingsScreen from '../screens/SettingsScreen';
 import LibraryScreen from '../screens/LibraryScreen';
@@ -79,6 +87,10 @@ export default function MainTabs() {
 
   // State for premium pitch trigger (from "Become Premium" button)
   const [triggerPremiumPitch, setTriggerPremiumPitch] = useState(false);
+
+  // State for multi-user message queue
+  const [isQueueProcessing, setIsQueueProcessing] = useState(false);
+  const currentUserRef = useRef<{ id: string; email?: string } | null>(null);
 
   // State for active tab (custom tab bar since Tab.Navigator doesn't work on web)
   type TabName = 'Home' | 'Wakattors' | 'Library' | 'Animations' | 'Settings';
@@ -142,6 +154,174 @@ export default function MainTabs() {
 
     createTutorialIfNeeded();
   }, [conversationsLoaded, conversations.length, dispatch]);
+
+  // Get current user for message queue
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        currentUserRef.current = { id: user.id, email: user.email || undefined };
+      }
+    };
+    fetchUser();
+  }, []);
+
+  // Process a batch of messages (called by message queue)
+  const processBatchedMessages = useCallback(async (batch: MessageBatch) => {
+    if (!currentConversation) return;
+
+    const profiler = getProfiler();
+    profiler.startSession(`batch_${Date.now()}`);
+    const fullFlowTimer = profiler.start(PROFILE_OPS.FULL_MESSAGE_FLOW);
+
+    try {
+      // Format batched messages for LLM
+      const formattedContent = formatBatchedMessages(batch.messages);
+      const isMultiUser = hasMultipleUsers(batch.messages);
+
+      console.log('[MainTabs] Processing batch:', {
+        messageCount: batch.messages.length,
+        isMultiUser,
+        characters: batch.selectedCharacters.length,
+      });
+
+      // Save each user message to DB (fire and forget)
+      for (const msg of batch.messages) {
+        dispatch(saveMessage(
+          batch.conversationId,
+          'user',
+          msg.content,
+          undefined,
+          { sender_id: msg.userId, sender_email: msg.userEmail }
+        ) as any).catch((err: any) => {
+          console.error('[Chat] Failed to save batched user message:', err);
+        });
+      }
+
+      // Prepare conversation history
+      const conversationHistory: ConversationMessage[] = messages.map(msg => ({
+        id: msg.id,
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content,
+        characterId: msg.characterId,
+        timestamp: new Date(msg.created_at || Date.now()).getTime(),
+      }));
+
+      // Generate response (same logic as handleSendMessage)
+      setAnimationScene(null);
+
+      if (batch.selectedCharacters.length > 1) {
+        const shouldUseStreaming = useStreaming && isStreamingSupported();
+
+        let scene: OrchestrationScene;
+        let characterResponses: any[];
+
+        if (shouldUseStreaming) {
+          setStreamingProgress(0);
+          setEarlyAnimationSetup(null);
+
+          const result = await generateAnimatedSceneOrchestrationStreaming(
+            formattedContent,
+            batch.selectedCharacters,
+            conversationHistory,
+            {
+              onStart: () => setStreamingProgress(5),
+              onProgress: (_, percentage) => setStreamingProgress(percentage),
+              onEarlySetup: (setup) => setEarlyAnimationSetup(setup),
+              onComplete: () => {
+                setStreamingProgress(100);
+                setEarlyAnimationSetup(null);
+              },
+              onError: () => setEarlyAnimationSetup(null),
+            },
+            undefined,
+            batch.conversationId
+          );
+          scene = result.scene;
+          characterResponses = result.responses;
+        } else {
+          const result = await generateAnimatedSceneOrchestration(
+            formattedContent,
+            batch.selectedCharacters,
+            conversationHistory,
+            undefined,
+            batch.conversationId
+          );
+          scene = result.scene;
+          characterResponses = result.responses;
+        }
+
+        setAnimationScene(scene);
+        setStreamingProgress(0);
+
+        // Save responses (fire and forget)
+        const savePromises = characterResponses.map(response =>
+          dispatch(saveMessage(
+            batch.conversationId,
+            'assistant',
+            response.content,
+            response.characterId
+          ) as any)
+        );
+        Promise.all(savePromises).catch(console.error);
+
+      } else {
+        const aiResponse = await generateSingleCharacterResponse(
+          formattedContent,
+          batch.selectedCharacters[0],
+          conversationHistory,
+          batch.conversationId
+        );
+
+        const singleCharScene = fillGapsForNonSpeakers(
+          createFallbackScene([{ characterId: batch.selectedCharacters[0], content: aiResponse }], batch.selectedCharacters),
+          batch.selectedCharacters
+        );
+        setAnimationScene(singleCharScene);
+
+        dispatch(saveMessage(
+          batch.conversationId,
+          'assistant',
+          aiResponse,
+          batch.selectedCharacters[0]
+        ) as any).catch(console.error);
+      }
+
+      fullFlowTimer.stop();
+      setLastProfileSession(profiler.endSession());
+    } catch (error: any) {
+      console.error('[MainTabs] Batch processing error:', error);
+      fullFlowTimer.stop({ error: error.message });
+      showAlert('Error', 'Failed to process messages: ' + error.message);
+    }
+  }, [currentConversation, messages, dispatch, showAlert, useStreaming]);
+
+  // Initialize message queue when conversation changes
+  useEffect(() => {
+    if (currentConversation?.id) {
+      const selectedChars = currentConversation.selected_characters || [];
+      
+      messageQueueService.initQueue(
+        currentConversation.id,
+        selectedChars,
+        {
+          onBatchReady: processBatchedMessages,
+          onProcessingStart: () => setIsQueueProcessing(true),
+          onProcessingEnd: () => setIsQueueProcessing(false),
+          onError: (error) => {
+            setIsQueueProcessing(false);
+            console.error('[MessageQueue] Error:', error);
+          },
+        }
+      );
+    }
+
+    return () => {
+      if (currentConversation?.id) {
+        messageQueueService.clearQueue(currentConversation.id);
+      }
+    };
+  }, [currentConversation?.id, currentConversation?.selected_characters, processBatchedMessages]);
 
   const onSelectConversation = (conversation: any) => {
     dispatch(selectConversation(conversation) as any);
@@ -210,6 +390,18 @@ export default function MainTabs() {
   const handleJoinedFromSidebar = async (conversationId: string) => {
     setShowJoinModalFromSidebar(false);
     try {
+      await dispatch(selectConversation(conversationId) as any);
+    } catch (error: any) {
+      showAlert('Error', 'Failed to load conversation: ' + error.message);
+    }
+  };
+
+  // Handle successful join from ChatInterface (deep link)
+  const handleJoinedFromChat = async (conversationId: string) => {
+    try {
+      // Reload conversations to include the newly joined one
+      await dispatch(loadConversations() as any);
+      // Navigate to the joined conversation
       await dispatch(selectConversation(conversationId) as any);
     } catch (error: any) {
       showAlert('Error', 'Failed to load conversation: ' + error.message);
@@ -339,6 +531,38 @@ The text behaves as it should be.`;
       return;
     }
 
+    // Check if conversation exists
+    const conversation = currentConversation;
+    if (!conversation) {
+      showAlert('No Conversation', 'Please start a new conversation first by selecting characters.');
+      return;
+    }
+
+    // For shared (multi-user) conversations, use the message queue for batching
+    const isSharedConversation = conversation.visibility === 'shared';
+    if (isSharedConversation && currentUserRef.current) {
+      console.log('[MainTabs] Using message queue for shared conversation');
+      
+      // Update queue with current selected characters
+      messageQueueService.updateSelectedCharacters(conversation.id, selectedCharacters);
+      
+      // Queue the message (it will be processed via processBatchedMessages callback)
+      const queued = messageQueueService.queueMessage(
+        conversation.id,
+        currentUserRef.current.id,
+        content,
+        currentUserRef.current.email
+      );
+
+      if (queued) {
+        // Show loading state based on queue processing
+        setIsLoadingAI(isQueueProcessing || messageQueueService.isProcessing(conversation.id));
+        return;
+      }
+      // If queue not initialized, fall through to direct processing
+    }
+
+    // Direct processing for single-user conversations or fallback
     // Start profiling session
     const profiler = getProfiler();
     profiler.startSession(`message_${Date.now()}`);
@@ -346,15 +570,6 @@ The text behaves as it should be.`;
 
     setIsLoadingAI(true);
     try {
-      // Conversations must have fixed characters - user must create one via character selection first
-      let conversation = currentConversation;
-      if (!conversation) {
-        showAlert('No Conversation', 'Please start a new conversation first by selecting characters.');
-        setIsLoadingAI(false);
-        fullFlowTimer.stop();
-        return;
-      }
-
       if (conversation) {
         // Check if this is the first USER message (for title generation)
         // Count only user messages, not assistant greetings
@@ -709,6 +924,7 @@ The text behaves as it should be.`;
             triggerPremiumPitch={triggerPremiumPitch}
             onPremiumPitchConsumed={onPremiumPitchConsumed}
             onPaymentSelect={onPaymentSelect}
+            onJoinedConversation={handleJoinedFromChat}
           />
         )}
         {activeTab === 'Library' && <LibraryScreen />}

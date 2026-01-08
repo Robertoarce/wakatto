@@ -22,7 +22,7 @@ import {
   updateParticipantRole,
 } from '../store/actions/conversationActions';
 import { ParticipantList } from './ParticipantList';
-import { InviteModal } from './InviteModal';
+import { ConversationInviteModal } from './ConversationInviteModal';
 import { JoinConversation } from './JoinConversation';
 import { TypingIndicator } from './TypingIndicator';
 import { supabase } from '../lib/supabase';
@@ -201,7 +201,7 @@ export function CollaborationPanel({
       </Animated.View>
 
       {/* Modals */}
-      <InviteModal
+      <ConversationInviteModal
         visible={showInviteModal}
         conversationId={conversationId}
         onClose={() => setShowInviteModal(false)}

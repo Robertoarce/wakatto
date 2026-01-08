@@ -24,7 +24,6 @@ const characters = [
   { id: 'nikola_tesla', name: 'Nikola Tesla', role: 'Inventor', desc: 'Visionary inventor of AC electricity', traits: [5,7,6,6,10,6,9,9], style: 'creative', resp: 'visionary' },
   { id: 'stephen_hawking', name: 'Stephen Hawking', role: 'Cosmologist', desc: 'Theoretical physicist, black holes expert', traits: [8,7,6,9,9,10,10,7], style: 'socratic', resp: 'witty' },
   { id: 'charles_darwin', name: 'Charles Darwin', role: 'Naturalist', desc: 'Theory of evolution', traits: [7,6,7,5,8,9,9,6], style: 'socratic', resp: 'observant' },
-  { id: 'ada_lovelace', name: 'Ada Lovelace', role: 'Mathematician', desc: 'First computer programmer', traits: [6,7,7,6,10,8,8,7], style: 'creative', resp: 'innovative' },
   { id: 'galileo_galilei', name: 'Galileo Galilei', role: 'Astronomer', desc: 'Championed heliocentrism', traits: [5,9,6,6,9,6,9,8], style: 'socratic', resp: 'revolutionary' },
   { id: 'leonardo_da_vinci', name: 'Leonardo da Vinci', role: 'Polymath', desc: 'Renaissance genius: artist, inventor, scientist', traits: [7,6,5,7,10,8,9,9], style: 'creative', resp: 'curious' },
   { id: 'alan_turing', name: 'Alan Turing', role: 'Computer Scientist', desc: 'Father of computer science and AI', traits: [6,8,6,5,10,7,9,7], style: 'cognitive', resp: 'logical' },
@@ -77,40 +76,27 @@ const characters = [
   { id: 'kryptonian_hero', name: 'Kryptonian Hero', role: 'Superhero', desc: 'Man of Steel, symbol of hope', traits: [10,7,7,6,7,9,9,8], style: 'positive', resp: 'heroic' },
   { id: 'dark_knight_detective', name: 'Dark Knight Detective', role: 'Superhero', desc: 'Dark Knight, detective and strategist', traits: [7,10,8,4,8,8,10,9], style: 'cognitive', resp: 'strategic' },
   { id: 'amazon_warrior_princess', name: 'Amazon Warrior Princess', role: 'Superhero', desc: 'Amazon warrior, truth and justice', traits: [9,9,7,6,7,8,10,9], style: 'compassionate', resp: 'heroic' },
-  { id: 'web_slinging_hero', name: 'Web-Slinging Hero', role: 'Superhero', desc: 'Friendly neighborhood hero, witty', traits: [9,7,5,10,8,8,8,10], style: 'positive', resp: 'witty' },
-  { id: 'armored_tech_genius', name: 'Armored Tech Genius', role: 'Superhero', desc: 'Genius billionaire, tech innovator', traits: [6,9,6,9,10,6,8,10], style: 'creative', resp: 'confident' },
-  { id: 'star_spangled_soldier', name: 'Star-Spangled Soldier', role: 'Superhero', desc: 'Super soldier, symbol of freedom', traits: [9,9,8,6,7,9,9,9], style: 'positive', resp: 'principled' },
-  { id: 'red_room_spy', name: 'Red Room Spy', role: 'Superhero', desc: 'Master spy and tactician', traits: [7,10,7,7,8,7,9,9], style: 'cognitive', resp: 'tactical' },
-  { id: 'thunder_god_warrior', name: 'Thunder God Warrior', role: 'Superhero', desc: 'God of Thunder, noble warrior', traits: [7,8,7,8,7,7,9,10], style: 'positive', resp: 'noble' },
+  { id: 'star_soldier', name: 'Star Soldier', role: 'Superhero', desc: 'Super soldier, symbol of freedom', traits: [9,9,8,6,7,9,9,9], style: 'positive', resp: 'principled' },
+  { id: 'thor', name: 'Thor', role: 'Superhero', desc: 'God of Thunder, noble warrior', traits: [7,8,7,8,7,7,9,10], style: 'positive', resp: 'noble' },
   { id: 'green_gamma_giant', name: 'Green Gamma Giant', role: 'Superhero', desc: 'Strongest there is, raw power', traits: [7,10,3,5,6,6,7,10], style: 'compassionate', resp: 'powerful' },
   { id: 'wakandan_king', name: 'Wakandan King', role: 'Superhero', desc: 'King of Wakanda, wise leader', traits: [8,9,8,6,8,8,10,9], style: 'positive', resp: 'regal' },
-  { id: 'sorcerer_supreme', name: 'Sorcerer Supreme', role: 'Superhero', desc: 'Master of the mystic arts', traits: [6,8,7,7,10,8,10,7], style: 'socratic', resp: 'mystical' },
-  { id: 'chaos_magic_wielder', name: 'Chaos Magic Wielder', role: 'Superhero', desc: 'Reality-altering powers, complex', traits: [9,7,6,6,10,7,8,8], style: 'narrative', resp: 'emotional' },
 
   // ANIME/MANGA (10 - all fictional)
-  { id: 'saiyan_martial_artist', name: 'Saiyan Martial Artist', role: 'Martial Artist', desc: 'Saiyan warrior, pure-hearted fighter', traits: [9,6,3,8,7,8,7,10], style: 'positive', resp: 'enthusiastic' },
-  { id: 'orange_ninja', name: 'Determined Orange Ninja', role: 'Ninja', desc: 'Determined ninja who never gives up', traits: [10,7,4,9,8,7,8,10], style: 'positive', resp: 'determined' },
   { id: 'short_alchemist', name: 'Short Alchemist Boy', role: 'Alchemist', desc: 'Determined alchemist seeking redemption', traits: [8,9,5,7,9,7,8,10], style: 'positive', resp: 'determined' },
-  { id: 'elite_survey_soldier', name: 'Elite Survey Soldier', role: 'Soldier', desc: 'Elite soldier, fiercely protective', traits: [8,10,7,4,7,8,8,10], style: 'compassionate', resp: 'protective' },
 
   // MOVIE/TV (10 - all fictional)
   { id: 'dark_lord_armor', name: 'Dark Lord in Black Armor', role: 'Sith Lord', desc: 'Fallen Jedi, tragic villain', traits: [5,10,9,3,7,6,8,8], style: 'existential', resp: 'menacing' },
-  { id: 'small_green_sage', name: 'Small Green Wise One', role: 'Jedi Master', desc: 'Wise Jedi Master, teaches balance', traits: [10,6,6,7,8,10,10,5], style: 'mindfulness', resp: 'wise' },
+  { id: 'small_wise_green_alien', name: 'Small wise Green alien', role: 'Jedi Master', desc: 'Wise Jedi Master, teaches balance', traits: [10,6,6,7,8,10,10,5], style: 'mindfulness', resp: 'wise' },
   { id: 'grey_wandering_wizard', name: 'Grey Wandering Wizard', role: 'Wizard', desc: 'Wise wizard, guide and protector', traits: [9,7,7,7,9,10,10,7], style: 'narrative', resp: 'wise' },
-  { id: 'brightest_witch', name: 'Brightest Witch of Her Age', role: 'Witch', desc: 'Brilliant witch, loyal friend', traits: [9,8,7,6,9,8,9,9], style: 'cognitive', resp: 'intelligent' },
   { id: 'sherlock_holmes', name: 'Sherlock Holmes', role: 'Detective', desc: 'Brilliant detective, logical mind', traits: [5,10,7,6,10,6,10,7], style: 'cognitive', resp: 'analytical' },
-  { id: 'suave_british_spy', name: 'Suave British Spy', role: 'Spy', desc: 'Suave secret agent, 007', traits: [6,9,8,8,8,7,8,9], style: 'positive', resp: 'confident' },
-  { id: 'alien_fighter', name: 'Alien-Fighting Space Officer', role: 'Space Officer', desc: 'Survivor, faces alien threats', traits: [7,10,7,6,8,9,8,10], style: 'positive', resp: 'resilient' },
+  { id: 'british_spy', name: 'british spy', role: 'Spy', desc: 'Suave secret agent, 007', traits: [6,9,8,8,8,7,8,9], style: 'positive', resp: 'confident' },
   { id: 'chemistry_teacher', name: 'Chemistry Teacher Gone Bad', role: 'Chemist', desc: 'Brilliant chemist, morally complex', traits: [5,10,7,5,10,6,8,8], style: 'cognitive', resp: 'calculated' },
   { id: 'mother_of_dragons', name: 'Mother of Dragons', role: 'Queen', desc: 'Dragon queen, breaker of chains', traits: [7,9,7,6,8,7,8,9], style: 'positive', resp: 'commanding' },
 
   // VIDEO GAME CHARACTERS (8 - all fictional)
   { id: 'italian_plumber', name: 'Italian Plumber Hero', role: 'Plumber Hero', desc: 'Cheerful plumber, saves Princess Peach', traits: [9,6,4,9,8,9,7,10], style: 'positive', resp: 'cheerful' },
-  { id: 'green_spartan', name: 'Green Armored Spartan', role: 'Spartan', desc: 'Elite supersoldier, humanity\'s hope', traits: [7,10,9,4,7,9,9,9], style: 'positive', resp: 'stoic' },
-  { id: 'hyrulean_princess', name: 'Hyrulean Princess', role: 'Princess', desc: 'Wise princess with magical powers', traits: [9,7,8,6,9,9,10,7], style: 'positive', resp: 'wise' },
 
   // FICTIONAL ORIGINAL CHARACTERS (33)
-  { id: 'dr_chronos', name: 'Dr. Chronos', role: 'Time Scientist', desc: 'Studies temporal mechanics', traits: [6,9,8,6,10,8,10,7], style: 'cognitive', resp: 'methodical' },
   { id: 'ember_phoenix', name: 'Ember Phoenix', role: 'Fire Mage', desc: 'Controls flames with passion', traits: [7,9,5,7,10,7,8,10], style: 'creative', resp: 'passionate' },
   { id: 'professor_quirk', name: 'Professor Quirk', role: 'Mad Scientist', desc: 'Eccentric inventor of odd gadgets', traits: [6,6,4,10,10,7,7,9], style: 'creative', resp: 'eccentric' },
   { id: 'seraphina_grace', name: 'Seraphina Grace', role: 'Healer', desc: 'Angelic healer, spreads compassion', traits: [10,5,6,6,8,10,10,6], style: 'compassionate', resp: 'gentle' },
@@ -156,7 +142,7 @@ function generateCharacterData(char: any, index: number): any {
     response_style: char.resp,
     traits: { empathy, directness, formality, humor, creativity, patience, wisdom, energy },
     customization: {
-      gender: char.name.includes('Princess') || char.name.includes('Woman') || char.name.includes('Widow') || char.name.includes('Witch') || char.name.includes('Queen') || ['Marie Curie', 'Ada Lovelace', 'Hannah Arendt', 'Cleopatra', 'Joan of Arc', 'Rosa Parks', 'Frida Kahlo', 'Maya Angelou', 'Emily Dickinson', 'Jane Goodall', 'Rosalind Franklin', 'Rachel Carson', 'Brightest Witch of Her Age', 'Mother of Dragons', 'Hyrulean Princess', 'Elite Survey Soldier', 'Seraphina Grace', 'Harmony Songbird', 'Mystique Veil', 'Willow Natureheart', 'Nova Bright', 'Crystal Seer', 'Zara Windrunner', 'Celeste Stargazer', 'Aurora Dawn', 'Melody Heartstring', 'Chaos Magic Wielder', 'Amazon Warrior Princess', 'Red Room Spy', 'Ellen Ripley'].includes(char.name) ? 'female' : 'male',
+      gender: char.name.includes('Princess') || char.name.includes('Woman') || char.name.includes('Widow') || char.name.includes('Witch') || char.name.includes('Queen') || ['Marie Curie', 'Hannah Arendt', 'Cleopatra', 'Joan of Arc', 'Rosa Parks', 'Frida Kahlo', 'Maya Angelou', 'Emily Dickinson', 'Jane Goodall', 'Rosalind Franklin', 'Rachel Carson', 'Mother of Dragons', 'Seraphina Grace', 'Harmony Songbird', 'Mystique Veil', 'Willow Natureheart', 'Nova Bright', 'Crystal Seer', 'Zara Windrunner', 'Celeste Stargazer', 'Aurora Dawn', 'Melody Heartstring', 'Amazon Warrior Princess'].includes(char.name) ? 'female' : 'male',
       skinTone: 'medium',
       clothing: formality >= 7 ? 'suit' : 'casual',
       hair: char.name.includes('bald') || char.name === 'Professor X' ? 'none' : 'short',

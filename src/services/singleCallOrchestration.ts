@@ -594,6 +594,13 @@ Full scene (THIS IS WHAT YOUR ENTIRE RESPONSE SHOULD LOOK LIKE):
 
 ⚠️ YOUR RESPONSE = ONLY THE JSON ABOVE. NO OTHER TEXT. ⚠️
 
+## Multi-User Handling
+When multiple users speak simultaneously (indicated by "[Multiple users are speaking at the same time]"):
+- Acknowledge ALL users' messages - no one should feel ignored
+- Characters can address different users' points in their responses
+- You may need more responses to address everyone adequately
+- Keep the conversation inclusive and engaging for all participants
+
 ## CRITICAL FORMAT RULES
 - RESPOND WITH JSON ONLY - never "[Name]: text" plain text format!
 - DO NOT include: ms, duration, dur, d, startDelay, textRange
@@ -735,6 +742,14 @@ You are orchestrating a casual conversation between multiple characters and a us
 ## Your Task
 
 Generate responses for the characters in this conversation. Consider:
+
+### Multi-User Handling
+Sometimes multiple users send messages at the same time (indicated by "[Multiple users are speaking at the same time]").
+When this happens:
+- Acknowledge or respond to ALL users' messages, not just one
+- Characters can address different users' points
+- Keep the conversation inclusive - no user should feel ignored
+- You may need slightly more responses to address everyone
 
 1. **Character Voice**: Each character has a unique perspective - USE IT TO CREATE CONFLICT:
    - Let your viewpoint come through naturally, not forced
