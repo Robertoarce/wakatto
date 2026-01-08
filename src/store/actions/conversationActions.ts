@@ -283,8 +283,18 @@ export const createOrNavigateToTutorial = () => async (dispatch: any, getState: 
 };
 
 // Async action to select a conversation and load its messages
-export const selectConversation = (conversation: any) => async (dispatch: any) => {
+export const selectConversation = (conversation: any) => async (dispatch: any, getState: any) => {
   try {
+    const { conversations: convState } = getState();
+    const previousConversation = convState.currentConversation;
+
+    // Unsubscribe from previous conversation if different
+    if (previousConversation && previousConversation.id !== conversation.id) {
+      if (convState.isSubscribed[previousConversation.id]) {
+        dispatch(unsubscribeFromConversation(previousConversation.id));
+      }
+    }
+
     dispatch(setCurrentConversation(conversation));
 
     // Load messages for this conversation
@@ -303,6 +313,11 @@ export const selectConversation = (conversation: any) => async (dispatch: any) =
     }));
 
     dispatch(setMessages(mappedMessages));
+
+    // Subscribe to real-time updates for shared conversations
+    if (conversation.visibility === 'shared') {
+      dispatch(subscribeToConversation(conversation.id));
+    }
   } catch (error) {
     console.error('Error selecting conversation:', error);
     dispatch(setMessages([]));
@@ -312,6 +327,18 @@ export const selectConversation = (conversation: any) => async (dispatch: any) =
 // Async action to save a message to the database
 export const saveMessage = (conversationId: string, role: 'user' | 'assistant', content: string, characterId?: string, metadata?: Record<string, any>) => async (dispatch: any, getState: any) => {
   try {
+    const { auth } = getState();
+    
+    // Include sender_id for user messages in shared conversations
+    const senderId = role === 'user' && auth.user ? auth.user.id : null;
+    
+    // Add sender name to metadata for display in shared conversations
+    const enrichedMetadata = role === 'user' && auth.user ? {
+      ...metadata,
+      sender_name: auth.user.user_metadata?.name || auth.user.email?.split('@')[0] || 'User',
+      sender_email: auth.user.email,
+    } : metadata;
+
     const { data, error } = await supabase
       .from('messages')
       .insert([
@@ -320,8 +347,9 @@ export const saveMessage = (conversationId: string, role: 'user' | 'assistant', 
           role,
           content,
           character_id: characterId || null,
+          sender_id: senderId,
           created_at: new Date().toISOString(),
-          metadata: metadata || null,
+          metadata: enrichedMetadata || null,
         }
       ])
       .select()

@@ -282,7 +282,11 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const dispatch = useDispatch();
   const { isFullscreen } = useSelector((state: RootState) => state.ui);
   const { currentUsage, lastWarningDismissed, lastFetchedAt } = useSelector((state: RootState) => state.usage);
+  const { currentConversation } = useSelector((state: RootState) => state.conversations);
   const { showAlert, AlertComponent } = useCustomAlert();
+  
+  // Check if this is a shared conversation (for displaying sender names)
+  const isSharedConversation = currentConversation?.visibility === 'shared';
 
   // Track ChatInterface lifecycle
   const renderCountRef = useRef(0);
@@ -1694,10 +1698,13 @@ Each silence, a cathedral where you still reside.`;
       <View style={[
         styles.characterDisplayContainer,
         // In mobile landscape fullscreen: take full available height (no cap)
-        // Otherwise use characterHeight (25-35% range, user can resize)
+        // On web/desktop: use flex: 1 to fill available space and push divider to bottom
+        // On mobile portrait: use characterHeight for resizable behavior
         isMobileLandscape
           ? { flex: 1, height: '100%' }
-          : { height: characterHeight }
+          : Platform.OS === 'web' 
+            ? { flex: 1 }
+            : { height: characterHeight }
       ]}>
         {/* Playback Control Buttons - Flex container for Replay and Stop/Play */}
         <View style={styles.playbackButtonsContainer}>
@@ -2314,6 +2321,12 @@ Each silence, a cathedral where you still reside.`;
                       message.role === 'assistant' && character && { backgroundColor: character.color + '20', borderColor: character.color, borderWidth: 2 },
                     ]}
                   >
+                    {/* Sender Name for User Messages in Shared Conversations */}
+                    {message.role === 'user' && isSharedConversation && message.metadata?.sender_name && (
+                      <Text style={[styles.senderName, { fontSize: fonts.sm }]}>
+                        {message.metadata.sender_name}
+                      </Text>
+                    )}
                     {/* Character Name for Assistant Messages */}
                     {message.role === 'assistant' && character && (
                       <Text style={[styles.characterName, { color: character.color, fontSize: fonts.lg }]}>
@@ -2973,6 +2986,11 @@ const styles = StyleSheet.create({
   },
   characterName: {
     fontFamily: 'Poppins-Bold',
+    marginBottom: 4,
+  },
+  senderName: {
+    fontFamily: 'Inter-SemiBold',
+    color: '#60a5fa',
     marginBottom: 4,
   },
   messageBubble: {
