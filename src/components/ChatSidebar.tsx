@@ -5,6 +5,7 @@ import { useCustomAlert } from './CustomAlert';
 import { useResponsive } from '../constants/Layout';
 import { shadows } from '../utils/shadow';
 import { InviteModal } from './InviteModal';
+import { getVersionString } from '../config/version';
 
 interface Conversation {
   id: string;
@@ -560,6 +561,11 @@ export function ChatSidebar({ conversations, currentConversation, onSelectConver
           )}
           </ScrollView>
         </View>
+        
+        {/* Version footer */}
+        <View style={[styles.versionFooter, { paddingHorizontal: spacing.lg, paddingVertical: spacing.md }]}>
+          <Text style={[styles.versionText, { fontSize: fonts.xs }]}>Wakatto {getVersionString()}</Text>
+        </View>
       </Animated.View>
     </>
   );
@@ -863,5 +869,13 @@ const styles = StyleSheet.create({
   emptyStateSubtext: {
     color: '#71717a',
     marginTop: 4,
+  },
+  versionFooter: {
+    borderTopWidth: 1,
+    borderTopColor: '#27272a',
+    alignItems: 'center',
+  },
+  versionText: {
+    color: '#52525b',
   },
 });
