@@ -2350,17 +2350,18 @@ Each silence, a cathedral where you still reside.`;
                         ]}
                       >
                         {/* Sender Name for User Messages in Shared Conversations */}
-                        {message.role === 'user' && isSharedConversation && message.metadata?.sender_name && (
-                          <Text style={[
-                            styles.senderName, 
-                            { 
-                              fontSize: fonts.md, 
-                              color: senderColor || '#10b981',
-                              fontFamily: 'Poppins-Bold',
-                            }
+                        {message.role === 'user' && isSharedConversation && (
+                          <View style={[
+                            styles.senderNameBadge,
+                            { backgroundColor: senderColor || '#10b981' }
                           ]}>
-                            {isFromCurrentUser ? 'You' : message.metadata.sender_name}
-                          </Text>
+                            <Text style={[
+                              styles.senderNameText, 
+                              { fontSize: fonts.sm }
+                            ]}>
+                              {isFromCurrentUser ? 'You' : (message.metadata?.sender_name || 'User')}
+                            </Text>
+                          </View>
                         )}
                         {/* Character Name for Assistant Messages */}
                         {message.role === 'assistant' && character && (
@@ -3028,6 +3029,17 @@ const styles = StyleSheet.create({
   senderName: {
     fontFamily: 'Poppins-Bold',
     marginBottom: 6,
+  },
+  senderNameBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  senderNameText: {
+    fontFamily: 'Poppins-Bold',
+    color: '#ffffff',
   },
   messageBubble: {
     maxWidth: '85%',

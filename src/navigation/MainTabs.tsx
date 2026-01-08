@@ -92,6 +92,10 @@ export default function MainTabs() {
   const [isQueueProcessing, setIsQueueProcessing] = useState(false);
   const currentUserRef = useRef<{ id: string; email?: string } | null>(null);
 
+  // Track locally generated message IDs to avoid re-animating our own messages
+  const locallyGeneratedMessageIds = useRef<Set<string>>(new Set());
+  const lastProcessedMessageId = useRef<string | null>(null);
+
   // State for active tab (custom tab bar since Tab.Navigator doesn't work on web)
   type TabName = 'Home' | 'Wakattors' | 'Library' | 'Animations' | 'Settings';
   const [activeTab, setActiveTab] = useState<TabName>('Home');
@@ -322,6 +326,57 @@ export default function MainTabs() {
       }
     };
   }, [currentConversation?.id, currentConversation?.selected_characters, processBatchedMessages]);
+
+  // Handle real-time messages from other users - trigger character animations
+  const prevMessagesRef = useRef<typeof messages>([]);
+  useEffect(() => {
+    if (!currentConversation || !messages || messages.length === 0) {
+      prevMessagesRef.current = messages || [];
+      return;
+    }
+
+    const currentUserId = currentUserRef.current?.id;
+    if (!currentUserId) {
+      prevMessagesRef.current = messages || [];
+      return;
+    }
+
+    // Find new messages that weren't in the previous state
+    const prevIds = new Set(prevMessagesRef.current.map((m: any) => m.id));
+    const newMessages = messages.filter((m: any) => !prevIds.has(m.id));
+    
+    // Filter for assistant messages from other users (not our own AI responses)
+    // We detect "remote" messages by checking if we're NOT currently loading AI
+    // AND the message appeared without us triggering it
+    const newRemoteAssistantMessages = newMessages.filter((m: any) => 
+      m.role === 'assistant' && 
+      m.characterId && // Must have a character to animate
+      !isLoadingAI // If we're loading, these are our own responses
+    );
+
+    // Trigger animation for new remote assistant messages
+    if (newRemoteAssistantMessages.length > 0) {
+      const selectedChars = currentConversation.selected_characters || [];
+      
+      // Group messages by character for animation
+      const responses = newRemoteAssistantMessages.map((m: any) => ({
+        characterId: m.characterId,
+        content: m.content,
+      }));
+
+      // Create animation scene for the remote messages
+      const remoteScene = fillGapsForNonSpeakers(
+        createFallbackScene(responses, selectedChars),
+        selectedChars
+      );
+      
+      console.log('[MainTabs] Animating real-time messages from other users:', responses.length);
+      setAnimationScene(remoteScene);
+    }
+
+    // Update ref for next comparison
+    prevMessagesRef.current = messages;
+  }, [messages, currentConversation, isLoadingAI]);
 
   const onSelectConversation = (conversation: any) => {
     dispatch(selectConversation(conversation) as any);
