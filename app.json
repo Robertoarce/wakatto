@@ -8,7 +8,7 @@
       "android",
       "web"
     ],
-    "version": "1.1.0",
+    "version": "1.1.2",
     "orientation": "portrait",
     "scheme": "wakatto",
     "icon": "./src/assets/images/icon.png",
@@ -41,11 +41,15 @@
         "NSPrivacyAccessedAPITypes": [
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
-            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
           }
         ]
       },
-      "associatedDomains": ["applinks:wakatto.com"]
+      "associatedDomains": [
+        "applinks:wakatto.com"
+      ]
     },
     "android": {
       "package": "com.wakatto.app",
@@ -69,7 +73,10 @@
               "pathPrefix": "/join"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
