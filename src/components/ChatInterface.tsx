@@ -462,6 +462,59 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   // Bob tutorial conversation should not allow collaboration (it's personal for each user)
   const isBobTutorialConversation = selectedCharacters.length === 1 && selectedCharacters[0] === 'bob-tutorial';
 
+  // Track latest message from other users for live display
+  const [otherUserMessage, setOtherUserMessage] = useState<{
+    content: string;
+    senderName: string;
+    senderColor: string;
+    timestamp: number;
+  } | null>(null);
+  const prevMessageCountRef = useRef(messages.length);
+
+  // Detect new user messages from other users and show floating bubble
+  useEffect(() => {
+    if (!isSharedConversation || !currentUserId || messages.length === 0) {
+      prevMessageCountRef.current = messages.length;
+      return;
+    }
+
+    // Only check if message count increased
+    if (messages.length <= prevMessageCountRef.current) {
+      prevMessageCountRef.current = messages.length;
+      return;
+    }
+
+    // Get the newest messages
+    const newMessages = messages.slice(prevMessageCountRef.current);
+    prevMessageCountRef.current = messages.length;
+
+    // Find user messages from OTHER users
+    const otherUserMessages = newMessages.filter((m: any) => 
+      m.role === 'user' && 
+      m.sender_id && 
+      m.sender_id !== currentUserId
+    );
+
+    if (otherUserMessages.length > 0) {
+      const latestMsg = otherUserMessages[otherUserMessages.length - 1];
+      const senderColor = getSenderColor(latestMsg.sender_id, false);
+      const msgTimestamp = Date.now();
+      setOtherUserMessage({
+        content: latestMsg.content,
+        senderName: latestMsg.metadata?.sender_name || 'User',
+        senderColor: senderColor,
+        timestamp: msgTimestamp,
+      });
+
+      // Auto-hide after 8 seconds
+      setTimeout(() => {
+        setOtherUserMessage(prev => 
+          prev && prev.timestamp === msgTimestamp ? null : prev
+        );
+      }, 8000);
+    }
+  }, [messages, currentUserId, isSharedConversation, getSenderColor]);
+
   // Get current user ID for participant list
   useEffect(() => {
     const getUserId = async () => {
@@ -1720,6 +1773,34 @@ Each silence, a cathedral where you still reside.`;
             ? { flex: 1 }
             : { height: characterHeight }
       ]}>
+        {/* Other User Message Bubble - Shows when another user sends a message */}
+        {otherUserMessage && isSharedConversation && (
+          <View style={styles.otherUserBubbleContainer}>
+            <View style={[
+              styles.otherUserBubble,
+              { borderColor: otherUserMessage.senderColor }
+            ]}>
+              <View style={[
+                styles.otherUserBubbleHeader,
+                { backgroundColor: otherUserMessage.senderColor }
+              ]}>
+                <Ionicons name="person" size={14} color="#fff" />
+                <Text style={styles.otherUserBubbleName}>
+                  {otherUserMessage.senderName}
+                </Text>
+              </View>
+              <Text style={[styles.otherUserBubbleText, { fontSize: fonts.md }]}>
+                {otherUserMessage.content}
+              </Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.otherUserBubbleDismiss}
+              onPress={() => setOtherUserMessage(null)}
+            >
+              <Ionicons name="close" size={16} color="#a1a1aa" />
+            </TouchableOpacity>
+          </View>
+        )}
         {/* Playback Control Buttons - Flex container for Replay and Stop/Play */}
         <View style={styles.playbackButtonsContainer}>
           {/* Replay Button - replays all messages */}
@@ -3266,6 +3347,50 @@ const styles = StyleSheet.create({
   characterSelectorText: {
     fontFamily: 'Poppins-SemiBold',
     color: '#ff6b35',
+  },
+  // Other user message bubble (shows when another user sends a message)
+  otherUserBubbleContainer: {
+    position: 'absolute',
+    top: 12,
+    left: '50%',
+    transform: [{ translateX: '-50%' }],
+    zIndex: 100,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  otherUserBubble: {
+    backgroundColor: 'rgba(30, 30, 35, 0.95)',
+    borderRadius: 16,
+    borderWidth: 2,
+    maxWidth: 400,
+    minWidth: 200,
+    overflow: 'hidden',
+  },
+  otherUserBubbleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  otherUserBubbleName: {
+    fontFamily: 'Poppins-Bold',
+    color: '#ffffff',
+    fontSize: 13,
+  },
+  otherUserBubbleText: {
+    fontFamily: 'Inter-Regular',
+    color: '#e4e4e7',
+    paddingHorizontal: 12,
+    paddingTop: 4,
+    paddingBottom: 10,
+    lineHeight: 20,
+  },
+  otherUserBubbleDismiss: {
+    padding: 4,
+    backgroundColor: 'rgba(30, 30, 35, 0.8)',
+    borderRadius: 12,
   },
   // Playback buttons container (holds Replay and Stop/Play side by side)
   playbackButtonsContainer: {
