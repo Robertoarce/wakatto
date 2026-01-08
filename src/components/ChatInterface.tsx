@@ -288,6 +288,20 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   // Check if this is a shared conversation (for displaying sender names)
   const isSharedConversation = currentConversation?.visibility === 'shared';
 
+  // Generate consistent color from sender ID for multi-user conversations
+  const getSenderColor = useCallback((senderId: string | undefined, isCurrentUser: boolean): string => {
+    if (!senderId || isCurrentUser) return '#10b981'; // Green for current user
+    // Generate hue from sender ID hash for consistent colors per user
+    let hash = 0;
+    for (let i = 0; i < senderId.length; i++) {
+      hash = senderId.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash % 360);
+    // Avoid green (current user) and keep saturation/lightness pleasant
+    const adjustedHue = hue < 100 || hue > 160 ? hue : (hue + 180) % 360;
+    return `hsl(${adjustedHue}, 70%, 55%)`;
+  }, []);
+
   // Track ChatInterface lifecycle
   const renderCountRef = useRef(0);
   useEffect(() => {
@@ -2312,55 +2326,78 @@ Each silence, a cathedral where you still reside.`;
                     characterPosition === 'right' && styles.assistantMessageRight,
                   ]}
                 >
-                  <TouchableOpacity
-                    onLongPress={() => handleLongPress(message)}
-                    activeOpacity={message.role === 'user' ? 0.7 : 1}
-                    style={[
-                      styles.messageBubble,
-                      message.role === 'user' && styles.userMessageBubble,
-                      message.role === 'assistant' && character && { backgroundColor: character.color + '20', borderColor: character.color, borderWidth: 2 },
-                    ]}
-                  >
-                    {/* Sender Name for User Messages in Shared Conversations */}
-                    {message.role === 'user' && isSharedConversation && message.metadata?.sender_name && (
-                      <Text style={[styles.senderName, { fontSize: fonts.sm }]}>
-                        {message.metadata.sender_name}
-                      </Text>
-                    )}
-                    {/* Character Name for Assistant Messages */}
-                    {message.role === 'assistant' && character && (
-                      <Text style={[styles.characterName, { color: character.color, fontSize: fonts.lg }]}>
-                        {character.name}
-                      </Text>
-                    )}
-                    {(() => {
-                      if (isAnimating && revealedText !== null) {
-                        // Pre-calculated line wrapping - prevents words jumping between lines
-                        const lines = wrapTextWithReveal(message.content, revealedText.length, 60);
-                        const showCursor = revealedText.length < message.content.length;
-                        return (
-                          <View>
-                            {lines.map((line, lineIndex) => (
-                              <Text key={lineIndex} style={[styles.messageText, { fontSize: fonts.md }]}>
-                                {renderTextWithBoldActions(line)}
-                                {showCursor && lineIndex === lines.length - 1 && (
-                                  <Text style={styles.messageTypingCursor}>|</Text>
-                                )}
-                              </Text>
-                            ))}
-                          </View>
-                        );
-                      }
+                  {(() => {
+                    // Determine if this message is from the current user
+                    const isFromCurrentUser = message.sender_id === currentUserId || !message.sender_id;
+                    const senderColor = isSharedConversation && message.role === 'user' 
+                      ? getSenderColor(message.sender_id, isFromCurrentUser)
+                      : undefined;
+                    
+                    return (
+                      <TouchableOpacity
+                        onLongPress={() => handleLongPress(message)}
+                        activeOpacity={message.role === 'user' ? 0.7 : 1}
+                        style={[
+                          styles.messageBubble,
+                          message.role === 'user' && styles.userMessageBubble,
+                          message.role === 'assistant' && character && { backgroundColor: character.color + '20', borderColor: character.color, borderWidth: 2 },
+                          // Apply sender-specific color for shared conversations
+                          isSharedConversation && message.role === 'user' && senderColor && {
+                            backgroundColor: senderColor + '20',
+                            borderColor: senderColor,
+                            borderWidth: 2,
+                          },
+                        ]}
+                      >
+                        {/* Sender Name for User Messages in Shared Conversations */}
+                        {message.role === 'user' && isSharedConversation && message.metadata?.sender_name && (
+                          <Text style={[
+                            styles.senderName, 
+                            { 
+                              fontSize: fonts.md, 
+                              color: senderColor || '#10b981',
+                              fontFamily: 'Poppins-Bold',
+                            }
+                          ]}>
+                            {isFromCurrentUser ? 'You' : message.metadata.sender_name}
+                          </Text>
+                        )}
+                        {/* Character Name for Assistant Messages */}
+                        {message.role === 'assistant' && character && (
+                          <Text style={[styles.characterName, { color: character.color, fontSize: fonts.lg }]}>
+                            {character.name}
+                          </Text>
+                        )}
+                        {(() => {
+                          if (isAnimating && revealedText !== null) {
+                            // Pre-calculated line wrapping - prevents words jumping between lines
+                            const lines = wrapTextWithReveal(message.content, revealedText.length, 60);
+                            const showCursor = revealedText.length < message.content.length;
+                            return (
+                              <View>
+                                {lines.map((line, lineIndex) => (
+                                  <Text key={lineIndex} style={[styles.messageText, { fontSize: fonts.md }]}>
+                                    {renderTextWithBoldActions(line)}
+                                    {showCursor && lineIndex === lines.length - 1 && (
+                                      <Text style={styles.messageTypingCursor}>|</Text>
+                                    )}
+                                  </Text>
+                                ))}
+                              </View>
+                            );
+                          }
 
-                      // Show full text when not animating - long actions (3+ words) are bold
-                      return <Text style={[styles.messageText, { fontSize: fonts.md }]}>{renderTextWithBoldActions(message.content)}</Text>;
-                    })()}
-                    {message.created_at && (
-                      <Text style={[styles.messageTimestamp, { fontSize: fonts.xs }]}>
-                        {formatTimestamp(message.created_at)}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
+                          // Show full text when not animating - long actions (3+ words) are bold
+                          return <Text style={[styles.messageText, { fontSize: fonts.md }]}>{renderTextWithBoldActions(message.content)}</Text>;
+                        })()}
+                        {message.created_at && (
+                          <Text style={[styles.messageTimestamp, { fontSize: fonts.xs }]}>
+                            {formatTimestamp(message.created_at)}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })()}
                 </View>
               );
             })}
@@ -2989,9 +3026,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   senderName: {
-    fontFamily: 'Inter-SemiBold',
-    color: '#60a5fa',
-    marginBottom: 4,
+    fontFamily: 'Poppins-Bold',
+    marginBottom: 6,
   },
   messageBubble: {
     maxWidth: '85%',
