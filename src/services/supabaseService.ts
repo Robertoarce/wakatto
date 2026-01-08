@@ -70,13 +70,63 @@ export async function getSession() {
 }
 
 export async function getConversations(userId: string) {
-  const { data, error } = await supabase
+  // Get conversations the user owns
+  const { data: ownedConversations, error: ownedError } = await supabase
     .from('conversations')
     .select('*')
     .eq('user_id', userId)
     .order('updated_at', { ascending: false });
-  if (error) throw error;
-  return data;
+  
+  if (ownedError) throw ownedError;
+
+  // Get conversations the user has joined as a participant
+  const { data: participantData, error: participantError } = await supabase
+    .from('conversation_participants')
+    .select('conversation_id')
+    .eq('user_id', userId);
+
+  if (participantError) {
+    console.warn('[supabaseService] Error fetching participant conversations:', participantError);
+    // Return only owned conversations if participant query fails
+    return ownedConversations || [];
+  }
+
+  // If user is a participant in other conversations, fetch those too
+  const participantConvIds = (participantData || []).map(p => p.conversation_id);
+  
+  if (participantConvIds.length === 0) {
+    return ownedConversations || [];
+  }
+
+  // Fetch the shared conversations
+  const { data: sharedConversations, error: sharedError } = await supabase
+    .from('conversations')
+    .select('*')
+    .in('id', participantConvIds)
+    .order('updated_at', { ascending: false });
+
+  if (sharedError) {
+    console.warn('[supabaseService] Error fetching shared conversations:', sharedError);
+    return ownedConversations || [];
+  }
+
+  // Combine and sort by updated_at
+  const allConversations = [
+    ...(ownedConversations || []),
+    ...(sharedConversations || []),
+  ];
+
+  // Remove duplicates (in case user is both owner and participant somehow)
+  const uniqueConversations = allConversations.filter(
+    (conv, index, self) => index === self.findIndex(c => c.id === conv.id)
+  );
+
+  // Sort by updated_at descending
+  uniqueConversations.sort((a, b) => 
+    new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+  );
+
+  return uniqueConversations;
 }
 
 export async function saveConversation(userId: string, title: string, messages: any[]) {

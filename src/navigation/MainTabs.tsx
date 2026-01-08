@@ -390,6 +390,9 @@ export default function MainTabs() {
   const handleJoinedFromSidebar = async (conversationId: string) => {
     setShowJoinModalFromSidebar(false);
     try {
+      // Reload conversations to include the newly joined one
+      await dispatch(loadConversations() as any);
+      // Navigate to the joined conversation
       await dispatch(selectConversation(conversationId) as any);
     } catch (error: any) {
       showAlert('Error', 'Failed to load conversation: ' + error.message);
