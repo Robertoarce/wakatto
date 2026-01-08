@@ -2614,34 +2614,23 @@ Each silence, a cathedral where you still reside.`;
               const iconSize = scaleValue(14, 24);
               return (
                 <>
-                  {/* TTS Toggle Button */}
-                  {isTTSSupported && (
-                    <TouchableOpacity
-                      onPress={() => {
-                        if (isSpeaking) {
-                          stopTTS();
-                        } else {
-                          setTtsEnabled(!ttsEnabled);
-                        }
-                      }}
-                      style={[
-                        styles.iconButton,
-                        ttsEnabled ? styles.ttsButtonActive : styles.ttsButtonInactive,
-                        isSpeaking && styles.ttsButtonSpeaking,
-                        { width: buttonSize, height: buttonSize, minWidth: buttonSize, minHeight: buttonSize }
-                      ]}
-                    >
-                      {isSpeaking ? (
-                        <MaterialCommunityIcons name="stop" size={iconSize} color="white" />
-                      ) : (
-                        <MaterialCommunityIcons
-                          name={ttsEnabled ? "volume-high" : "volume-off"}
-                          size={iconSize}
-                          color={ttsEnabled ? "white" : "#a1a1aa"}
-                        />
-                      )}
-                    </TouchableOpacity>
-                  )}
+                  {/* Microphone Button for Speech-to-Text */}
+                  <TouchableOpacity
+                    onPress={toggleRecording}
+                    disabled={isLoading}
+                    style={[
+                      styles.iconButton,
+                      isRecording ? styles.recordingButtonActive : styles.micButtonActive,
+                      isLoading && styles.sendButtonDisabled,
+                      { width: buttonSize, height: buttonSize, minWidth: buttonSize, minHeight: buttonSize }
+                    ]}
+                  >
+                    <Ionicons
+                      name={isRecording ? "stop" : "mic"}
+                      size={iconSize}
+                      color="white"
+                    />
+                  </TouchableOpacity>
                   <TouchableOpacity
                     onPress={handleSendMessagePress}
                     disabled={!input.trim() || isLoading}
@@ -3218,6 +3207,12 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.5,
+  },
+  micButtonActive: {
+    backgroundColor: '#22c55e',
+  },
+  recordingButtonActive: {
+    backgroundColor: '#ef4444',
   },
   charactersRow: {
     flex: 1,
