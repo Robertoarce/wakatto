@@ -13,6 +13,7 @@
   | Animated Bubble             | Individual bubble with slide/fade transitions          |
   | Fading Line                 | Single line of text with typing effect                 |
   | Empty Character State       | "Click to select" placeholder when no characters       |
+  | Other User Message Bubble   | Floating bubble showing other users' messages (shared) |
 
   2. PLAYBACK CONTROLS (top-left overlay)
 
@@ -59,19 +60,20 @@
 
   8. CHAT HISTORY (scrollable message list)
 
-  | Element                  | Description                          |
-  |--------------------------|--------------------------------------|
-  | Chat ScrollView          | Scrollable container for messages    |
-  | Messages Container       | Inner content wrapper                |
-  | Message Bubble Container | Per-message wrapper                  |
-  | Message Bubble           | Individual message card              |
-  | Character Name           | Character name in assistant messages |
-  | Message Text             | The actual message content           |
-  | Message Timestamp        | Time the message was sent            |
-  | Typing Cursor            | `                                    |
-  | Editing Container        | Inline edit mode UI                  |
-  | Edit Message Input       | TextInput for editing                |
-  | Edit Actions             | Cancel/Save buttons                  |
+  | Element                  | Description                                      |
+  |--------------------------|--------------------------------------------------|
+  | Chat ScrollView          | Scrollable container for messages                |
+  | Messages Container       | Inner content wrapper                            |
+  | Message Bubble Container | Per-message wrapper                              |
+  | Message Bubble           | Individual message card                          |
+  | Character Name           | Character name in assistant messages             |
+  | Sender Name Badge        | Colored badge showing sender name (shared convos)|
+  | Message Text             | The actual message content                       |
+  | Message Timestamp        | Time the message was sent                        |
+  | Typing Cursor            | `|` cursor during typing animation               |
+  | Editing Container        | Inline edit mode UI                              |
+  | Edit Message Input       | TextInput for editing                            |
+  | Edit Actions             | Cancel/Save buttons                              |
 
   9. USAGE & LIMITS (warning banners)
 
@@ -102,7 +104,19 @@
   | TTS Toggle Button          | Enable/disable text-to-speech     |
   | Send Button                | Send message (or loading spinner) |
 
-  11. TOASTS & NOTIFICATIONS
+  11. COLLABORATION (shared conversations)
+
+  | Element                    | Description                                      |
+  |----------------------------|--------------------------------------------------|
+  | Collab Button              | Shows participant count, opens collab options    |
+  | Participant List Modal     | Shows all participants with roles                |
+  | Invite Modal               | Create/share invite links and send emails        |
+  | Join Conversation Modal    | Enter invite code to join a shared conversation  |
+  | Other User Message Bubble  | Floating bubble for real-time messages from others|
+  | Sender Name Badge          | Colored badge in chat history with sender name   |
+  | User-specific Bubble Color | Each user gets unique color based on their ID    |
+
+  12. TOASTS & NOTIFICATIONS
 
   | Element         | Description                             |
   |-----------------|-----------------------------------------|
@@ -115,28 +129,33 @@
 
   ┌─────────────────────────────────────────────────┐
   │  [Replay] [Stop/Poem]          [User Bubble]    │  ← Playback Controls
-  │                                                 │
+  │       ┌──────────────────────────────┐          │
+  │       │ [UserName] Other user said.. │          │  ← Other User Bubble (shared)
+  │       └──────────────────────────────┘          │
   │         ┌─────┐   ┌─────┐   ┌─────┐            │
   │         │ 3D  │   │ 3D  │   │ 3D  │            │  ← Character Display
   │         │Char │   │Char │   │Char │            │
   │         └──┬──┘   └──┬──┘   └──┬──┘            │
   │            │         │         │                │
   │         [Bubble]  [Bubble]  [Bubble]           │  ← Speech Bubbles
-  │                                    [Fullscreen] │
+  │  [Collab 2]                        [Fullscreen] │  ← Collab Button (shared)
   ├──────────────[ Chat Toggle ]────────────────────┤  ← Divider
   │  Character Name                                 │
   │  ┌─────────────────────────────────┐           │
   │  │ Message bubble                   │           │  ← Chat History
   │  └─────────────────────────────────┘           │
-  │                    ┌─────────────────────────┐ │
-  │                    │ User message        You │ │
-  │                    └─────────────────────────┘ │
+  │  [You]  ┌─────────────────────────┐            │
+  │         │ Your message             │            │  ← User message (green)
+  │         └─────────────────────────┘            │
+  │  [Bob]  ┌─────────────────────────┐            │
+  │         │ Other user's message     │            │  ← Other user (unique color)
+  │         └─────────────────────────┘            │
   ├─────────────────────────────────────────────────┤
   │  [Warning Banner - if near limit]               │
   ├─────────────────────────────────────────────────┤
   │  ● 0:15 [⏸] [↻] [✓] [🗑]  "Live transcript..."  │  ← Recording UI
   │  ┌────────────────────────────────────────────┐ │
-  │  │ Type in here..          [🎤] [🔊] [Send]   │ │  ← Input Bar
+  │  │ Type in here..              [🎤] [Send]    │ │  ← Input Bar
   │  └────────────────────────────────────────────┘ │
   └─────────────────────────────────────────────────┘
 
