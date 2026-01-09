@@ -459,6 +459,9 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const currentParticipants = conversationId ? (participants[conversationId] || []) : [];
   const isAdmin = userRole === 'admin';
   
+  // Check if current user is the conversation owner (for greeting permissions in shared conversations)
+  const isConversationOwner = currentConversation?.user_id === currentUserId;
+  
   // Bob tutorial conversation should not allow collaboration (it's personal for each user)
   const isBobTutorialConversation = selectedCharacters.length === 1 && selectedCharacters[0] === 'bob-tutorial';
 
@@ -710,6 +713,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
     conversationId,
     onSaveIdleMessage,
     isPlaying: playbackState.isPlaying,
+    isSharedConversation,
   });
 
   // Check if user has sent any messages (to stop Bob's sales pitch)
@@ -1181,8 +1185,11 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
         // Fire AI conversation starter request IN PARALLEL with entrance animation
         // Skip for Bob - useBobSales hook handles his opening pitch
+        // Skip for shared conversations: only owner triggers greetings, others receive via real-time
+        // Skip for large groups (5+ participants) to prevent spam
         const isBobSelected = selectedIds.includes('bob-tutorial');
-        if (onGreeting && !hasTriggeredGreeting.current && !isBobSelected) {
+        const shouldSkipGreetingForShared = isSharedConversation && (!isConversationOwner || participantCount >= 5);
+        if (onGreeting && !hasTriggeredGreeting.current && !isBobSelected && !shouldSkipGreetingForShared) {
           hasTriggeredGreeting.current = true;
           conversationStarterInProgressRef.current = true;
           const entranceStartTime = Date.now();
@@ -1279,12 +1286,17 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
 
     // Use a delay to ensure messages have had time to load from database
     const timer = setTimeout(() => {
+      // Skip greetings for shared conversations: only owner triggers, others receive via real-time
+      // Also skip for large groups (5+ participants)
+      const shouldSkipGreetingForShared = isSharedConversation && (!isConversationOwner || participantCount >= 5);
+      
       const isNewWithPreselected =
         messages.length === 0 &&
         savedCharacters &&
         savedCharacters.length > 0 &&
         !hasTriggeredGreeting.current &&
-        !conversationStarterInProgressRef.current;
+        !conversationStarterInProgressRef.current &&
+        !shouldSkipGreetingForShared;
 
       // Skip if Bob is the only selected character (handled by useBobSales hook)
       const isBobOnly = savedCharacters?.length === 1 && savedCharacters[0] === 'bob-tutorial';

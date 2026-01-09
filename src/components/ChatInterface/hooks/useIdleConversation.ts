@@ -19,6 +19,7 @@ interface UseIdleConversationOptions {
   conversationId: string | null | undefined;
   onSaveIdleMessage?: (characterId: string, content: string, metadata?: Record<string, any>) => void;
   isPlaying: boolean;
+  isSharedConversation?: boolean; // Disable idle for shared conversations
 }
 
 interface UseIdleConversationResult {
@@ -34,6 +35,7 @@ export function useIdleConversation({
   conversationId,
   onSaveIdleMessage,
   isPlaying,
+  isSharedConversation = false,
 }: UseIdleConversationOptions): UseIdleConversationResult {
   const [idleConversationState, setIdleConversationState] = useState<IdleConversationState>('ACTIVE');
   const idleManagerRef = useRef<IdleConversationManager | null>(null);
@@ -111,8 +113,9 @@ export function useIdleConversation({
     // To enable in the future, set ENABLE_IDLE_CONVERSATIONS to true below
     const ENABLE_IDLE_CONVERSATIONS = false; // <<<<<< BOOLEAN BOOL FLAG HERE 
 
-    // Only enable if idle conversations are enabled, 2+ characters selected and we have a conversation
-    if (ENABLE_IDLE_CONVERSATIONS && selectedCharacters.length >= 2 && conversationId) {
+    // Only enable if idle conversations are enabled, 2+ characters selected, we have a conversation,
+    // AND it's not a shared conversation (idle causes desync in multi-user conversations)
+    if (ENABLE_IDLE_CONVERSATIONS && selectedCharacters.length >= 2 && conversationId && !isSharedConversation) {
       idleManagerRef.current = initIdleConversationManager(
         selectedCharacters,
         {
