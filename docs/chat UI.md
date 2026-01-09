@@ -128,7 +128,8 @@
   Visual Layout Summary
 
   ┌─────────────────────────────────────────────────┐
-  │  [Replay] [Stop/Poem]          [User Bubble]    │  ← Playback Controls
+  │  [Collab 2]                        [Fullscreen] │  ← Top Controls
+  │  [Replay] [Stop/Poem]                           │  ← Playback Controls (top-left)
   │       ┌──────────────────────────────┐          │
   │       │ [UserName] Other user said.. │          │  ← Other User Bubble (shared)
   │       └──────────────────────────────┘          │
@@ -138,7 +139,7 @@
   │         └──┬──┘   └──┬──┘   └──┬──┘            │
   │            │         │         │                │
   │         [Bubble]  [Bubble]  [Bubble]           │  ← Speech Bubbles
-  │  [Collab 2]                        [Fullscreen] │  ← Collab Button (shared)
+  │                                 [User Bubble]   │  ← User Speech Bubble (bottom-right)
   ├──────────────[ Chat Toggle ]────────────────────┤  ← Divider
   │  Character Name                                 │
   │  ┌─────────────────────────────────┐           │
