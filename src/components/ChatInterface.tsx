@@ -237,6 +237,49 @@ const MemoizedCharacterDisplay3D = memo(CharacterDisplay3D, (prevProps, nextProp
 // Use extracted FloatingCharacterWrapper component
 const FloatingCharacterWrapper = ExtractedFloatingWrapper;
 
+// Helper function for text reveal animation - wraps text and returns only revealed portions
+const wrapTextWithReveal = (fullText: string, revealedLength: number, maxCharsPerLine: number): string[] => {
+  const lines: string[] = [];
+  const words = fullText.split(' ');
+  let currentLine = '';
+  let charCount = 0;
+  
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    
+    if (testLine.length > maxCharsPerLine && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+  
+  // Now filter to only show lines that have revealed content
+  const result: string[] = [];
+  let totalChars = 0;
+  
+  for (const line of lines) {
+    if (totalChars >= revealedLength) break;
+    
+    const lineEnd = totalChars + line.length + 1; // +1 for space
+    if (lineEnd <= revealedLength) {
+      result.push(line);
+    } else {
+      // Partial reveal of this line
+      const revealedPortion = revealedLength - totalChars;
+      result.push(line.substring(0, Math.max(0, revealedPortion)));
+    }
+    totalChars = lineEnd;
+  }
+  
+  return result.length > 0 ? result : [''];
+};
+
 // ThinkingDots component - animated dots that pulse while AI is thinking
 const ThinkingDots = memo(() => {
   const dot1Opacity = useRef(new Animated.Value(0.3)).current;

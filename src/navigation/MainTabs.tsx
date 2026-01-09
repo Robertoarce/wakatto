@@ -329,15 +329,25 @@ export default function MainTabs() {
 
   // Handle real-time messages from other users - trigger character animations
   const prevMessagesRef = useRef<typeof messages>([]);
+  const hasInitializedMessagesRef = useRef(false);
+  
   useEffect(() => {
     if (!currentConversation || !messages || messages.length === 0) {
       prevMessagesRef.current = messages || [];
+      hasInitializedMessagesRef.current = false;
       return;
     }
 
     const currentUserId = currentUserRef.current?.id;
     if (!currentUserId) {
       prevMessagesRef.current = messages || [];
+      return;
+    }
+
+    // Skip animation on initial load - only animate NEW messages that arrive via real-time
+    if (!hasInitializedMessagesRef.current) {
+      prevMessagesRef.current = messages;
+      hasInitializedMessagesRef.current = true;
       return;
     }
 
@@ -354,8 +364,8 @@ export default function MainTabs() {
       !isLoadingAI // If we're loading, these are our own responses
     );
 
-    // Trigger animation for new remote assistant messages
-    if (newRemoteAssistantMessages.length > 0) {
+    // Trigger animation for new remote assistant messages (limit to prevent spam)
+    if (newRemoteAssistantMessages.length > 0 && newRemoteAssistantMessages.length <= 5) {
       const selectedChars = currentConversation.selected_characters || [];
       
       // Group messages by character for animation
