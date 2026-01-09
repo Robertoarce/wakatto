@@ -1,12 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { envConfig } from '../config/environment';
 
-// Replace with your Supabase project URL and anon key
-export const supabaseUrl = 'https://rddvqbxbmpilbimmppvu.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJkZHZxYnhibXBpbGJpbW1wcHZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyODMyMDAsImV4cCI6MjA3Nzg1OTIwMH0.8y4fFG3WamhU2TTZ2albS50fQrMWldZV_bGXDy9vqMg';
-
-const STORAGE_KEY = 'sb-rddvqbxbmpilbimmppvu-auth-token';
+// Use environment-specific Supabase configuration
+export const supabaseUrl = envConfig.supabase.url;
+const supabaseAnonKey = envConfig.supabase.anonKey;
+const STORAGE_KEY = envConfig.supabase.storageKey;
 
 // Clear invalid session data from storage
 export async function clearInvalidSession(): Promise<void> {

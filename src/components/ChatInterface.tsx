@@ -1829,7 +1829,8 @@ Each silence, a cathedral where you still reside.`;
             : { height: characterHeight }
       ]}>
         {/* Other User Message Bubble - Shows when another user sends a message */}
-        {otherUserMessage && isSharedConversation && (
+        {/* On mobile portrait with multiple characters, this is rendered inside mobileBubbleStackContainer instead */}
+        {otherUserMessage && isSharedConversation && !(isMobile && selectedCharacters.length > 1 && !isMobileLandscape && !showChatHistory) && (
           <View style={styles.otherUserBubbleContainer}>
             <View style={[
               styles.otherUserBubble,
@@ -2050,6 +2051,34 @@ Each silence, a cathedral where you still reside.`;
             </ScrollView>
             {/* Divider line showing speech bubble container boundary */}
             <View style={styles.mobileBubbleStackDivider} />
+            {/* Other User Message Bubble - Mobile position: below divider, above characters */}
+            {otherUserMessage && isSharedConversation && (
+              <View style={styles.otherUserBubbleContainerMobile}>
+                <View style={[
+                  styles.otherUserBubble,
+                  { borderColor: otherUserMessage.senderColor }
+                ]}>
+                  <View style={[
+                    styles.otherUserBubbleHeader,
+                    { backgroundColor: otherUserMessage.senderColor }
+                  ]}>
+                    <Ionicons name="person" size={14} color="#fff" />
+                    <Text style={styles.otherUserBubbleName}>
+                      {otherUserMessage.senderName}
+                    </Text>
+                  </View>
+                  <Text style={[styles.otherUserBubbleText, { fontSize: fonts.md }]}>
+                    {otherUserMessage.content}
+                  </Text>
+                </View>
+                <TouchableOpacity 
+                  style={styles.otherUserBubbleDismiss}
+                  onPress={() => setOtherUserMessage(null)}
+                >
+                  <Ionicons name="close" size={16} color="#a1a1aa" />
+                </TouchableOpacity>
+              </View>
+            )}
             {/* Toast positioned under the divider line on mobile stacked view */}
             <Toast
               message={toastMessage}
@@ -3408,6 +3437,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
+  },
+  // Mobile-specific positioning: below divider, above characters (relative flow)
+  otherUserBubbleContainerMobile: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 8,
+    paddingHorizontal: 4,
   },
   otherUserBubble: {
     backgroundColor: 'rgba(30, 30, 35, 0.95)',
