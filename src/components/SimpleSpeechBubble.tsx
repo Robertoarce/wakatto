@@ -305,9 +305,25 @@ export function SimpleSpeechBubble({
   }
 
   // Floating layout - positioned within wrapper (inherits floating animation)
-  // Single character: offset to the right of center
-  // Multiple characters: centered
-  const horizontalPosition = isSingleCharacter ? '65%' : '50%';
+  // For single character: wrapper shifts left, so we need to compensate by moving bubble right
+  // The bubble should appear to the right of the character, not overlapping
+  let horizontalPosition = '50%'; // Default: centered for multiple characters
+  
+  if (isSingleCharacter) {
+    // Calculate character offset (same formula as ChatInterface)
+    const bubbleWidthAsPercent = (finalWidth / screenWidth) * 100;
+    const bubbleLeftEdge = 65 - (bubbleWidthAsPercent / 2);
+    const gapPercent = 5;
+    const characterVisualWidth = 20;
+    const characterOffset = (bubbleLeftEdge - gapPercent - characterVisualWidth / 2) - 50;
+    
+    // Wrapper is shifted by characterOffset, so to place bubble at screen position X,
+    // we need to set bubble's left = X - characterOffset (within wrapper)
+    // We want bubble center at ~65% of screen, so:
+    const targetScreenPosition = 65; // 65% of screen
+    const bubblePositionInWrapper = targetScreenPosition - characterOffset;
+    horizontalPosition = `${bubblePositionInWrapper}%`;
+  }
 
   return (
     <Animated.View
@@ -320,7 +336,7 @@ export function SimpleSpeechBubble({
           borderRadius: borderRadius.lg,
           paddingHorizontal: paddingH,
           paddingVertical: paddingV,
-          // Position horizontally - right of center for single character
+          // Position horizontally - adjusted for single character to prevent overlap
           left: horizontalPosition,
           top: -20,
           transform: [{ translateX: -finalWidth / 2 }],

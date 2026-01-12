@@ -163,9 +163,16 @@ const styles = StyleSheet.create({
   actionText: {
     fontFamily: 'Inter-Bold',
     fontStyle: 'italic',
-    textShadowColor: 'rgba(0, 0, 0, 0.9)',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 4,
+    ...Platform.select({
+      web: {
+        textShadow: '2px 2px 4px rgba(0, 0, 0, 0.9)',
+      },
+      default: {
+        textShadowColor: 'rgba(0, 0, 0, 0.9)',
+        textShadowOffset: { width: 2, height: 2 },
+        textShadowRadius: 4,
+      },
+    }),
   },
 });
 

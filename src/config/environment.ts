@@ -107,9 +107,11 @@ function getConfigForEnvironment(env: Environment): EnvironmentConfig {
     case 'production':
       return PRODUCTION_CONFIG;
     case 'test':
-    case 'development':
-      // Development uses test config to avoid affecting production data
       return TEST_CONFIG;
+    case 'development':
+      // Use production Supabase when local Docker is not available
+      // Change to TEST_CONFIG if you have local Supabase running
+      return PRODUCTION_CONFIG;
     default:
       return PRODUCTION_CONFIG;
   }

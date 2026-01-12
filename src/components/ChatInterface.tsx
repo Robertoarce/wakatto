@@ -2127,7 +2127,29 @@ Each silence, a cathedral where you still reside.`;
               const minSpread = 40;
               const maxSpread = 50;
               const spreadFactor = Math.min(maxSpread, minSpread + ((screenWidth - 280) / (768 - 280)) * (maxSpread - minSpread));
-              const horizontalOffset = Math.sin(angleRad) * spreadFactor;
+              let horizontalOffset = Math.sin(angleRad) * spreadFactor;
+              
+              // For single character: shift left to make room for speech bubble on the right
+              // Calculate bubble width using same formula as SimpleSpeechBubble
+              if (total === 1) {
+                const isMobileLayout = screenWidth < 768;
+                const bubbleWidthPercent = isMobileLayout ? 0.5 : 0.4; // 50% mobile, 40% desktop
+                const absoluteMaxWidth = 500;
+                const bubbleWidth = Math.min(absoluteMaxWidth, screenWidth * bubbleWidthPercent);
+                const bubbleWidthAsPercent = (bubbleWidth / screenWidth) * 100;
+                
+                // Bubble is positioned at 65% with translateX(-width/2), so it spans:
+                // left edge = 65% - (bubbleWidth%/2), right edge = 65% + (bubbleWidth%/2)
+                // Character should be positioned to the left of bubble's left edge with a gap
+                const bubbleLeftEdge = 65 - (bubbleWidthAsPercent / 2);
+                const gapPercent = 5; // 5% gap between character and bubble
+                const characterVisualWidth = 20; // Approximate character visual width in %
+                
+                // Shift character left: target position = bubbleLeftEdge - gap - characterWidth/2
+                // horizontalOffset moves the character from center (0 = centered)
+                // Negative value = shift left
+                horizontalOffset = (bubbleLeftEdge - gapPercent - characterVisualWidth / 2) - 50;
+              }
               
               // Distance from center (0 = center, 1 = edges)
               // Handle single character case where angleRange is 0 to avoid NaN
