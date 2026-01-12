@@ -132,7 +132,8 @@ serve(async (req) => {
     let usageCheck: UsageCheck | null = usageCheckData?.[0] || null
 
     // Apply tutorial multiplier to token limit if applicable
-    if (usageCheck && isTutorial) {
+    // Skip for admin tier (unlimited tokens, would cause division by zero)
+    if (usageCheck && isTutorial && usageCheck.tier !== 'admin') {
       const adjustedLimit = usageCheck.token_limit * TUTORIAL_TOKEN_MULTIPLIER
       const adjustedRemaining = Math.max(0, adjustedLimit - usageCheck.tokens_used)
       const adjustedPercentage = (usageCheck.tokens_used / adjustedLimit) * 100
@@ -150,8 +151,8 @@ serve(async (req) => {
       }
     }
 
-    // Block if at limit (unless we couldn't check)
-    if (usageCheck && !usageCheck.can_proceed) {
+    // Block if at limit (unless we couldn't check or user is admin)
+    if (usageCheck && !usageCheck.can_proceed && usageCheck.tier !== 'admin') {
       console.log(`[AI-Chat] User ${user.id} blocked - token limit exceeded${isTutorial ? ' (tutorial 3x limit)' : ''}`)
       return new Response(
         JSON.stringify({
