@@ -250,7 +250,7 @@ export const createOrNavigateToTutorial = () => async (dispatch: any, getState: 
     console.log('[createOrNavigateToTutorial] Creating new tutorial with Bob...');
 
     const tutorialConv = await dispatch(
-      createConversation('Tutorial', [TUTORIAL_CHARACTER_ID], true)
+      createConversation('awesome dude', [TUTORIAL_CHARACTER_ID], true)
     );
 
     if (tutorialConv) {

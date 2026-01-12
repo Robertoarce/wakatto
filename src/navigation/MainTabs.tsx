@@ -24,7 +24,7 @@ import {
   deleteMessage,
 } from '../store/actions/conversationActions';
 import { getCharacter } from '../config/characters';
-import { getBobGreeting } from '../services/characterGreetings';
+import { getBobGreeting, getBobPostTrialPitch } from '../services/characterGreetings';
 import {
   generateSingleCharacterResponse,
   ConversationMessage
@@ -52,6 +52,13 @@ import SettingsScreen from '../screens/SettingsScreen';
 import LibraryScreen from '../screens/LibraryScreen';
 import AnimationsScreen from '../screens/AnimationsScreen';
 import CharacterSelectionScreen from '../screens/CharacterSelectionScreen';
+import { fetchOnboarding, incrementOnboardingMessageCount } from '../store/actions/usageActions';
+import { 
+  isTrialWakattor, 
+  isBobCharacter,
+  isSubscriber,
+  BOB_CHARACTER_ID,
+} from '../services/onboardingService';
 
 const Tab = createBottomTabNavigator();
 
@@ -61,7 +68,7 @@ export default function MainTabs() {
   const { showAlert, AlertComponent } = useCustomAlert();
   const { conversations, currentConversation, messages } = useSelector((state: RootState) => state.conversations);
   const { showSidebar, isFullscreen } = useSelector((state: RootState) => state.ui);
-  const { currentUsage } = useSelector((state: RootState) => state.usage);
+  const { currentUsage, onboarding } = useSelector((state: RootState) => state.usage);
   const { layout, isMobile, isMobileLandscape, spacing } = useResponsive();
   
   // Deep link: Get pending join code from navigation context
@@ -117,6 +124,9 @@ export default function MainTabs() {
     dispatch(loadConversations() as any).then(() => {
       setConversationsLoaded(true);
     });
+
+    // Fetch onboarding state
+    dispatch(fetchOnboarding() as any);
 
     // Warm up auth cache and edge function to reduce TTFT
     warmupAuthCache();
@@ -659,9 +669,9 @@ The text behaves as it should be.`;
 
         // Generate conversation title in BACKGROUND (deferred - doesn't block AI response)
         // This saves 1-2 seconds on first message by not waiting for title generation
-        // Also handle 'Tutorial' conversations that need renaming after first user message
+        // Note: 'awesome dude' is Bob's special conversation title - don't rename it
         const needsTitleGeneration = isFirstUserMessage &&
-          (conversation.title === 'New Conversation' || conversation.title === 'Tutorial');
+          conversation.title === 'New Conversation';
 
         if (needsTitleGeneration) {
           const conversationId = conversation.id;
@@ -810,6 +820,51 @@ The text behaves as it should be.`;
                 saveSingleTimer.stop({ error: String(err), background: true });
               });
           }
+          // ============================================
+          // ONBOARDING: Track trial wakattor messages
+          // ============================================
+          // Check if this conversation uses trial wakattors (not Bob)
+          const hasTrialWakattors = selectedCharacters.some(id => isTrialWakattor(id));
+          const isNotBobConversation = !selectedCharacters.some(id => isBobCharacter(id));
+          const userIsNotSubscriber = !onboarding || !isSubscriber(onboarding.tier);
+          
+          if (hasTrialWakattors && isNotBobConversation && userIsNotSubscriber) {
+            // Increment the onboarding message count
+            const shouldRedirect = await dispatch(incrementOnboardingMessageCount() as any);
+            
+            if (shouldRedirect) {
+              console.log('[MainTabs] Trial limit reached, redirecting to Bob...');
+              
+              // Get the name of the last wakattor for personalized pitch
+              const lastCharacter = selectedCharacters[0] ? getCharacter(selectedCharacters[0]) : null;
+              const lastCharacterName = lastCharacter?.name;
+              
+              // Auto-switch to Bob's tutorial conversation after a short delay
+              setTimeout(async () => {
+                try {
+                  const tutorialConv = await dispatch(createOrNavigateToTutorial() as any);
+                  setActiveTab('Home');
+                  
+                  // Add Bob's post-trial pitch message
+                  if (tutorialConv?.id) {
+                    const pitchMessage = getBobPostTrialPitch(lastCharacterName);
+                    await dispatch(saveMessage(
+                      tutorialConv.id,
+                      'assistant',
+                      pitchMessage,
+                      BOB_CHARACTER_ID
+                    ) as any);
+                    
+                    // Reload messages to show the pitch
+                    await dispatch(selectConversation(tutorialConv) as any);
+                  }
+                } catch (err) {
+                  console.error('[MainTabs] Failed to redirect to Bob:', err);
+                }
+              }, 2000); // Give user time to see the last message
+            }
+          }
+
         } catch (aiError: any) {
           console.error('AI generation error:', aiError);
           // Save a fallback message if AI fails completely

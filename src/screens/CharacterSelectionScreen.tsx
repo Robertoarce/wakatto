@@ -1,6 +1,6 @@
 /**
  * Character Selection Screen - Select Wakattors for a New Conversation
- * Features: Profession filters, search, mosaic grid layout
+ * Features: Profession filters, search, mosaic grid layout, trial wakattor badges
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -15,10 +15,18 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSelector } from 'react-redux';
+import { RootState } from '../store';
 import { CharacterBehavior, getAllCharacters, registerCustomCharacters, TUTORIAL_CHARACTER_ID } from '../config/characters';
 import { getCustomWakattors } from '../services/customWakattorsService';
 import { useCustomAlert } from '../components/CustomAlert';
 import { useResponsive } from '../constants/Layout';
+import {
+  FREE_TRIAL_WAKATTOR_IDS,
+  isTrialWakattor,
+  isSubscriber,
+  canAccessWakattor,
+} from '../services/onboardingService';
 
 interface Props {
   onStartConversation: (selectedCharacterIds: string[]) => void;
@@ -45,6 +53,15 @@ export default function CharacterSelectionScreen({ onStartConversation, onCancel
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedProfession, setSelectedProfession] = useState('all');
+
+  // Get onboarding state from Redux
+  const { onboarding } = useSelector((state: RootState) => state.usage);
+  
+  // Check if user is a subscriber (has full access)
+  const userIsSubscriber = onboarding ? isSubscriber(onboarding.tier) : false;
+  
+  // Check if onboarding is complete (trial exhausted)
+  const trialExhausted = onboarding?.isComplete ?? false;
 
   // Responsive card dimensions
   const cardWidth = useMemo(() => {
@@ -260,6 +277,24 @@ export default function CharacterSelectionScreen({ onStartConversation, onCancel
   }, [characters, searchQuery, selectedProfession]);
 
   const toggle = useCallback((id: string) => {
+    // Check if character is accessible
+    const canAccess = canAccessWakattor(id, onboarding);
+    
+    if (!canAccess) {
+      if (trialExhausted && isTrialWakattor(id)) {
+        showAlert(
+          'Trial Expired',
+          'You\'ve used all your free messages. Subscribe to continue chatting with wakattors!'
+        );
+      } else {
+        showAlert(
+          'Unlock Required',
+          'Subscribe to unlock this wakattor and get full access to all characters!'
+        );
+      }
+      return;
+    }
+
     setSelectedIds(prev => {
       if (prev.includes(id)) return prev.filter(x => x !== id);
       if (prev.length >= MAX_CHARACTERS) {
@@ -268,24 +303,30 @@ export default function CharacterSelectionScreen({ onStartConversation, onCancel
       }
       return [...prev, id];
     });
-  }, [showAlert]);
+  }, [showAlert, onboarding, trialExhausted]);
 
-  // Random selection - picks 2-5 characters randomly
+  // Random selection - picks 2-5 characters randomly (only from accessible ones)
   const selectRandom = useCallback(() => {
-    const availableChars = filtered.length > 0 ? filtered : characters;
-    if (availableChars.length === 0) return;
+    // Filter to only accessible characters
+    const accessibleChars = (filtered.length > 0 ? filtered : characters)
+      .filter(c => canAccessWakattor(c.id, onboarding));
+    
+    if (accessibleChars.length === 0) {
+      showAlert('No Available Characters', 'Subscribe to unlock more characters for random selection!');
+      return;
+    }
 
     // Random count between 2 and 5 (or max available)
-    const maxCount = Math.min(MAX_CHARACTERS, availableChars.length);
+    const maxCount = Math.min(MAX_CHARACTERS, accessibleChars.length);
     const minCount = Math.min(2, maxCount);
     const count = Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount;
 
     // Shuffle and pick
-    const shuffled = [...availableChars].sort(() => Math.random() - 0.5);
+    const shuffled = [...accessibleChars].sort(() => Math.random() - 0.5);
     const randomIds = shuffled.slice(0, count).map(c => c.id);
 
     setSelectedIds(randomIds);
-  }, [filtered, characters]);
+  }, [filtered, characters, onboarding, showAlert]);
 
   const start = () => {
     if (selectedIds.length === 0) {
@@ -298,34 +339,74 @@ export default function CharacterSelectionScreen({ onStartConversation, onCancel
   // Render a single character card (mosaic tile)
   const renderCard = (char: CharacterBehavior) => {
     const selected = selectedIds.includes(char.id);
+    const isTrial = isTrialWakattor(char.id);
+    const canAccess = canAccessWakattor(char.id, onboarding);
+    const isLocked = !canAccess;
+    
     return (
       <TouchableOpacity
         key={char.id}
         style={[
           dynamicStyles.mosaicCard,
           selected && { borderColor: char.color, borderWidth: 2 },
+          isLocked && styles.lockedCard,
         ]}
         onPress={() => toggle(char.id)}
-        activeOpacity={0.7}
+        activeOpacity={isLocked ? 0.5 : 0.7}
       >
+        {/* Selected checkmark badge */}
         {selected && (
           <View style={[dynamicStyles.checkBadge, { backgroundColor: char.color }]}>
             <Ionicons name="checkmark" size={Math.round(fonts.sm)} color="#fff" />
           </View>
         )}
 
-        <View style={[dynamicStyles.mosaicAvatar, { backgroundColor: char.color + '30' }]}>
-          <Text style={[dynamicStyles.mosaicAvatarText, { color: char.color }]}>
+        {/* Lock icon for non-accessible characters */}
+        {isLocked && (
+          <View style={[dynamicStyles.checkBadge, styles.lockBadge]}>
+            <Ionicons name="lock-closed" size={Math.round(fonts.sm)} color="#fff" />
+          </View>
+        )}
+
+        {/* Free Trial badge for trial wakattors (when not locked) */}
+        {isTrial && !isLocked && !userIsSubscriber && (
+          <View style={[styles.trialBadge, { top: spacing.sm, left: spacing.sm }]}>
+            <Text style={styles.trialBadgeText}>Free</Text>
+          </View>
+        )}
+
+        <View style={[
+          dynamicStyles.mosaicAvatar, 
+          { backgroundColor: char.color + '30' },
+          isLocked && styles.lockedAvatar,
+        ]}>
+          <Text style={[
+            dynamicStyles.mosaicAvatarText, 
+            { color: char.color },
+            isLocked && styles.lockedText,
+          ]}>
             {char.name?.charAt(0).toUpperCase()}
           </Text>
         </View>
 
-        <Text style={[dynamicStyles.mosaicName, { color: char.color }]} numberOfLines={1}>
+        <Text 
+          style={[
+            dynamicStyles.mosaicName, 
+            { color: char.color },
+            isLocked && styles.lockedText,
+          ]} 
+          numberOfLines={1}
+        >
           {char.name}
         </Text>
-        <Text style={dynamicStyles.mosaicRole} numberOfLines={1}>
+        <Text style={[dynamicStyles.mosaicRole, isLocked && styles.lockedText]} numberOfLines={1}>
           {char.role || 'Character'}
         </Text>
+
+        {/* Subscribe text for locked characters */}
+        {isLocked && (
+          <Text style={styles.unlockText}>Subscribe to unlock</Text>
+        )}
       </TouchableOpacity>
     );
   };
@@ -592,5 +673,39 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // Locked character styles
+  lockedCard: {
+    opacity: 0.6,
+    borderColor: '#3f3f46',
+  },
+  lockedAvatar: {
+    backgroundColor: '#27272a',
+  },
+  lockedText: {
+    color: '#71717a',
+  },
+  lockBadge: {
+    backgroundColor: '#52525b',
+  },
+  unlockText: {
+    fontSize: 10,
+    color: '#fbbf24',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  // Trial badge styles
+  trialBadge: {
+    position: 'absolute',
+    backgroundColor: '#22c55e',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  trialBadgeText: {
+    fontSize: 9,
+    color: '#fff',
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
 });

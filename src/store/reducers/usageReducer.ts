@@ -1,9 +1,10 @@
 /**
  * Usage Reducer
- * Manages token usage and tier information state
+ * Manages token usage, tier information, and onboarding state
  */
 
 import { UsageInfo, WarningLevel } from '../../services/usageTrackingService';
+import { OnboardingState } from '../../services/onboardingService';
 
 // Action types
 export const USAGE_ACTIONS = {
@@ -12,6 +13,10 @@ export const USAGE_ACTIONS = {
   SET_USAGE_ERROR: 'SET_USAGE_ERROR',
   DISMISS_WARNING: 'DISMISS_WARNING',
   RESET_USAGE: 'RESET_USAGE',
+  // Onboarding actions
+  SET_ONBOARDING: 'SET_ONBOARDING',
+  SET_ONBOARDING_LOADING: 'SET_ONBOARDING_LOADING',
+  INCREMENT_ONBOARDING_COUNT: 'INCREMENT_ONBOARDING_COUNT',
 } as const;
 
 // State interface
@@ -22,6 +27,9 @@ export interface UsageState {
   lastWarningLevel: WarningLevel;
   lastWarningDismissed: boolean;
   lastFetchedAt: number | null;
+  // Onboarding state
+  onboarding: OnboardingState | null;
+  onboardingLoading: boolean;
 }
 
 // Initial state
@@ -32,6 +40,9 @@ const initialState: UsageState = {
   lastWarningLevel: null,
   lastWarningDismissed: false,
   lastFetchedAt: null,
+  // Onboarding initial state
+  onboarding: null,
+  onboardingLoading: false,
 };
 
 // Action types
@@ -58,6 +69,22 @@ interface ResetUsageAction {
   type: typeof USAGE_ACTIONS.RESET_USAGE;
 }
 
+// Onboarding action types
+interface SetOnboardingAction {
+  type: typeof USAGE_ACTIONS.SET_ONBOARDING;
+  payload: OnboardingState | null;
+}
+
+interface SetOnboardingLoadingAction {
+  type: typeof USAGE_ACTIONS.SET_ONBOARDING_LOADING;
+  payload: boolean;
+}
+
+interface IncrementOnboardingCountAction {
+  type: typeof USAGE_ACTIONS.INCREMENT_ONBOARDING_COUNT;
+  payload: { newCount: number; isComplete: boolean };
+}
+
 // Also handle sign out to clear usage state
 interface SignOutAction {
   type: 'SIGN_OUT';
@@ -69,6 +96,9 @@ type UsageAction =
   | SetUsageErrorAction
   | DismissWarningAction
   | ResetUsageAction
+  | SetOnboardingAction
+  | SetOnboardingLoadingAction
+  | IncrementOnboardingCountAction
   | SignOutAction;
 
 // Reducer
@@ -116,6 +146,32 @@ export const usageReducer = (
     case USAGE_ACTIONS.RESET_USAGE:
     case 'SIGN_OUT':
       return initialState;
+
+    // Onboarding cases
+    case USAGE_ACTIONS.SET_ONBOARDING:
+      return {
+        ...state,
+        onboarding: action.payload,
+        onboardingLoading: false,
+      };
+
+    case USAGE_ACTIONS.SET_ONBOARDING_LOADING:
+      return {
+        ...state,
+        onboardingLoading: action.payload,
+      };
+
+    case USAGE_ACTIONS.INCREMENT_ONBOARDING_COUNT:
+      if (!state.onboarding) return state;
+      return {
+        ...state,
+        onboarding: {
+          ...state.onboarding,
+          messageCount: action.payload.newCount,
+          isComplete: action.payload.isComplete,
+          remainingMessages: Math.max(0, 5 - action.payload.newCount),
+        },
+      };
 
     default:
       return state;

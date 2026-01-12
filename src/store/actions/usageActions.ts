@@ -1,11 +1,16 @@
 /**
  * Usage Actions
- * Actions for managing token usage and tier state
+ * Actions for managing token usage, tier state, and onboarding
  */
 
 import { Platform } from 'react-native';
 import { Dispatch } from 'redux';
 import { getCurrentUsage, UsageInfo } from '../../services/usageTrackingService';
+import { 
+  getOnboardingState, 
+  incrementMessageCount as incrementOnboardingCount,
+  OnboardingState,
+} from '../../services/onboardingService';
 import { USAGE_ACTIONS } from '../reducers/usageReducer';
 
 // Action creators
@@ -116,4 +121,75 @@ export const shouldFetchUsage = (lastFetchedAt: number | null): boolean => {
   if (!lastFetchedAt) return true;
   const STALE_THRESHOLD = 5 * 60 * 1000; // 5 minutes
   return Date.now() - lastFetchedAt > STALE_THRESHOLD;
+};
+
+// ============================================
+// ONBOARDING ACTIONS
+// ============================================
+
+/**
+ * Set onboarding state
+ */
+export const setOnboarding = (onboarding: OnboardingState | null) => ({
+  type: USAGE_ACTIONS.SET_ONBOARDING as const,
+  payload: onboarding,
+});
+
+/**
+ * Set onboarding loading state
+ */
+export const setOnboardingLoading = (loading: boolean) => ({
+  type: USAGE_ACTIONS.SET_ONBOARDING_LOADING as const,
+  payload: loading,
+});
+
+/**
+ * Update onboarding count in Redux
+ */
+export const updateOnboardingCount = (newCount: number, isComplete: boolean) => ({
+  type: USAGE_ACTIONS.INCREMENT_ONBOARDING_COUNT as const,
+  payload: { newCount, isComplete },
+});
+
+/**
+ * Fetch current onboarding state from the server
+ */
+export const fetchOnboarding = () => async (dispatch: Dispatch) => {
+  dispatch(setOnboardingLoading(true));
+
+  try {
+    const onboarding = await getOnboardingState();
+    dispatch(setOnboarding(onboarding));
+  } catch (error: any) {
+    console.error('[Onboarding] Failed to fetch:', error);
+    // Set default state on error
+    dispatch(setOnboarding({
+      messageCount: 0,
+      isComplete: false,
+      remainingMessages: 5,
+      tier: 'trial',
+    }));
+  } finally {
+    dispatch(setOnboardingLoading(false));
+  }
+};
+
+/**
+ * Increment the onboarding message count after a trial wakattor exchange
+ * Returns true if user should be redirected to Bob
+ */
+export const incrementOnboardingMessageCount = () => async (dispatch: Dispatch): Promise<boolean> => {
+  try {
+    const result = await incrementOnboardingCount();
+    
+    if (result) {
+      dispatch(updateOnboardingCount(result.newCount, result.isComplete));
+      return result.shouldRedirectToBob;
+    }
+    
+    return false;
+  } catch (error: any) {
+    console.error('[Onboarding] Failed to increment count:', error);
+    return false;
+  }
 };

@@ -186,3 +186,37 @@ right now though, we gotta talk business. the app ain't free (shocking, i know).
 
 what do you wanna know? or we can just skip to the payment negotiation part`;
 }
+
+/**
+ * Get Bob's post-trial pitch message
+ * Shown when user returns after using all 5 free trial messages
+ * @param lastCharacterName - Optional name of the last wakattor they were chatting with
+ */
+export function getBobPostTrialPitch(lastCharacterName?: string): string {
+  const characterMention = lastCharacterName 
+    ? `hope you enjoyed chatting with ${lastCharacterName}! ` 
+    : `hope you enjoyed the free trial! `;
+
+  const pitches = [
+    `hey, welcome back! ${characterMention}so, you've hit your 5 free messages. not bad, right? 
+
+now here's the thing—there's a whole world of wakattors waiting for you. philosophers, scientists, coaches... and they all have way more to say.
+
+ready to unlock the full experience? let's talk pricing. i promise i'm reasonable... mostly. 😏`,
+
+    `yo! ${characterMention}that was your free trial—5 messages to get a taste.
+
+the good news? you've barely scratched the surface. there's einstein, hawking, marcus aurelius, aristotle, blackbeard (yes, the pirate)... and they're all ready to chat.
+
+so what do you say—wanna go premium? i'll make you a deal you can't refuse. well, maybe you can refuse it, but hear me out first.`,
+
+    `back so soon? ${characterMention}look, i'll be real with you—those 5 free messages? that was just the appetizer.
+
+the main course is unlimited access to every wakattor, deeper conversations, no interruptions from yours truly (unless you want me around).
+
+so... ready to commit? or do you need more convincing? i've got time. well, technically infinite time. i'm an AI.`,
+  ];
+
+  // Pick a random pitch
+  return pitches[Math.floor(Math.random() * pitches.length)];
+}
