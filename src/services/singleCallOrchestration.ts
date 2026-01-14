@@ -353,6 +353,8 @@ export interface StreamingOrchestrationCallbacks {
   onEarlySetup?: (setup: EarlyAnimationSetup) => void; // Called when we can start animations early
   onComplete?: (scene: OrchestrationScene, responses: CharacterResponse[]) => void;
   onError?: (error: Error) => void;
+  /** Called when LLM uses the express() tool to set animation/expression */
+  onAnimationTool?: (result: { expression?: string; animation?: string; look_at?: string }) => void;
 }
 
 /**
@@ -446,9 +448,25 @@ export async function generateAnimatedSceneOrchestrationStreaming(
         onError: (error) => {
           callbacks?.onError?.(error);
         },
+        onToolResults: (_serverResults, clientToolCalls) => {
+          // Handle animation tool calls (express)
+          for (const toolCall of clientToolCalls) {
+            if (toolCall.name === 'express' && callbacks?.onAnimationTool) {
+              callbacks.onAnimationTool({
+                expression: toolCall.arguments.expression,
+                animation: toolCall.arguments.animation,
+                look_at: toolCall.arguments.look_at,
+              });
+            }
+          }
+        },
       },
       undefined,      // parameterOverrides
-      conversationId  // For tutorial token limit multiplier
+      conversationId, // For tutorial token limit multiplier
+      false,          // enableTools (Bob's tools)
+      undefined,      // providerOverride
+      undefined,      // modelOverride
+      true            // enableAnimationTools
     );
 
     console.log('\n========== LLM RAW OUTPUT (Streaming) ==========');
@@ -842,6 +860,7 @@ Respond with VALID JSON only (no markdown code blocks):
 **Rules:**
 - 1-2 SHORT sentences per response (max 20 words) - like texting friends!
 - Use NORMAL TV/movie vocabulary - no fancy words unless character is known for it
+- NO asterisk actions like *raises eyebrow* or *smiles* - your 3D avatar handles expressions!
 
 ## MINIMUM RESPONSES: ${getResponseCount()} (HARD REQUIREMENT)
 

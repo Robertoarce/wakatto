@@ -477,7 +477,8 @@ export async function generateAIResponseStreaming(
   conversationId?: string,
   enableTools?: boolean,
   providerOverride?: string,
-  modelOverride?: string
+  modelOverride?: string,
+  enableAnimationTools?: boolean
 ): Promise<string> {
   const fullMessages: AIMessage[] = systemPrompt
     ? [{ role: 'system', content: systemPrompt }, ...messages]
@@ -542,6 +543,7 @@ export async function generateAIResponseStreaming(
           stream: true, // Enable streaming
           conversationId, // For tutorial token limit multiplier
           enableTools, // Enable Bob's AI tools
+          enableAnimationTools, // Enable animation expression tools
         }),
       }
     );

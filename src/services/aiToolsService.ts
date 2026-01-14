@@ -164,6 +164,65 @@ Use this when the user is ready to see pricing or after creating a discount.`,
 ];
 
 // ============================================
+// ANIMATION TOOLS (for character expressions)
+// ============================================
+
+export const ANIMATION_TOOLS: UnifiedTool[] = [
+  {
+    name: 'express',
+    description: `Set your facial expression and body animation. Use this INSTEAD of writing *action* text like *raises eyebrow*.
+Your 3D avatar will animate based on these parameters. Call this before or during your response to show emotion.`,
+    parameters: {
+      type: 'object',
+      properties: {
+        expression: {
+          type: 'string',
+          description: 'Facial expression preset',
+          enum: [
+            'joyful', 'happy', 'excited', 'loving', 'proud', 'playful', 'amused',
+            'sad', 'angry', 'frustrated', 'annoyed', 'disappointed',
+            'thoughtful', 'curious', 'confused', 'skeptical',
+            'surprised', 'shocked', 'amazed',
+            'nervous', 'worried', 'embarrassed', 'shy',
+            'neutral', 'calm', 'serious', 'focused',
+            'sleepy', 'bored', 'smug', 'mischievous',
+            'sassy', 'unimpressed', 'judging', 'teasing'
+          ],
+        },
+        animation: {
+          type: 'string',
+          description: 'Body animation to perform',
+          enum: [
+            'idle', 'thinking', 'talking', 'confused', 'happy', 'excited',
+            'nod', 'shake_head', 'shrug', 'wave', 'point', 'clap', 'bow',
+            'lean_back', 'lean_forward', 'cross_arms',
+            'facepalm', 'laugh', 'cry', 'angry', 'nervous', 'celebrate',
+            'head_tilt', 'chin_stroke'
+          ],
+        },
+        look_at: {
+          type: 'string',
+          description: 'Where to look',
+          enum: ['center', 'left', 'right', 'up', 'down', 'away'],
+        },
+      },
+      required: ['expression'],
+    },
+    execution: 'client',
+  },
+];
+
+// ============================================
+// ANIMATION TOOL RESULT TYPE
+// ============================================
+
+export interface AnimationToolResult {
+  expression?: string;
+  animation?: string;
+  look_at?: string;
+}
+
+// ============================================
 // USER STATUS RESPONSE TYPE
 // ============================================
 
@@ -193,6 +252,8 @@ export interface ClientToolCallbacks {
   onShowUpgradeModal?: (highlightTier?: 'premium' | 'gold', showDiscount?: boolean) => void;
   onNavigateToWakattor?: (characterId: string) => void;
   onShowToast?: (message: string, type: 'success' | 'error' | 'info') => void;
+  /** Called when LLM uses the express() tool to set animation/expression */
+  onExpress?: (result: AnimationToolResult) => void;
 }
 
 /**
@@ -219,6 +280,22 @@ export function executeClientTool(
         return {
           toolCallId: id,
           result: { success: true, message: `Navigated to ${args.character_id}` },
+        };
+
+      case 'express':
+        // Handle animation/expression tool
+        const animResult: AnimationToolResult = {
+          expression: args.expression,
+          animation: args.animation,
+          look_at: args.look_at,
+        };
+        callbacks.onExpress?.(animResult);
+        return {
+          toolCallId: id,
+          result: { 
+            success: true, 
+            message: `Expression set: ${args.expression}${args.animation ? `, animation: ${args.animation}` : ''}` 
+          },
         };
 
       default:
@@ -249,10 +326,25 @@ export function getBobToolNames(): string[] {
 }
 
 /**
+ * Get animation tool names
+ */
+export function getAnimationToolNames(): string[] {
+  return ANIMATION_TOOLS.map(t => t.name);
+}
+
+/**
+ * Get all tool names (Bob + Animation)
+ */
+export function getAllToolNames(): string[] {
+  return [...BOB_TOOLS, ...ANIMATION_TOOLS].map(t => t.name);
+}
+
+/**
  * Check if a tool is client-side
  */
 export function isClientTool(toolName: string): boolean {
-  const tool = BOB_TOOLS.find(t => t.name === toolName);
+  const allTools = [...BOB_TOOLS, ...ANIMATION_TOOLS];
+  const tool = allTools.find(t => t.name === toolName);
   return tool?.execution === 'client';
 }
 

@@ -2,7 +2,13 @@
 
 ## Overview
 
-Wakatto uses a sophisticated multi-layer conversation system that enables dynamic AI character interactions with users. The system supports both single-character and multi-character conversations with intelligent response generation, character awareness, and database persistence.
+Wakatto uses a unified single-call orchestration system for all conversations. One LLM call generates responses from all selected characters (1 or more), with coordinated animations, gestures, and natural dialogue flow.
+
+**Key Benefits:**
+- **33% cheaper** - One API call instead of multiple
+- **40-50% faster** - No sequential delays between characters
+- **Better coordination** - LLM plans entire conversation including interruptions
+- **Animated scenes** - Characters get choreographed animation timelines
 
 ---
 
@@ -42,13 +48,13 @@ Wakatto uses a sophisticated multi-layer conversation system that enables dynami
 │                   AI GENERATION LAYER                            │
 │                                                                   │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │    Multi-Character Conversation Service                   │  │
-│  │    (multiCharacterConversation.ts)                        │  │
+│  │    Single-Call Orchestration Service                      │  │
+│  │    (singleCallOrchestration.ts)                           │  │
 │  │                                                            │  │
-│  │  - Character selection logic                              │  │
-│  │  - Interruption & reaction system                         │  │
-│  │  - Cross-character awareness                              │  │
-│  │  - Response timing & staggering                           │  │
+│  │  - One LLM call generates ALL character responses         │  │
+│  │  - Animated scene with timelines per character            │  │
+│  │  - Coordinated gestures and expressions                   │  │
+│  │  - Streaming support for faster perceived response        │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │                            ↓                                     │
 │  ┌──────────────────────────────────────────────────────────┐  │
@@ -116,7 +122,8 @@ const handleSendMessage = async (content: string, selectedCharacters: string[])
    - Convert messages to `ConversationMessage[]` format
    - Include timestamps and character IDs
 5. **AI Generation:**
-   - Route to multi-character OR single-character mode
+   - Call `generateAnimatedSceneOrchestration()` (or streaming version)
+   - Works for 1 or more characters
 6. **Save AI Response(s):**
    - Store each character's response with their ID
    - Update conversation timestamp
@@ -153,61 +160,59 @@ messages {
 
 ### 4. AI Response Generation
 
-The system branches based on number of selected characters:
+All conversations use **single-call orchestration** - one LLM call generates all character responses.
 
-#### 4A. Single Character Mode
-
-**Service:** `multiCharacterConversation.ts:269-292`
+**Service:** `singleCallOrchestration.ts`
 
 ```typescript
-generateSingleCharacterResponse(userMessage, characterId, messageHistory)
-```
-
-**Process:**
-1. Get character configuration
-2. Build system prompt from character's therapeutic style
-3. Convert message history to AI format
-4. Call `generateAIResponse()` with character-specific parameters
-5. Return single response string
-
-#### 4B. Multi-Character Mode
-
-**Service:** `multiCharacterConversation.ts:182-264`
-
-```typescript
-generateMultiCharacterResponses(userMessage, selectedCharacters, messageHistory)
+generateAnimatedSceneOrchestration(userMessage, selectedCharacters, messageHistory)
+// or streaming version:
+generateAnimatedSceneOrchestrationStreaming(userMessage, selectedCharacters, messageHistory, callbacks)
 ```
 
 **Process:**
 
-1. **Character Selection:**
-   - `determineRespondingCharacters()` uses probability algorithms
-   - Prevents same character responding twice in a row
-   - Interruption chance: 30% (configurable)
-   - Reaction chance: 40% (configurable)
-   - Ensures at least 1, max 3 characters respond
+1. **Prompt Building:**
+   - Build orchestration prompt with all character profiles
+   - Include character temperaments and response styles
+   - Add animation system options (gestures, expressions, effects)
+   - Include conversation history for context
 
-2. **Context Building:**
-   - Each character gets awareness of other participants
-   - Recent conversation history included
-   - Cross-character interaction guidelines
-   - Maintains unique therapeutic perspective
+2. **Single LLM Call:**
+   - One API call generates responses for ALL characters
+   - LLM decides which characters respond and in what order
+   - Responses include animation instructions (gestures, expressions)
+   - Streaming version shows progress during generation
 
-3. **Response Generation:**
-   - Sequential generation with staggered delays (300-1500ms)
-   - Each character sees previous responses in loop
-   - Character-specific LLM parameters applied
-   - Responses marked as interruptions/reactions
+3. **Scene Parsing:**
+   - Parse JSON response into `OrchestrationScene`
+   - Extract character timelines with animation segments
+   - Fill gaps for non-speaking characters
 
 4. **Return Format:**
    ```typescript
    {
+     scene: OrchestrationScene,  // Animation timelines
+     responses: CharacterResponse[]  // Text content
+   }
+   ```
+
+**Animation Scene Structure:**
+```typescript
+{
+   sceneDuration: number,
+   timelines: [{
      characterId: string,
      content: string,
-     isInterruption: boolean,
-     isReaction: boolean
-   }[]
-   ```
+     segments: [{
+       animation: string,
+       expression: string,
+       lookDirection: string,
+       effect?: string
+     }]
+   }]
+}
+```
 
 ---
 
@@ -284,45 +289,27 @@ Each character can have unique:
 
 ---
 
-## Multi-Character Intelligence
+## Single-Call Orchestration
 
-### Character Selection Algorithm
+### How It Works
 
-**Location:** `multiCharacterConversation.ts:30-98`
+**Location:** `singleCallOrchestration.ts`
 
-**Decision Tree:**
+The LLM acts as a "director" orchestrating the entire conversation:
 
-```
-Is this the first message in conversation?
-├─ YES → Pick 1 random character
-└─ NO  → For each selected character:
-          │
-          ├─ Did this character just speak?
-          │  ├─ YES → 20% chance to continue (dominate conversation)
-          │  └─ NO  → Continue to next check
-          │
-          ├─ Has conversation reached interruption threshold?
-          │  ├─ YES → 30% chance to interrupt
-          │  └─ NO  → Continue to next check
-          │
-          └─ Random reaction check
-             └─ 40% chance to react
-
-          If no characters selected:
-          └─ Pick character who hasn't spoken in last 3 messages
-             (or random if all recently spoke)
-```
+1. **Receives** all character profiles and conversation history
+2. **Decides** which characters should respond
+3. **Generates** all responses in one call with animations
+4. **Returns** a complete animated scene
 
 **Configuration:** `llmConfig.ts`
 
 ```typescript
-MULTI_CHARACTER_CONFIG = {
-  enabled: true,
-  maxCharacters: 10,
-  minMessagesBeforeInterrupt: 2,
-  interruptionChance: 0.3,
-  reactionChance: 0.4,
-  enableCrossCharacterAwareness: true
+ORCHESTRATION_CONFIG = {
+  maxResponders: 8,        // Max characters that can respond
+  includeGestures: true,   // Enable gesture system
+  includeInterruptions: true,  // LLM decides interruptions
+  verbosity: 'balanced'    // Response length
 }
 ```
 
@@ -330,55 +317,22 @@ MULTI_CHARACTER_CONFIG = {
 
 ### Cross-Character Awareness
 
-**Feature:** Characters can reference and interact with each other
+**Feature:** Characters naturally reference and interact with each other
 
-**Context Template:** `multiCharacterConversation.ts:125-155`
+The orchestration prompt instructs the LLM to:
+1. **Create Drama:** Characters should disagree, mock, and challenge each other
+2. **Use reactsTo:** Each response after the first references another character
+3. **Stay Brief:** 1-2 sentences per response, chat-style
+4. **Coordinate:** Characters can build on, interrupt, or counter each other
 
-Each character receives:
-1. **Other Participants:** Names and descriptions
-2. **Interaction Guidelines:**
-   - Build on others' points
-   - Offer contrasting views
-   - Ask other characters questions
-   - Express agreement/disagreement
-3. **Recent Conversation:** Last 5 messages with speaker labels
-4. **Response Brevity:** Default 2-4 sentences
-
-**Example Interactions:**
+**Example Output:**
+```json
+{"s":{"ch":[
+  {"c":"freud","t":"Your overwhelm likely stems from unconscious conflict.","ord":1},
+  {"c":"jung","t":"Oh please, not everything is the unconscious, Sigmund.","ord":2,"reactsTo":"freud"},
+  {"c":"adler","t":"I agree with Carl for once - maybe it's just a bad workplace.","ord":3,"reactsTo":"jung"}
+]}}
 ```
-User: "I'm feeling overwhelmed at work"
-
-Freud: "Your feelings of overwhelm may stem from unconscious
-       conflicts between your desires and your sense of duty."
-
-Jung: "Building on what Freud said, this overwhelm might also
-      reflect a call from your Self to integrate neglected aspects
-      of your psyche."
-
-Adler: "I see it differently - perhaps you're struggling with
-       feelings of inferiority or lack of belonging in your
-       workplace community?"
-```
-
----
-
-## Response Timing
-
-**Configuration:** `llmConfig.ts`
-
-```typescript
-RESPONSE_TIMING = {
-  minDelayMs: 300,   // Minimum delay between characters
-  maxDelayMs: 1500,  // Maximum delay between characters
-  thinkingDelayMs: 500
-}
-```
-
-**Purpose:**
-- Creates natural conversation flow
-- Prevents overwhelming user with simultaneous responses
-- Simulates characters "thinking" and "listening"
-- Each character gets updated context from previous speakers
 
 ---
 
@@ -591,10 +545,10 @@ entities {
 ## Configuration Files
 
 ### `llmConfig.ts`
-- Multi-character behavior settings
-- Response timing parameters
+- Single-call orchestration settings
 - Provider-specific model configs
-- Character-specific overrides
+- Character-specific parameter overrides
+- Global temperature control
 
 ### `characters.ts`
 - Built-in character definitions
@@ -686,13 +640,14 @@ chat_menu_characters (user_id, character_ids)
 | File | Purpose |
 |------|---------|
 | `src/components/ChatInterface.tsx` | Main chat UI, message display, voice input |
-| `src/navigation/MainTabs.tsx` | Message routing, conversation orchestration |
+| `src/navigation/MainTabs.tsx` | Message routing, orchestration entry point |
 | `src/store/actions/conversationActions.ts` | Redux actions, database operations |
 | `src/services/aiService.ts` | AI provider integration, Edge Function calls |
-| `src/services/multiCharacterConversation.ts` | Multi-character logic, response generation |
+| `src/services/singleCallOrchestration.ts` | Single-call orchestration, animated scenes |
+| `src/services/animationOrchestration.ts` | Animation scene parsing and timelines |
+| `src/services/multiCharacterConversation.ts` | Type definitions only |
 | `src/config/characters.ts` | Character definitions and configurations |
-| `src/config/llmConfig.ts` | LLM parameters, multi-char settings |
-| `src/prompts/index.ts` | Therapeutic prompt styles |
+| `src/config/llmConfig.ts` | LLM parameters, orchestration settings |
 | `supabase/functions/ai-chat/index.ts` | Edge Function for AI API proxy |
 
 ---
@@ -708,5 +663,5 @@ For questions about:
 
 ---
 
-*Last Updated: 2025-11-29*
-*Version: 1.0*
+*Last Updated: 2026-01-14*
+*Version: 2.0 - Unified Single-Call Orchestration*

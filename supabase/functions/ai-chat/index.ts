@@ -254,8 +254,70 @@ This is a CLIENT-SIDE tool - it will be executed in the user's browser.`,
   },
 ];
 
+// ============================================
+// ANIMATION TOOLS (for character expressions)
+// ============================================
+
+const ANIMATION_TOOLS: UnifiedTool[] = [
+  {
+    name: 'express',
+    description: `Set your facial expression and body animation. Use this INSTEAD of writing *action* text like *raises eyebrow*.
+Your 3D avatar will animate based on these parameters. Call this before or during your response to show emotion.
+Example: When feeling skeptical, call express(expression="skeptical", animation="lean_forward") instead of writing "*raises eyebrow skeptically*"`,
+    parameters: {
+      type: 'object',
+      properties: {
+        expression: {
+          type: 'string',
+          description: 'Facial expression preset',
+          enum: [
+            // Positive
+            'joyful', 'happy', 'excited', 'loving', 'proud', 'playful', 'amused',
+            // Negative  
+            'sad', 'angry', 'frustrated', 'annoyed', 'disappointed',
+            // Thinking
+            'thoughtful', 'curious', 'confused', 'skeptical',
+            // Surprise
+            'surprised', 'shocked', 'amazed',
+            // Anxiety
+            'nervous', 'worried', 'embarrassed', 'shy',
+            // Neutral
+            'neutral', 'calm', 'serious', 'focused',
+            // Other
+            'sleepy', 'bored', 'smug', 'mischievous',
+            // Sassy
+            'sassy', 'unimpressed', 'judging', 'teasing'
+          ],
+        },
+        animation: {
+          type: 'string',
+          description: 'Body animation to perform',
+          enum: [
+            // Core animations
+            'idle', 'thinking', 'talking', 'confused', 'happy', 'excited',
+            // Gestures
+            'nod', 'shake_head', 'shrug', 'wave', 'point', 'clap', 'bow',
+            // Body language
+            'lean_back', 'lean_forward', 'cross_arms',
+            // Reactions
+            'facepalm', 'laugh', 'cry', 'angry', 'nervous', 'celebrate',
+            // Processing
+            'head_tilt', 'chin_stroke'
+          ],
+        },
+        look_at: {
+          type: 'string',
+          description: 'Where to look',
+          enum: ['center', 'left', 'right', 'up', 'down', 'away'],
+        },
+      },
+      required: ['expression'],
+    },
+  },
+];
+
 // Client-side tools that need to be forwarded to the client
-const CLIENT_SIDE_TOOLS = ['show_upgrade_modal'];
+const CLIENT_SIDE_TOOLS = ['show_upgrade_modal', 'express'];
 
 // ============================================
 // SERVER-SIDE TOOL EXECUTION
@@ -613,9 +675,19 @@ serve(async (req) => {
       stream = false, 
       enablePromptCache = true, 
       conversationId,
-      enableTools = false,  // Enable Bob's AI tools
-      toolResults = [],     // Results from client-side tools (for follow-up)
+      enableTools = false,      // Enable Bob's AI tools
+      enableAnimationTools = false,  // Enable animation expression tools
+      toolResults = [],         // Results from client-side tools (for follow-up)
     } = await req.json()
+
+    // Build tools array based on flags
+    const activeTools: UnifiedTool[] = [];
+    if (enableTools) {
+      activeTools.push(...BOB_TOOLS);
+    }
+    if (enableAnimationTools) {
+      activeTools.push(...ANIMATION_TOOLS);
+    }
 
     // Check if this is a tutorial conversation (gets 3x token limit)
     let isTutorial = false
@@ -709,7 +781,7 @@ serve(async (req) => {
         user.id,
         supabaseAdmin,
         usageCheck,
-        enableTools ? BOB_TOOLS : undefined
+        activeTools.length > 0 ? activeTools : undefined
       )
     }
 
@@ -722,7 +794,7 @@ serve(async (req) => {
         CLAUDE_API_KEY, 
         parameters, 
         enablePromptCache,
-        enableTools ? BOB_TOOLS : undefined,
+        activeTools.length > 0 ? activeTools : undefined,
         user.id,
         supabaseAdmin,
         usageCheck
@@ -737,7 +809,7 @@ serve(async (req) => {
         model || 'gpt-4',
         OPENAI_API_KEY,
         parameters,
-        enableTools ? BOB_TOOLS : undefined,
+        activeTools.length > 0 ? activeTools : undefined,
         user.id,
         supabaseAdmin,
         usageCheck
@@ -752,7 +824,7 @@ serve(async (req) => {
         model || 'gemini-1.5-flash',
         GEMINI_API_KEY,
         parameters,
-        enableTools ? BOB_TOOLS : undefined,
+        activeTools.length > 0 ? activeTools : undefined,
         user.id,
         supabaseAdmin,
         usageCheck

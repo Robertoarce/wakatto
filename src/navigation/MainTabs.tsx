@@ -25,17 +25,13 @@ import {
 } from '../store/actions/conversationActions';
 import { getCharacter } from '../config/characters';
 import { getBobGreeting, getBobPostTrialPitch } from '../services/characterGreetings';
-import {
-  generateSingleCharacterResponse,
-  ConversationMessage
-} from '../services/multiCharacterConversation';
+import { ConversationMessage } from '../services/multiCharacterConversation';
 import {
   generateAnimatedSceneOrchestration,
   generateAnimatedSceneOrchestrationStreaming,
   EarlyAnimationSetup
 } from '../services/singleCallOrchestration';
 import { OrchestrationScene, createFallbackScene, fillGapsForNonSpeakers } from '../services/animationOrchestration';
-import { ORCHESTRATION_CONFIG } from '../config/llmConfig';
 import { isStreamingSupported, warmupAuthCache, warmupEdgeFunction } from '../services/aiService';
 import { generateConversationTitle } from '../services/conversationTitleGenerator';
 import { getProfiler, PROFILE_OPS, ProfileSession } from '../services/profilingService';
@@ -99,9 +95,10 @@ export default function MainTabs() {
   const [isQueueProcessing, setIsQueueProcessing] = useState(false);
   const currentUserRef = useRef<{ id: string; email?: string } | null>(null);
 
-  // Track locally generated message IDs to avoid re-animating our own messages
-  const locallyGeneratedMessageIds = useRef<Set<string>>(new Set());
-  const lastProcessedMessageId = useRef<string | null>(null);
+  // Track when we last finished generating to avoid re-animating our own messages
+  // The real-time handler will skip animations for messages arriving within this grace period
+  const lastGenerationTimestampRef = useRef<number>(0);
+  const GENERATION_GRACE_PERIOD_MS = 5000; // 5 seconds grace period after our own generation
 
   // State for active tab (custom tab bar since Tab.Navigator doesn't work on web)
   type TabName = 'Home' | 'Wakattors' | 'Library' | 'Animations' | 'Settings';
@@ -221,91 +218,70 @@ export default function MainTabs() {
         timestamp: new Date(msg.created_at || Date.now()).getTime(),
       }));
 
-      // Generate response (same logic as handleSendMessage)
+      // Generate response using single-call orchestration for all character counts
       setAnimationScene(null);
 
-      if (batch.selectedCharacters.length > 1) {
-        const shouldUseStreaming = useStreaming && isStreamingSupported();
+      const shouldUseStreaming = useStreaming && isStreamingSupported();
 
-        let scene: OrchestrationScene;
-        let characterResponses: any[];
+      let scene: OrchestrationScene;
+      let characterResponses: any[];
 
-        if (shouldUseStreaming) {
-          setStreamingProgress(0);
-          setEarlyAnimationSetup(null);
-
-          const result = await generateAnimatedSceneOrchestrationStreaming(
-            formattedContent,
-            batch.selectedCharacters,
-            conversationHistory,
-            {
-              onStart: () => setStreamingProgress(5),
-              onProgress: (_, percentage) => setStreamingProgress(percentage),
-              onEarlySetup: (setup) => setEarlyAnimationSetup(setup),
-              onComplete: () => {
-                setStreamingProgress(100);
-                setEarlyAnimationSetup(null);
-              },
-              onError: () => setEarlyAnimationSetup(null),
-            },
-            undefined,
-            batch.conversationId
-          );
-          scene = result.scene;
-          characterResponses = result.responses;
-        } else {
-          const result = await generateAnimatedSceneOrchestration(
-            formattedContent,
-            batch.selectedCharacters,
-            conversationHistory,
-            undefined,
-            batch.conversationId
-          );
-          scene = result.scene;
-          characterResponses = result.responses;
-        }
-
-        setAnimationScene(scene);
+      if (shouldUseStreaming) {
         setStreamingProgress(0);
+        setEarlyAnimationSetup(null);
 
-        // Save responses (fire and forget)
-        const savePromises = characterResponses.map(response =>
-          dispatch(saveMessage(
-            batch.conversationId,
-            'assistant',
-            response.content,
-            response.characterId
-          ) as any)
-        );
-        Promise.all(savePromises).catch(console.error);
-
-      } else {
-        const aiResponse = await generateSingleCharacterResponse(
+        const result = await generateAnimatedSceneOrchestrationStreaming(
           formattedContent,
-          batch.selectedCharacters[0],
+          batch.selectedCharacters,
           conversationHistory,
+          {
+            onStart: () => setStreamingProgress(5),
+            onProgress: (_, percentage) => setStreamingProgress(percentage),
+            onEarlySetup: (setup) => setEarlyAnimationSetup(setup),
+            onComplete: () => {
+              setStreamingProgress(100);
+              setEarlyAnimationSetup(null);
+            },
+            onError: () => setEarlyAnimationSetup(null),
+          },
+          undefined,
           batch.conversationId
         );
-
-        const singleCharScene = fillGapsForNonSpeakers(
-          createFallbackScene([{ characterId: batch.selectedCharacters[0], content: aiResponse }], batch.selectedCharacters),
-          batch.selectedCharacters
+        scene = result.scene;
+        characterResponses = result.responses;
+      } else {
+        const result = await generateAnimatedSceneOrchestration(
+          formattedContent,
+          batch.selectedCharacters,
+          conversationHistory,
+          undefined,
+          batch.conversationId
         );
-        setAnimationScene(singleCharScene);
+        scene = result.scene;
+        characterResponses = result.responses;
+      }
 
+      setAnimationScene(scene);
+      setStreamingProgress(0);
+
+      // Save responses (fire and forget)
+      const savePromises = characterResponses.map(response =>
         dispatch(saveMessage(
           batch.conversationId,
           'assistant',
-          aiResponse,
-          batch.selectedCharacters[0]
-        ) as any).catch(console.error);
-      }
+          response.content,
+          response.characterId
+        ) as any)
+      );
+      Promise.all(savePromises).catch(console.error);
 
       fullFlowTimer.stop();
+      lastGenerationTimestampRef.current = Date.now(); // Track when we finished generating
       setLastProfileSession(profiler.endSession());
     } catch (error: any) {
       console.error('[MainTabs] Batch processing error:', error);
       fullFlowTimer.stop({ error: error.message });
+      lastGenerationTimestampRef.current = Date.now(); // Track even on error
       showAlert('Error', 'Failed to process messages: ' + error.message);
     }
   }, [currentConversation, messages, dispatch, showAlert, useStreaming]);
@@ -366,12 +342,15 @@ export default function MainTabs() {
     const newMessages = messages.filter((m: any) => !prevIds.has(m.id));
     
     // Filter for assistant messages from other users (not our own AI responses)
-    // We detect "remote" messages by checking if we're NOT currently loading AI
-    // AND the message appeared without us triggering it
+    // We detect "remote" messages by checking:
+    // 1. We're NOT currently loading AI
+    // 2. We're NOT within the grace period after our own generation
+    const withinGracePeriod = Date.now() - lastGenerationTimestampRef.current < GENERATION_GRACE_PERIOD_MS;
     const newRemoteAssistantMessages = newMessages.filter((m: any) => 
       m.role === 'assistant' && 
       m.characterId && // Must have a character to animate
-      !isLoadingAI // If we're loading, these are our own responses
+      !isLoadingAI && // If we're loading, these are our own responses
+      !withinGracePeriod // Skip if we just finished our own generation
     );
 
     // Trigger animation for new remote assistant messages (limit to prevent spam)
@@ -599,6 +578,7 @@ The text behaves as it should be.`;
       showAlert('Error', 'Failed to play test poem: ' + error.message);
     } finally {
       setIsLoadingAI(false);
+      lastGenerationTimestampRef.current = Date.now(); // Track when we finished generating
     }
   }, [currentConversation, dispatch, showAlert]);
 
@@ -703,123 +683,84 @@ The text behaves as it should be.`;
           // Clear previous animation scene
           setAnimationScene(null);
 
-          // Use animated scene orchestration for all multi-character conversations
-          if (selectedCharacters.length > 1) {
-            // Multi-character mode: Animated scene orchestration
-            // Generate animated scene with timelines
-            // Use streaming for faster perceived response when supported
-            const shouldUseStreaming = useStreaming && isStreamingSupported();
-              
-              let scene: OrchestrationScene;
-              let characterResponses: any[];
-              
-              if (shouldUseStreaming) {
-                // Streaming version - shows progress during generation
-                setStreamingProgress(0);
-                setEarlyAnimationSetup(null); // Clear previous early setup
+          // Use single-call orchestration for ALL character counts (1 or more)
+          const shouldUseStreaming = useStreaming && isStreamingSupported();
+          
+          let scene: OrchestrationScene;
+          let characterResponses: any[];
+          
+          if (shouldUseStreaming) {
+            // Streaming version - shows progress during generation
+            setStreamingProgress(0);
+            setEarlyAnimationSetup(null); // Clear previous early setup
 
-                const result = await generateAnimatedSceneOrchestrationStreaming(
-                  content,
-                  selectedCharacters,
-                  conversationHistory,
-                  {
-                    onStart: () => {
-                      setStreamingProgress(5);
-                    },
-                    onProgress: (_, percentage) => {
-                      setStreamingProgress(percentage);
-                    },
-                    onEarlySetup: (setup) => {
-                      setEarlyAnimationSetup(setup);
-                    },
-                    onComplete: () => {
-                      setStreamingProgress(100);
-                      setEarlyAnimationSetup(null);
-                    },
-                    onError: () => {
-                      setEarlyAnimationSetup(null);
-                    },
-                  },
-                  undefined,        // config overrides
-                  conversation.id   // For tutorial token limit multiplier (3x)
-                );
-                scene = result.scene;
-                characterResponses = result.responses;
-              } else {
-                // Non-streaming version
-                const result = await generateAnimatedSceneOrchestration(
-                  content,
-                  selectedCharacters,
-                  conversationHistory,
-                  undefined,        // config overrides
-                  conversation.id   // For tutorial token limit multiplier (3x)
-                );
-                scene = result.scene;
-                characterResponses = result.responses;
-              }
-
-              // Profile animation setup for multi-character
-              const animSetupTimer = profiler.start(PROFILE_OPS.ANIMATION_SETUP);
-              // Start animation playback IMMEDIATELY (display first, save in background)
-              setAnimationScene(scene);
-              setStreamingProgress(0); // Reset progress
-              animSetupTimer.stop({ characterCount: selectedCharacters.length, multiCharacter: true });
-
-              // Save assistant responses in BACKGROUND (non-blocking parallel saves)
-              // This allows the UI to show responses immediately while persisting to DB
-              const saveAssistantTimer = profiler.start(PROFILE_OPS.DB_SAVE_ASSISTANT_MESSAGE);
-              const savePromises = characterResponses.map(response =>
-                dispatch(saveMessage(
-                  conversation.id,
-                  'assistant',
-                  response.content,
-                  response.characterId
-                ) as any)
-              );
-
-              // Fire and forget - don't await
-              Promise.all(savePromises)
-                .then(() => {
-                  saveAssistantTimer.stop({ responseCount: characterResponses.length, background: true });
-                })
-                .catch((err) => {
-                  saveAssistantTimer.stop({ error: String(err), background: true });
-                });
-
-          } else {
-            // Single character mode: traditional response with simple animation
-
-            const aiResponse = await generateSingleCharacterResponse(
+            const result = await generateAnimatedSceneOrchestrationStreaming(
               content,
-              selectedCharacters[0],
+              selectedCharacters,
               conversationHistory,
-              conversation.id  // For tutorial token limit multiplier (3x)
+              {
+                onStart: () => {
+                  setStreamingProgress(5);
+                },
+                onProgress: (_, percentage) => {
+                  setStreamingProgress(percentage);
+                },
+                onEarlySetup: (setup) => {
+                  setEarlyAnimationSetup(setup);
+                },
+                onComplete: () => {
+                  setStreamingProgress(100);
+                  setEarlyAnimationSetup(null);
+                },
+                onError: () => {
+                  setEarlyAnimationSetup(null);
+                },
+              },
+              undefined,        // config overrides
+              conversation.id   // For tutorial token limit multiplier (3x)
             );
-
-            // Create simple animation scene for single character
-            const animSetupTimer = profiler.start(PROFILE_OPS.ANIMATION_SETUP);
-            const singleCharScene = fillGapsForNonSpeakers(
-              createFallbackScene([{ characterId: selectedCharacters[0], content: aiResponse }], selectedCharacters),
-              selectedCharacters
+            scene = result.scene;
+            characterResponses = result.responses;
+          } else {
+            // Non-streaming version
+            const result = await generateAnimatedSceneOrchestration(
+              content,
+              selectedCharacters,
+              conversationHistory,
+              undefined,        // config overrides
+              conversation.id   // For tutorial token limit multiplier (3x)
             );
-            setAnimationScene(singleCharScene);
-            animSetupTimer.stop();
+            scene = result.scene;
+            characterResponses = result.responses;
+          }
 
-            // Save single character response in BACKGROUND (non-blocking)
-            const saveSingleTimer = profiler.start(PROFILE_OPS.DB_SAVE_ASSISTANT_MESSAGE);
+          // Profile animation setup
+          const animSetupTimer = profiler.start(PROFILE_OPS.ANIMATION_SETUP);
+          // Start animation playback IMMEDIATELY (display first, save in background)
+          setAnimationScene(scene);
+          setStreamingProgress(0); // Reset progress
+          animSetupTimer.stop({ characterCount: selectedCharacters.length });
+
+          // Save assistant responses in BACKGROUND (non-blocking parallel saves)
+          // This allows the UI to show responses immediately while persisting to DB
+          const saveAssistantTimer = profiler.start(PROFILE_OPS.DB_SAVE_ASSISTANT_MESSAGE);
+          const savePromises = characterResponses.map(response =>
             dispatch(saveMessage(
               conversation.id,
               'assistant',
-              aiResponse,
-              selectedCharacters[0]
+              response.content,
+              response.characterId
             ) as any)
-              .then(() => {
-                saveSingleTimer.stop({ responseCount: 1, background: true });
-              })
-              .catch((err: any) => {
-                saveSingleTimer.stop({ error: String(err), background: true });
-              });
-          }
+          );
+
+          // Fire and forget - don't await
+          Promise.all(savePromises)
+            .then(() => {
+              saveAssistantTimer.stop({ responseCount: characterResponses.length, background: true });
+            })
+            .catch((err) => {
+              saveAssistantTimer.stop({ error: String(err), background: true });
+            });
           // ============================================
           // ONBOARDING: Track trial wakattor messages
           // ============================================
@@ -884,6 +825,7 @@ The text behaves as it should be.`;
       showAlert('Error', 'Failed to send message: ' + error.message);
     } finally {
       setIsLoadingAI(false);
+      lastGenerationTimestampRef.current = Date.now(); // Track when we finished generating
       
       // End profiling session
       const session = profiler.endSession();
