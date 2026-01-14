@@ -17,7 +17,8 @@ import { executeClientTool, ClientToolCallbacks } from './aiToolsService';
 
 const BOB_CONFIG = {
   characterId: 'bob-tutorial',
-  followUpDelay: 30000,      // 8 seconds before Bob talks again
+  followUpDelay: 15000,      // 15 seconds base delay before Bob talks again
+  readingTimePerChar: 60,    // Additional ms per character for reading time
   maxFollowUps: 8,          // Max follow-up messages before giving up
   pitchEscalation: [        // Topics escalate in urgency/value
     'casual_intro',
@@ -723,11 +724,18 @@ export class BobSalesManager {
   private scheduleFollowUp(): void {
     this.clearFollowUpTimer();
 
+    // Calculate delay: base delay + reading time based on last message length
+    const lastMessage = this.previousMessages[this.previousMessages.length - 1] || '';
+    const readingTime = lastMessage.length * BOB_CONFIG.readingTimePerChar;
+    const totalDelay = BOB_CONFIG.followUpDelay + readingTime;
+
+    console.log(`[BobSales] Scheduling follow-up in ${Math.round(totalDelay / 1000)}s (base: ${BOB_CONFIG.followUpDelay / 1000}s + reading: ${Math.round(readingTime / 1000)}s for ${lastMessage.length} chars)`);
+
     this.followUpTimerId = setTimeout(async () => {
       if (this.isActive && !this.userHasResponded && !this.pitchInProgress) {
         await this.deliverFollowUp();
       }
-    }, BOB_CONFIG.followUpDelay);
+    }, totalDelay);
   }
 
   private async deliverPitch(): Promise<void> {

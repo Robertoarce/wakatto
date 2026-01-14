@@ -62,6 +62,8 @@ export function useBobSales({
   const hasPitchedThisSessionRef = useRef(false);
   // Track if premium pitch was triggered
   const premiumPitchTriggeredRef = useRef(false);
+  // Track previous isPlaying state to detect transitions (not initial state)
+  const wasPlayingRef = useRef(false);
 
   // Handle Bob pitch start - play animation, queue message save
   const handlePitchStart = useCallback((scene: OrchestrationScene, message: string) => {
@@ -167,8 +169,15 @@ export function useBobSales({
   }, [conversationId]);
 
   // Listen for playback completion to notify Bob manager
+  // Only trigger when transitioning from playing=true to playing=false
+  // This prevents false triggers when bobSceneOverride is set before playback starts
   useEffect(() => {
-    if (!isPlaying && bobSceneOverride && bobManagerRef.current) {
+    const wasPlaying = wasPlayingRef.current;
+    wasPlayingRef.current = isPlaying;
+    
+    // Only trigger onPitchComplete when we transition from playing to not playing
+    // Not when isPlaying is initially false (before playback starts)
+    if (wasPlaying && !isPlaying && bobSceneOverride && bobManagerRef.current) {
       bobManagerRef.current.onPitchComplete();
     }
   }, [isPlaying, bobSceneOverride]);
