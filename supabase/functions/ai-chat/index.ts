@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 // Types for usage tracking
 interface UsageCheck {
   can_proceed: boolean;
-  tier: 'free' | 'premium' | 'gold' | 'admin';
+  tier: 'trial' | 'free' | 'premium' | 'gold' | 'admin';
   tokens_used: number;
   token_limit: number;
   remaining_tokens: number;
@@ -12,6 +12,511 @@ interface UsageCheck {
   period_end: string;
   warning_level: 'warning' | 'critical' | 'blocked' | null;
   reset_period_days: number;
+  daily_messages_used?: number;
+  daily_messages_limit?: number;
+  trial_days_remaining?: number;
+}
+
+// ============================================
+// UNIFIED TOOL TYPES (Provider-Agnostic)
+// ============================================
+
+interface UnifiedTool {
+  name: string;
+  description: string;
+  parameters: {
+    type: 'object';
+    properties: Record<string, any>;
+    required?: string[];
+  };
+}
+
+interface ToolCall {
+  id: string;
+  name: string;
+  arguments: Record<string, any>;
+}
+
+interface ToolResult {
+  toolCallId: string;
+  result: any;
+  error?: string;
+}
+
+// ============================================
+// TOOL FORMAT CONVERTERS
+// ============================================
+
+function toClaudeTools(tools: UnifiedTool[]): any[] {
+  return tools.map(tool => ({
+    name: tool.name,
+    description: tool.description,
+    input_schema: {
+      type: 'object',
+      properties: tool.parameters.properties,
+      required: tool.parameters.required || [],
+    },
+  }));
+}
+
+function toOpenAITools(tools: UnifiedTool[]): any[] {
+  return tools.map(tool => ({
+    type: 'function',
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: {
+        type: 'object',
+        properties: tool.parameters.properties,
+        required: tool.parameters.required || [],
+      },
+    },
+  }));
+}
+
+function toGeminiTools(tools: UnifiedTool[]): any[] {
+  return [{
+    functionDeclarations: tools.map(tool => ({
+      name: tool.name,
+      description: tool.description,
+      parameters: {
+        type: 'object',
+        properties: tool.parameters.properties,
+        required: tool.parameters.required || [],
+      },
+    })),
+  }];
+}
+
+// ============================================
+// TOOL CALL PARSERS (normalize responses)
+// ============================================
+
+function parseClaudeToolCalls(response: any): ToolCall[] {
+  if (!response.content || !Array.isArray(response.content)) return [];
+  return response.content
+    .filter((block: any) => block.type === 'tool_use')
+    .map((block: any) => ({
+      id: block.id,
+      name: block.name,
+      arguments: block.input || {},
+    }));
+}
+
+function parseOpenAIToolCalls(response: any): ToolCall[] {
+  const message = response.choices?.[0]?.message;
+  if (!message?.tool_calls) return [];
+  return message.tool_calls.map((tc: any) => ({
+    id: tc.id,
+    name: tc.function.name,
+    arguments: JSON.parse(tc.function.arguments || '{}'),
+  }));
+}
+
+function parseGeminiToolCalls(response: any): ToolCall[] {
+  const functionCall = response.candidates?.[0]?.content?.parts?.[0]?.functionCall;
+  if (!functionCall) return [];
+  return [{
+    id: `gemini-${Date.now()}`,
+    name: functionCall.name,
+    arguments: functionCall.args || {},
+  }];
+}
+
+// ============================================
+// TOOL RESULT FORMATTERS
+// ============================================
+
+function formatClaudeToolResults(results: ToolResult[]): any[] {
+  return results.map(r => ({
+    type: 'tool_result',
+    tool_use_id: r.toolCallId,
+    content: r.error ? JSON.stringify({ error: r.error }) : JSON.stringify(r.result),
+  }));
+}
+
+function formatOpenAIToolResults(results: ToolResult[]): any[] {
+  return results.map(r => ({
+    role: 'tool',
+    tool_call_id: r.toolCallId,
+    content: r.error ? JSON.stringify({ error: r.error }) : JSON.stringify(r.result),
+  }));
+}
+
+function formatGeminiToolResults(results: ToolResult[]): any {
+  return {
+    role: 'function',
+    parts: results.map(r => ({
+      functionResponse: {
+        name: r.toolCallId,
+        response: r.error ? { error: r.error } : r.result,
+      },
+    })),
+  };
+}
+
+// ============================================
+// BOB'S TOOLS (Provider-Agnostic Definitions)
+// ============================================
+
+const BOB_TOOLS: UnifiedTool[] = [
+  {
+    name: 'get_user_status',
+    description: `Get the current user's subscription status, usage, and trial information. 
+Use this to understand if the user is on trial, free, premium, or gold tier, 
+how many tokens they've used, and when their trial expires.`,
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'get_payment_link',
+    description: `Get a Stripe payment link for the user to upgrade their subscription.
+Returns a URL that the user can click to complete the purchase.
+Optionally apply a discount code if one was created for this user.`,
+    parameters: {
+      type: 'object',
+      properties: {
+        tier: {
+          type: 'string',
+          description: 'The tier to upgrade to: "premium" or "gold"',
+        },
+        discount_code: {
+          type: 'string',
+          description: 'Optional discount code to apply',
+        },
+      },
+      required: ['tier'],
+    },
+  },
+  {
+    name: 'create_discount',
+    description: `Create a personalized discount code for the user. Use this during price negotiation.
+The discount is valid for a limited time (default 24 hours).
+Be strategic: start with small discounts (10-20%) and only go higher if user pushes back.
+Maximum discount is 50%.`,
+    parameters: {
+      type: 'object',
+      properties: {
+        discount_percent: {
+          type: 'number',
+          description: 'Discount percentage (10-50)',
+        },
+        expires_hours: {
+          type: 'number',
+          description: 'Hours until the discount expires (default 24)',
+        },
+      },
+      required: ['discount_percent'],
+    },
+  },
+  {
+    name: 'unlock_wakattor_preview',
+    description: `Grant the user temporary access to try a locked wakattor for free.
+Use this to let hesitant users experience the product before buying.
+Preview lasts 24 hours by default. Only unlock ONE wakattor at a time.`,
+    parameters: {
+      type: 'object',
+      properties: {
+        character_id: {
+          type: 'string',
+          description: 'The character ID to unlock (e.g., "freud", "einstein", "cleopatra")',
+        },
+        hours: {
+          type: 'number',
+          description: 'Hours of preview access (default 24, max 48)',
+        },
+      },
+      required: ['character_id'],
+    },
+  },
+  {
+    name: 'show_upgrade_modal',
+    description: `Display the upgrade modal with pricing options to the user.
+Use this when the user is ready to see pricing or after creating a discount.
+This is a CLIENT-SIDE tool - it will be executed in the user's browser.`,
+    parameters: {
+      type: 'object',
+      properties: {
+        highlight_tier: {
+          type: 'string',
+          description: 'Which tier to highlight/recommend: "premium" or "gold"',
+        },
+        show_discount: {
+          type: 'boolean',
+          description: 'Whether to show any active discount for this user',
+        },
+      },
+      required: [],
+    },
+  },
+];
+
+// Client-side tools that need to be forwarded to the client
+const CLIENT_SIDE_TOOLS = ['show_upgrade_modal'];
+
+// ============================================
+// SERVER-SIDE TOOL EXECUTION
+// ============================================
+
+interface UserStatusResult {
+  tier: string;
+  isSubscriber: boolean;
+  isTrial: boolean;
+  trialDaysRemaining: number | null;
+  tokensUsed: number;
+  tokenLimit: number;
+  tokensRemaining: number;
+  usagePercentage: number;
+  periodEnd: string;
+  dailyMessagesUsed?: number;
+  dailyMessagesLimit?: number;
+  hasActiveDiscount: boolean;
+  activeDiscountPercent?: number;
+  activeDiscountCode?: string;
+  activeDiscountExpires?: string;
+  unlockedWakattors: string[];
+}
+
+async function executeServerTool(
+  toolCall: ToolCall,
+  userId: string,
+  supabaseAdmin: any,
+  usageCheck: UsageCheck | null
+): Promise<ToolResult> {
+  const { id, name, arguments: args } = toolCall;
+
+  try {
+    switch (name) {
+      case 'get_user_status': {
+        // Get user's current status
+        const subscriberTiers = ['premium', 'gold', 'admin'];
+        const tier = usageCheck?.tier || 'free';
+        
+        // Get active discount
+        const { data: discountData } = await supabaseAdmin
+          .from('discount_codes')
+          .select('code, discount_percent, expires_at')
+          .eq('user_id', userId)
+          .gt('expires_at', new Date().toISOString())
+          .is('used_at', null)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        // Get unlocked wakattors
+        const { data: unlocksData } = await supabaseAdmin
+          .from('wakattor_unlocks')
+          .select('character_id')
+          .eq('user_id', userId)
+          .gt('expires_at', new Date().toISOString());
+
+        const result: UserStatusResult = {
+          tier,
+          isSubscriber: subscriberTiers.includes(tier),
+          isTrial: tier === 'trial',
+          trialDaysRemaining: usageCheck?.trial_days_remaining ?? null,
+          tokensUsed: usageCheck?.tokens_used || 0,
+          tokenLimit: usageCheck?.token_limit || 5000,
+          tokensRemaining: usageCheck?.remaining_tokens || 0,
+          usagePercentage: usageCheck?.usage_percentage || 0,
+          periodEnd: usageCheck?.period_end || '',
+          dailyMessagesUsed: usageCheck?.daily_messages_used,
+          dailyMessagesLimit: usageCheck?.daily_messages_limit,
+          hasActiveDiscount: !!discountData?.length,
+          activeDiscountPercent: discountData?.[0]?.discount_percent,
+          activeDiscountCode: discountData?.[0]?.code,
+          activeDiscountExpires: discountData?.[0]?.expires_at,
+          unlockedWakattors: unlocksData?.map((u: any) => u.character_id) || [],
+        };
+
+        return { toolCallId: id, result };
+      }
+
+      case 'get_payment_link': {
+        const tier = args.tier as 'premium' | 'gold';
+        const discountCode = args.discount_code as string | undefined;
+
+        // Get payment link from tier_config
+        const { data: tierConfig, error: tierError } = await supabaseAdmin
+          .from('tier_config')
+          .select('stripe_payment_link, stripe_price_id')
+          .eq('tier', tier)
+          .single();
+
+        if (tierError || !tierConfig?.stripe_payment_link) {
+          // Fallback to environment variable
+          const envKey = tier === 'premium' 
+            ? 'STRIPE_PAYMENT_LINK_PREMIUM' 
+            : 'STRIPE_PAYMENT_LINK_GOLD';
+          const envLink = Deno.env.get(envKey);
+          
+          if (!envLink) {
+            return {
+              toolCallId: id,
+              result: null,
+              error: `Payment link not configured for ${tier} tier`,
+            };
+          }
+
+          // Add prefilled email and client reference
+          const { data: profile } = await supabaseAdmin
+            .from('user_profiles')
+            .select('email')
+            .eq('id', userId)
+            .single();
+
+          let paymentUrl = envLink;
+          if (profile?.email) {
+            paymentUrl += `?prefilled_email=${encodeURIComponent(profile.email)}&client_reference_id=${userId}`;
+          }
+
+          return {
+            toolCallId: id,
+            result: {
+              paymentUrl,
+              tier,
+              discountApplied: !!discountCode,
+              message: `Here's your payment link for ${tier}. Click to complete your upgrade!`,
+            },
+          };
+        }
+
+        // Build payment URL with user info
+        const { data: profile } = await supabaseAdmin
+          .from('user_profiles')
+          .select('email')
+          .eq('id', userId)
+          .single();
+
+        let paymentUrl = tierConfig.stripe_payment_link;
+        const params = new URLSearchParams();
+        if (profile?.email) {
+          params.set('prefilled_email', profile.email);
+        }
+        params.set('client_reference_id', userId);
+        if (discountCode) {
+          params.set('prefilled_promo_code', discountCode);
+        }
+
+        if (params.toString()) {
+          paymentUrl += (paymentUrl.includes('?') ? '&' : '?') + params.toString();
+        }
+
+        return {
+          toolCallId: id,
+          result: {
+            paymentUrl,
+            tier,
+            discountApplied: !!discountCode,
+            message: `Here's your payment link for ${tier}. Click to complete your upgrade!`,
+          },
+        };
+      }
+
+      case 'create_discount': {
+        const discountPercent = Math.min(50, Math.max(10, args.discount_percent || 10));
+        const expiresHours = Math.min(72, Math.max(1, args.expires_hours || 24));
+
+        // Use the database function to create discount
+        const { data: discountCode, error: discountError } = await supabaseAdmin.rpc(
+          'create_bob_discount',
+          {
+            p_user_id: userId,
+            p_discount_percent: discountPercent,
+            p_expires_hours: expiresHours,
+          }
+        );
+
+        if (discountError) {
+          console.error('[AI-Chat] Failed to create discount:', discountError);
+          return {
+            toolCallId: id,
+            result: null,
+            error: 'Failed to create discount code',
+          };
+        }
+
+        return {
+          toolCallId: id,
+          result: {
+            code: discountCode,
+            discountPercent,
+            expiresIn: `${expiresHours} hours`,
+            message: `Created a ${discountPercent}% discount code: ${discountCode}. Valid for ${expiresHours} hours.`,
+          },
+        };
+      }
+
+      case 'unlock_wakattor_preview': {
+        const characterId = args.character_id as string;
+        const hours = Math.min(48, Math.max(1, args.hours || 24));
+
+        if (!characterId) {
+          return {
+            toolCallId: id,
+            result: null,
+            error: 'character_id is required',
+          };
+        }
+
+        // Use the database function to grant preview
+        const { data: success, error: unlockError } = await supabaseAdmin.rpc(
+          'grant_wakattor_preview',
+          {
+            p_user_id: userId,
+            p_character_id: characterId,
+            p_hours: hours,
+          }
+        );
+
+        if (unlockError) {
+          console.error('[AI-Chat] Failed to unlock wakattor:', unlockError);
+          return {
+            toolCallId: id,
+            result: null,
+            error: 'Failed to unlock wakattor preview',
+          };
+        }
+
+        return {
+          toolCallId: id,
+          result: {
+            characterId,
+            unlockedFor: `${hours} hours`,
+            message: `Unlocked ${characterId} for ${hours} hours! The user can now try this wakattor.`,
+          },
+        };
+      }
+
+      default:
+        // Check if it's a client-side tool
+        if (CLIENT_SIDE_TOOLS.includes(name)) {
+          return {
+            toolCallId: id,
+            result: {
+              _clientSideTool: true,
+              name,
+              arguments: args,
+            },
+          };
+        }
+
+        return {
+          toolCallId: id,
+          result: null,
+          error: `Unknown tool: ${name}`,
+        };
+    }
+  } catch (error: any) {
+    console.error(`[AI-Chat] Tool execution error (${name}):`, error);
+    return {
+      toolCallId: id,
+      result: null,
+      error: error.message || 'Tool execution failed',
+    };
+  }
 }
 
 // Tutorial conversations get 3x token limit
@@ -100,7 +605,17 @@ serve(async (req) => {
     )
 
     // Parse request body first to get conversationId
-    const { messages, provider = 'anthropic', model, parameters = {}, stream = false, enablePromptCache = true, conversationId } = await req.json()
+    const { 
+      messages, 
+      provider = 'anthropic', 
+      model, 
+      parameters = {}, 
+      stream = false, 
+      enablePromptCache = true, 
+      conversationId,
+      enableTools = false,  // Enable Bob's AI tools
+      toolResults = [],     // Results from client-side tools (for follow-up)
+    } = await req.json()
 
     // Check if this is a tutorial conversation (gets 3x token limit)
     let isTutorial = false
@@ -193,20 +708,55 @@ serve(async (req) => {
         enablePromptCache,
         user.id,
         supabaseAdmin,
-        usageCheck
+        usageCheck,
+        enableTools ? BOB_TOOLS : undefined
       )
     }
 
     // Non-streaming response
-    let response: { content: string; promptTokens: number; completionTokens: number }
+    let response: { content: string; promptTokens: number; completionTokens: number; toolCalls?: ToolCall[]; toolResults?: ToolResult[] }
     if (isAnthropic) {
-      response = await callAnthropic(messages, model || 'claude-3-haiku-20240307', CLAUDE_API_KEY, parameters, enablePromptCache)
+      response = await callAnthropic(
+        messages, 
+        model || 'claude-3-haiku-20240307', 
+        CLAUDE_API_KEY, 
+        parameters, 
+        enablePromptCache,
+        enableTools ? BOB_TOOLS : undefined,
+        user.id,
+        supabaseAdmin,
+        usageCheck
+      )
     } else if (provider === 'openai') {
       const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
       if (!OPENAI_API_KEY) {
         throw new Error('OPENAI_API_KEY not configured')
       }
-      response = await callOpenAI(messages, model || 'gpt-4', OPENAI_API_KEY, parameters)
+      response = await callOpenAI(
+        messages,
+        model || 'gpt-4',
+        OPENAI_API_KEY,
+        parameters,
+        enableTools ? BOB_TOOLS : undefined,
+        user.id,
+        supabaseAdmin,
+        usageCheck
+      )
+    } else if (provider === 'gemini') {
+      const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
+      if (!GEMINI_API_KEY) {
+        throw new Error('GEMINI_API_KEY not configured')
+      }
+      response = await callGemini(
+        messages,
+        model || 'gemini-1.5-flash',
+        GEMINI_API_KEY,
+        parameters,
+        enableTools ? BOB_TOOLS : undefined,
+        user.id,
+        supabaseAdmin,
+        usageCheck
+      )
     } else {
       throw new Error(`Unsupported provider: ${provider}`)
     }
@@ -253,7 +803,10 @@ serve(async (req) => {
           warning_level: updatedUsage.warning_level,
           prompt_tokens: response.promptTokens,
           completion_tokens: response.completionTokens
-        } : null
+        } : null,
+        // Include tool execution results
+        toolResults: response.toolResults,
+        clientToolCalls: response.clientToolCalls,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -285,7 +838,8 @@ async function streamAnthropic(
   enablePromptCache: boolean = true,
   userId?: string,
   supabaseAdmin?: any,
-  usageCheck?: UsageCheck | null
+  usageCheck?: UsageCheck | null,
+  tools?: UnifiedTool[]
 ): Promise<Response> {
   const systemMessage = messages.find(m => m.role === 'system')
   const conversationMessages = messages.filter(m => m.role !== 'system')
@@ -297,6 +851,11 @@ async function streamAnthropic(
     max_tokens: parameters.maxTokens || 1000,
     messages: conversationMessages,
     stream: true,
+  }
+
+  // Add tools if provided
+  if (tools && tools.length > 0) {
+    requestBody.tools = toClaudeTools(tools)
   }
 
   // Add system prompt with cache control if enabled
@@ -355,6 +914,8 @@ async function streamAnthropic(
     let promptTokens = 0
     let completionTokens = 0
     let accumulatedText = ''
+    let pendingToolCalls: ToolCall[] = []
+    let currentToolCall: { id: string; name: string; inputJson: string } | null = null
 
     try {
       while (true) {
@@ -374,14 +935,70 @@ async function streamAnthropic(
               const parsed = JSON.parse(data)
 
               // Handle different event types
-              if (parsed.type === 'content_block_delta') {
+              if (parsed.type === 'content_block_start') {
+                // Check if this is a tool_use block
+                if (parsed.content_block?.type === 'tool_use') {
+                  currentToolCall = {
+                    id: parsed.content_block.id,
+                    name: parsed.content_block.name,
+                    inputJson: '',
+                  }
+                }
+              } else if (parsed.type === 'content_block_delta') {
                 const text = parsed.delta?.text
                 if (text) {
                   accumulatedText += text
                   // Send as SSE event
                   await writer.write(encoder.encode(`data: ${JSON.stringify({ type: 'delta', text })}\n\n`))
                 }
+                // Handle tool input JSON streaming
+                if (parsed.delta?.type === 'input_json_delta' && currentToolCall) {
+                  currentToolCall.inputJson += parsed.delta.partial_json || ''
+                }
+              } else if (parsed.type === 'content_block_stop') {
+                // If we have a completed tool call, add it to pending
+                if (currentToolCall) {
+                  try {
+                    const args = currentToolCall.inputJson ? JSON.parse(currentToolCall.inputJson) : {}
+                    pendingToolCalls.push({
+                      id: currentToolCall.id,
+                      name: currentToolCall.name,
+                      arguments: args,
+                    })
+                  } catch (e) {
+                    console.error('[AI-Chat] Failed to parse tool arguments:', e)
+                  }
+                  currentToolCall = null
+                }
               } else if (parsed.type === 'message_stop') {
+                // Execute any pending tool calls
+                if (pendingToolCalls.length > 0 && userId && supabaseAdmin) {
+                  const toolResults: ToolResult[] = []
+                  const clientToolCalls: ToolCall[] = []
+
+                  for (const tc of pendingToolCalls) {
+                    if (CLIENT_SIDE_TOOLS.includes(tc.name)) {
+                      // Forward client-side tools to the client
+                      clientToolCalls.push(tc)
+                    } else {
+                      // Execute server-side tools
+                      const result = await executeServerTool(tc, userId, supabaseAdmin, usageCheck || null)
+                      toolResults.push(result)
+                    }
+                  }
+
+                  // Send tool results to client
+                  if (toolResults.length > 0 || clientToolCalls.length > 0) {
+                    await writer.write(encoder.encode(`data: ${JSON.stringify({
+                      type: 'tool_results',
+                      serverResults: toolResults,
+                      clientToolCalls: clientToolCalls,
+                    })}\n\n`))
+                  }
+
+                  pendingToolCalls = []
+                }
+
                 // Record token usage at end of stream (skip for admin)
                 if (userId && supabaseAdmin && usageCheck && usageCheck.tier !== 'admin') {
                   // Estimate tokens if not provided by API
@@ -471,8 +1088,12 @@ async function callAnthropic(
   model: string,
   apiKey: string,
   parameters: any = {},
-  enablePromptCache: boolean = true
-): Promise<{ content: string; promptTokens: number; completionTokens: number }> {
+  enablePromptCache: boolean = true,
+  tools?: UnifiedTool[],
+  userId?: string,
+  supabaseAdmin?: any,
+  usageCheck?: UsageCheck | null
+): Promise<{ content: string; promptTokens: number; completionTokens: number; toolResults?: ToolResult[]; clientToolCalls?: ToolCall[] }> {
   // Separate system message from conversation messages
   const systemMessage = messages.find(m => m.role === 'system')
   const conversationMessages = messages.filter(m => m.role !== 'system')
@@ -482,6 +1103,11 @@ async function callAnthropic(
     model: model,
     max_tokens: parameters.maxTokens || 1000,
     messages: conversationMessages,
+  }
+
+  // Add tools if provided
+  if (tools && tools.length > 0) {
+    requestBody.tools = toClaudeTools(tools)
   }
 
   // Add system prompt with cache control if enabled
@@ -533,24 +1159,62 @@ async function callAnthropic(
   const promptTokens = data.usage?.input_tokens || Math.ceil(messages.reduce((acc: number, m: any) => acc + (m.content?.length || 0), 0) / 4)
   const completionTokens = data.usage?.output_tokens || Math.ceil((data.content[0]?.text || '').length / 4)
 
+  // Parse any tool calls
+  const toolCalls = parseClaudeToolCalls(data)
+  let toolResults: ToolResult[] = []
+  let clientToolCalls: ToolCall[] = []
+
+  if (toolCalls.length > 0 && userId && supabaseAdmin) {
+    for (const tc of toolCalls) {
+      if (CLIENT_SIDE_TOOLS.includes(tc.name)) {
+        clientToolCalls.push(tc)
+      } else {
+        const result = await executeServerTool(tc, userId, supabaseAdmin, usageCheck || null)
+        toolResults.push(result)
+      }
+    }
+  }
+
+  // Get text content (may be empty if only tool calls)
+  const textContent = data.content
+    .filter((block: any) => block.type === 'text')
+    .map((block: any) => block.text)
+    .join('')
+
   return {
-    content: data.content[0]?.text || 'Sorry, I could not generate a response.',
+    content: textContent || '',
     promptTokens,
-    completionTokens
+    completionTokens,
+    toolResults: toolResults.length > 0 ? toolResults : undefined,
+    clientToolCalls: clientToolCalls.length > 0 ? clientToolCalls : undefined,
   }
 }
 
 // ============================================
-// Non-streaming OpenAI
+// Non-streaming OpenAI with Tool Support
 // ============================================
 
-async function callOpenAI(messages: any[], model: string, apiKey: string, parameters: any = {}): Promise<{ content: string; promptTokens: number; completionTokens: number }> {
+async function callOpenAI(
+  messages: any[],
+  model: string,
+  apiKey: string,
+  parameters: any = {},
+  tools?: UnifiedTool[],
+  userId?: string,
+  supabaseAdmin?: any,
+  usageCheck?: UsageCheck | null
+): Promise<{ content: string; promptTokens: number; completionTokens: number; toolResults?: ToolResult[]; clientToolCalls?: ToolCall[] }> {
   // Build request body with parameters
   const requestBody: any = {
     model: model,
     messages: messages,
     temperature: parameters.temperature !== undefined ? parameters.temperature : 0.7,
     max_tokens: parameters.maxTokens || 1000,
+  }
+
+  // Add tools if provided
+  if (tools && tools.length > 0) {
+    requestBody.tools = toOpenAITools(tools)
   }
 
   // Add optional parameters if provided
@@ -578,9 +1242,121 @@ async function callOpenAI(messages: any[], model: string, apiKey: string, parame
   const promptTokens = data.usage?.prompt_tokens || Math.ceil(messages.reduce((acc: number, m: any) => acc + (m.content?.length || 0), 0) / 4)
   const completionTokens = data.usage?.completion_tokens || Math.ceil((data.choices[0]?.message?.content || '').length / 4)
 
+  // Parse any tool calls
+  const toolCalls = parseOpenAIToolCalls(data)
+  let toolResults: ToolResult[] = []
+  let clientToolCalls: ToolCall[] = []
+
+  if (toolCalls.length > 0 && userId && supabaseAdmin) {
+    for (const tc of toolCalls) {
+      if (CLIENT_SIDE_TOOLS.includes(tc.name)) {
+        clientToolCalls.push(tc)
+      } else {
+        const result = await executeServerTool(tc, userId, supabaseAdmin, usageCheck || null)
+        toolResults.push(result)
+      }
+    }
+  }
+
   return {
-    content: data.choices[0]?.message?.content || 'Sorry, I could not generate a response.',
+    content: data.choices[0]?.message?.content || '',
     promptTokens,
-    completionTokens
+    completionTokens,
+    toolResults: toolResults.length > 0 ? toolResults : undefined,
+    clientToolCalls: clientToolCalls.length > 0 ? clientToolCalls : undefined,
+  }
+}
+
+// ============================================
+// Non-streaming Gemini with Tool Support
+// ============================================
+
+async function callGemini(
+  messages: any[],
+  model: string,
+  apiKey: string,
+  parameters: any = {},
+  tools?: UnifiedTool[],
+  userId?: string,
+  supabaseAdmin?: any,
+  usageCheck?: UsageCheck | null
+): Promise<{ content: string; promptTokens: number; completionTokens: number; toolResults?: ToolResult[]; clientToolCalls?: ToolCall[] }> {
+  // Convert messages to Gemini format
+  const systemMessage = messages.find(m => m.role === 'system')
+  const conversationMessages = messages.filter(m => m.role !== 'system')
+
+  const contents = conversationMessages.map(m => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }],
+  }))
+
+  const requestBody: any = {
+    contents,
+    generationConfig: {
+      temperature: parameters.temperature ?? 0.7,
+      maxOutputTokens: parameters.maxTokens || 1000,
+    },
+  }
+
+  // Add system instruction if present
+  if (systemMessage?.content) {
+    requestBody.systemInstruction = { parts: [{ text: systemMessage.content }] }
+  }
+
+  // Add tools if provided
+  if (tools && tools.length > 0) {
+    requestBody.tools = toGeminiTools(tools)
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    }
+  )
+
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`Gemini API error: ${error}`)
+  }
+
+  const data = await response.json()
+
+  // Estimate tokens (Gemini doesn't always return usage)
+  const promptTokens = data.usageMetadata?.promptTokenCount || 
+    Math.ceil(messages.reduce((acc: number, m: any) => acc + (m.content?.length || 0), 0) / 4)
+  const completionTokens = data.usageMetadata?.candidatesTokenCount || 
+    Math.ceil((data.candidates?.[0]?.content?.parts?.[0]?.text || '').length / 4)
+
+  // Parse any tool calls
+  const toolCalls = parseGeminiToolCalls(data)
+  let toolResults: ToolResult[] = []
+  let clientToolCalls: ToolCall[] = []
+
+  if (toolCalls.length > 0 && userId && supabaseAdmin) {
+    for (const tc of toolCalls) {
+      if (CLIENT_SIDE_TOOLS.includes(tc.name)) {
+        clientToolCalls.push(tc)
+      } else {
+        const result = await executeServerTool(tc, userId, supabaseAdmin, usageCheck || null)
+        toolResults.push(result)
+      }
+    }
+  }
+
+  // Get text content
+  const textContent = data.candidates?.[0]?.content?.parts
+    ?.filter((p: any) => p.text)
+    ?.map((p: any) => p.text)
+    ?.join('') || ''
+
+  return {
+    content: textContent,
+    promptTokens,
+    completionTokens,
+    toolResults: toolResults.length > 0 ? toolResults : undefined,
+    clientToolCalls: clientToolCalls.length > 0 ? clientToolCalls : undefined,
   }
 }

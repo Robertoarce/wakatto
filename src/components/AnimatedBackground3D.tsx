@@ -92,8 +92,9 @@ export function AnimatedBackground3D() {
   useEffect(() => {
     const characters: CharacterAnimation[] = [];
 
-    // Create 10 characters with random positions and sizes
-    for (let i = 0; i < 10; i++) {
+    // Create 6 characters with random positions and sizes (reduced from 10 to prevent WebGL context overflow)
+    // Browsers typically limit WebGL contexts to ~8-16 per page
+    for (let i = 0; i < 6; i++) {
       const charIndex = i % allCharacters.length;
       const animIndex = i % animations.length;
       const startPos = getRandomPosition();

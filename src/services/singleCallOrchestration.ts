@@ -912,12 +912,26 @@ function buildCharacterChangeNotification(
 }
 
 /**
+ * Maximum number of messages to send to the LLM
+ * Prevents excessive token usage and slow responses
+ */
+const MAX_CONVERSATION_HISTORY = 30;
+
+/**
  * Format conversation history for LLM
+ * Limits to last MAX_CONVERSATION_HISTORY messages to prevent slow/expensive calls
  */
 function formatConversationHistory(
   messageHistory: ConversationMessage[]
 ): Array<{ role: 'user' | 'assistant' | 'system'; content: string }> {
-  return messageHistory.map(m => ({
+  // Limit to last N messages to prevent excessive token usage
+  const limitedHistory = messageHistory.slice(-MAX_CONVERSATION_HISTORY);
+  
+  if (messageHistory.length > MAX_CONVERSATION_HISTORY) {
+    console.log(`[SingleCall] Truncated conversation history from ${messageHistory.length} to ${MAX_CONVERSATION_HISTORY} messages`);
+  }
+  
+  return limitedHistory.map(m => ({
     role: m.role as 'user' | 'assistant' | 'system',
     content: m.role === 'assistant' && m.characterId
       ? `[${getCharacter(m.characterId).name}]: ${m.content}`

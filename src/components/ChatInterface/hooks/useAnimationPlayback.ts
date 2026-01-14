@@ -9,6 +9,7 @@ import { CharacterAnimationState, OrchestrationScene } from '../../../services/a
 import { CharacterVoiceProfile } from '../../../config/voiceConfig';
 import { Message } from '../types/chatInterface.types';
 import { memDebug } from '../../../services/performanceLogger';
+import { bubbleDebugLog } from '../../../services/bubbleDebug';
 
 interface UseAnimationPlaybackResult {
   playbackState: {
@@ -90,6 +91,22 @@ export function useAnimationPlayback(): UseAnimationPlaybackResult {
       // Only update React state if something significant changed
       if (hasSignificantChange) {
         updateCount++;
+        
+        // Debug: Log state updates with talking character info
+        bubbleDebugLog('PlaybackHook', 'State update', {
+          updateCount,
+          status: state.status,
+          prevStatus,
+          characterCount: state.characterStates.size,
+          talkingChars: Array.from(state.characterStates.entries())
+            .filter(([_, s]) => s.isTalking)
+            .map(([id, s]) => ({
+              id,
+              revealedLen: s.revealedText?.length ?? 0,
+              animation: s.animation,
+            })),
+        });
+        
         setPlaybackState({
           isPlaying: state.status === 'playing',
           characterStates: state.characterStates
@@ -106,8 +123,13 @@ export function useAnimationPlayback(): UseAnimationPlaybackResult {
   // Clear animating messages when playback completes
   useEffect(() => {
     if (!playbackState.isPlaying && animatingMessages.size > 0) {
+      bubbleDebugLog('PlaybackHook', 'Playback stopped, clearing animatingMessages', {
+        animatingMessagesCount: animatingMessages.size,
+        messages: Array.from(animatingMessages.entries()),
+      });
       // Give a small delay to ensure final state is rendered
       const timeout = setTimeout(() => {
+        bubbleDebugLog('PlaybackHook', 'Cleared animatingMessages after delay');
         setAnimatingMessages(new Map());
       }, 500);
       return () => clearTimeout(timeout);

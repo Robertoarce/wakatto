@@ -342,8 +342,9 @@ export default function LoginScreen() {
               <TouchableOpacity
                 onPress={() => {
                   // Create a mock session for testing
+                  // Use a valid UUID format for testing
                   const mockUser = {
-                    id: 'test-user-id-12345',
+                    id: '00000000-0000-0000-0000-000000000001',
                     email: 'test@wakatto.dev',
                     email_confirmed_at: new Date().toISOString(),
                     user_metadata: { name: 'Test User' },

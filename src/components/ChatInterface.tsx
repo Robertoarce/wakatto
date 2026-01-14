@@ -32,6 +32,7 @@ import { useResponsive, BREAKPOINTS, CHARACTER_HEIGHT } from '../constants/Layou
 import { Toast } from './ui/Toast';
 import { StorySpeechBubble } from './ui/StorySpeechBubble';
 import { memDebug } from '../services/performanceLogger';
+import { bubbleDebugLog } from '../services/bubbleDebug';
 import { FloatingActionText } from './FloatingActionText';
 import { extractActionText } from './SimpleSpeechBubble';
 import {
@@ -2022,7 +2023,7 @@ Each silence, a cathedral where you still reside.`;
               showsVerticalScrollIndicator={false}
               nestedScrollEnabled={true}
             >
-              {limitedCharacters.map((characterId) => {
+              {limitedCharacters.map((characterId, index) => {
                 const character = availableCharacters.find(c => c.id === characterId) || getCharacter(characterId);
                 const charPlaybackState = playbackState.characterStates.get(characterId);
                 const usePlayback = playbackState.isPlaying && charPlaybackState;
@@ -2032,6 +2033,15 @@ Each silence, a cathedral where you still reside.`;
                 const displayText = usePlayback
                   ? playbackEngineRef.current.getRevealedText(characterId)
                   : (lastMessage?.text || '');
+
+                // Debug: Log mobile bubble rendering
+                bubbleDebugLog('Bubble', `Mobile stack ${index}/${limitedCharacters.length}`, {
+                  characterId,
+                  usePlayback,
+                  isTalking: charPlaybackState?.isTalking,
+                  textLen: displayText?.length ?? 0,
+                  hasLastMessage: !!lastMessage,
+                });
 
                 // Don't render if no text
                 if (!displayText) return null;
@@ -2179,6 +2189,16 @@ Each silence, a cathedral where you still reside.`;
                 ? playbackEngineRef.current.getRevealedText(characterId)
                 : (lastMessage?.text || '');
 
+              // Debug: Log floating character bubble rendering
+              bubbleDebugLog('Bubble', `Floating char ${index}/${total}`, {
+                characterId,
+                usePlayback,
+                isTalking: charPlaybackState?.isTalking,
+                animation: charPlaybackState?.animation,
+                textLen: revealedText?.length ?? 0,
+                hasLastMessage: !!lastMessage,
+                isComplete: charPlaybackState?.isComplete,
+              });
 
               // Get entrance config for this character (if in entrance animation)
               const charEntranceConfig = entranceSequence.get(characterId);
@@ -2497,9 +2517,24 @@ Each silence, a cathedral where you still reside.`;
               const revealedText = isAnimating && message.characterId 
                 ? playbackEngineRef.current.getRevealedText(message.characterId) 
                 : null;
+
+              // Debug: Log chat history bubble rendering
+              bubbleDebugLog('Bubble', `Chat history msg ${index}/${messages.length}`, {
+                messageId: message.id,
+                role: message.role,
+                characterId: message.characterId,
+                isAnimating,
+                revealedTextLen: revealedText?.length ?? null,
+                contentLen: message.content?.length ?? 0,
+                animatingMsgForChar: message.characterId ? animatingMessages.get(message.characterId) : null,
+              });
               
               // Hide bubble completely if animating but no text revealed yet
               if (isAnimating && (!revealedText || revealedText.length === 0)) {
+                bubbleDebugLog('Bubble', `Chat history HIDDEN (no text yet)`, {
+                  messageId: message.id,
+                  characterId: message.characterId,
+                });
                 return null;
               }
 

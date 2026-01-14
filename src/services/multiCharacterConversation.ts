@@ -290,8 +290,14 @@ export async function generateMultiCharacterResponses(
     console.log('System Prompt:', systemPrompt);
     console.groupEnd();
 
-    // Convert message history to AI message format
-    const conversationMessages = messageHistory.map(m => ({
+    // Convert message history to AI message format (limit to last 30 messages)
+    const MAX_HISTORY = 30;
+    const limitedHistory = messageHistory.slice(-MAX_HISTORY);
+    if (messageHistory.length > MAX_HISTORY) {
+      console.log(`[MultiChar] Truncated history from ${messageHistory.length} to ${MAX_HISTORY} messages`);
+    }
+    
+    const conversationMessages = limitedHistory.map(m => ({
       role: m.role as 'user' | 'assistant' | 'system',
       content: m.role === 'assistant' && m.characterId
         ? `[${getCharacter(m.characterId).name}]: ${m.content}`
@@ -373,7 +379,14 @@ export async function generateSingleCharacterResponse(
     ? `${basePrompt}\n\n${styleModifier}`
     : basePrompt;
 
-  const conversationMessages = messageHistory.map(m => ({
+  // Limit to last 30 messages to prevent excessive token usage
+  const MAX_HISTORY = 30;
+  const limitedHistory = messageHistory.slice(-MAX_HISTORY);
+  if (messageHistory.length > MAX_HISTORY) {
+    console.log(`[SingleChar] Truncated history from ${messageHistory.length} to ${MAX_HISTORY} messages`);
+  }
+  
+  const conversationMessages = limitedHistory.map(m => ({
     role: m.role as 'user' | 'assistant' | 'system',
     content: m.content,
   }));

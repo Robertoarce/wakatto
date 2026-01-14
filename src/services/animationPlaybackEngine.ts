@@ -26,6 +26,7 @@ import {
 } from '../config/voiceConfig';
 import { performanceLogger } from './performanceLogger';
 import { getTalkingSoundsService, TalkingSoundType } from './talkingSoundsService';
+import { bubbleDebugLog, bubbleDebugLogThrottled } from './bubbleDebug';
 
 // ============================================
 // POST-SPEAKING EXPRESSIONS
@@ -268,6 +269,19 @@ export class AnimationPlaybackEngine {
     // Build timeline cache once at start (not every frame)
     this.buildTimelinesCache();
 
+    // Debug: Log scene start with timeline order
+    bubbleDebugLog('Playback', 'Starting scene', {
+      timelinesCount: scene.timelines.length,
+      sceneDuration: scene.sceneDuration,
+      timelines: scene.timelines.map((t, i) => ({
+        idx: i,
+        char: t.characterId,
+        delay: t.startDelay,
+        duration: t.totalDuration,
+        contentLen: t.content?.length ?? 0,
+      })),
+    });
+
     this.tick();
   }
 
@@ -490,6 +504,13 @@ export class AnimationPlaybackEngine {
       const timelineEnd = timeline.startDelay + timeline.totalDuration;
 
       if (elapsed >= timelineStart && elapsed < timelineEnd) {
+        bubbleDebugLogThrottled('Playback', `findActiveTimeline: ACTIVE`, {
+          char: timeline.characterId,
+          elapsed: Math.round(elapsed),
+          timelineStart,
+          timelineEnd,
+          timelinesCount: timelines.length,
+        });
         return timeline;
       }
     }
@@ -499,6 +520,11 @@ export class AnimationPlaybackEngine {
     for (let i = timelines.length - 1; i >= 0; i--) {
       const timeline = timelines[i];
       if (elapsed >= timeline.startDelay + timeline.totalDuration) {
+        bubbleDebugLogThrottled('Playback', `findActiveTimeline: COMPLETED`, {
+          char: timeline.characterId,
+          elapsed: Math.round(elapsed),
+          timelineEnd: timeline.startDelay + timeline.totalDuration,
+        });
         return timeline; // Return last completed timeline
       }
     }
@@ -528,16 +554,34 @@ export class AnimationPlaybackEngine {
 
     // Find all timelines for this character and get the active one
     const characterTimelines = this.scene.timelines.filter(t => t.characterId === characterId);
-    if (characterTimelines.length === 0) return '';
+    if (characterTimelines.length === 0) {
+      bubbleDebugLogThrottled('Playback', `getRevealedText: NO TIMELINES for ${characterId}`, { elapsed: Math.round(elapsed) });
+      return '';
+    }
 
     const timeline = this.findActiveTimeline(characterTimelines, elapsed);
-    if (!timeline) return '';
+    if (!timeline) {
+      bubbleDebugLogThrottled('Playback', `getRevealedText: NO ACTIVE TIMELINE for ${characterId}`, {
+        elapsed: Math.round(elapsed),
+        timelinesCount: characterTimelines.length,
+        timelines: characterTimelines.map(t => ({
+          delay: t.startDelay,
+          end: t.startDelay + t.totalDuration,
+        })),
+      });
+      return '';
+    }
 
     // TTS-driven mode: use character position from TTS boundary events
     if (this.ttsDrivenMode && this.ttsCharPositions.has(characterId)) {
       const ttsPos = this.ttsCharPositions.get(characterId)!;
       // Add a small buffer (next word) for smoother sync
       const bufferPos = Math.min(ttsPos + 10, timeline.content.length);
+      bubbleDebugLogThrottled('Playback', `getRevealedText TTS-driven: ${characterId}`, {
+        ttsPos,
+        bufferPos,
+        contentLen: timeline.content.length,
+      });
       return timeline.content.substring(0, bufferPos);
     }
 
@@ -591,7 +635,15 @@ export class AnimationPlaybackEngine {
       segmentStartTime += segment.duration;
     }
 
-    return timeline.content.substring(0, Math.min(lastRevealedIndex, timeline.content.length));
+    const result = timeline.content.substring(0, Math.min(lastRevealedIndex, timeline.content.length));
+    bubbleDebugLogThrottled('Playback', `getRevealedText: ${characterId}`, {
+      elapsed: Math.round(elapsed),
+      characterElapsed: Math.round(characterElapsed),
+      revealedLen: result.length,
+      totalLen: timeline.content.length,
+      timelineDelay: timeline.startDelay,
+    });
+    return result;
   }
 
   /**
@@ -771,6 +823,18 @@ export class AnimationPlaybackEngine {
 
     // Play talking sounds for active speakers
     this.playTalkingSounds();
+
+    // Debug: Log tick state (throttled to prevent spam)
+    const states = this.getCurrentStates();
+    const talkingChars = Array.from(states.entries())
+      .filter(([_, s]) => s.isTalking)
+      .map(([id, s]) => ({ id, revealedLen: s.revealedText?.length ?? 0 }));
+    bubbleDebugLogThrottled('Playback', 'tick', {
+      elapsed: Math.round(elapsed),
+      sceneDuration: this.scene.sceneDuration,
+      talkingChars,
+      allChars: Array.from(states.keys()),
+    });
 
     // Notify callbacks with current state
     this.notifyCallbacks();

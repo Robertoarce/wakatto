@@ -417,6 +417,19 @@ export async function generateAIResponse(
 // Streaming AI Response
 // ============================================
 
+// Tool-related types
+export interface ToolCall {
+  id: string;
+  name: string;
+  arguments: Record<string, any>;
+}
+
+export interface ToolResult {
+  toolCallId: string;
+  result: any;
+  error?: string;
+}
+
 export interface StreamingCallbacks {
   onStart?: (timestamp: number) => void;
   onDelta?: (text: string, accumulated: string) => void;
@@ -426,6 +439,8 @@ export interface StreamingCallbacks {
   onUsageUpdate?: (usage: Partial<UsageInfo>) => void;
   onLimitWarning?: (warningLevel: WarningLevel, usage: Partial<UsageInfo>) => void;
   onLimitExceeded?: (usage: UsageInfo) => void;
+  // Tool callbacks
+  onToolResults?: (serverResults: ToolResult[], clientToolCalls: ToolCall[]) => void;
 }
 
 // Custom error class for limit exceeded
@@ -459,15 +474,22 @@ export async function generateAIResponseStreaming(
   characterId?: string,
   callbacks?: StreamingCallbacks,
   parameterOverrides?: Partial<ModelParameters>,
-  conversationId?: string
+  conversationId?: string,
+  enableTools?: boolean,
+  providerOverride?: string,
+  modelOverride?: string
 ): Promise<string> {
   const fullMessages: AIMessage[] = systemPrompt
     ? [{ role: 'system', content: systemPrompt }, ...messages]
     : messages;
 
+  // Use override provider/model if provided (e.g., for faster Bob responses)
+  const effectiveProvider = providerOverride || config.provider;
+  const effectiveModel = modelOverride || config.model;
+
   const parameters = characterId
-    ? getCharacterParameters(characterId, config.provider)
-    : getModelParameters(config.provider);
+    ? getCharacterParameters(characterId, effectiveProvider)
+    : getModelParameters(effectiveProvider);
 
   const finalParameters = { ...parameters, ...parameterOverrides };
 
@@ -514,11 +536,12 @@ export async function generateAIResponseStreaming(
         },
         body: JSON.stringify({
           messages: fullMessages,
-          provider: config.provider,
-          model: config.model,
+          provider: effectiveProvider,
+          model: effectiveModel,
           parameters: finalParameters,
           stream: true, // Enable streaming
           conversationId, // For tutorial token limit multiplier
+          enableTools, // Enable Bob's AI tools
         }),
       }
     );
@@ -597,6 +620,18 @@ export async function generateAIResponseStreaming(
                       detail: { warningLevel: usage.warningLevel, usage }
                     }));
                   }
+                }
+              } else if (parsed.type === 'tool_results') {
+                // Handle tool execution results from Edge Function
+                const serverResults = parsed.serverResults as ToolResult[] || [];
+                const clientToolCalls = parsed.clientToolCalls as ToolCall[] || [];
+                callbacks?.onToolResults?.(serverResults, clientToolCalls);
+
+                // Also dispatch global event for Redux integration (web only)
+                if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('ai:tool-results', {
+                    detail: { serverResults, clientToolCalls }
+                  }));
                 }
               } else if (parsed.type === 'done') {
                 // Stop edge function timer when streaming completes

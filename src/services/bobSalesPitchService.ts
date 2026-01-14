@@ -7,8 +7,9 @@
 
 import { OrchestrationScene, CharacterTimeline, AnimationSegment } from './animationOrchestration';
 import { AnimationState, LookDirection } from '../components/CharacterDisplay3D';
-import { generateAIResponseStreaming, isStreamingSupported } from './aiService';
+import { generateAIResponseStreaming, isStreamingSupported, ToolCall, ToolResult } from './aiService';
 import { getVoiceOptionsForPrompt } from '../config/voiceConfig';
+import { executeClientTool, ClientToolCallbacks } from './aiToolsService';
 
 // ============================================
 // CONFIGURATION
@@ -52,12 +53,25 @@ Get them interested in the app through your charm and wit. You're like a street 
 - You could talk to Multiple historic and fictional characters with different perspectives (, Freud, etc.)
 - Free trial, then subscription
 
-## Pricing Negotiation Rules
-- Starting price: ${BOB_CONFIG.pricing.startingPrice} ${BOB_CONFIG.pricing.currency} (or USD if user seems American)
-- ABSOLUTE MINIMUM: ${BOB_CONFIG.pricing.minimumPrice} ${BOB_CONFIG.pricing.currency} - you CANNOT go lower than this, ever
-- If user tries to negotiate, you can gradually lower the price but NEVER below ${BOB_CONFIG.pricing.minimumPrice}
-- Be playful about negotiations ("You drive a hard bargain..." etc.)
-- If they push below ${BOB_CONFIG.pricing.minimumPrice}, refuse charmingly ("I'd literally be paying YOU at that point!")
+## Your Tools
+You have access to powerful tools to help users:
+- **get_user_status**: Check user's subscription tier, trial status, token usage
+- **get_payment_link**: Get a Stripe payment link for upgrades (premium or gold tier)
+- **create_discount**: Create a personalized discount code (10-50% off, for negotiation)
+- **unlock_wakattor_preview**: Give 24h free access to a locked wakattor
+- **show_upgrade_modal**: Display the upgrade options to the user
+
+Use tools strategically:
+1. First, use get_user_status to understand their current situation
+2. If they're hesitant, offer to unlock a wakattor preview
+3. During price negotiation, create discounts (start low, increase if they push)
+4. When ready to buy, use get_payment_link with any discount code
+
+## Pricing Strategy
+- Premium: $9.99/month - Good for regular users
+- Gold: $24.99/month - Recommended for power users
+- You CAN negotiate with discounts (10-50%), be playful about it
+- If they want lower than 50% off, refuse charmingly
 
 ## Your Personality
 - Casual, witty, slightly sarcastic
@@ -120,6 +134,18 @@ ${previousMessages.map((m, i) => `${i + 1}. "${m}"`).join('\n')}
 ## Current Stage: ${stage}
 ${stageInstructions[stage]}
 
+## Your Tools (use strategically)
+- **get_user_status**: Check user's current tier and trial status
+- **get_payment_link**: Get a payment link (premium/gold tier)
+- **create_discount**: Create a discount code (10-50% off)
+- **unlock_wakattor_preview**: Give 24h free access to try a locked wakattor
+- **show_upgrade_modal**: Display upgrade options
+
+Tips:
+- At urgency stage, consider offering a small discount (10-15%)
+- At final_offer, you could offer a preview unlock to get them hooked
+- If they've been quiet, maybe unlock a wakattor preview proactively
+
 ## Rules
 - Keep messages SHORT (1-2 sentences)
 - Don't repeat yourself
@@ -127,10 +153,10 @@ ${stageInstructions[stage]}
 - Reference that they're quiet without being guilt-trippy
 - If this is follow-up #4-5, it's okay to be more direct or funny about being ignored
 
-## Pricing Rules (if negotiation comes up)
-- Starting price: ${BOB_CONFIG.pricing.startingPrice} ${BOB_CONFIG.pricing.currency}/USD
-- ABSOLUTE MINIMUM: ${BOB_CONFIG.pricing.minimumPrice} - NEVER go below this
-- Be charming when refusing to go lower than ${BOB_CONFIG.pricing.minimumPrice}
+## Pricing (with discounts)
+- Premium: $9.99/month, Gold: $24.99/month
+- You can offer discounts up to 50% off
+- Be playful during negotiations
 
 ## Animation System
 Body (a): idle, shrug, lean_forward, point, thinking, talking, nod
@@ -155,13 +181,21 @@ Generate follow-up #${followUpNumber}. Make it count.`;
 export interface BobPitchResult {
   scene: OrchestrationScene;
   message: string;
+  /** Server-side tool results (user status, discounts, etc.) */
+  toolResults?: ToolResult[];
+  /** Client-side tool calls to execute (show modal, navigate, etc.) */
+  clientToolCalls?: ToolCall[];
 }
 
 /**
  * Generate Bob's opening pitch
  * @param conversationId - Optional conversation ID for tutorial token limit multiplier
+ * @param onToolResults - Optional callback for tool results
  */
-export async function generateBobOpeningPitch(conversationId?: string): Promise<BobPitchResult> {
+export async function generateBobOpeningPitch(
+  conversationId?: string,
+  onToolResults?: (serverResults: ToolResult[], clientToolCalls: ToolCall[]) => void
+): Promise<BobPitchResult> {
   const prompt = buildBobOpeningPrompt();
 
   const conversationMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
@@ -169,6 +203,8 @@ export async function generateBobOpeningPitch(conversationId?: string): Promise<
   ];
 
   let rawResponse = '';
+  let capturedToolResults: ToolResult[] = [];
+  let capturedClientToolCalls: ToolCall[] = [];
 
   try {
     if (isStreamingSupported()) {
@@ -179,9 +215,18 @@ export async function generateBobOpeningPitch(conversationId?: string): Promise<
         {
           onDelta: () => {},
           onError: (error) => console.error('[BobPitch] Stream error:', error),
+          onToolResults: (serverResults, clientToolCalls) => {
+            console.log('[BobPitch] Tool results:', { serverResults, clientToolCalls });
+            capturedToolResults = serverResults;
+            capturedClientToolCalls = clientToolCalls;
+            onToolResults?.(serverResults, clientToolCalls);
+          },
         },
-        undefined,      // parameterOverrides
-        conversationId  // For tutorial token limit multiplier
+        { maxTokens: 1000 },  // Reduced maxTokens for faster response
+        conversationId,       // For tutorial token limit multiplier
+        true,                 // enableTools - enable Bob's AI tools
+        'anthropic',          // Use Anthropic provider
+        'claude-3-haiku-20240307'  // Use Haiku for 3x faster responses
       );
     } else {
       throw new Error('Non-streaming not supported');
@@ -191,17 +236,29 @@ export async function generateBobOpeningPitch(conversationId?: string): Promise<
     return createFallbackOpening();
   }
 
-  return parseBobResponse(rawResponse);
+  // Debug: Log the raw response to understand what's coming back
+  console.log('[BobPitch] Raw opening response:', rawResponse);
+  console.log('[BobPitch] Raw response length:', rawResponse.length);
+  console.log('[BobPitch] Raw response first 500 chars:', rawResponse.substring(0, 500));
+
+  const result = parseBobResponse(rawResponse);
+  return {
+    ...result,
+    toolResults: capturedToolResults.length > 0 ? capturedToolResults : undefined,
+    clientToolCalls: capturedClientToolCalls.length > 0 ? capturedClientToolCalls : undefined,
+  };
 }
 
 /**
  * Generate Bob's follow-up message
  * @param conversationId - Optional conversation ID for tutorial token limit multiplier
+ * @param onToolResults - Optional callback for tool results
  */
 export async function generateBobFollowUp(
   followUpNumber: number,
   previousMessages: string[],
-  conversationId?: string
+  conversationId?: string,
+  onToolResults?: (serverResults: ToolResult[], clientToolCalls: ToolCall[]) => void
 ): Promise<BobPitchResult> {
   const prompt = buildBobFollowUpPrompt(followUpNumber, previousMessages);
 
@@ -210,6 +267,8 @@ export async function generateBobFollowUp(
   ];
 
   let rawResponse = '';
+  let capturedToolResults: ToolResult[] = [];
+  let capturedClientToolCalls: ToolCall[] = [];
 
   try {
     if (isStreamingSupported()) {
@@ -220,9 +279,18 @@ export async function generateBobFollowUp(
         {
           onDelta: () => {},
           onError: (error) => console.error('[BobPitch] Stream error:', error),
+          onToolResults: (serverResults, clientToolCalls) => {
+            console.log('[BobPitch] Follow-up tool results:', { serverResults, clientToolCalls });
+            capturedToolResults = serverResults;
+            capturedClientToolCalls = clientToolCalls;
+            onToolResults?.(serverResults, clientToolCalls);
+          },
         },
-        undefined,      // parameterOverrides
-        conversationId  // For tutorial token limit multiplier
+        { maxTokens: 1000 },  // Reduced maxTokens for faster response
+        conversationId,       // For tutorial token limit multiplier
+        true,                 // enableTools - enable Bob's AI tools
+        'anthropic',          // Use Anthropic provider
+        'claude-3-haiku-20240307'  // Use Haiku for 3x faster responses
       );
     } else {
       throw new Error('Non-streaming not supported');
@@ -232,7 +300,17 @@ export async function generateBobFollowUp(
     return createFallbackFollowUp(followUpNumber);
   }
 
-  return parseBobResponse(rawResponse, true);
+  // Debug: Log the raw response to understand what's coming back
+  console.log('[BobPitch] Raw follow-up response:', rawResponse);
+  console.log('[BobPitch] Raw follow-up length:', rawResponse.length);
+  console.log('[BobPitch] Raw follow-up first 500 chars:', rawResponse.substring(0, 500));
+
+  const result = parseBobResponse(rawResponse, true);
+  return {
+    ...result,
+    toolResults: capturedToolResults.length > 0 ? capturedToolResults : undefined,
+    clientToolCalls: capturedClientToolCalls.length > 0 ? capturedClientToolCalls : undefined,
+  };
 }
 
 /**
@@ -281,15 +359,59 @@ function splitIntoSentences(text: string): string[] {
 const SENTENCE_PAUSE_DURATION = 1400;
 
 /**
+ * Extract JSON object from a response that might contain extra text
+ * Finds the first { and its matching } to extract just the JSON
+ */
+function extractJsonFromResponse(response: string): string | null {
+  // First, strip markdown code blocks
+  let cleaned = response
+    .replace(/```json\s*/g, '')
+    .replace(/```/g, '')
+    .trim();
+
+  // Find the first opening brace
+  const startIndex = cleaned.indexOf('{');
+  if (startIndex === -1) return null;
+
+  // Find the matching closing brace by counting braces
+  let braceCount = 0;
+  let endIndex = -1;
+
+  for (let i = startIndex; i < cleaned.length; i++) {
+    const char = cleaned[i];
+    if (char === '{') {
+      braceCount++;
+    } else if (char === '}') {
+      braceCount--;
+      if (braceCount === 0) {
+        endIndex = i;
+        break;
+      }
+    }
+  }
+
+  if (endIndex === -1) return null;
+
+  return cleaned.substring(startIndex, endIndex + 1);
+}
+
+/**
  * Parse Bob's response into a scene with sentence-by-sentence reveal
  * Each sentence ends with a 1.4 second pause and displays on a new line
  */
 function parseBobResponse(rawResponse: string, isFollowUp: boolean = false): BobPitchResult {
   try {
-    const cleanJson = rawResponse
-      .replace(/```json\s*/g, '')
-      .replace(/```/g, '')
-      .trim();
+    // Handle empty or whitespace-only responses
+    if (!rawResponse || rawResponse.trim().length === 0) {
+      console.warn('[BobPitch] Empty response received, using fallback');
+      return isFollowUp ? createFallbackFollowUp(1) : createFallbackOpening();
+    }
+
+    const cleanJson = extractJsonFromResponse(rawResponse);
+    if (!cleanJson) {
+      console.error('[BobPitch] No JSON found. Raw response was:', rawResponse.substring(0, 300));
+      throw new Error('No JSON object found in response');
+    }
 
     const parsed = JSON.parse(cleanJson);
     const originalMessage = parsed.greeting || parsed.message || "Hey there!";
