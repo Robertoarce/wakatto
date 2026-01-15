@@ -322,7 +322,7 @@ const ThinkingDots = memo(() => {
   );
 });
 
-export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting, conversationId, savedCharacters, onSaveIdleMessage, initialJoinCode, onConsumeJoinCode, triggerPremiumPitch, onPremiumPitchConsumed, onPaymentSelect, onJoinedConversation }: ChatInterfaceProps) {
+export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSidebar, isLoading = false, onDeleteMessage, animationScene, earlyAnimationSetup, onGreeting, conversationId, savedCharacters, onSaveIdleMessage, initialJoinCode, onConsumeJoinCode, triggerPremiumPitch, onPremiumPitchConsumed, onPaymentSelect, onJoinedConversation, onClearHistory }: ChatInterfaceProps) {
   const dispatch = useDispatch();
   const { isFullscreen } = useSelector((state: RootState) => state.ui);
   const { currentUsage, lastWarningDismissed, lastFetchedAt } = useSelector((state: RootState) => state.usage);
@@ -416,8 +416,6 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const scrollViewRef = useRef<ScrollView>(null);
   // Track user's preferred character display height percentage (for resize persistence)
   const userPreferredPercentRef = useRef<number>(CHARACTER_HEIGHT.DEFAULT_PERCENT);
-  // Store animation data for replay (keyed by message content hash to match messages)
-  const animationDataCacheRef = useRef<Map<string, { segments: AnimationSegment[]; totalDuration: number }>>(new Map());
 
   // Voice recording (hook handles state, refs, and all voice functions)
   const {
@@ -946,18 +944,9 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
       const voiceProfiles = buildVoiceProfilesMap();
       playbackEngineRef.current.setCharacterVoiceProfiles(voiceProfiles);
 
-      // Store animation data for each timeline for replay functionality
-      // Also store text content for TTS synchronization
+      // Store text content for TTS synchronization
       pendingTTSTextRef.current.clear();
       for (const timeline of animationScene.timelines) {
-        // Create a unique key based on characterId + content
-        const cacheKey = `${timeline.characterId}:${timeline.content}`;
-        if (!animationDataCacheRef.current.has(cacheKey)) {
-          animationDataCacheRef.current.set(cacheKey, {
-            segments: timeline.segments,
-            totalDuration: timeline.totalDuration,
-          });
-        }
         // Store text for TTS - this enables voice-driven text sync
         if (timeline.content && timeline.content.trim()) {
           pendingTTSTextRef.current.set(timeline.characterId, timeline.content);
@@ -1692,108 +1681,33 @@ Each silence, a cathedral where you still reside.`;
     playbackEngineRef.current.play(testScene);
   };
 
-  // Replay function - replays all character messages from the conversation
-  // Uses stored animation data when available for authentic playback
-  const handleReplay = () => {
-    // Get only character messages (not user messages)
-    const characterMessages = messages.filter(m => m.characterId && m.content);
-
-    if (characterMessages.length === 0) {
-      showAlert('No Messages', 'No messages to replay yet.');
+  // Handle clear history - confirm before deleting all messages
+  const handleClearHistory = () => {
+    if (!onClearHistory) return;
+    
+    const messageCount = messages.filter(m => m.role === 'assistant' || m.role === 'user').length;
+    if (messageCount === 0) {
+      showAlert('No Messages', 'There are no messages to clear.');
       return;
     }
 
-    // Replay all character messages
-    const messagesToReplay = characterMessages;
-
-    // Build timelines - USE STORED ANIMATION DATA if available
-    const msPerChar = DEFAULT_TALKING_SPEED;
-    let currentDelay = 0;
-
-    const timelines: CharacterTimeline[] = messagesToReplay.map((message) => {
-      const startDelay = currentDelay;
-
-      // Try to get cached animation data
-      const cacheKey = `${message.characterId}:${message.content}`;
-      const cachedData = animationDataCacheRef.current.get(cacheKey);
-
-      let segments: AnimationSegment[];
-      let totalDuration: number;
-
-      if (cachedData) {
-        // Use original animations from cache
-        segments = cachedData.segments;
-        totalDuration = cachedData.totalDuration;
-      } else {
-        // Fallback to generic talking animation
-        const textDuration = message.content.length * msPerChar;
-        segments = [
-          {
-            animation: 'talking' as AnimationState,
-            duration: textDuration,
-            complementary: {
-              lookDirection: 'center' as LookDirection,
-              eyeState: 'open' as EyeState,
-              mouthState: 'open' as MouthState,
-            },
-            isTalking: true,
-            textReveal: {
-              startIndex: 0,
-              endIndex: message.content.length,
-            },
-          },
-          {
-            animation: 'idle' as AnimationState,
-            duration: 500,
-            complementary: {
-              lookDirection: 'center' as LookDirection,
-            },
-            isTalking: false,
-          },
-        ];
-        totalDuration = textDuration + 500;
-      }
-
-      // Add gap between messages (1 second)
-      currentDelay += totalDuration + 1000;
-
-      return {
-        characterId: message.characterId!,
-        content: message.content,
-        totalDuration,
-        segments,
-        startDelay,
-      };
-    });
-
-    const maxEndTime = Math.max(...timelines.map(t => t.startDelay + t.totalDuration));
-
-    const replayScene: OrchestrationScene = {
-      timelines,
-      sceneDuration: maxEndTime,
-      nonSpeakerBehavior: {},
-    };
-
-    // Set voice profiles before playing
-    const voiceProfiles = buildVoiceProfilesMap();
-    playbackEngineRef.current.setCharacterVoiceProfiles(voiceProfiles);
-
-    // Store text for TTS - concatenate all messages per character for replay
-    pendingTTSTextRef.current.clear();
-    for (const timeline of timelines) {
-      if (timeline.content && timeline.content.trim()) {
-        const existing = pendingTTSTextRef.current.get(timeline.characterId);
-        if (existing) {
-          // Concatenate multiple messages from same character
-          pendingTTSTextRef.current.set(timeline.characterId, existing + ' ' + timeline.content);
-        } else {
-          pendingTTSTextRef.current.set(timeline.characterId, timeline.content);
+    showAlert(
+      'Clear History',
+      `Delete all ${messageCount} messages and start fresh?\n\nThis cannot be undone.`,
+      [
+        {
+          text: 'Clear All',
+          style: 'destructive',
+          onPress: () => {
+            onClearHistory();
+          }
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel'
         }
-      }
-    }
-
-    // Start playback
-    playbackEngineRef.current.play(replayScene);
+      ]
+    );
   };
 
   return (
@@ -1858,32 +1772,8 @@ Each silence, a cathedral where you still reside.`;
             </TouchableOpacity>
           </View>
         )}
-        {/* Playback Control Buttons - Flex container for Replay and Stop/Play */}
+        {/* Playback Control Buttons */}
         <View style={styles.playbackButtonsContainer}>
-          {/* Replay Button - replays all messages */}
-          {(() => {
-            const btnPadH = scaleValue(6, 14);
-            const btnPadV = scaleValue(4, 10);
-            const btnGap = scaleValue(4, 10);
-            const iconSize = scaleValue(14, 24);
-            const fontSize = scaleValue(11, 16);
-
-            return (
-              <TouchableOpacity
-                style={[
-                  styles.playbackButton,
-                  { paddingHorizontal: btnPadH, paddingVertical: btnPadV, gap: btnGap }
-                ]}
-                onPress={handleReplay}
-              >
-                <Ionicons name="refresh" size={iconSize} color="#3b82f6" />
-                <Text style={[styles.playbackButtonText, { fontSize, color: '#3b82f6' }]}>
-                  Replay
-                </Text>
-              </TouchableOpacity>
-            );
-          })()}
-
           {/* Stop / Play Button */}
           {(() => {
             const btnPadH = scaleValue(6, 14);
@@ -1931,6 +1821,22 @@ Each silence, a cathedral where you still reside.`;
                     color={soundsEnabled ? "#a855f7" : "#71717a"}
                   />
                 </TouchableOpacity>
+
+                {/* Clear History Button */}
+                {onClearHistory && (
+                  <TouchableOpacity
+                    style={[
+                      styles.playbackButton,
+                      { paddingHorizontal: btnPadH, paddingVertical: btnPadV, gap: btnGap }
+                    ]}
+                    onPress={handleClearHistory}
+                  >
+                    <Ionicons name="trash-outline" size={iconSize} color="#f97316" />
+                    <Text style={[styles.playbackButtonText, { fontSize, color: '#f97316' }]}>
+                      Clear
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             );
           })()}
@@ -2362,17 +2268,9 @@ Each silence, a cathedral where you still reside.`;
         </TouchableOpacity>
       )}
 
-      {/* Landscape Bottom Bar - Replay, Keyboard, Chat Toggle, Collab buttons */}
+      {/* Landscape Bottom Bar - Keyboard, Clear, Chat Toggle, Collab buttons */}
       {isMobileLandscape && (
         <View style={styles.landscapeBottomBar}>
-          {/* Replay Button */}
-          <TouchableOpacity
-            style={styles.landscapeBottomButton}
-            onPress={handleReplay}
-          >
-            <Ionicons name="refresh" size={18} color="#3b82f6" />
-          </TouchableOpacity>
-
           {/* Keyboard Button */}
           {!landscapeInputVisible && (
             <TouchableOpacity
@@ -2380,6 +2278,16 @@ Each silence, a cathedral where you still reside.`;
               onPress={() => setLandscapeInputVisible(true)}
             >
               <Ionicons name="keypad" size={18} color="#a855f7" />
+            </TouchableOpacity>
+          )}
+
+          {/* Clear History Button */}
+          {onClearHistory && (
+            <TouchableOpacity
+              style={styles.landscapeBottomButton}
+              onPress={handleClearHistory}
+            >
+              <Ionicons name="trash-outline" size={18} color="#f97316" />
             </TouchableOpacity>
           )}
 
@@ -3537,7 +3445,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(30, 30, 35, 0.8)',
     borderRadius: 12,
   },
-  // Playback buttons container (holds Replay and Stop/Play side by side)
+  // Playback buttons container
   playbackButtonsContainer: {
     position: 'absolute',
     bottom: 8,

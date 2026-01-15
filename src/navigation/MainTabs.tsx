@@ -508,6 +508,26 @@ export default function MainTabs() {
     }
   };
 
+  // Clear history - delete current conversation and create a new one with same characters
+  const onClearHistory = async () => {
+    if (!currentConversation) return;
+    
+    try {
+      // Get the current characters before deleting
+      const currentCharacters = currentConversation.selected_characters || selectedCharacters || [];
+      
+      // Delete the current conversation
+      await dispatch(deleteConversation(currentConversation.id) as any);
+      
+      // Create a new conversation with the same characters
+      if (currentCharacters.length > 0) {
+        await dispatch(createConversation('New Conversation', currentCharacters) as any);
+      }
+    } catch (error: any) {
+      showAlert('Error', 'Failed to clear history: ' + error.message);
+    }
+  };
+
   // Characters are now fixed at conversation creation - no dynamic changes needed
 
   const [isLoadingAI, setIsLoadingAI] = React.useState(false);
@@ -990,6 +1010,7 @@ The text behaves as it should be.`;
             onPremiumPitchConsumed={onPremiumPitchConsumed}
             onPaymentSelect={onPaymentSelect}
             onJoinedConversation={handleJoinedFromChat}
+            onClearHistory={onClearHistory}
           />
         )}
         {activeTab === 'Library' && <LibraryScreen />}

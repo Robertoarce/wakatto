@@ -182,13 +182,13 @@ const VALID_EYEBROW_STATES: EyebrowState[] = [
 const VALID_MOUTH_STATES: MouthState[] = [
   'closed', 'open', 'smile', 'wide_smile', 'surprised',
   // NEW:
-  'smirk', 'slight_smile', 'pout', 'grimace', 'tense', 'pursed', 'teeth_showing', 'big_grin', 'o_shape'
+  'smirk', 'slight_smile', 'grimace', 'tense', 'kiss', 'teeth_showing', 'big_grin', 'o_shape', 'sad_smile'
 ];
 
 const VALID_FACE_STATES: FaceState[] = [
   'normal', 'sweat_drop', 'sparkle_eyes', 'heart_eyes',
-  'spiral_eyes', 'tears', 'anger_vein', 'shadow_face'
-  // NOTE: 'blush' migrated to CheekState as 'flushed'
+  'spiral_eyes', 'tears', 'anger_vein'
+  // NOTE: 'blush' migrated to CheekState as 'flushed', 'shadow_face' removed
 ];
 
 // NEW: Nose states
@@ -248,17 +248,17 @@ export const EXPRESSION_PRESETS: Record<string, ExpressionPreset> = {
   amused: { ey: 'soft', eb: 'one_raised', m: 'smirk' },
 
   // Negative emotions
-  sad: { ey: 'tearful', eb: 'sad', m: 'pout' },
+  sad: { ey: 'tearful', eb: 'sad', m: 'tense' },
   angry: { ey: 'narrow', eb: 'furrowed', m: 'tense', n: 'flared', j: 'clenched', fc: 'anger_vein' },
   frustrated: { ey: 'narrow', eb: 'deeply_furrowed', m: 'grimace', n: 'flared' },
   annoyed: { ey: 'half_closed', eb: 'furrowed', m: 'tense' },
   disappointed: { ey: 'soft', eb: 'sad', m: 'slight_smile', fh: 'wrinkled' },
 
   // Thinking/Processing
-  thoughtful: { ey: 'half_closed', eb: 'slightly_raised', m: 'pursed', fh: 'wrinkled' },
+  thoughtful: { ey: 'half_closed', eb: 'slightly_raised', m: 'kiss', fh: 'wrinkled' },
   curious: { ey: 'wide', eb: 'one_raised', m: 'open' },
   confused: { ey: 'wide', eb: 'one_raised', m: 'open', fh: 'wrinkled' },
-  skeptical: { ey: 'narrow', eb: 'one_raised', m: 'pursed' },
+  skeptical: { ey: 'narrow', eb: 'one_raised', m: 'kiss' },
 
   // Surprise/Shock
   surprised: { ey: 'wide', eb: 'raised', m: 'o_shape' },
@@ -279,16 +279,16 @@ export const EXPRESSION_PRESETS: Record<string, ExpressionPreset> = {
 
   // Other
   sleepy: { ey: 'half_closed', eb: 'normal', m: 'open', j: 'slack' },
-  bored: { ey: 'half_closed', eb: 'normal', m: 'pursed' },
+  bored: { ey: 'half_closed', eb: 'normal', m: 'kiss' },
   smug: { ey: 'half_closed', eb: 'one_raised', m: 'smirk' },
   mischievous: { ey: 'narrow', eb: 'one_raised', m: 'smirk' },
 
   // Sassy/Attitude
   sassy: { ey: 'half_closed', eb: 'one_raised', m: 'smirk', ck: 'dimpled' },
-  unimpressed: { ey: 'half_closed', eb: 'furrowed', m: 'pursed' },
+  unimpressed: { ey: 'half_closed', eb: 'furrowed', m: 'kiss' },
   judging: { ey: 'narrow', eb: 'one_raised', m: 'tense' },
   teasing: { ey: 'soft', eb: 'one_raised', m: 'smirk', ck: 'dimpled' },
-  eye_roll: { ey: 'half_closed', eb: 'raised', m: 'pursed', fh: 'raised' },
+  eye_roll: { ey: 'half_closed', eb: 'raised', m: 'kiss', fh: 'raised' },
   whatever: { ey: 'half_closed', eb: 'normal', m: 'slight_smile' },
   side_eye: { ey: 'narrow', eb: 'one_raised', m: 'closed' },
   deadpan: { ey: 'half_closed', eb: 'normal', m: 'closed' },
@@ -301,9 +301,9 @@ export const EXPRESSION_PRESETS: Record<string, ExpressionPreset> = {
   superior: { ey: 'half_closed', eb: 'raised', m: 'slight_smile' },
 
   // Threatening/Dark
-  threatening: { ey: 'narrow', eb: 'deeply_furrowed', m: 'tense', fc: 'shadow_face', j: 'clenched' },
-  sinister: { ey: 'narrow', eb: 'furrowed', m: 'smirk', fc: 'shadow_face' },
-  menacing: { ey: 'wide', eb: 'furrowed', m: 'teeth_showing', fc: 'shadow_face', j: 'clenched' },
+  threatening: { ey: 'narrow', eb: 'deeply_furrowed', m: 'tense', j: 'clenched', fh: 'tense' },
+  sinister: { ey: 'narrow', eb: 'furrowed', m: 'smirk', fh: 'tense' },
+  menacing: { ey: 'wide', eb: 'furrowed', m: 'teeth_showing', j: 'clenched', fc: 'anger_vein' },
   vengeful: { ey: 'narrow', eb: 'deeply_furrowed', m: 'grimace', fc: 'anger_vein', n: 'flared' },
   intimidating: { ey: 'narrow', eb: 'furrowed', m: 'closed', fh: 'tense', j: 'clenched' },
 
@@ -315,19 +315,19 @@ export const EXPRESSION_PRESETS: Record<string, ExpressionPreset> = {
   swooning: { ey: 'closed', eb: 'relaxed_upward', m: 'smile', fc: 'heart_eyes', ck: 'flushed' },
 
   // Distress/Pain
-  heartbroken: { ey: 'tearful', eb: 'sad', m: 'pout', fc: 'tears', ck: 'sunken' },
+  heartbroken: { ey: 'tearful', eb: 'sad', m: 'sad_smile', fc: 'tears', ck: 'sunken' },
   devastated: { ey: 'tearful', eb: 'worried', m: 'grimace', fc: 'tears' },
   desperate: { ey: 'wide', eb: 'worried', m: 'open', fc: 'sweat_drop', fh: 'wrinkled' },
-  pleading: { ey: 'tearful', eb: 'worried', m: 'pout', fh: 'wrinkled' },
+  pleading: { ey: 'tearful', eb: 'worried', m: 'open', fh: 'wrinkled' },
   horrified: { ey: 'wide', eb: 'arched_high', m: 'o_shape', fc: 'sweat_drop', j: 'slack' },
   terrified: { ey: 'wide', eb: 'raised', m: 'o_shape', fc: 'sweat_drop', n: 'twitching' },
   pained: { ey: 'closed', eb: 'furrowed', m: 'grimace', fh: 'wrinkled', j: 'clenched' },
 
   // Disgust/Disapproval
   disgusted: { ey: 'narrow', eb: 'furrowed', m: 'grimace', n: 'wrinkled', ck: 'sunken' },
-  repulsed: { ey: 'half_closed', eb: 'furrowed', m: 'pout', n: 'wrinkled' },
+  repulsed: { ey: 'half_closed', eb: 'furrowed', m: 'grimace', n: 'wrinkled' },
   contempt: { ey: 'half_closed', eb: 'one_raised', m: 'smirk', n: 'wrinkled' },
-  disdain: { ey: 'narrow', eb: 'raised', m: 'pursed', fh: 'raised' },
+  disdain: { ey: 'narrow', eb: 'raised', m: 'kiss', fh: 'raised' },
 
   // Extreme emotions
   ecstatic: { ey: 'wide', eb: 'raised', m: 'big_grin', fc: 'sparkle_eyes', ck: 'flushed' },
@@ -338,7 +338,7 @@ export const EXPRESSION_PRESETS: Record<string, ExpressionPreset> = {
   deranged: { ey: 'wide', eb: 'asymmetrical', m: 'teeth_showing', fc: 'spiral_eyes' },
 
   // Subtle/Complex
-  suspicious: { ey: 'narrow', eb: 'one_raised', m: 'pursed', fh: 'wrinkled' },
+  suspicious: { ey: 'narrow', eb: 'one_raised', m: 'kiss', fh: 'wrinkled' },
   intrigued: { ey: 'wide', eb: 'one_raised', m: 'slight_smile' },
   wistful: { ey: 'soft', eb: 'sad', m: 'slight_smile' },
   melancholic: { ey: 'half_closed', eb: 'sad', m: 'slight_smile', ck: 'sunken' },
@@ -361,8 +361,8 @@ export const EXPRESSION_PRESETS: Record<string, ExpressionPreset> = {
 
   // Innocent/Cute
   innocent: { ey: 'wide', eb: 'slightly_raised', m: 'slight_smile', ck: 'flushed' },
-  puppy_eyes: { ey: 'tearful', eb: 'worried', m: 'pout', fc: 'sparkle_eyes' },
-  pouting: { ey: 'half_closed', eb: 'sad', m: 'pout', ck: 'puffed' },
+  puppy_eyes: { ey: 'tearful', eb: 'worried', m: 'kiss', fc: 'sparkle_eyes' },
+  pouting: { ey: 'half_closed', eb: 'sad', m: 'kiss', ck: 'puffed' },
   uwu: { ey: 'closed', eb: 'relaxed_upward', m: 'smile', ck: 'flushed' },
 };
 

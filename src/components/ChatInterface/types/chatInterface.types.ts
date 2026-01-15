@@ -2,16 +2,8 @@
  * Type definitions for ChatInterface
  */
 
-import { OrchestrationScene, AnimationSegment } from '../../../services/animationOrchestration';
+import { OrchestrationScene } from '../../../services/animationOrchestration';
 import { AnimationState, ComplementaryAnimation } from '../../CharacterDisplay3D';
-
-/**
- * Stored animation data for replay functionality
- */
-export interface MessageAnimationData {
-  segments: AnimationSegment[];
-  totalDuration: number;
-}
 
 export interface Message {
   id: string;
@@ -19,8 +11,6 @@ export interface Message {
   content: string;
   created_at?: string;
   characterId?: string; // Which character is speaking (for assistant messages)
-  // Animation data for replay (stored when message is first played)
-  animationData?: MessageAnimationData;
 }
 
 // Early animation setup from streaming
@@ -49,6 +39,8 @@ export interface ChatInterfaceProps {
   savedCharacters?: string[] | null;
   // Callback to save idle conversation messages
   onSaveIdleMessage?: (characterId: string, content: string, metadata?: Record<string, any>) => void;
+  // Callback to clear conversation history and start fresh
+  onClearHistory?: () => void;
 }
 
 // Interface for idle animation state

@@ -72,28 +72,35 @@ export function FaceDecorations({
         </>
       )}
 
-      {/* Forehead States */}
+      {/* Forehead States - positioned more forward to be visible */}
       {complementary?.foreheadState === 'wrinkled' && (
         <>
-          <mesh position={[0 + faceOffset.x, 0.18 + faceOffset.y, 0.24 + faceOffset.z]}>
-            <boxGeometry args={[0.3, 0.01, 0.01]} />
-            <meshBasicMaterial color="#2a2a2a" transparent opacity={0.5} />
+          <mesh position={[0 + faceOffset.x, 0.18 + faceOffset.y, 0.28 + faceOffset.z]}>
+            <boxGeometry args={[0.25, 0.012, 0.01]} />
+            <meshBasicMaterial color="#2a2a2a" transparent opacity={0.6} />
           </mesh>
-          <mesh position={[0 + faceOffset.x, 0.20 + faceOffset.y, 0.24 + faceOffset.z]}>
-            <boxGeometry args={[0.25, 0.01, 0.01]} />
-            <meshBasicMaterial color="#2a2a2a" transparent opacity={0.5} />
+          <mesh position={[0 + faceOffset.x, 0.20 + faceOffset.y, 0.28 + faceOffset.z]}>
+            <boxGeometry args={[0.22, 0.012, 0.01]} />
+            <meshBasicMaterial color="#2a2a2a" transparent opacity={0.6} />
           </mesh>
-          <mesh position={[0 + faceOffset.x, 0.22 + faceOffset.y, 0.24 + faceOffset.z]}>
-            <boxGeometry args={[0.28, 0.01, 0.01]} />
-            <meshBasicMaterial color="#2a2a2a" transparent opacity={0.5} />
+          <mesh position={[0 + faceOffset.x, 0.22 + faceOffset.y, 0.28 + faceOffset.z]}>
+            <boxGeometry args={[0.24, 0.012, 0.01]} />
+            <meshBasicMaterial color="#2a2a2a" transparent opacity={0.6} />
           </mesh>
         </>
       )}
 
       {complementary?.foreheadState === 'tense' && (
-        <mesh position={[0 + faceOffset.x, 0.20 + faceOffset.y, 0.24 + faceOffset.z]}>
-          <boxGeometry args={[0.3, 0.02, 0.01]} />
-          <meshBasicMaterial color="#2a2a2a" transparent opacity={0.6} />
+        <mesh position={[0 + faceOffset.x, 0.20 + faceOffset.y, 0.28 + faceOffset.z]}>
+          <boxGeometry args={[0.26, 0.025, 0.01]} />
+          <meshBasicMaterial color="#2a2a2a" transparent opacity={0.7} />
+        </mesh>
+      )}
+
+      {complementary?.foreheadState === 'raised' && (
+        <mesh position={[0 + faceOffset.x, 0.24 + faceOffset.y, 0.28 + faceOffset.z]}>
+          <boxGeometry args={[0.2, 0.01, 0.01]} />
+          <meshBasicMaterial color="#2a2a2a" transparent opacity={0.4} />
         </mesh>
       )}
 
@@ -233,23 +240,6 @@ export function FaceDecorations({
         </group>
       )}
 
-      {/* Shadow Face - Dark aura/disappointment */}
-      {faceState === 'shadow_face' && (
-        <>
-          <mesh position={[0 + faceOffset.x, 0.08 + faceOffset.y, 0.23 + faceOffset.z]}>
-            <boxGeometry args={[0.4, 0.15, 0.02]} />
-            <meshBasicMaterial color="#1a1a2e" transparent opacity={0.7} />
-          </mesh>
-          <mesh position={[-0.1 + faceOffset.x, 0.05 + faceOffset.y, 0.25 + faceOffset.z]}>
-            <circleGeometry args={[0.02, 8]} />
-            <meshBasicMaterial color="#ffffff" />
-          </mesh>
-          <mesh position={[0.1 + faceOffset.x, 0.05 + faceOffset.y, 0.25 + faceOffset.z]}>
-            <circleGeometry args={[0.02, 8]} />
-            <meshBasicMaterial color="#ffffff" />
-          </mesh>
-        </>
-      )}
     </>
   );
 }

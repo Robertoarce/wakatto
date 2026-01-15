@@ -2092,15 +2092,21 @@ const Character = React.memo(function Character({ character, isActive, animation
           accessoryColor={character.model3D.accessoryColor}
         />
 
-        {/* Eyes */}
-        <mesh ref={leftEyeRef} position={[-0.12 * headScale, 0.05 + faceYOffset, 0.26 * headScale]}>
-          <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.01]} />
-          <meshBasicMaterial color="#3a3a3a" />
-        </mesh>
-        <mesh ref={rightEyeRef} position={[0.12 * headScale, 0.05 + faceYOffset, 0.26 * headScale]}>
-          <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.01]} />
-          <meshBasicMaterial color="#3a3a3a" />
-        </mesh>
+        {/* Eyes - hidden when special eye face states are active */}
+        {complementary?.faceState !== 'spiral_eyes' && 
+         complementary?.faceState !== 'sparkle_eyes' && 
+         complementary?.faceState !== 'heart_eyes' && (
+          <>
+            <mesh ref={leftEyeRef} position={[-0.12 * headScale, 0.05 + faceYOffset, 0.26 * headScale]}>
+              <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.01]} />
+              <meshBasicMaterial color="#3a3a3a" />
+            </mesh>
+            <mesh ref={rightEyeRef} position={[0.12 * headScale, 0.05 + faceYOffset, 0.26 * headScale]}>
+              <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.01]} />
+              <meshBasicMaterial color="#3a3a3a" />
+            </mesh>
+          </>
+        )}
 
         {/* Eyebrows - Blocky style (or Unibrow) */}
         {(() => {
@@ -2497,9 +2503,9 @@ const Character = React.memo(function Character({ character, isActive, animation
           <meshStandardMaterial color={skinColor} roughness={0.6} />
         </mesh>
 
-        {/* Mouth - hidden when smiling */}
-        {/* Blocky mouth - scale controlled by animation loop in useFrame (mouthRef.current.scale) */}
-        {complementary?.mouthState !== 'smile' && complementary?.mouthState !== 'wide_smile' && (
+        {/* Mouth - hidden when other mouth states are active (except smile/wide_smile which use the ref) */}
+        {/* Default mouth - only show when no special mouth state is set */}
+        {!complementary?.mouthState && (
           <mesh ref={mouthRef} position={[0, -0.18 + faceYOffset, 0.26 * headScale]}>
             <circleGeometry args={[0.07 * headScale, 20]} />
             <meshBasicMaterial color="#2a2a2a" />
@@ -2524,24 +2530,49 @@ const Character = React.memo(function Character({ character, isActive, animation
 
         {/* NEW: Smirk - asymmetrical smile */}
         {complementary?.mouthState === 'smirk' && (
-          <mesh position={[0, -0.14 + faceYOffset, 0.27 * headScale]} rotation={[0, 0, Math.PI + 0.2]}>
-            <torusGeometry args={[0.08 * headScale, 0.015 * headScale, 8, 16, Math.PI]} />
+          <mesh 
+          position={[-0.05, -0.12 + faceYOffset, 0.28 * headScale]} 
+          rotation-z={Math.PI + 0.1}
+          scale={headScale}
+        >
+          <torusGeometry args={[0.07, 0.012, 10, 20, Math.PI * 0.7]} />
+          <meshBasicMaterial color="#1a1a1a" />
+        </mesh>
+        )}
+
+        {/* Open mouth - small open circle */}
+        {complementary?.mouthState === 'open' && (
+          <mesh position={[0, -0.17 + faceYOffset, 0.27 * headScale]}>
+            <circleGeometry args={[0.05 * headScale, 20]} />
             <meshBasicMaterial color="#2a2a2a" />
           </mesh>
+        )}
+
+        {/* Surprised mouth - larger O shape */}
+        {complementary?.mouthState === 'surprised' && (
+          <group position={[0, -0.2 + faceYOffset, 0.28 * headScale]}>
+            {/* Outer lip ring */}
+            
+            {/* Dark interior */}
+            <mesh position={[0, 0, -0.01]}>
+              <circleGeometry args={[0.055 * headScale, 20]} />
+              <meshBasicMaterial color="#1a1a1a" />
+            </mesh>
+          </group>
         )}
 
         {/* NEW: Slight smile - subtle */}
         {complementary?.mouthState === 'slight_smile' && (
-          <mesh position={[0, -0.14 + faceYOffset, 0.27 * headScale]} rotation={[0, 0, Math.PI]}>
-            <torusGeometry args={[0.06 * headScale, 0.012 * headScale, 8, 16, Math.PI]} />
+          <mesh position={[0, -0.14 + faceYOffset, 0.3 * headScale]} rotation={[0, 0, Math.PI]}>
+            <torusGeometry args={[0.05 * headScale, 0.012 * headScale, 8, 50, Math.PI]} />
             <meshBasicMaterial color="#2a2a2a" />
           </mesh>
         )}
 
-        {/* NEW: Pout - protruding lips */}
-        {complementary?.mouthState === 'pout' && (
-          <mesh position={[0, -0.16 + faceYOffset, 0.29 * headScale]}>
-            <circleGeometry args={[0.07 * headScale, 20]} />
+        {/* Sad smile - inverted slight smile (frown) */}
+        {complementary?.mouthState === 'sad_smile' && (
+          <mesh position={[0, -0.18 + faceYOffset, 0.3 * headScale]} rotation={[0, 0, 0]}>
+            <torusGeometry args={[0.05 * headScale, 0.012 * headScale, 8, 50, Math.PI]} />
             <meshBasicMaterial color="#2a2a2a" />
           </mesh>
         )}
@@ -2562,26 +2593,68 @@ const Character = React.memo(function Character({ character, isActive, animation
           </mesh>
         )}
 
-        {/* NEW: Pursed - small tight circle */}
-        {complementary?.mouthState === 'pursed' && (
-          <mesh position={[0, -0.18 + faceYOffset, 0.26 * headScale]}>
-            <circleGeometry args={[0.04 * headScale, 20]} />
-            <meshBasicMaterial color="#2a2a2a" />
-          </mesh>
-        )}
-
-        {/* NEW: Teeth showing - smile with teeth */}
-        {complementary?.mouthState === 'teeth_showing' && (
-          <>
-            <mesh position={[0, -0.14 + faceYOffset, 0.27 * headScale]} rotation={[0, 0, Math.PI]}>
-              <torusGeometry args={[0.08 * headScale, 0.015 * headScale, 8, 16, Math.PI]} />
+        {/* Kiss lips (puckered) */}
+        {complementary?.mouthState === 'kiss' && (
+          <group position={[0, -0.16 + faceYOffset, 0.30 * headScale]}>
+           {/* upper lip BIG */}
+           <mesh position={[0.019 * headScale, 0.02, 0]} rotation={[0, 0, -0.5]}>
+              <boxGeometry args={[0.05 * headScale, 0.012 * headScale, 0.005]} />
               <meshBasicMaterial color="#2a2a2a" />
             </mesh>
-            <mesh position={[0, -0.16 + faceYOffset, 0.27 * headScale]}>
-              <boxGeometry args={[0.12 * headScale, 0.04 * headScale, 0.01]} />
-              <meshBasicMaterial color="#f5f5f5" />
+            {/* Upper lip - low part */}
+            <mesh position={[0.019 * headScale,0, 0]} rotation={[0, 0, 0.45]}>
+              <boxGeometry args={[0.035 * headScale, 0.010 * headScale, 0.005]} />
+              <meshBasicMaterial color="#2a2a2a" />
             </mesh>
-          </>
+
+            
+            {/* low lip - upper part */}
+            <mesh position={[0.02 * headScale,-0.01, 0]} rotation={[0, 0, -0.6]}>
+              <boxGeometry args={[0.027 * headScale, 0.010 * headScale, 0.005]} />
+              <meshBasicMaterial color="#2a2a2a" />
+            </mesh>
+
+            {/* LOW lip - low part */}
+            <mesh position={[0.015 * headScale, -0.03, 0.005]} rotation={[0, 0, 0.5]}>
+              <boxGeometry args={[0.05 * headScale, 0.012 * headScale, 0.006]} />
+              <meshBasicMaterial color="#2a2a2a" />
+            </mesh>
+          </group>
+        )}
+
+        {/* NEW: Grimacing Smile - Wide rectangular teeth show */}
+        {complementary?.mouthState === 'teeth_showing' && (
+          <group position={[0, -0.14 + faceYOffset, 0.26 * headScale]}>
+            
+            {/* Optional: Thin upper lip edge for tension (dark line above teeth) */}
+            <mesh position={[0, -0.02, 0.005]} rotation={[0, 0, Math.PI / 2]}>
+               {/* Capsule: radius, length, radialSegments, heightSegments */}
+              <capsuleGeometry args={[0.04 * headScale, 0.12 * headScale, 16, 4]} />
+              {/* <boxGeometry args={[0.2 * headScale, 0.007 * headScale, 0.005]} /> */}
+              <meshBasicMaterial color="#2a2a2a" />
+            </mesh>
+
+            
+            
+            
+
+           {/* The Teeth Block (Main white area) — wider and slightly taller */}
+           <mesh position={[0, -0.015, 0]}>
+              <boxGeometry args={[0.18 * headScale, 0.06 * headScale, 0.005]} />
+              <meshBasicMaterial color="#ffffff" />
+            </mesh>
+
+            {/* Vertical Tooth Dividers — more subtle, slightly inset */}
+            {[-0.06, -0.02, 0.02, 0].map((xPos, i) => (
+              <mesh key={i} position={[xPos * headScale, -0.015, 0]}>
+                <boxGeometry args={[0.003 * headScale, 0.06 * headScale, 0.005]} />
+                <meshBasicMaterial color="#e0e0e0" />
+              </mesh>
+            ))}
+ 
+
+           
+          </group>
         )}
 
         {/* NEW: Big grin - extra wide smile */}
@@ -2592,12 +2665,15 @@ const Character = React.memo(function Character({ character, isActive, animation
           </mesh>
         )}
 
-        {/* NEW: O-shape - perfect circle */}
+        {/* NEW: O-shape - open mouth (surprised/wow) */}
         {complementary?.mouthState === 'o_shape' && (
-          <mesh position={[0, -0.18 + faceYOffset, 0.26 * headScale]}>
-            <circleGeometry args={[0.06 * headScale, 20]} />
-            <meshBasicMaterial color="#2a2a2a" />
-          </mesh>
+          <group position={[0, -0.16 + faceYOffset, 0.28 * headScale]}>
+            <mesh position={[0, -0.02, 0.005]} rotation={[0, 0, Math.PI / 2]}>
+               {/* Capsule: radius, length, radialSegments, heightSegments */}
+              <capsuleGeometry args={[0.04 * headScale, 0.12 * headScale, 16, 4]} />
+              <meshBasicMaterial color="#2a2a2a" />
+            </mesh>
+          </group>
         )}
 
         {/* PIPE - smoking pipe in mouth (moves with head) */}
@@ -2835,18 +2911,24 @@ export function CharacterDisplay3D({
   useEffect(() => {
     if (Platform.OS !== 'web') return; // Only on web
 
-    const handleKeyDown = (e: KeyboardEvent) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleKeyDown = (e: any) => {
       if (e.key === 'Shift') setShiftPressed(true);
     };
-    const handleKeyUp = (e: KeyboardEvent) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleKeyUp = (e: any) => {
       if (e.key === 'Shift') setShiftPressed(false);
     };
 
+    // @ts-ignore - DOM APIs only available on web
     window.addEventListener('keydown', handleKeyDown);
+    // @ts-ignore - DOM APIs only available on web
     window.addEventListener('keyup', handleKeyUp);
 
     return () => {
+      // @ts-ignore - DOM APIs only available on web
       window.removeEventListener('keydown', handleKeyDown);
+      // @ts-ignore - DOM APIs only available on web
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, []);
@@ -3053,11 +3135,12 @@ export function CharacterDisplay3D({
         )}
 
         <OrbitControls
-          enableZoom={shiftPressed}
-          enablePan={false}
+          enableZoom={true}
+          enablePan={true}
+          enableRotate={true}
           minPolarAngle={Math.PI / 3}
           maxPolarAngle={Math.PI / 2}
-          minDistance={1.5}
+          minDistance={0.5}
           maxDistance={8}
           zoomSpeed={0.8}
         />

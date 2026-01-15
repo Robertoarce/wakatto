@@ -92,13 +92,13 @@ export type MouthState =
   | 'surprised'         // O-shape
   | 'smirk'             // Asymmetrical torus
   | 'slight_smile'      // Subtle smile
-  | 'pout'              // Protruding lips
   | 'grimace'           // Tense wide mouth
   | 'tense'             // Pressed thin line
-  | 'pursed'            // Small tight circle
+  | 'kiss'              // Kiss lips (puckered)
   | 'teeth_showing'     // Smile with visible teeth
   | 'big_grin'          // Extra wide smile
-  | 'o_shape';          // Perfect O
+  | 'o_shape'           // Perfect O
+  | 'sad_smile';        // Inverted smile (frown)
 
 // Face state types (anime-style decorations)
 export type FaceState =
@@ -108,8 +108,7 @@ export type FaceState =
   | 'heart_eyes'        // Love/admiration
   | 'spiral_eyes'       // Dizzy/confused
   | 'tears'             // Crying streams
-  | 'anger_vein'        // Anime anger mark
-  | 'shadow_face';      // Dark aura/disappointment
+  | 'anger_vein';       // Anime anger mark
 
 // Nose state types
 export type NoseState =

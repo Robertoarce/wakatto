@@ -120,10 +120,10 @@ const MOUTH_STATES: { value: MouthState; label: string; icon: string }[] = [
   { value: 'surprised', label: 'Surprised', icon: '😲' },
   { value: 'smirk', label: 'Smirk', icon: '😏' },
   { value: 'slight_smile', label: 'Slight Smile', icon: '🙂' },
-  { value: 'pout', label: 'Pout', icon: '😙' },
+  { value: 'sad_smile', label: 'Sad Smile', icon: '🙁' },
   { value: 'grimace', label: 'Grimace', icon: '😬' },
   { value: 'tense', label: 'Tense/Pressed', icon: '😑' },
-  { value: 'pursed', label: 'Pursed Lips', icon: '😗' },
+  { value: 'kiss', label: 'Kiss Lips', icon: '😘' },
   { value: 'teeth_showing', label: 'Teeth Showing', icon: '😬' },
   { value: 'big_grin', label: 'Big Grin', icon: '😃' },
   { value: 'o_shape', label: 'O-Shape', icon: '😯' },
@@ -214,7 +214,6 @@ const FACE_STATES: { value: FaceState; label: string; icon: string }[] = [
   { value: 'spiral_eyes', label: 'Spiral Eyes', icon: '😵' },
   { value: 'tears', label: 'Tears', icon: '😭' },
   { value: 'anger_vein', label: 'Anger Vein', icon: '💢' },
-  { value: 'shadow_face', label: 'Shadow Face', icon: '😔' },
 ];
 
 // Nose states
@@ -412,7 +411,7 @@ const AnimationsScreen = ({ onNavigateToChat }: AnimationsScreenProps): JSX.Elem
   const [currentAnimation, setCurrentAnimation] = useState<AnimationState>('idle');
   const [isTalking, setIsTalking] = useState(false);
   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null); // null = custom mode
-  const [customCharacterId, setCustomCharacterId] = useState<string>('freud'); // Default custom selection
+  const [customCharacterId, setCustomCharacterId] = useState<string>('adler'); // Default custom selection
   const [showCustomPicker, setShowCustomPicker] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedModelStyle, setSelectedModelStyle] = useState<ModelStyle>('blocky');
