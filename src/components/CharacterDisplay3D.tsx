@@ -274,8 +274,13 @@ const Character = React.memo(function Character({ character, isActive, animation
       let targetHeadRotZ = 0;
       let targetHeadPosZ = 0; // Head moves forward when nodding to prevent chin clipping
       let targetLeftArmRotX = 0;
+      let targetLeftArmRotY = 0;
       let targetLeftArmRotZ = 0;
+      let targetLeftArmPosX = 0; // Shoulder left/right offset
+      let targetLeftArmPosY = 0; // Shoulder up/down offset
+      let targetLeftArmPosZ = 0; // Shoulder forward/backward offset
       let targetRightArmRotX = 0;
+      let targetRightArmRotY = 0;
       let targetRightArmRotZ = 0;
       let targetRightArmPosX = 0; // Shoulder left/right offset
       let targetRightArmPosY = 0; // Shoulder up/down offset
@@ -829,10 +834,24 @@ const Character = React.memo(function Character({ character, isActive, animation
           targetMeshY = Math.sin(time * 0.4) * 0.02;
           targetHeadRotY = Math.sin(time * 0.6) * 0.1;
           targetHeadRotZ = Math.sin(time * 0.4) * 0.05;
-          targetLeftArmRotX = -1.5; // Arm bent across chest
-          targetLeftArmRotZ = 0.8;
-          targetRightArmRotX = -1.5;
-          targetRightArmRotZ = -0.8;
+          // Left arm crosses over to right side
+          targetLeftArmRotX = -1.8; //hand height
+          targetLeftArmRotY = 0.8;
+          targetLeftArmRotZ = 0.5;
+
+          targetLeftArmPosX = 0.3; // Move toward center
+          targetLeftArmPosZ = 0.4; // Move forward
+          
+          targetLeftForearmRotX = -1.6; // Bend elbow
+          // Right arm crosses under to left side
+          targetRightArmRotX = -0.5;
+          targetRightArmRotY = -0.8; // to interior rotation
+          targetRightArmRotZ = -0.6;
+
+          targetRightArmPosX = -0.3; // Move toward center
+          targetRightArmPosZ = 0.4; // Move forward (slightly less, it's under)
+          
+          targetRightForearmRotX = -1.6; // Bend elbow
           break;
 
         case 'nod':
@@ -893,14 +912,21 @@ const Character = React.memo(function Character({ character, isActive, animation
           targetMeshY = Math.abs(Math.sin(time * 3)) * 0.08;
           targetHeadRotZ = Math.sin(time * 2) * 0.1;
           // Clapping motion - arms come together
-          const clapPhase = Math.sin(time * 6);
-          targetLeftArmRotX = -1.5;
-          targetLeftArmRotZ = clapPhase * 0.4;
-          targetRightArmRotX = -1.5;
-          targetRightArmRotZ = -clapPhase * 0.4;
-          // Forearms bent inward for clapping
-          targetLeftForearmRotX = -0.8 + clapPhase * 0.3;
-          targetRightForearmRotX = -0.8 + clapPhase * 0.3;
+          const clapPhase = Math.sin(time * 12);
+          const clapTogether = (clapPhase ) / 2; // 0 to 1, peaks when hands meet
+          // Both arms raised in front
+          targetLeftArmRotX = -1.2;
+          targetLeftArmRotZ = 0.3 - clapTogether * 3; // Swing inward on clap
+          targetLeftArmPosX = 0.14  ; // Move toward center
+          targetLeftArmPosZ = 0.35; // Move forward
+          targetLeftArmPosY = -0.07; // Move arm down
+          targetLeftForearmRotX = -0.5;
+          targetRightArmPosY = -0.07; // Move arm down
+          targetRightArmRotX = -1.3; //shoulder pos in horizontal x
+          targetRightArmRotZ = -0.3 + clapTogether * 3; // Swing inward on clap
+          targetRightArmPosX = -0.14 ; // Move toward center
+          targetRightArmPosZ = 0.35; // Move forward
+          targetRightForearmRotX = -0.5;
           break;
 
         case 'bow':
@@ -1150,15 +1176,24 @@ const Character = React.memo(function Character({ character, isActive, animation
 
         case 'rub_eyes':
           // Rub eyes - tiredly rubbing eyes with both hands
-          const rubCycle = (Math.sin(time * 1.5) + 1) / 2;
+          const rubCycle = (Math.sin(time * 3) + 1) / 2;
           targetMeshY = Math.sin(time * 0.5) * 0.01;
-          targetHeadRotX = 0.15 + rubCycle * 0.1 + lookXOffset; // Head slightly down
+          targetHeadRotX = 0.2 + lookXOffset; // Head slightly down
           targetHeadRotY = lookYOffset;
-          // Both hands to eyes
-          targetLeftArmRotX = -2.0 - rubCycle * 0.2;
-          targetLeftArmRotZ = -0.3 + Math.sin(time * 4) * 0.1; // Rubbing motion
-          targetRightArmRotX = -2.0 - rubCycle * 0.2;
-          targetRightArmRotZ = 0.3 + Math.sin(time * 4 + Math.PI) * 0.1; // Rubbing motion
+          targetHeadPosZ = 0.15; // Head slightly forward
+          // Both hands to eyes - need position offsets to reach face
+          targetLeftArmRotX = -2.3;
+          targetLeftArmRotZ = -0.4 + Math.sin(time * 4) * 0.15; // Rubbing motion
+          targetLeftArmPosX = 0.25; // Move toward center/face
+          targetLeftArmPosZ = 0.4; // Move forward to face
+          targetLeftArmPosY = 0.1; // Lift slightly
+          targetLeftForearmRotX = -1.3; // Bend elbow to bring hand to eye
+          targetRightArmRotX = -2.3;
+          targetRightArmRotZ = 0.4 + Math.sin(time * 4 + Math.PI) * 0.15; // Rubbing motion
+          targetRightArmPosX = -0.25; // Move toward center/face
+          targetRightArmPosZ = 0.4; // Move forward to face
+          targetRightArmPosY = 0.1; // Lift slightly
+          targetRightForearmRotX = -1.3; // Bend elbow to bring hand to eye
           // Eyes closed while rubbing
           targetLeftEyeScaleY = 0.1;
           targetRightEyeScaleY = 0.1;
@@ -1242,10 +1277,16 @@ const Character = React.memo(function Character({ character, isActive, animation
       }
       if (leftArmRef.current) {
         leftArmRef.current.rotation.x = lerp(leftArmRef.current.rotation.x, targetLeftArmRotX, transitionSpeed);
+        leftArmRef.current.rotation.y = lerp(leftArmRef.current.rotation.y, targetLeftArmRotY, transitionSpeed);
         leftArmRef.current.rotation.z = lerp(leftArmRef.current.rotation.z, targetLeftArmRotZ, transitionSpeed);
+        // Position offsets are relative to base arm position (note: left arm X is negative)
+        leftArmRef.current.position.x = lerp(leftArmRef.current.position.x, -body.armX + targetLeftArmPosX, transitionSpeed);
+        leftArmRef.current.position.y = lerp(leftArmRef.current.position.y, body.armY + targetLeftArmPosY, transitionSpeed);
+        leftArmRef.current.position.z = lerp(leftArmRef.current.position.z, targetLeftArmPosZ, transitionSpeed);
       }
       if (rightArmRef.current) {
         rightArmRef.current.rotation.x = lerp(rightArmRef.current.rotation.x, targetRightArmRotX, transitionSpeed);
+        rightArmRef.current.rotation.y = lerp(rightArmRef.current.rotation.y, targetRightArmRotY, transitionSpeed);
         rightArmRef.current.rotation.z = lerp(rightArmRef.current.rotation.z, targetRightArmRotZ, transitionSpeed);
         // Position offsets are relative to base arm position
         rightArmRef.current.position.x = lerp(rightArmRef.current.position.x, body.armX + targetRightArmPosX, transitionSpeed);

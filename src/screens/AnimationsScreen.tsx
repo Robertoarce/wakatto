@@ -575,7 +575,8 @@ const AnimationsScreen = ({ onNavigateToChat }: AnimationsScreenProps): JSX.Elem
                 fov={25}
                 cameraX={0}
                 cameraY={0.7}
-                characterY={-0.2}
+                characterY={-0.3}
+                characterX={-0.3}
               />
             </View>
             
