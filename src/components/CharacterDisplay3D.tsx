@@ -1376,6 +1376,7 @@ const Character = React.memo(function Character({ character, isActive, animation
 
   // Facial accessories
   const hasBeard = accessories.includes('beard');
+  const hasThinBeard = accessories.includes('thin_beard');
   const hasMoustache = accessories.includes('moustache');
   const hasEyePatch = accessories.includes('eye_patch');
   const hasScar = accessories.includes('scar');
@@ -2185,6 +2186,47 @@ const Character = React.memo(function Character({ character, isActive, animation
           </>
         )}
 
+        {/* THIN BEARD - Follows jawline and around mouth */}
+        {hasThinBeard && (
+          <>
+            {/* Left jaw line */}
+            <mesh position={[-0.23 * headScale, -0.18 + faceYOffset, 0.24 * headScale]} castShadow>
+              <boxGeometry args={[0.08 * headScale, 0.16 * headScale, 0.08 * headScale]} />
+              <meshStandardMaterial color={hairColor} roughness={0.8} />
+            </mesh>
+            {/* Right jaw line */}
+            <mesh position={[0.24 * headScale, -0.18 + faceYOffset, 0.24 * headScale]} castShadow>
+              <boxGeometry args={[0.08 * headScale, 0.16 * headScale, 0.08 * headScale]} />
+              <meshStandardMaterial color={hairColor} roughness={0.8} />
+            </mesh>
+            {/* Chin center */}
+            <mesh position={[0, -0.28 + faceYOffset, 0.24 * headScale]} castShadow>
+              <boxGeometry args={[0.22 * headScale, 0.06 * headScale, 0.06 * headScale]} />
+              <meshStandardMaterial color={hairColor} roughness={0.8} />
+            </mesh>
+            {/* Left down corner connecting jaw to chin */}
+            <mesh position={[-0.15 * headScale, -0.25 + faceYOffset, 0.24 * headScale]} castShadow>
+              <boxGeometry args={[0.08 * headScale, 0.06 * headScale, 0.06 * headScale]} />
+              <meshStandardMaterial color={hairColor} roughness={0.8} />
+            </mesh>
+            {/* Right down corner connecting jaw to chin */}
+            <mesh position={[0.15 * headScale, -0.25 + faceYOffset, 0.24 * headScale]} castShadow>
+              <boxGeometry args={[0.08 * headScale, 0.06 * headScale, 0.06 * headScale]} />
+              <meshStandardMaterial color={hairColor} roughness={0.8} />
+            </mesh>
+            {/* Thin moustache - left */}
+            <mesh position={[-0.06 * headScale, -0.11 + faceYOffset, 0.24 * headScale]} castShadow>
+              <boxGeometry args={[0.08 * headScale, 0.03 * headScale, 0.03 * headScale]} />
+              <meshStandardMaterial color={hairColor} roughness={0.8} />
+            </mesh>
+            {/* Thin moustache - right */}
+            <mesh position={[0.06 * headScale, -0.11 + faceYOffset, 0.24 * headScale]} castShadow>
+              <boxGeometry args={[0.08 * headScale, 0.03 * headScale, 0.03 * headScale]} />
+              <meshStandardMaterial color={hairColor} roughness={0.8} />
+            </mesh>
+          </>
+        )}
+
         {/* MOUSTACHE - Bushy blocky style */}
         {hasMoustache && (
           <>
@@ -2719,7 +2761,7 @@ const Character = React.memo(function Character({ character, isActive, animation
         )}
 
         {/* Anime Face Decorations */}
-        <FaceDecorations complementary={complementary} />
+        <FaceDecorations complementary={complementary} headScale={headScale} />
           </group>
         );
       })()}

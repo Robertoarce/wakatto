@@ -382,25 +382,28 @@ function parseMultiCharacterResponse(
     return createFallbackStarter(characterIds);
   }
 
-  // Extract responses from timelines - deduplicate by character (keep first occurrence)
-  const seenCharacters = new Set<string>();
-  const responses: Array<{ characterId: string; content: string }> = [];
+  // Sort timelines by startDelay to ensure correct speaking order
+  const sortedTimelines = [...scene.timelines].sort((a, b) => a.startDelay - b.startDelay);
 
-  for (const t of scene.timelines) {
-    if (!seenCharacters.has(t.characterId)) {
-      seenCharacters.add(t.characterId);
-      responses.push({
-        characterId: t.characterId,
-        content: t.content,
-      });
-    }
-  }
+  // Log timeline order for debugging
+  console.log('[ConversationStarter] Timeline order (sorted by startDelay):');
+  sortedTimelines.forEach((t, idx) => {
+    console.log(`  [${idx + 1}] ${t.characterId}: startDelay=${t.startDelay}ms, content="${t.content.substring(0, 50)}..."`);
+  });
 
-  // Check if any characters are missing from the response
+  // Extract ALL responses from timelines in speaking order (no deduplication)
+  // This ensures every exchange in the conversation is saved
+  const responses: Array<{ characterId: string; content: string }> = sortedTimelines.map(t => ({
+    characterId: t.characterId,
+    content: t.content,
+  }));
+
+  // Check if any characters are missing from the response (didn't speak at all)
+  const seenCharacters = new Set(sortedTimelines.map(t => t.characterId));
   const missingCharacters = characterIds.filter(id => !seenCharacters.has(id));
   if (missingCharacters.length > 0) {
     console.warn('[ConversationStarter] Missing characters in AI response:', missingCharacters);
-    // Add simple greeting for missing characters
+    // Add simple greeting for missing characters at the end
     for (const charId of missingCharacters) {
       const char = getCharacter(charId);
       responses.push({
@@ -410,7 +413,8 @@ function parseMultiCharacterResponse(
     }
   }
 
-  console.log('[ConversationStarter] Parsed', responses.length, 'unique character responses:', JSON.stringify(responses.map(r => r.characterId)));
+  console.log('[ConversationStarter] Extracted', responses.length, 'responses in order:', 
+    responses.map((r, i) => `[${i + 1}] ${r.characterId}`).join(', '));
   console.log('[ConversationStarter] Scene has', scene.timelines.length, 'timelines');
 
   return { scene, responses };

@@ -1261,10 +1261,17 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
                   // Set animation scene for playback
                   playbackEngineRef.current.play(scene);
 
-                  // Save all messages to database
-                  responses.forEach(r => {
-                    onGreeting(r.characterId, r.content);
-                  });
+                  // Save all messages to database SEQUENTIALLY to preserve order
+                  // Using async IIFE to allow await inside setTimeout callback
+                  (async () => {
+                    console.log('[ConversationStarter] Saving', responses.length, 'messages sequentially...');
+                    for (let i = 0; i < responses.length; i++) {
+                      const r = responses[i];
+                      console.log(`[ConversationStarter] Saving message ${i + 1}/${responses.length}: ${r.characterId}`);
+                      await onGreeting(r.characterId, r.content);
+                    }
+                    console.log('[ConversationStarter] All messages saved in order');
+                  })();
                 }
               }, remainingEntranceTime);
             })
@@ -1383,10 +1390,17 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
                 // Set animation scene for playback
                 playbackEngineRef.current.play(scene);
 
-                // Save all messages to database
-                responses.forEach(r => {
-                  onGreeting(r.characterId, r.content);
-                });
+                // Save all messages to database SEQUENTIALLY to preserve order
+                // Using async IIFE to allow await inside setTimeout callback
+                (async () => {
+                  console.log('[ConversationStarter] Saving', responses.length, 'messages sequentially (pre-selected)...');
+                  for (let i = 0; i < responses.length; i++) {
+                    const r = responses[i];
+                    console.log(`[ConversationStarter] Saving message ${i + 1}/${responses.length}: ${r.characterId}`);
+                    await onGreeting(r.characterId, r.content);
+                  }
+                  console.log('[ConversationStarter] All messages saved in order (pre-selected)');
+                })();
               }
             }, remainingEntranceTime);
           })
@@ -1424,6 +1438,20 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   useEffect(() => {
     setNameKey(prev => prev + 1);
   }, [selectedCharacters]);
+
+  // Debug: Log message display order when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      console.log('\n---------- MESSAGE DISPLAY ORDER ----------');
+      messages.forEach((msg, idx) => {
+        const charId = msg.characterId || 'user';
+        const role = msg.role;
+        const preview = msg.content?.substring(0, 40) || '';
+        console.log(`[${idx + 1}] ${role}/${charId}: "${preview}..."`);
+      });
+      console.log('-------------------------------------------\n');
+    }
+  }, [messages.length]); // Only log when message count changes
 
   // Characters are now fixed at conversation creation - no need to persist changes
   // The savedCharacters prop is read-only and set when conversation is created

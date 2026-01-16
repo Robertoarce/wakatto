@@ -1452,6 +1452,14 @@ function convertSimplifiedScene(
     Math.max(max, t.startDelay + t.totalDuration), 0
   );
 
+  // Log final timeline order for debugging display order issues
+  console.log('\n---------- FINAL TIMELINE ORDER (Display Order) ----------');
+  timelines.forEach((t, index) => {
+    console.log(`[${index + 1}] ${t.characterId}: startDelay=${t.startDelay}ms, duration=${t.totalDuration}ms, content="${t.content.substring(0, 40)}..."`);
+  });
+  console.log(`Total scene duration: ${sceneDuration}ms`);
+  console.log('-----------------------------------------------------------\n');
+
   return {
     timelines,
     sceneDuration,

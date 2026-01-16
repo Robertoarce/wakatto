@@ -4,30 +4,46 @@ import { ComplementaryAnimation } from '../types';
 interface FaceDecorationsProps {
   complementary?: ComplementaryAnimation;
   faceOffset?: { x: number; y: number; z: number };
+  headScale?: number;
 }
 
 /**
  * Renders anime-style face decorations based on the complementary animation state.
  * Includes cheek states, forehead states, tears, and special eye effects.
+ * All positions and sizes are scaled by headScale for different head sizes.
  */
 export function FaceDecorations({
   complementary,
-  faceOffset = { x: 0, y: 0, z: 0 }
+  faceOffset = { x: 0, y: 0, z: 0 },
+  headScale = 1
 }: FaceDecorationsProps) {
   const faceState = complementary?.faceState;
-  if (!faceState || faceState === 'normal') return null;
+  const foreheadState = complementary?.foreheadState;
+  const cheekState = complementary?.cheekState;
+  const eyeState = complementary?.eyeState;
+  
+  // Only return null if there are no active states at all
+  const hasFaceState = faceState && faceState !== 'normal';
+  const hasForeheadState = foreheadState && foreheadState !== 'smooth';
+  const hasCheekState = cheekState && cheekState !== 'normal';
+  const hasEyeState = eyeState && eyeState !== 'normal';
+  
+  if (!hasFaceState && !hasForeheadState && !hasCheekState && !hasEyeState) return null;
+
+  // Helper to scale position values
+  const s = headScale;
 
   return (
     <>
       {/* Cheek States */}
       {complementary?.cheekState === 'flushed' && (
         <>
-          <mesh position={[-0.18 + faceOffset.x, -0.02 + faceOffset.y, 0.24 + faceOffset.z]}>
-            <circleGeometry args={[0.06, 16]} />
+          <mesh position={[-0.18 * s + faceOffset.x, -0.02 * s + faceOffset.y, 0.24 * s + faceOffset.z]}>
+            <circleGeometry args={[0.06 * s, 16]} />
             <meshBasicMaterial color="#ffb3d9" transparent opacity={0.6} />
           </mesh>
-          <mesh position={[0.18 + faceOffset.x, -0.02 + faceOffset.y, 0.24 + faceOffset.z]}>
-            <circleGeometry args={[0.06, 16]} />
+          <mesh position={[0.18 * s + faceOffset.x, -0.02 * s + faceOffset.y, 0.24 * s + faceOffset.z]}>
+            <circleGeometry args={[0.06 * s, 16]} />
             <meshBasicMaterial color="#ffb3d9" transparent opacity={0.6} />
           </mesh>
         </>
@@ -35,12 +51,12 @@ export function FaceDecorations({
 
       {complementary?.cheekState === 'sunken' && (
         <>
-          <mesh position={[-0.18 + faceOffset.x, -0.05 + faceOffset.y, 0.23 + faceOffset.z]}>
-            <boxGeometry args={[0.08, 0.06, 0.01]} />
+          <mesh position={[-0.18 * s + faceOffset.x, -0.05 * s + faceOffset.y, 0.23 * s + faceOffset.z]}>
+            <boxGeometry args={[0.08 * s, 0.06 * s, 0.01]} />
             <meshBasicMaterial color="#1a1a1a" transparent opacity={0.4} />
           </mesh>
-          <mesh position={[0.18 + faceOffset.x, -0.05 + faceOffset.y, 0.23 + faceOffset.z]}>
-            <boxGeometry args={[0.08, 0.06, 0.01]} />
+          <mesh position={[0.18 * s + faceOffset.x, -0.05 * s + faceOffset.y, 0.23 * s + faceOffset.z]}>
+            <boxGeometry args={[0.08 * s, 0.06 * s, 0.01]} />
             <meshBasicMaterial color="#1a1a1a" transparent opacity={0.4} />
           </mesh>
         </>
@@ -48,12 +64,12 @@ export function FaceDecorations({
 
       {complementary?.cheekState === 'puffed' && (
         <>
-          <mesh position={[-0.20 + faceOffset.x, -0.02 + faceOffset.y, 0.26 + faceOffset.z]}>
-            <sphereGeometry args={[0.08, 16, 16]} />
+          <mesh position={[-0.20 * s + faceOffset.x, -0.02 * s + faceOffset.y, 0.26 * s + faceOffset.z]}>
+            <sphereGeometry args={[0.08 * s, 16, 16]} />
             <meshStandardMaterial color="#d4a5a5" roughness={0.6} />
           </mesh>
-          <mesh position={[0.20 + faceOffset.x, -0.02 + faceOffset.y, 0.26 + faceOffset.z]}>
-            <sphereGeometry args={[0.08, 16, 16]} />
+          <mesh position={[0.20 * s + faceOffset.x, -0.02 * s + faceOffset.y, 0.26 * s + faceOffset.z]}>
+            <sphereGeometry args={[0.08 * s, 16, 16]} />
             <meshStandardMaterial color="#d4a5a5" roughness={0.6} />
           </mesh>
         </>
@@ -61,45 +77,45 @@ export function FaceDecorations({
 
       {complementary?.cheekState === 'dimpled' && (
         <>
-          <mesh position={[-0.18 + faceOffset.x, -0.08 + faceOffset.y, 0.26 + faceOffset.z]}>
-            <sphereGeometry args={[0.02, 8, 8]} />
+          <mesh position={[-0.18 * s + faceOffset.x, -0.08 * s + faceOffset.y, 0.26 * s + faceOffset.z]}>
+            <sphereGeometry args={[0.02 * s, 8, 8]} />
             <meshBasicMaterial color="#3a3a3a" />
           </mesh>
-          <mesh position={[0.18 + faceOffset.x, -0.08 + faceOffset.y, 0.26 + faceOffset.z]}>
-            <sphereGeometry args={[0.02, 8, 8]} />
+          <mesh position={[0.18 * s + faceOffset.x, -0.08 * s + faceOffset.y, 0.26 * s + faceOffset.z]}>
+            <sphereGeometry args={[0.02 * s, 8, 8]} />
             <meshBasicMaterial color="#3a3a3a" />
           </mesh>
         </>
       )}
 
-      {/* Forehead States - positioned more forward to be visible */}
+      {/* Forehead States - positioned just above eyebrows (eyebrows are at ~0.14) */}
       {complementary?.foreheadState === 'wrinkled' && (
         <>
-          <mesh position={[0 + faceOffset.x, 0.18 + faceOffset.y, 0.28 + faceOffset.z]}>
-            <boxGeometry args={[0.25, 0.012, 0.01]} />
+          <mesh position={[0 + faceOffset.x, 0.15 * s + faceOffset.y, 0.28 * s + faceOffset.z]}>
+            <boxGeometry args={[0.25 * s, 0.012 * s, 0.01]} />
             <meshBasicMaterial color="#2a2a2a" transparent opacity={0.6} />
           </mesh>
-          <mesh position={[0 + faceOffset.x, 0.20 + faceOffset.y, 0.28 + faceOffset.z]}>
-            <boxGeometry args={[0.22, 0.012, 0.01]} />
+          <mesh position={[0 + faceOffset.x, 0.17 * s + faceOffset.y, 0.28 * s + faceOffset.z]}>
+            <boxGeometry args={[0.22 * s, 0.012 * s, 0.01]} />
             <meshBasicMaterial color="#2a2a2a" transparent opacity={0.6} />
           </mesh>
-          <mesh position={[0 + faceOffset.x, 0.22 + faceOffset.y, 0.28 + faceOffset.z]}>
-            <boxGeometry args={[0.24, 0.012, 0.01]} />
+          <mesh position={[0 + faceOffset.x, 0.19 * s + faceOffset.y, 0.28 * s + faceOffset.z]}>
+            <boxGeometry args={[0.24 * s, 0.012 * s, 0.01]} />
             <meshBasicMaterial color="#2a2a2a" transparent opacity={0.6} />
           </mesh>
         </>
       )}
 
       {complementary?.foreheadState === 'tense' && (
-        <mesh position={[0 + faceOffset.x, 0.20 + faceOffset.y, 0.28 + faceOffset.z]}>
-          <boxGeometry args={[0.26, 0.025, 0.01]} />
+        <mesh position={[0 + faceOffset.x, 0.16 * s + faceOffset.y, 0.28 * s + faceOffset.z]}>
+          <boxGeometry args={[0.26 * s, 0.025 * s, 0.01]} />
           <meshBasicMaterial color="#2a2a2a" transparent opacity={0.7} />
         </mesh>
       )}
 
       {complementary?.foreheadState === 'raised' && (
-        <mesh position={[0 + faceOffset.x, 0.24 + faceOffset.y, 0.28 + faceOffset.z]}>
-          <boxGeometry args={[0.2, 0.01, 0.01]} />
+        <mesh position={[0 + faceOffset.x, 0.18 * s + faceOffset.y, 0.28 * s + faceOffset.z]}>
+          <boxGeometry args={[0.2 * s, 0.01 * s, 0.01]} />
           <meshBasicMaterial color="#2a2a2a" transparent opacity={0.4} />
         </mesh>
       )}
@@ -107,12 +123,12 @@ export function FaceDecorations({
       {/* Tearful State */}
       {complementary?.eyeState === 'tearful' && (
         <>
-          <mesh position={[-0.12 + faceOffset.x, -0.02 + faceOffset.y, 0.27 + faceOffset.z]}>
-            <sphereGeometry args={[0.02, 8, 8]} />
+          <mesh position={[-0.12 * s + faceOffset.x, -0.02 * s + faceOffset.y, 0.27 * s + faceOffset.z]}>
+            <sphereGeometry args={[0.02 * s, 8, 8]} />
             <meshBasicMaterial color="#4dd0e1" transparent opacity={0.7} />
           </mesh>
-          <mesh position={[0.12 + faceOffset.x, -0.02 + faceOffset.y, 0.27 + faceOffset.z]}>
-            <sphereGeometry args={[0.02, 8, 8]} />
+          <mesh position={[0.12 * s + faceOffset.x, -0.02 * s + faceOffset.y, 0.27 * s + faceOffset.z]}>
+            <sphereGeometry args={[0.02 * s, 8, 8]} />
             <meshBasicMaterial color="#4dd0e1" transparent opacity={0.7} />
           </mesh>
         </>
@@ -120,8 +136,8 @@ export function FaceDecorations({
 
       {/* Sweat Drop - Nervous anime sweat */}
       {faceState === 'sweat_drop' && (
-        <mesh position={[0.22 + faceOffset.x, 0.15 + faceOffset.y, 0.2 + faceOffset.z]} rotation={[0, 0, -0.3]}>
-          <coneGeometry args={[0.03, 0.08, 8]} />
+        <mesh position={[0.22 * s + faceOffset.x, 0.15 * s + faceOffset.y, 0.2 * s + faceOffset.z]} rotation={[0, 0, -0.3]}>
+          <coneGeometry args={[0.03 * s, 0.08 * s, 8]} />
           <meshBasicMaterial color="#87ceeb" transparent opacity={0.8} />
         </mesh>
       )}
@@ -129,20 +145,20 @@ export function FaceDecorations({
       {/* Sparkle Eyes - Excited star eyes */}
       {faceState === 'sparkle_eyes' && (
         <>
-          <mesh position={[-0.1 + faceOffset.x, 0.05 + faceOffset.y, 0.26 + faceOffset.z]}>
-            <sphereGeometry args={[0.045, 4, 2]} />
+          <mesh position={[-0.1 * s + faceOffset.x, 0.05 * s + faceOffset.y, 0.26 * s + faceOffset.z]}>
+            <sphereGeometry args={[0.045 * s, 4, 2]} />
             <meshBasicMaterial color="#ffff00" />
           </mesh>
-          <mesh position={[0.1 + faceOffset.x, 0.05 + faceOffset.y, 0.26 + faceOffset.z]}>
-            <sphereGeometry args={[0.045, 4, 2]} />
+          <mesh position={[0.1 * s + faceOffset.x, 0.05 * s + faceOffset.y, 0.26 * s + faceOffset.z]}>
+            <sphereGeometry args={[0.045 * s, 4, 2]} />
             <meshBasicMaterial color="#ffff00" />
           </mesh>
-          <mesh position={[-0.15 + faceOffset.x, 0.12 + faceOffset.y, 0.22 + faceOffset.z]} rotation={[0, 0, Math.PI / 4]}>
-            <boxGeometry args={[0.02, 0.06, 0.01]} />
+          <mesh position={[-0.15 * s + faceOffset.x, 0.12 * s + faceOffset.y, 0.22 * s + faceOffset.z]} rotation={[0, 0, Math.PI / 4]}>
+            <boxGeometry args={[0.02 * s, 0.06 * s, 0.01]} />
             <meshBasicMaterial color="#ffffff" />
           </mesh>
-          <mesh position={[0.15 + faceOffset.x, 0.12 + faceOffset.y, 0.22 + faceOffset.z]} rotation={[0, 0, -Math.PI / 4]}>
-            <boxGeometry args={[0.02, 0.06, 0.01]} />
+          <mesh position={[0.15 * s + faceOffset.x, 0.12 * s + faceOffset.y, 0.22 * s + faceOffset.z]} rotation={[0, 0, -Math.PI / 4]}>
+            <boxGeometry args={[0.02 * s, 0.06 * s, 0.01]} />
             <meshBasicMaterial color="#ffffff" />
           </mesh>
         </>
@@ -151,31 +167,31 @@ export function FaceDecorations({
       {/* Heart Eyes - Love/admiration */}
       {faceState === 'heart_eyes' && (
         <>
-          <group position={[-0.1 + faceOffset.x, 0.05 + faceOffset.y, 0.26 + faceOffset.z]}>
-            <mesh position={[-0.015, 0.015, 0]}>
-              <sphereGeometry args={[0.025, 8, 8]} />
+          <group position={[-0.1 * s + faceOffset.x, 0.05 * s + faceOffset.y, 0.26 * s + faceOffset.z]}>
+            <mesh position={[-0.015 * s, 0.015 * s, 0]}>
+              <sphereGeometry args={[0.025 * s, 8, 8]} />
               <meshBasicMaterial color="#ff69b4" />
             </mesh>
-            <mesh position={[0.015, 0.015, 0]}>
-              <sphereGeometry args={[0.025, 8, 8]} />
+            <mesh position={[0.015 * s, 0.015 * s, 0]}>
+              <sphereGeometry args={[0.025 * s, 8, 8]} />
               <meshBasicMaterial color="#ff69b4" />
             </mesh>
-            <mesh position={[0, -0.015, 0]} rotation={[0, 0, Math.PI / 4]}>
-              <boxGeometry args={[0.035, 0.035, 0.02]} />
+            <mesh position={[0, -0.015 * s, 0]} rotation={[0, 0, Math.PI / 4]}>
+              <boxGeometry args={[0.035 * s, 0.035 * s, 0.02 * s]} />
               <meshBasicMaterial color="#ff69b4" />
             </mesh>
           </group>
-          <group position={[0.1 + faceOffset.x, 0.05 + faceOffset.y, 0.26 + faceOffset.z]}>
-            <mesh position={[-0.015, 0.015, 0]}>
-              <sphereGeometry args={[0.025, 8, 8]} />
+          <group position={[0.1 * s + faceOffset.x, 0.05 * s + faceOffset.y, 0.26 * s + faceOffset.z]}>
+            <mesh position={[-0.015 * s, 0.015 * s, 0]}>
+              <sphereGeometry args={[0.025 * s, 8, 8]} />
               <meshBasicMaterial color="#ff69b4" />
             </mesh>
-            <mesh position={[0.015, 0.015, 0]}>
-              <sphereGeometry args={[0.025, 8, 8]} />
+            <mesh position={[0.015 * s, 0.015 * s, 0]}>
+              <sphereGeometry args={[0.025 * s, 8, 8]} />
               <meshBasicMaterial color="#ff69b4" />
             </mesh>
-            <mesh position={[0, -0.015, 0]} rotation={[0, 0, Math.PI / 4]}>
-              <boxGeometry args={[0.035, 0.035, 0.02]} />
+            <mesh position={[0, -0.015 * s, 0]} rotation={[0, 0, Math.PI / 4]}>
+              <boxGeometry args={[0.035 * s, 0.035 * s, 0.02 * s]} />
               <meshBasicMaterial color="#ff69b4" />
             </mesh>
           </group>
@@ -185,12 +201,12 @@ export function FaceDecorations({
       {/* Spiral Eyes - Dizzy/confused */}
       {faceState === 'spiral_eyes' && (
         <>
-          <mesh position={[-0.1 + faceOffset.x, 0.05 + faceOffset.y, 0.26 + faceOffset.z]} rotation={[0, 0, 0]}>
-            <torusGeometry args={[0.03, 0.008, 8, 16, Math.PI * 3]} />
+          <mesh position={[-0.1 * s + faceOffset.x, 0.05 * s + faceOffset.y, 0.26 * s + faceOffset.z]} rotation={[0, 0, 0]}>
+            <torusGeometry args={[0.03 * s, 0.008 * s, 8, 16, Math.PI * 3]} />
             <meshBasicMaterial color="#1a1a1a" />
           </mesh>
-          <mesh position={[0.1 + faceOffset.x, 0.05 + faceOffset.y, 0.26 + faceOffset.z]} rotation={[0, 0, 0]}>
-            <torusGeometry args={[0.03, 0.008, 8, 16, Math.PI * 3]} />
+          <mesh position={[0.1 * s + faceOffset.x, 0.05 * s + faceOffset.y, 0.26 * s + faceOffset.z]} rotation={[0, 0, 0]}>
+            <torusGeometry args={[0.03 * s, 0.008 * s, 8, 16, Math.PI * 3]} />
             <meshBasicMaterial color="#1a1a1a" />
           </mesh>
         </>
@@ -199,20 +215,20 @@ export function FaceDecorations({
       {/* Tears - Crying streams */}
       {faceState === 'tears' && (
         <>
-          <mesh position={[-0.12 + faceOffset.x, -0.05 + faceOffset.y, 0.24 + faceOffset.z]}>
-            <cylinderGeometry args={[0.015, 0.02, 0.12, 8]} />
+          <mesh position={[-0.12 * s + faceOffset.x, -0.05 * s + faceOffset.y, 0.24 * s + faceOffset.z]}>
+            <cylinderGeometry args={[0.015 * s, 0.02 * s, 0.12 * s, 8]} />
             <meshBasicMaterial color="#87ceeb" transparent opacity={0.7} />
           </mesh>
-          <mesh position={[0.12 + faceOffset.x, -0.05 + faceOffset.y, 0.24 + faceOffset.z]}>
-            <cylinderGeometry args={[0.015, 0.02, 0.12, 8]} />
+          <mesh position={[0.12 * s + faceOffset.x, -0.05 * s + faceOffset.y, 0.24 * s + faceOffset.z]}>
+            <cylinderGeometry args={[0.015 * s, 0.02 * s, 0.12 * s, 8]} />
             <meshBasicMaterial color="#87ceeb" transparent opacity={0.7} />
           </mesh>
-          <mesh position={[-0.12 + faceOffset.x, -0.12 + faceOffset.y, 0.24 + faceOffset.z]}>
-            <sphereGeometry args={[0.025, 8, 8]} />
+          <mesh position={[-0.12 * s + faceOffset.x, -0.12 * s + faceOffset.y, 0.24 * s + faceOffset.z]}>
+            <sphereGeometry args={[0.025 * s, 8, 8]} />
             <meshBasicMaterial color="#87ceeb" transparent opacity={0.8} />
           </mesh>
-          <mesh position={[0.12 + faceOffset.x, -0.12 + faceOffset.y, 0.24 + faceOffset.z]}>
-            <sphereGeometry args={[0.025, 8, 8]} />
+          <mesh position={[0.12 * s + faceOffset.x, -0.12 * s + faceOffset.y, 0.24 * s + faceOffset.z]}>
+            <sphereGeometry args={[0.025 * s, 8, 8]} />
             <meshBasicMaterial color="#87ceeb" transparent opacity={0.8} />
           </mesh>
         </>
@@ -220,21 +236,21 @@ export function FaceDecorations({
 
       {/* Anger Vein - Anime anger mark */}
       {faceState === 'anger_vein' && (
-        <group position={[0.18 + faceOffset.x, 0.18 + faceOffset.y, 0.2 + faceOffset.z]}>
+        <group position={[0.18 * s + faceOffset.x, 0.18 * s + faceOffset.y, 0.2 * s + faceOffset.z]}>
           <mesh rotation={[0, 0, Math.PI / 4]}>
-            <boxGeometry args={[0.06, 0.015, 0.01]} />
+            <boxGeometry args={[0.06 * s, 0.015 * s, 0.01]} />
             <meshBasicMaterial color="#ff3333" />
           </mesh>
           <mesh rotation={[0, 0, -Math.PI / 4]}>
-            <boxGeometry args={[0.06, 0.015, 0.01]} />
+            <boxGeometry args={[0.06 * s, 0.015 * s, 0.01]} />
             <meshBasicMaterial color="#ff3333" />
           </mesh>
-          <mesh position={[0.02, 0.02, 0]} rotation={[0, 0, Math.PI / 4]}>
-            <boxGeometry args={[0.04, 0.012, 0.01]} />
+          <mesh position={[0.02 * s, 0.02 * s, 0]} rotation={[0, 0, Math.PI / 4]}>
+            <boxGeometry args={[0.04 * s, 0.012 * s, 0.01]} />
             <meshBasicMaterial color="#ff3333" />
           </mesh>
-          <mesh position={[0.02, 0.02, 0]} rotation={[0, 0, -Math.PI / 4]}>
-            <boxGeometry args={[0.04, 0.012, 0.01]} />
+          <mesh position={[0.02 * s, 0.02 * s, 0]} rotation={[0, 0, -Math.PI / 4]}>
+            <boxGeometry args={[0.04 * s, 0.012 * s, 0.01]} />
             <meshBasicMaterial color="#ff3333" />
           </mesh>
         </group>

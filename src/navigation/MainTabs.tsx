@@ -345,7 +345,14 @@ export default function MainTabs() {
     // We detect "remote" messages by checking:
     // 1. We're NOT currently loading AI
     // 2. We're NOT within the grace period after our own generation
-    const withinGracePeriod = Date.now() - lastGenerationTimestampRef.current < GENERATION_GRACE_PERIOD_MS;
+    const timeSinceLastGeneration = Date.now() - lastGenerationTimestampRef.current;
+    const withinGracePeriod = timeSinceLastGeneration < GENERATION_GRACE_PERIOD_MS;
+    
+    // Log when grace period prevents animation (for debugging display order issues)
+    if (newMessages.length > 0 && withinGracePeriod) {
+      console.log(`[MainTabs] Grace period active (${timeSinceLastGeneration}ms ago), skipping real-time animation for ${newMessages.length} new messages`);
+    }
+    
     const newRemoteAssistantMessages = newMessages.filter((m: any) => 
       m.role === 'assistant' && 
       m.characterId && // Must have a character to animate
@@ -865,6 +872,12 @@ The text behaves as it should be.`;
   // Handle character greeting for new conversations
   // Note: Removed isProcessingGreeting blocking to allow multiple character greetings to be saved
   const handleGreeting = useCallback(async (characterId: string, greetingMessage: string) => {
+    const saveStartTime = Date.now();
+    console.log(`[MainTabs] handleGreeting called for ${characterId} at ${saveStartTime}`);
+
+    // IMPORTANT: Update the generation timestamp to prevent real-time message detection
+    // from treating conversation starter messages as "remote" and interrupting playback
+    lastGenerationTimestampRef.current = Date.now();
 
     try {
       // Get the LATEST state from the store (not stale closure value)
@@ -896,7 +909,8 @@ The text behaves as it should be.`;
         characterId
       ) as any);
 
-      console.log('[MainTabs] Greeting saved successfully for', characterId);
+      const saveEndTime = Date.now();
+      console.log(`[MainTabs] Greeting saved successfully for ${characterId} (took ${saveEndTime - saveStartTime}ms)`);
     } catch (error: any) {
       console.error('[MainTabs] Failed to save greeting:', error);
     }

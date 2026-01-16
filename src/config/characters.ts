@@ -13,7 +13,7 @@ export type AccessoryType =
   | 'glasses' | 'hat' | 'crown' | 'headphones' | 'top_hat' | 'monocle' | 'ranger_hat' | 'bat_mask' | 'vader_mask'
   | 'sunglasses' | 'goggles' | 'turban' | 'beret' | 'bandana' | 'helmet' | 'tiara' | 'halo' | 'horns'
   // Facial accessories
-  | 'beard' | 'moustache' | 'eye_patch' | 'scar' | 'pipe' | 'cigar'
+  | 'beard' | 'thin_beard' | 'moustache' | 'eye_patch' | 'scar' | 'pipe' | 'cigar'
   // Body/clothing accessories
   | 'tie' | 'scarf' | 'bowtie' | 'cape' | 'necklace' | 'suspenders' | 'backpack' | 'wings'
   | 'medal' | 'stethoscope' | 'badge' | 'dog_tags' | 'chain' | 'lab_coat' | 'toga'
@@ -436,12 +436,12 @@ Otherwise, favor concise, impactful insights.`,
     customization: {
       gender: 'male',
       skinTone: 'light',
-      clothing: 'hoodie',
+      clothing: 'jacket',
       hair: 'short',
-      accessories: ['headphones'],
+      accessories: ['glasses', 'thin_beard'],
       bodyColor: '#2563eb',
       accessoryColor: '#1d4ed8',
-      hairColor: '#404040',
+      hairColor: '#e5e5e5',  // White/silver hair for elderly appearance
     },
   },
   'bob-tutorial': {

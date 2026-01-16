@@ -432,18 +432,30 @@ export const deleteConversation = (conversationId: string) => async (dispatch: a
 
     console.log('[DELETE] Conversation deleted successfully!');
 
-    // If deleted conversation was current, clear it BEFORE reloading
+    // If deleted conversation was current, we need to switch to another
     const { conversations } = getState();
-    if (conversations.currentConversation?.id === conversationId) {
-      console.log('[DELETE] Clearing current conversation');
-      dispatch(setCurrentConversation(null));
-      dispatch(setMessages([]));
-    }
+    const wasCurrentConversation = conversations.currentConversation?.id === conversationId;
 
     // Reload conversations after deletion
     console.log('[DELETE] Reloading conversations list');
     await dispatch(loadConversations());
-    
+
+    // If we deleted the current conversation, auto-switch to another
+    if (wasCurrentConversation) {
+      const updatedState = getState();
+      const remainingConversations = updatedState.conversations.conversations || [];
+
+      if (remainingConversations.length > 0) {
+        // Select the first (most recent) conversation
+        console.log('[DELETE] Switching to first remaining conversation');
+        await dispatch(selectConversation(remainingConversations[0]));
+      } else {
+        // No conversations left - navigate to Bob tutorial
+        console.log('[DELETE] No conversations left, navigating to Bob tutorial');
+        await dispatch(createOrNavigateToTutorial());
+      }
+    }
+
     console.log('[DELETE] Complete!');
   } catch (error: any) {
     console.error('[DELETE] Error in deleteConversation:', error);
