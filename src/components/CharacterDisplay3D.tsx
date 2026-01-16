@@ -277,6 +277,9 @@ const Character = React.memo(function Character({ character, isActive, animation
       let targetLeftArmRotZ = 0;
       let targetRightArmRotX = 0;
       let targetRightArmRotZ = 0;
+      let targetRightArmPosX = 0; // Shoulder left/right offset
+      let targetRightArmPosY = 0; // Shoulder up/down offset
+      let targetRightArmPosZ = 0; // Shoulder forward/backward offset
       let targetLeftLegRotX = 0;
       let targetRightLegRotX = 0;
       // NEW: Forearm bend (elbow) targets
@@ -916,12 +919,18 @@ const Character = React.memo(function Character({ character, isActive, animation
         // =========================================
         case 'facepalm':
           // Facepalm - hand to face in frustration
-          targetHeadRotX = 0.2 + lookXOffset;
-          targetHeadRotY = lookYOffset;
+          targetHeadRotX = 0.5 + lookXOffset;
+          targetHeadRotY = Math.sin(time * 9) * 0.15 + 0.5 * lookYOffset; // Subtle "no" shake
           targetHeadRotZ = -0.1;
-          targetRightArmRotX = -2.2; // Hand to face
-          targetRightArmRotZ = 0.4;
+          targetHeadPosZ = 0.3; // Head moved forward
+          targetRightArmRotX = -2.2; // ok hand level Upper arm raised
+          targetRightArmPosZ = 0.4; // ok Shoulder moved forward toward face
+          targetRightArmRotZ = -0.8; //ok
+          targetRightArmPosX = -0.2;
+          targetRightForearmRotX = -0.2; // Forearm bent to bring hand to face
           targetMeshY = Math.sin(time * 0.5) * 0.02; // Subtle sigh movement
+          targetLeftEyeScaleY = 0.1; // Eyes closed
+          targetRightEyeScaleY = 0.1;
           break;
 
         case 'dance':
@@ -1227,8 +1236,9 @@ const Character = React.memo(function Character({ character, isActive, animation
         headRef.current.rotation.y = lerp(headRef.current.rotation.y, targetHeadRotY, transitionSpeed);
         headRef.current.rotation.z = lerp(headRef.current.rotation.z, targetHeadRotZ, transitionSpeed);
         // Move head forward when nodding down to prevent chin clipping into body
-        targetHeadPosZ = Math.max(0, targetHeadRotX) * 0.45;
-        headRef.current.position.z = lerp(headRef.current.position.z, targetHeadPosZ, transitionSpeed);
+        // Add automatic chin adjustment to any explicit head position offset
+        const chinAdjustment = Math.max(0, targetHeadRotX) * 0.45;
+        headRef.current.position.z = lerp(headRef.current.position.z, targetHeadPosZ + chinAdjustment, transitionSpeed);
       }
       if (leftArmRef.current) {
         leftArmRef.current.rotation.x = lerp(leftArmRef.current.rotation.x, targetLeftArmRotX, transitionSpeed);
@@ -1237,6 +1247,10 @@ const Character = React.memo(function Character({ character, isActive, animation
       if (rightArmRef.current) {
         rightArmRef.current.rotation.x = lerp(rightArmRef.current.rotation.x, targetRightArmRotX, transitionSpeed);
         rightArmRef.current.rotation.z = lerp(rightArmRef.current.rotation.z, targetRightArmRotZ, transitionSpeed);
+        // Position offsets are relative to base arm position
+        rightArmRef.current.position.x = lerp(rightArmRef.current.position.x, body.armX + targetRightArmPosX, transitionSpeed);
+        rightArmRef.current.position.y = lerp(rightArmRef.current.position.y, body.armY + targetRightArmPosY, transitionSpeed);
+        rightArmRef.current.position.z = lerp(rightArmRef.current.position.z, targetRightArmPosZ, transitionSpeed);
       }
       if (leftLegRef.current) {
         leftLegRef.current.rotation.x = lerp(leftLegRef.current.rotation.x, targetLeftLegRotX, transitionSpeed);
