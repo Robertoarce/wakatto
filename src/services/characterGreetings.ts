@@ -48,7 +48,7 @@ export function getRandomGreeting(
 
   // Validate temperaments
   const validTemperaments = temperaments.filter(t => isValidTemperament(t)) as TemperamentId[];
-  
+
   if (validTemperaments.length === 0) {
     console.warn(`[Greetings] No valid temperaments for ${characterId}:`, temperaments);
     return getFallbackGreeting(characterName);
@@ -56,12 +56,12 @@ export function getRandomGreeting(
 
   // Select temperament based on probability
   const selectedTemperament = selectTemperament(validTemperaments);
-  
+
   // Get random greeting from selected temperament pool
   const greeting = getGreetingFromTemperament(selectedTemperament);
-  
+
   console.log(`[Greetings] ${characterId}: selected ${selectedTemperament} temperament`);
-  
+
   return greeting;
 }
 
@@ -78,7 +78,7 @@ function selectTemperament(temperaments: TemperamentId[]): TemperamentId {
 
   // 70% chance for primary, 30% for secondary
   const random = Math.random();
-  
+
   if (random < 0.7) {
     return temperaments[0]; // Primary
   } else if (temperaments.length === 2) {
@@ -96,12 +96,12 @@ function selectTemperament(temperaments: TemperamentId[]): TemperamentId {
 function getFallbackGreeting(characterName: string): string {
   const randomIndex = Math.floor(Math.random() * FALLBACK_GREETINGS.length);
   const greeting = FALLBACK_GREETINGS[randomIndex];
-  
+
   // If greeting needs a name, prepend it
   if (!greeting.toLowerCase().includes('hello') && !greeting.toLowerCase().includes('welcome')) {
     return `Hi, I'm ${characterName}. ${greeting}`;
   }
-  
+
   return greeting;
 }
 
@@ -112,7 +112,7 @@ export function getGreetingByTemperament(temperamentId: string): string | null {
   if (!isValidTemperament(temperamentId)) {
     return null;
   }
-  
+
   return getGreetingFromTemperament(temperamentId as TemperamentId);
 }
 
@@ -123,7 +123,7 @@ export function getAllGreetingsForTemperament(temperamentId: string): string[] {
   if (!isValidTemperament(temperamentId)) {
     return [];
   }
-  
+
   return GREETING_TEMPLATES[temperamentId as TemperamentId] || [];
 }
 
@@ -182,9 +182,7 @@ export function getBobGreeting(): string {
 
 so here's the deal—you're basically in a chat app where you can talk to different AI characters. each one has their own vibe and expertise.
 
-right now though, we gotta talk business. the app ain't free (shocking, i know). but hey, before you bounce—let me show you around first. ask me anything about how this works.
-
-what do you wanna know? or we can just skip to the payment negotiation part`;
+right now though, we gotta talk business. the app ain't free (shocking, i know). but hey, someone has to pay for the bills`;
 }
 
 /**
@@ -193,8 +191,8 @@ what do you wanna know? or we can just skip to the payment negotiation part`;
  * @param lastCharacterName - Optional name of the last wakattor they were chatting with
  */
 export function getBobPostTrialPitch(lastCharacterName?: string): string {
-  const characterMention = lastCharacterName 
-    ? `hope you enjoyed chatting with ${lastCharacterName}! ` 
+  const characterMention = lastCharacterName
+    ? `hope you enjoyed chatting with ${lastCharacterName}! `
     : `hope you enjoyed the free trial! `;
 
   const pitches = [

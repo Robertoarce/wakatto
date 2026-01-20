@@ -46,9 +46,9 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "YOUR_APPLE_ID@email.com",
+        "appleId": "roberto_arce_@hotmail.com",
         "ascAppId": "YOUR_APP_STORE_CONNECT_APP_ID",
-        "appleTeamId": "YOUR_TEAM_ID"
+        "appleTeamId": "5738JYQDWD"
       }
     }
   }

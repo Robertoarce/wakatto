@@ -119,7 +119,7 @@ export function useBobSales({
       // Start Bob's pitch after a brief delay (let any animations settle)
       setTimeout(() => {
         bobManagerRef.current?.start();
-      }, 1000);
+      }, 4500);
     }
 
     // Bob left - reset for next time he appears
@@ -153,7 +153,7 @@ export function useBobSales({
       // Start Bob's pitch after entrance animations
       setTimeout(() => {
         bobManagerRef.current?.start();
-      }, 1500);
+      }, 4500);
     }
   }, [conversationId, selectedCharacters, handlePitchStart, handlePitchComplete]);
 
