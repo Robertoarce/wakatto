@@ -140,11 +140,11 @@ export type JawState =
   | 'slack';            // Hanging open
 
 // Visual effect types
-export type VisualEffect = 
-  | 'none' 
-  | 'confetti' 
-  | 'spotlight' 
-  | 'sparkles' 
+export type VisualEffect =
+  | 'none'
+  | 'confetti'
+  | 'spotlight'
+  | 'sparkles'
   | 'hearts'
   // New emoji-triggered effects
   | 'fire'         // 🔥💥💪 - Rising flame particles

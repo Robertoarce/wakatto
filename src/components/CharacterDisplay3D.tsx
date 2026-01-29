@@ -1,6 +1,6 @@
 import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { View, StyleSheet, Dimensions, Platform } from 'react-native';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { getCharacter, CharacterBehavior } from '../config/characters';
@@ -9,6 +9,37 @@ import { fpsMonitor } from '../services/fpsMonitor';
 
 // Global counter to ensure only one performance monitor logs at a time
 let activeMonitorCount = 0;
+
+// Component to invalidate canvas for continuous animation rendering with frameloop="demand"
+// This is much more efficient than frameloop="always" as it only renders when needed
+function AnimationInvalidator({ isAnimating }: { isAnimating: boolean }) {
+  const { invalidate } = useThree();
+
+  useEffect(() => {
+    if (!isAnimating) return;
+
+    let animationId: number;
+    let lastTime = 0;
+    const targetFPS = 60;
+    const frameInterval = 1000 / targetFPS;
+
+    const tick = (time: number) => {
+      if (time - lastTime >= frameInterval) {
+        lastTime = time;
+        invalidate();
+      }
+      animationId = requestAnimationFrame(tick);
+    };
+
+    animationId = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(animationId);
+    };
+  }, [isAnimating, invalidate]);
+
+  return null;
+}
 
 // Component to monitor actual Three.js render FPS (using circular buffer for O(1) operations)
 function ThreeJSPerformanceMonitor() {
@@ -219,7 +250,7 @@ const Character = React.memo(function Character({ character, isActive, animation
   // Automatic blink timing
   const nextBlinkTime = useRef<number>(Date.now() / 1000 + AUTO_BLINK.minInterval + Math.random() * (AUTO_BLINK.maxInterval - AUTO_BLINK.minInterval));
   const blinkStartTime = useRef<number | null>(null);
-  
+
   // Reset tracking when animation changes
   useEffect(() => {
     if (animation !== lastAnimation.current) {
@@ -338,7 +369,7 @@ const Character = React.memo(function Character({ character, isActive, animation
           lookYOffset = 0.5; //<<< DONT TOUCH THIS! es Positron
           break;
         case 'up':
-          lookXOffset = -0.3;  
+          lookXOffset = -0.3;
           break;
         case 'down':
           lookXOffset = 0.3;
@@ -366,13 +397,13 @@ const Character = React.memo(function Character({ character, isActive, animation
       // COMPLEMENTARY: Eye State
       // =========================================
       const currentTime = Date.now() / 1000;
-      
+
       // Helper function to calculate blink openness
       const calculateBlinkOpenness = (blinkProgress: number): number => {
         const closePhase = 0.4;   // 40% of time to close
         const holdPhase = 0.4;    // 40% of time held closed
         const openPhase = 0.2;    // 20% of time to open
-        
+
         if (blinkProgress < closePhase) {
           // Closing: 1.0 -> 0.1
           const closeProgress = blinkProgress / closePhase;
@@ -386,7 +417,7 @@ const Character = React.memo(function Character({ character, isActive, animation
           return 0.1 + (0.9 * openProgress);
         }
       };
-      
+
       switch (complementaryRef.current?.eyeState) {
         case 'closed':
           targetLeftEyeScaleY = 0.1;
@@ -407,14 +438,14 @@ const Character = React.memo(function Character({ character, isActive, animation
             const blinkPeriod = complementaryRef.current?.blinkPeriod ?? 2.5; // seconds between blinks (default 2.5)
             const blinkDuration = complementaryRef.current?.blinkDuration ?? 0.3; // how long the blink takes (default 0.3)
             const timeInCycle = time % blinkPeriod;
-            
+
             let eyeOpenness = 1.0; // fully open by default
-            
+
             if (timeInCycle < blinkDuration) {
               const blinkProgress = timeInCycle / blinkDuration; // 0 to 1
               eyeOpenness = calculateBlinkOpenness(blinkProgress);
             }
-            
+
             targetLeftEyeScaleY = eyeOpenness;
             targetRightEyeScaleY = eyeOpenness;
           }
@@ -425,13 +456,13 @@ const Character = React.memo(function Character({ character, isActive, animation
             const singleBlinkCycle = SURPRISED_BLINK.blinkDuration + SURPRISED_BLINK.pauseBetween;
             const totalCycleDuration = singleBlinkCycle * SURPRISED_BLINK.totalBlinks;
             const timeInCycle = time % (totalCycleDuration + 1.5); // Add pause before repeating
-            
+
             let eyeOpenness = 1.0;
-            
+
             if (timeInCycle < totalCycleDuration) {
               const currentBlinkIndex = Math.floor(timeInCycle / singleBlinkCycle);
               const timeInCurrentBlink = timeInCycle - (currentBlinkIndex * singleBlinkCycle);
-              
+
               if (timeInCurrentBlink < SURPRISED_BLINK.blinkDuration) {
                 // During a blink
                 const blinkProgress = timeInCurrentBlink / SURPRISED_BLINK.blinkDuration;
@@ -439,7 +470,7 @@ const Character = React.memo(function Character({ character, isActive, animation
               }
               // During pause between blinks, eyes stay open (eyeOpenness = 1.0)
             }
-            
+
             targetLeftEyeScaleY = eyeOpenness;
             targetRightEyeScaleY = eyeOpenness;
           }
@@ -475,16 +506,16 @@ const Character = React.memo(function Character({ character, isActive, animation
           // Automatic random blinking when eyes are "open" or no state specified
           {
             let eyeOpenness = 1.0;
-            
+
             // Check if we should start a new blink
             if (blinkStartTime.current === null && currentTime >= nextBlinkTime.current) {
               blinkStartTime.current = currentTime;
             }
-            
+
             // If we're in a blink
             if (blinkStartTime.current !== null) {
               const timeSinceBlinkStart = currentTime - blinkStartTime.current;
-              
+
               if (timeSinceBlinkStart < AUTO_BLINK.duration) {
                 const blinkProgress = timeSinceBlinkStart / AUTO_BLINK.duration;
                 eyeOpenness = calculateBlinkOpenness(blinkProgress);
@@ -495,7 +526,7 @@ const Character = React.memo(function Character({ character, isActive, animation
                 nextBlinkTime.current = currentTime + randomInterval;
               }
             }
-            
+
             targetLeftEyeScaleY = eyeOpenness;
             targetRightEyeScaleY = eyeOpenness;
           }
@@ -841,7 +872,7 @@ const Character = React.memo(function Character({ character, isActive, animation
 
           targetLeftArmPosX = 0.3; // Move toward center
           targetLeftArmPosZ = 0.4; // Move forward
-          
+
           targetLeftForearmRotX = -1.6; // Bend elbow
           // Right arm crosses under to left side
           targetRightArmRotX = -0.5;
@@ -850,7 +881,7 @@ const Character = React.memo(function Character({ character, isActive, animation
 
           targetRightArmPosX = -0.3; // Move toward center
           targetRightArmPosZ = 0.4; // Move forward (slightly less, it's under)
-          
+
           targetRightForearmRotX = -1.6; // Bend elbow
           break;
 
@@ -913,18 +944,18 @@ const Character = React.memo(function Character({ character, isActive, animation
           targetHeadRotZ = Math.sin(time * 2) * 0.1;
           // Clapping motion - arms come together
           const clapPhase = Math.sin(time * 12);
-          const clapTogether = (clapPhase ) / 2; // 0 to 1, peaks when hands meet
+          const clapTogether = (clapPhase) / 2; // 0 to 1, peaks when hands meet
           // Both arms raised in front
           targetLeftArmRotX = -1.2;
           targetLeftArmRotZ = 0.3 - clapTogether * 3; // Swing inward on clap
-          targetLeftArmPosX = 0.14  ; // Move toward center
+          targetLeftArmPosX = 0.14; // Move toward center
           targetLeftArmPosZ = 0.35; // Move forward
           targetLeftArmPosY = -0.07; // Move arm down
           targetLeftForearmRotX = -0.5;
           targetRightArmPosY = -0.07; // Move arm down
           targetRightArmRotX = -1.3; //shoulder pos in horizontal x
           targetRightArmRotZ = -0.3 + clapTogether * 3; // Swing inward on clap
-          targetRightArmPosX = -0.14 ; // Move toward center
+          targetRightArmPosX = -0.14; // Move toward center
           targetRightArmPosZ = 0.35; // Move forward
           targetRightForearmRotX = -0.5;
           break;
@@ -1323,15 +1354,15 @@ const Character = React.memo(function Character({ character, isActive, animation
       if (leftEyeRef.current) {
         // Use faster lerp for blinks (explicit or automatic) vs normal transitions
         const isBlinking = complementaryRef.current?.eyeState === 'blink' ||
-                          complementaryRef.current?.eyeState === 'surprised_blink' ||
-                          blinkStartTime.current !== null;
+          complementaryRef.current?.eyeState === 'surprised_blink' ||
+          blinkStartTime.current !== null;
         const eyeLerpSpeed = isBlinking ? LERP_SPEED.veryFast : transitionSpeed;
         leftEyeRef.current.scale.y = lerp(leftEyeRef.current.scale.y, targetLeftEyeScaleY, eyeLerpSpeed);
       }
       if (rightEyeRef.current) {
         const isBlinking = complementaryRef.current?.eyeState === 'blink' ||
-                          complementaryRef.current?.eyeState === 'surprised_blink' ||
-                          blinkStartTime.current !== null;
+          complementaryRef.current?.eyeState === 'surprised_blink' ||
+          blinkStartTime.current !== null;
         const eyeLerpSpeed = isBlinking ? LERP_SPEED.veryFast : transitionSpeed;
         rightEyeRef.current.scale.y = lerp(rightEyeRef.current.scale.y, targetRightEyeScaleY, eyeLerpSpeed);
       }
@@ -1773,8 +1804,8 @@ const Character = React.memo(function Character({ character, isActive, animation
 
           {/* SHIELD - held on left arm (moves with left arm) */}
           {hasShield && (
-            <group position={[-0.1, body.handY, 0.15]} rotation={[ Math.PI / 2,0,  Math.PI / 3]}>
-              
+            <group position={[-0.1, body.handY, 0.15]} rotation={[Math.PI / 2, 0, Math.PI / 3]}>
+
               {/* 1. Outer Red Ring */}
               <mesh castShadow>
                 <cylinderGeometry args={[0.45, 0.45, 0.02, 32]} />
@@ -1804,7 +1835,7 @@ const Character = React.memo(function Character({ character, isActive, animation
                 <cylinderGeometry args={[0.07, 0.07, 0.01, 5]} />
                 <meshStandardMaterial color="#ffffff" metalness={1} roughness={0.1} />
               </mesh>
-              
+
             </group>
           )}
 
@@ -1980,16 +2011,16 @@ const Character = React.memo(function Character({ character, isActive, animation
 
         // Calculate head group Y position - head sits on top of torso
         const headGroupY = body.torsoTop + headH / 2;
-        
+
         // Calculate face Y offset: taller heads get more forehead space
         // Features stay at same absolute distance from bottom of head
         // Default: features centered at y=0 relative to head center
         // Taller: features shift down relative to new center
         const faceYOffset = (0.5 - headH) / 2; // Negative for taller heads
-        
+
         // Scale factor for accessories/hair based on head size
         const headScale = headW / 0.5;
-        
+
         return (
           <group ref={headRef} position={[0, headGroupY, 0]}>
             {/* Head */}
@@ -1998,825 +2029,825 @@ const Character = React.memo(function Character({ character, isActive, animation
               <meshStandardMaterial color={skinColor} roughness={0.6} />
             </mesh>
 
-        {/* Hair - Different styles */}
-        {hairType === 'short' && (
-          <mesh position={[0, 0.25 * headScale, 0]} castShadow>
-            <boxGeometry args={[0.52 * headScale, 0.15 * headScale, 0.52 * headScale]} />
-            <meshStandardMaterial color={hairColor} roughness={0.8} />
-          </mesh>
-        )}
-        {hairType === 'medium' && (
-          <>
-            <mesh position={[0, 0.25 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.52 * headScale, 0.15 * headScale, 0.52 * headScale]} />
-              <meshStandardMaterial color={hairColor} roughness={0.8} />
-            </mesh>
-            <mesh position={[0, 0.20 * headScale, -0.28 * headScale]} castShadow>
-              <boxGeometry args={[0.5 * headScale, 0.25 * headScale, 0.08 * headScale]} />
-              <meshStandardMaterial color={hairColor} roughness={0.8} />
-            </mesh>
-          </>
-        )}
-        {hairType === 'long' && (
-          <>
-            <mesh position={[0, 0.25 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.52 * headScale, 0.15 * headScale, 0.52 * headScale]} />
-              <meshStandardMaterial color={hairColor} roughness={0.8} />
-            </mesh>
-            <mesh position={[-0.3 * headScale, 0.05 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.1 * headScale, 0.5 * headScale, 0.3 * headScale]} />
-              <meshStandardMaterial color={hairColor} roughness={0.8} />
-            </mesh>
-            <mesh position={[0.3 * headScale, 0.05 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.1 * headScale, 0.5 * headScale, 0.3 * headScale]} />
-              <meshStandardMaterial color={hairColor} roughness={0.8} />
-            </mesh>
-            <mesh position={[0, 0.05 * headScale, -0.3 * headScale]} castShadow>
-              <boxGeometry args={[0.5 * headScale, 0.5 * headScale, 0.1 * headScale]} />
-              <meshStandardMaterial color={hairColor} roughness={0.8} />
-            </mesh>
-          </>
-        )}
-
-        {/* Hat accessory */}
-        {hasHat && (
-          <>
-            <mesh position={[0, 0.35 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.55 * headScale, 0.12 * headScale, 0.55 * headScale]} />
-              <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
-            </mesh>
-            <mesh position={[0, 0.45 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.4 * headScale, 0.15 * headScale, 0.4 * headScale]} />
-              <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
-            </mesh>
-          </>
-        )}
-
-        {/* Crown */}
-        {hasCrown && (
-          <>
-            {/* Crown base band */}
-            <mesh position={[0, 0.32 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.54 * headScale, 0.1 * headScale, 0.54 * headScale]} />
-              <meshStandardMaterial color="#c9a227" metalness={0.7} roughness={0.3} />
-            </mesh>
-            {/* Crown points */}
-            <mesh position={[-0.18 * headScale, 0.45 * headScale, 0.18 * headScale]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.18 * headScale, 0.08 * headScale]} />
-              <meshStandardMaterial color="#c9a227" metalness={0.7} roughness={0.3} />
-            </mesh>
-            <mesh position={[0.18 * headScale, 0.45 * headScale, 0.18 * headScale]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.18 * headScale, 0.08 * headScale]} />
-              <meshStandardMaterial color="#c9a227" metalness={0.7} roughness={0.3} />
-            </mesh>
-            <mesh position={[0, 0.5 * headScale, 0.18 * headScale]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.25 * headScale, 0.08 * headScale]} />
-              <meshStandardMaterial color="#c9a227" metalness={0.7} roughness={0.3} />
-            </mesh>
-            <mesh position={[-0.18 * headScale, 0.45 * headScale, -0.18 * headScale]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.18 * headScale, 0.08 * headScale]} />
-              <meshStandardMaterial color="#c9a227" metalness={0.7} roughness={0.3} />
-            </mesh>
-            <mesh position={[0.18 * headScale, 0.45 * headScale, -0.18 * headScale]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.18 * headScale, 0.08 * headScale]} />
-              <meshStandardMaterial color="#c9a227" metalness={0.7} roughness={0.3} />
-            </mesh>
-            {/* Jewels */}
-            <mesh position={[0, 0.35 * headScale, 0.28 * headScale]} castShadow>
-              <boxGeometry args={[0.06 * headScale, 0.06 * headScale, 0.02 * headScale]} />
-              <meshStandardMaterial color="#e91e63" metalness={0.5} roughness={0.2} />
-            </mesh>
-            <mesh position={[-0.22 * headScale, 0.35 * headScale, 0.08 * headScale]} castShadow>
-              <boxGeometry args={[0.02 * headScale, 0.06 * headScale, 0.06 * headScale]} />
-              <meshStandardMaterial color="#2196f3" metalness={0.5} roughness={0.2} />
-            </mesh>
-            <mesh position={[0.22 * headScale, 0.35 * headScale, 0.08 * headScale]} castShadow>
-              <boxGeometry args={[0.02 * headScale, 0.06 * headScale, 0.06 * headScale]} />
-              <meshStandardMaterial color="#4caf50" metalness={0.5} roughness={0.2} />
-            </mesh>
-          </>
-        )}
-
-        {/* Headphones */}
-        {hasHeadphones && (
-          <>
-            {/* Headband */}
-            <mesh position={[0, 0.32 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.56 * headScale, 0.06 * headScale, 0.08 * headScale]} />
-              <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.6} />
-            </mesh>
-            {/* Headband top curve */}
-            <mesh position={[0, 0.35 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.4 * headScale, 0.04 * headScale, 0.06 * headScale]} />
-              <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.6} />
-            </mesh>
-            {/* Left ear cup */}
-            <mesh position={[-0.3 * headScale, 0.05 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.2 * headScale, 0.22 * headScale]} />
-              <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.6} />
-            </mesh>
-            {/* Left ear cushion */}
-            <mesh position={[-0.27 * headScale, 0.05 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.04 * headScale, 0.16 * headScale, 0.18 * headScale]} />
-              <meshStandardMaterial color="#2a2a2a" roughness={0.9} />
-            </mesh>
-            {/* Right ear cup */}
-            <mesh position={[0.3 * headScale, 0.05 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.2 * headScale, 0.22 * headScale]} />
-              <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.6} />
-            </mesh>
-            {/* Right ear cushion */}
-            <mesh position={[0.27 * headScale, 0.05 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.04 * headScale, 0.16 * headScale, 0.18 * headScale]} />
-              <meshStandardMaterial color="#2a2a2a" roughness={0.9} />
-            </mesh>
-          </>
-        )}
-
-        {/* New Head Accessories - sunglasses, goggles, turban, beret, bandana, helmet, tiara, halo, horns */}
-        <HeadAccessories
-          headScale={headScale}
-          hasSunglasses={hasSunglasses}
-          hasGoggles={hasGoggles}
-          hasTurban={hasTurban}
-          hasBeret={hasBeret}
-          hasBandana={hasBandana}
-          hasHelmet={hasHelmet}
-          hasTiara={hasTiara}
-          hasHalo={hasHalo}
-          hasHorns={hasHorns}
-          accessoryColor={character.model3D.accessoryColor}
-        />
-
-        {/* Eyes - hidden when special eye face states are active */}
-        {complementary?.faceState !== 'spiral_eyes' && 
-         complementary?.faceState !== 'sparkle_eyes' && 
-         complementary?.faceState !== 'heart_eyes' && (
-          <>
-            <mesh ref={leftEyeRef} position={[-0.12 * headScale, 0.05 + faceYOffset, 0.26 * headScale]}>
-              <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.01]} />
-              <meshBasicMaterial color="#3a3a3a" />
-            </mesh>
-            <mesh ref={rightEyeRef} position={[0.12 * headScale, 0.05 + faceYOffset, 0.26 * headScale]}>
-              <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.01]} />
-              <meshBasicMaterial color="#3a3a3a" />
-            </mesh>
-          </>
-        )}
-
-        {/* Eyebrows - Blocky style (or Unibrow) */}
-        {(() => {
-          const eyebrowColor = hairColor || '#3a3a3a';
-          const eyebrowY = 0.14 + faceYOffset;
-          const eyebrowX = 0.12 * headScale;
-          const eyebrowZ = 0.26 * headScale;
-
-          if (hasUnibrow) {
-            // Single connected unibrow spanning both eye positions
-            const unibrowWidth = (eyebrowX * 2) + (0.12 * headScale);
-            return (
-              <mesh ref={unibrowRef} position={[0, eyebrowY, eyebrowZ]}>
-                <boxGeometry args={[unibrowWidth, 0.03 * headScale, 0.02]} />
-                <meshStandardMaterial color={eyebrowColor} roughness={0.8} />
+            {/* Hair - Different styles */}
+            {hairType === 'short' && (
+              <mesh position={[0, 0.25 * headScale, 0]} castShadow>
+                <boxGeometry args={[0.52 * headScale, 0.15 * headScale, 0.52 * headScale]} />
+                <meshStandardMaterial color={hairColor} roughness={0.8} />
               </mesh>
-            );
-          }
+            )}
+            {hairType === 'medium' && (
+              <>
+                <mesh position={[0, 0.25 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.52 * headScale, 0.15 * headScale, 0.52 * headScale]} />
+                  <meshStandardMaterial color={hairColor} roughness={0.8} />
+                </mesh>
+                <mesh position={[0, 0.20 * headScale, -0.28 * headScale]} castShadow>
+                  <boxGeometry args={[0.5 * headScale, 0.25 * headScale, 0.08 * headScale]} />
+                  <meshStandardMaterial color={hairColor} roughness={0.8} />
+                </mesh>
+              </>
+            )}
+            {hairType === 'long' && (
+              <>
+                <mesh position={[0, 0.25 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.52 * headScale, 0.15 * headScale, 0.52 * headScale]} />
+                  <meshStandardMaterial color={hairColor} roughness={0.8} />
+                </mesh>
+                <mesh position={[-0.3 * headScale, 0.05 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.1 * headScale, 0.5 * headScale, 0.3 * headScale]} />
+                  <meshStandardMaterial color={hairColor} roughness={0.8} />
+                </mesh>
+                <mesh position={[0.3 * headScale, 0.05 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.1 * headScale, 0.5 * headScale, 0.3 * headScale]} />
+                  <meshStandardMaterial color={hairColor} roughness={0.8} />
+                </mesh>
+                <mesh position={[0, 0.05 * headScale, -0.3 * headScale]} castShadow>
+                  <boxGeometry args={[0.5 * headScale, 0.5 * headScale, 0.1 * headScale]} />
+                  <meshStandardMaterial color={hairColor} roughness={0.8} />
+                </mesh>
+              </>
+            )}
 
-          // Default: Two separate eyebrows
-          return (
-            <>
-              <mesh ref={leftEyebrowRef} position={[-eyebrowX, eyebrowY, eyebrowZ]}>
-                <boxGeometry args={[0.12 * headScale, 0.03 * headScale, 0.02]} />
-                <meshStandardMaterial color={eyebrowColor} roughness={0.8} />
+            {/* Hat accessory */}
+            {hasHat && (
+              <>
+                <mesh position={[0, 0.35 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.55 * headScale, 0.12 * headScale, 0.55 * headScale]} />
+                  <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
+                </mesh>
+                <mesh position={[0, 0.45 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.4 * headScale, 0.15 * headScale, 0.4 * headScale]} />
+                  <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
+                </mesh>
+              </>
+            )}
+
+            {/* Crown */}
+            {hasCrown && (
+              <>
+                {/* Crown base band */}
+                <mesh position={[0, 0.32 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.54 * headScale, 0.1 * headScale, 0.54 * headScale]} />
+                  <meshStandardMaterial color="#c9a227" metalness={0.7} roughness={0.3} />
+                </mesh>
+                {/* Crown points */}
+                <mesh position={[-0.18 * headScale, 0.45 * headScale, 0.18 * headScale]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.18 * headScale, 0.08 * headScale]} />
+                  <meshStandardMaterial color="#c9a227" metalness={0.7} roughness={0.3} />
+                </mesh>
+                <mesh position={[0.18 * headScale, 0.45 * headScale, 0.18 * headScale]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.18 * headScale, 0.08 * headScale]} />
+                  <meshStandardMaterial color="#c9a227" metalness={0.7} roughness={0.3} />
+                </mesh>
+                <mesh position={[0, 0.5 * headScale, 0.18 * headScale]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.25 * headScale, 0.08 * headScale]} />
+                  <meshStandardMaterial color="#c9a227" metalness={0.7} roughness={0.3} />
+                </mesh>
+                <mesh position={[-0.18 * headScale, 0.45 * headScale, -0.18 * headScale]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.18 * headScale, 0.08 * headScale]} />
+                  <meshStandardMaterial color="#c9a227" metalness={0.7} roughness={0.3} />
+                </mesh>
+                <mesh position={[0.18 * headScale, 0.45 * headScale, -0.18 * headScale]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.18 * headScale, 0.08 * headScale]} />
+                  <meshStandardMaterial color="#c9a227" metalness={0.7} roughness={0.3} />
+                </mesh>
+                {/* Jewels */}
+                <mesh position={[0, 0.35 * headScale, 0.28 * headScale]} castShadow>
+                  <boxGeometry args={[0.06 * headScale, 0.06 * headScale, 0.02 * headScale]} />
+                  <meshStandardMaterial color="#e91e63" metalness={0.5} roughness={0.2} />
+                </mesh>
+                <mesh position={[-0.22 * headScale, 0.35 * headScale, 0.08 * headScale]} castShadow>
+                  <boxGeometry args={[0.02 * headScale, 0.06 * headScale, 0.06 * headScale]} />
+                  <meshStandardMaterial color="#2196f3" metalness={0.5} roughness={0.2} />
+                </mesh>
+                <mesh position={[0.22 * headScale, 0.35 * headScale, 0.08 * headScale]} castShadow>
+                  <boxGeometry args={[0.02 * headScale, 0.06 * headScale, 0.06 * headScale]} />
+                  <meshStandardMaterial color="#4caf50" metalness={0.5} roughness={0.2} />
+                </mesh>
+              </>
+            )}
+
+            {/* Headphones */}
+            {hasHeadphones && (
+              <>
+                {/* Headband */}
+                <mesh position={[0, 0.32 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.56 * headScale, 0.06 * headScale, 0.08 * headScale]} />
+                  <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.6} />
+                </mesh>
+                {/* Headband top curve */}
+                <mesh position={[0, 0.35 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.4 * headScale, 0.04 * headScale, 0.06 * headScale]} />
+                  <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.6} />
+                </mesh>
+                {/* Left ear cup */}
+                <mesh position={[-0.3 * headScale, 0.05 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.2 * headScale, 0.22 * headScale]} />
+                  <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.6} />
+                </mesh>
+                {/* Left ear cushion */}
+                <mesh position={[-0.27 * headScale, 0.05 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.04 * headScale, 0.16 * headScale, 0.18 * headScale]} />
+                  <meshStandardMaterial color="#2a2a2a" roughness={0.9} />
+                </mesh>
+                {/* Right ear cup */}
+                <mesh position={[0.3 * headScale, 0.05 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.2 * headScale, 0.22 * headScale]} />
+                  <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.6} />
+                </mesh>
+                {/* Right ear cushion */}
+                <mesh position={[0.27 * headScale, 0.05 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.04 * headScale, 0.16 * headScale, 0.18 * headScale]} />
+                  <meshStandardMaterial color="#2a2a2a" roughness={0.9} />
+                </mesh>
+              </>
+            )}
+
+            {/* New Head Accessories - sunglasses, goggles, turban, beret, bandana, helmet, tiara, halo, horns */}
+            <HeadAccessories
+              headScale={headScale}
+              hasSunglasses={hasSunglasses}
+              hasGoggles={hasGoggles}
+              hasTurban={hasTurban}
+              hasBeret={hasBeret}
+              hasBandana={hasBandana}
+              hasHelmet={hasHelmet}
+              hasTiara={hasTiara}
+              hasHalo={hasHalo}
+              hasHorns={hasHorns}
+              accessoryColor={character.model3D.accessoryColor}
+            />
+
+            {/* Eyes - hidden when special eye face states are active */}
+            {complementary?.faceState !== 'spiral_eyes' &&
+              complementary?.faceState !== 'sparkle_eyes' &&
+              complementary?.faceState !== 'heart_eyes' && (
+                <>
+                  <mesh ref={leftEyeRef} position={[-0.12 * headScale, 0.05 + faceYOffset, 0.26 * headScale]}>
+                    <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.01]} />
+                    <meshBasicMaterial color="#3a3a3a" />
+                  </mesh>
+                  <mesh ref={rightEyeRef} position={[0.12 * headScale, 0.05 + faceYOffset, 0.26 * headScale]}>
+                    <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.01]} />
+                    <meshBasicMaterial color="#3a3a3a" />
+                  </mesh>
+                </>
+              )}
+
+            {/* Eyebrows - Blocky style (or Unibrow) */}
+            {(() => {
+              const eyebrowColor = hairColor || '#3a3a3a';
+              const eyebrowY = 0.14 + faceYOffset;
+              const eyebrowX = 0.12 * headScale;
+              const eyebrowZ = 0.26 * headScale;
+
+              if (hasUnibrow) {
+                // Single connected unibrow spanning both eye positions
+                const unibrowWidth = (eyebrowX * 2) + (0.12 * headScale);
+                return (
+                  <mesh ref={unibrowRef} position={[0, eyebrowY, eyebrowZ]}>
+                    <boxGeometry args={[unibrowWidth, 0.03 * headScale, 0.02]} />
+                    <meshStandardMaterial color={eyebrowColor} roughness={0.8} />
+                  </mesh>
+                );
+              }
+
+              // Default: Two separate eyebrows
+              return (
+                <>
+                  <mesh ref={leftEyebrowRef} position={[-eyebrowX, eyebrowY, eyebrowZ]}>
+                    <boxGeometry args={[0.12 * headScale, 0.03 * headScale, 0.02]} />
+                    <meshStandardMaterial color={eyebrowColor} roughness={0.8} />
+                  </mesh>
+                  <mesh ref={rightEyebrowRef} position={[eyebrowX, eyebrowY, eyebrowZ]}>
+                    <boxGeometry args={[0.12 * headScale, 0.03 * headScale, 0.02]} />
+                    <meshStandardMaterial color={eyebrowColor} roughness={0.8} />
+                  </mesh>
+                </>
+              );
+            })()}
+
+            {/* Glasses */}
+            {hasGlasses && (
+              <>
+                <mesh position={[-0.12 * headScale, 0.05 + faceYOffset, 0.27 * headScale]}>
+                  <torusGeometry args={[0.09 * headScale, 0.015 * headScale, 8, 16]} />
+                  <meshStandardMaterial color="#4a4a4a" metalness={0.8} roughness={0.2} />
+                </mesh>
+                <mesh position={[0.12 * headScale, 0.05 + faceYOffset, 0.27 * headScale]}>
+                  <torusGeometry args={[0.09 * headScale, 0.015 * headScale, 8, 16]} />
+                  <meshStandardMaterial color="#4a4a4a" metalness={0.8} roughness={0.2} />
+                </mesh>
+                <mesh position={[0, 0.05 + faceYOffset, 0.27 * headScale]}>
+                  <boxGeometry args={[0.06 * headScale, 0.015 * headScale, 0.015 * headScale]} />
+                  <meshStandardMaterial color="#4a4a4a" metalness={0.8} roughness={0.2} />
+                </mesh>
+              </>
+            )}
+
+            {/* BEARD - Blocky style */}
+            {hasBeard && (
+              <>
+                {/* Main beard body */}
+                <mesh position={[0, -0.22 + faceYOffset, 0.22 * headScale]} castShadow>
+                  <boxGeometry args={[0.35 * headScale, 0.25 * headScale, 0.15 * headScale]} />
+                  <meshStandardMaterial color={hairColor} roughness={0.8} />
+                </mesh>
+                {/* Left side extension */}
+                <mesh position={[-0.15 * headScale, -0.15 + faceYOffset, 0.18 * headScale]} castShadow>
+                  <boxGeometry args={[0.12 * headScale, 0.18 * headScale, 0.12 * headScale]} />
+                  <meshStandardMaterial color={hairColor} roughness={0.8} />
+                </mesh>
+                {/* Right side extension */}
+                <mesh position={[0.15 * headScale, -0.15 + faceYOffset, 0.18 * headScale]} castShadow>
+                  <boxGeometry args={[0.12 * headScale, 0.18 * headScale, 0.12 * headScale]} />
+                  <meshStandardMaterial color={hairColor} roughness={0.8} />
+                </mesh>
+                {/* Bottom point/goatee style */}
+                <mesh position={[0, -0.35 + faceYOffset, 0.24 * headScale]} castShadow>
+                  <boxGeometry args={[0.18 * headScale, 0.08 * headScale, 0.08 * headScale]} />
+                  <meshStandardMaterial color={hairColor} roughness={0.8} />
+                </mesh>
+              </>
+            )}
+
+            {/* THIN BEARD - Follows jawline and around mouth */}
+            {hasThinBeard && (
+              <>
+                {/* Left jaw line */}
+                <mesh position={[-0.23 * headScale, -0.18 + faceYOffset, 0.24 * headScale]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.16 * headScale, 0.08 * headScale]} />
+                  <meshStandardMaterial color={hairColor} roughness={0.8} />
+                </mesh>
+                {/* Right jaw line */}
+                <mesh position={[0.24 * headScale, -0.18 + faceYOffset, 0.24 * headScale]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.16 * headScale, 0.08 * headScale]} />
+                  <meshStandardMaterial color={hairColor} roughness={0.8} />
+                </mesh>
+                {/* Chin center */}
+                <mesh position={[0, -0.28 + faceYOffset, 0.24 * headScale]} castShadow>
+                  <boxGeometry args={[0.22 * headScale, 0.06 * headScale, 0.06 * headScale]} />
+                  <meshStandardMaterial color={hairColor} roughness={0.8} />
+                </mesh>
+                {/* Left down corner connecting jaw to chin */}
+                <mesh position={[-0.15 * headScale, -0.25 + faceYOffset, 0.24 * headScale]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.06 * headScale, 0.06 * headScale]} />
+                  <meshStandardMaterial color={hairColor} roughness={0.8} />
+                </mesh>
+                {/* Right down corner connecting jaw to chin */}
+                <mesh position={[0.15 * headScale, -0.25 + faceYOffset, 0.24 * headScale]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.06 * headScale, 0.06 * headScale]} />
+                  <meshStandardMaterial color={hairColor} roughness={0.8} />
+                </mesh>
+                {/* Thin moustache - left */}
+                <mesh position={[-0.06 * headScale, -0.11 + faceYOffset, 0.24 * headScale]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.03 * headScale, 0.03 * headScale]} />
+                  <meshStandardMaterial color={hairColor} roughness={0.8} />
+                </mesh>
+                {/* Thin moustache - right */}
+                <mesh position={[0.06 * headScale, -0.11 + faceYOffset, 0.24 * headScale]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.03 * headScale, 0.03 * headScale]} />
+                  <meshStandardMaterial color={hairColor} roughness={0.8} />
+                </mesh>
+              </>
+            )}
+
+            {/* MOUSTACHE - Bushy blocky style */}
+            {hasMoustache && (
+              <>
+                {/* Left side */}
+                <mesh position={[-0.1 * headScale, -0.12 + faceYOffset, 0.26 * headScale]} castShadow>
+                  <boxGeometry args={[0.15 * headScale, 0.08 * headScale, 0.06 * headScale]} />
+                  <meshStandardMaterial color={hairColor} roughness={0.8} />
+                </mesh>
+                {/* Right side */}
+                <mesh position={[0.1 * headScale, -0.12 + faceYOffset, 0.26 * headScale]} castShadow>
+                  <boxGeometry args={[0.15 * headScale, 0.08 * headScale, 0.06 * headScale]} />
+                  <meshStandardMaterial color={hairColor} roughness={0.8} />
+                </mesh>
+                {/* Center connector */}
+                <mesh position={[0, -0.11 + faceYOffset, 0.26 * headScale]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.05 * headScale, 0.06 * headScale]} />
+                  <meshStandardMaterial color={hairColor} roughness={0.8} />
+                </mesh>
+              </>
+            )}
+
+            {/* MONOCLE - Single lens on right eye */}
+            {hasMonocle && (
+              <>
+                {/* Lens (right eye) */}
+                <mesh position={[0.12 * headScale, 0.05 + faceYOffset, 0.27 * headScale]}>
+                  <torusGeometry args={[0.09 * headScale, 0.015 * headScale, 8, 16]} />
+                  <meshStandardMaterial color="#4a4a4a" metalness={0.8} roughness={0.2} />
+                </mesh>
+                {/* Chain/cord going up and around */}
+                <mesh position={[0.12 * headScale, 0.15 + faceYOffset, 0.20 * headScale]} rotation={[0, 0, Math.PI / 4]}>
+                  <boxGeometry args={[0.02 * headScale, 0.15 * headScale, 0.01 * headScale]} />
+                  <meshStandardMaterial color="#2a2a2a" roughness={0.6} />
+                </mesh>
+              </>
+            )}
+
+            {/* EYE PATCH - Pirate style */}
+            {hasEyePatch && (
+              <>
+                {/* Patch (over right eye) */}
+                <mesh position={[0.12 * headScale, 0.1 + faceYOffset, 0.27 * headScale]}>
+                  <boxGeometry args={[0.12 * headScale, 0.1 * headScale, 0.01]} />
+                  <meshStandardMaterial color="#2a2a2a" roughness={0.9} />
+                </mesh>
+
+                {/* Patch (over right eye) - Demi-circle shape */}
+                <mesh position={[0.12 * headScale, 0.06 + faceYOffset, 0.27 * headScale]} rotation={[Math.PI / 2, -Math.PI / 2, 0]}>
+                  <cylinderGeometry
+                    args={[0.06 * headScale, 0.06 * headScale, 0.01, 32, 1, false, 0, Math.PI]}
+                  />
+                  <meshStandardMaterial color="#2a2a2a" roughness={0.9} side={THREE.DoubleSide} />
+                </mesh>
+
+                {/* Flat strap across face - diagonal from patch to left side */}
+                <mesh position={[-faceYOffset, 0.18 + faceYOffset, 0.27 * headScale]} rotation={[0, 0, -Math.PI / 6]}>
+                  <boxGeometry args={[0.47 * headScale, 0.025 * headScale, 0.01]} />
+                  <meshStandardMaterial color="#2a2a2a" roughness={0.7} />
+                </mesh>
+              </>
+            )}
+
+            {/* TOP HAT - Tall gentleman's hat */}
+            {hasTopHat && (
+              <>
+                {/* Wide brim */}
+                <mesh position={[0, 0.35 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.60 * headScale, 0.05 * headScale, 0.60 * headScale]} />
+                  <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
+                </mesh>
+                {/* Tall cylinder body */}
+                <mesh position={[0, 0.55 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.45 * headScale, 0.35 * headScale, 0.45 * headScale]} />
+                  <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
+                </mesh>
+                {/* Top */}
+                <mesh position={[0, 0.73 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.45 * headScale, 0.03 * headScale, 0.45 * headScale]} />
+                  <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
+                </mesh>
+                {/* Hat band */}
+                <mesh position={[0, 0.40 * headScale, 0.24 * headScale]} castShadow>
+                  <boxGeometry args={[0.46 * headScale, 0.06 * headScale, 0.02 * headScale]} />
+                  <meshStandardMaterial color="#8b0000" roughness={0.6} />
+                </mesh>
+              </>
+            )}
+
+            {/* RANGER HAT - Flat-topped campaign/Rough Rider style */}
+            {hasRangerHat && (
+              <>
+                {/* Wide flat brim */}
+                <mesh position={[0, 0.32 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.70 * headScale, 0.04 * headScale, 0.70 * headScale]} />
+                  <meshStandardMaterial color="#8B7355" roughness={0.8} />
+                </mesh>
+                {/* Brim front upturn */}
+                <mesh position={[0, 0.35 * headScale, 0.32 * headScale]} rotation={[0.3, 0, 0]} castShadow>
+                  <boxGeometry args={[0.35 * headScale, 0.04 * headScale, 0.12 * headScale]} />
+                  <meshStandardMaterial color="#8B7355" roughness={0.8} />
+                </mesh>
+                {/* Crown base - flat top (campaign style) */}
+                <mesh position={[0, 0.42 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.48 * headScale, 0.16 * headScale, 0.48 * headScale]} />
+                  <meshStandardMaterial color="#8B7355" roughness={0.8} />
+                </mesh>
+                {/* Flat top */}
+                <mesh position={[0, 0.51 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.44 * headScale, 0.03 * headScale, 0.44 * headScale]} />
+                  <meshStandardMaterial color="#8B7355" roughness={0.8} />
+                </mesh>
+                {/* Four dents/pinches in crown (campaign hat style) */}
+                {/* Front pinch */}
+                <mesh position={[0, 0.48 * headScale, 0.20 * headScale]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.08 * headScale]} />
+                  <meshStandardMaterial color="#7a6548" roughness={0.8} />
+                </mesh>
+                {/* Back pinch */}
+                <mesh position={[0, 0.48 * headScale, -0.20 * headScale]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.08 * headScale]} />
+                  <meshStandardMaterial color="#7a6548" roughness={0.8} />
+                </mesh>
+                {/* Left pinch */}
+                <mesh position={[-0.20 * headScale, 0.48 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.08 * headScale]} />
+                  <meshStandardMaterial color="#7a6548" roughness={0.8} />
+                </mesh>
+                {/* Right pinch */}
+                <mesh position={[0.20 * headScale, 0.48 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.08 * headScale]} />
+                  <meshStandardMaterial color="#7a6548" roughness={0.8} />
+                </mesh>
+                {/* Hat band - leather strap */}
+                <mesh position={[0, 0.36 * headScale, 0.25 * headScale]} castShadow>
+                  <boxGeometry args={[0.50 * headScale, 0.05 * headScale, 0.02 * headScale]} />
+                  <meshStandardMaterial color="#5c4a3a" roughness={0.7} />
+                </mesh>
+                {/* Band around sides */}
+                <mesh position={[-0.25 * headScale, 0.36 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.02 * headScale, 0.05 * headScale, 0.50 * headScale]} />
+                  <meshStandardMaterial color="#5c4a3a" roughness={0.7} />
+                </mesh>
+                <mesh position={[0.25 * headScale, 0.36 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.02 * headScale, 0.05 * headScale, 0.50 * headScale]} />
+                  <meshStandardMaterial color="#5c4a3a" roughness={0.7} />
+                </mesh>
+                {/* Cord/strap detail */}
+                <mesh position={[0, 0.38 * headScale, 0.26 * headScale]} castShadow>
+                  <boxGeometry args={[0.06 * headScale, 0.03 * headScale, 0.02 * headScale]} />
+                  <meshStandardMaterial color="#c9a227" metalness={0.5} roughness={0.4} />
+                </mesh>
+              </>
+            )}
+
+            {/* BAT MASK - Batman cowl style */}
+            {hasBatMask && (
+              <>
+                {/* Main cowl - covers top and sides of head */}
+                <mesh position={[0, 0.15 * headScale, -0.02 * headScale]} castShadow>
+                  <boxGeometry args={[0.52 * headScale, 0.45 * headScale, 0.50 * headScale]} />
+                  <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+                </mesh>
+                {/* Forehead piece - extends down */}
+                <mesh position={[0, 0.08 * headScale, 0.22 * headScale]} castShadow>
+                  <boxGeometry args={[0.48 * headScale, 0.25 * headScale, 0.08 * headScale]} />
+                  <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+                </mesh>
+                {/* Left ear - pointed bat ear */}
+                <mesh position={[-0.18 * headScale, 0.45 * headScale, 0]} rotation={[0, 0, 0.2]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.25 * headScale, 0.08 * headScale]} />
+                  <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+                </mesh>
+                {/* Left ear tip */}
+                <mesh position={[-0.20 * headScale, 0.58 * headScale, 0]} rotation={[0, 0, 0.3]} castShadow>
+                  <boxGeometry args={[0.05 * headScale, 0.12 * headScale, 0.05 * headScale]} />
+                  <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+                </mesh>
+                {/* Right ear - pointed bat ear */}
+                <mesh position={[0.18 * headScale, 0.45 * headScale, 0]} rotation={[0, 0, -0.2]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.25 * headScale, 0.08 * headScale]} />
+                  <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+                </mesh>
+                {/* Right ear tip */}
+                <mesh position={[0.20 * headScale, 0.58 * headScale, 0]} rotation={[0, 0, -0.3]} castShadow>
+                  <boxGeometry args={[0.05 * headScale, 0.12 * headScale, 0.05 * headScale]} />
+                  <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+                </mesh>
+                {/* Eye socket left - angular cut */}
+                <mesh position={[-0.12 * headScale, 0.05 * headScale, 0.26 * headScale]} castShadow>
+                  <boxGeometry args={[0.14 * headScale, 0.10 * headScale, 0.02 * headScale]} />
+                  <meshStandardMaterial color="#2a2a2a" roughness={0.5} />
+                </mesh>
+                {/* Eye socket right - angular cut */}
+                <mesh position={[0.12 * headScale, 0.05 * headScale, 0.26 * headScale]} castShadow>
+                  <boxGeometry args={[0.14 * headScale, 0.10 * headScale, 0.02 * headScale]} />
+                  <meshStandardMaterial color="#2a2a2a" roughness={0.5} />
+                </mesh>
+                {/* Nose bridge piece */}
+                <mesh position={[0, 0.02 * headScale, 0.27 * headScale]} castShadow>
+                  <boxGeometry args={[0.06 * headScale, 0.12 * headScale, 0.02 * headScale]} />
+                  <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+                </mesh>
+                {/* Cheek pieces - left */}
+                <mesh position={[-0.22 * headScale, -0.05 * headScale, 0.18 * headScale]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.15 * headScale, 0.15 * headScale]} />
+                  <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+                </mesh>
+                {/* Cheek pieces - right */}
+                <mesh position={[0.22 * headScale, -0.05 * headScale, 0.18 * headScale]} castShadow>
+                  <boxGeometry args={[0.08 * headScale, 0.15 * headScale, 0.15 * headScale]} />
+                  <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+                </mesh>
+                {/* Neck piece */}
+                <mesh position={[0, -0.15 * headScale, 0]} castShadow>
+                  <boxGeometry args={[0.40 * headScale, 0.10 * headScale, 0.40 * headScale]} />
+                  <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+                </mesh>
+              </>
+            )}
+
+            {/* VADER MASK - Improved Primitive Style */}
+            {hasVaderMask && (
+              <group name="VaderHelmetContainer">
+                {/* --- GLOSSY HELMET SECTION --- */}
+
+                {/* Main helmet dome - Stretched Sphere for roundness */}
+                <mesh position={[0, 0.3 * headScale, -0.05 * headScale]} scale={[1, 1.2, 1.1]} castShadow>
+                  {/* args: [radius, widthSegments, heightSegments, phiStart, phiLength, thetaStart, thetaLength] */}
+                  {/* Cut sphere in half to sit on head */}
+                  <sphereGeometry args={[0.42 * headScale, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.6]} />
+                  <meshStandardMaterial color="#050505" metalness={0.8} roughness={0.1} envMapIntensity={1.2} />
+                </mesh>
+
+                {/* Helmet Side/Back Flange (The "hair" shape) - Approximated with angled boxes */}
+                {/* Back piece */}
+                <mesh position={[0, -0.1 * headScale, -0.25 * headScale]} rotation={[-0.3, 0, 0]} castShadow>
+                  <boxGeometry args={[0.7 * headScale, 0.6 * headScale, 0.1 * headScale]} />
+                  <meshStandardMaterial color="#050505" metalness={0.8} roughness={0.1} />
+                </mesh>
+                {/* Left Side Flange */}
+                <mesh position={[-0.32 * headScale, -0.1 * headScale, -0.05 * headScale]} rotation={[0, 0.4, 0.2]} castShadow>
+                  <boxGeometry args={[0.1 * headScale, 0.6 * headScale, 0.5 * headScale]} />
+                  <meshStandardMaterial color="#050505" metalness={0.8} roughness={0.1} />
+                </mesh>
+                {/* Right Side Flange */}
+                <mesh position={[0.32 * headScale, -0.1 * headScale, -0.05 * headScale]} rotation={[0, -0.4, -0.2]} castShadow>
+                  <boxGeometry args={[0.1 * headScale, 0.6 * headScale, 0.5 * headScale]} />
+                  <meshStandardMaterial color="#050505" metalness={0.8} roughness={0.1} />
+                </mesh>
+
+                {/* Forehead ridge - The connecting strip */}
+                <mesh position={[0, 0.38 * headScale, 0.22 * headScale]} rotation={[0.2, 0, 0]} castShadow>
+                  <boxGeometry args={[0.15 * headScale, 0.35 * headScale, 0.05 * headScale]} />
+                  <meshStandardMaterial color="#050505" metalness={0.8} roughness={0.1} />
+                </mesh>
+
+                {/* --- MATTE FACE MASK SECTION --- */}
+
+                {/* Main Face Triangle base */}
+                <mesh position={[0, -0.05 * headScale, 0.2 * headScale]} rotation={[0, Math.PI / 4, Math.PI]} scale={[1, 1, 0.5]} castShadow>
+                  {/* A cone pointing down makes a good triangular face shape */}
+                  <coneGeometry args={[0.35 * headScale, 0.5 * headScale, 4]} />
+                  <meshStandardMaterial color="#151515" metalness={0.3} roughness={0.6} />
+                </mesh>
+
+                {/* Eye lens left - Flattened Sphere */}
+                <mesh position={[-0.14 * headScale, 0.1 * headScale, 0.28 * headScale]} rotation={[0.1, -0.2, 0]} scale={[1, 0.7, 0.3]} castShadow>
+                  <sphereGeometry args={[0.1 * headScale, 16, 16]} />
+                  {/* Reddish black lenses */}
+                  <meshStandardMaterial color="#1a0000" metalness={0.9} roughness={0.05} />
+                </mesh>
+                {/* Eye lens right - Flattened Sphere */}
+                <mesh position={[0.14 * headScale, 0.1 * headScale, 0.28 * headScale]} rotation={[0.1, 0.2, 0]} scale={[1, 0.7, 0.3]} castShadow>
+                  <sphereGeometry args={[0.1 * headScale, 16, 16]} />
+                  <meshStandardMaterial color="#1a0000" metalness={0.9} roughness={0.05} />
+                </mesh>
+
+                {/* Nose/mouth grille main block - Triangular Prism */}
+                <mesh position={[0, -0.15 * headScale, 0.32 * headScale]} rotation={[Math.PI / 2, Math.PI / 2, 0]} castShadow>
+                  {/* Cylinder with 3 radial segments is a triangular prism */}
+                  <cylinderGeometry args={[0.12 * headScale, 0.12 * headScale, 0.15 * headScale, 3]} />
+                  <meshStandardMaterial color="#101010" metalness={0.5} roughness={0.5} />
+                </mesh>
+
+                {/* Grille lines - keep these as thin boxes, they work well */}
+                {[-0.04, 0, 0.04].map((offset, i) => (
+                  <mesh key={i} position={[0, (-0.15 + offset * 1.5) * headScale, 0.38 * headScale]} castShadow>
+                    <boxGeometry args={[0.12 * headScale, 0.01 * headScale, 0.01 * headScale]} />
+                    <meshStandardMaterial color="#333333" metalness={0.7} roughness={0.3} />
+                  </mesh>
+                ))}
+
+                {/* Cheek Vents/Tusks - Cylinders instead of boxes */}
+                {/* Left */}
+                <mesh position={[-0.22 * headScale, -0.18 * headScale, 0.25 * headScale]} rotation={[Math.PI / 2, 0, -0.2]} castShadow>
+                  <cylinderGeometry args={[0.04 * headScale, 0.05 * headScale, 0.15 * headScale, 8]} />
+                  <meshStandardMaterial color="#151515" metalness={0.4} roughness={0.5} />
+                </mesh>
+                {/* Right */}
+                <mesh position={[0.22 * headScale, -0.18 * headScale, 0.25 * headScale]} rotation={[Math.PI / 2, 0, 0.2]} castShadow>
+                  <cylinderGeometry args={[0.04 * headScale, 0.05 * headScale, 0.15 * headScale, 8]} />
+                  <meshStandardMaterial color="#151515" metalness={0.4} roughness={0.5} />
+                </mesh>
+
+                {/* Chin guard */}
+                <mesh position={[0, -0.3 * headScale, 0.22 * headScale]} rotation={[-0.2, 0, 0]} castShadow>
+                  <boxGeometry args={[0.2 * headScale, 0.1 * headScale, 0.12 * headScale]} />
+                  <meshStandardMaterial color="#151515" metalness={0.3} roughness={0.6} />
+                </mesh>
+              </group>
+            )}
+
+            {/* Nose */}
+            <mesh ref={noseRef} position={[0, -0.05 + faceYOffset, 0.26 * headScale]}>
+              <boxGeometry args={[0.08 * headScale, 0.12 * headScale, 0.08 * headScale]} />
+              <meshStandardMaterial color={skinColor} roughness={0.6} />
+            </mesh>
+
+            {/* Mouth - hidden when other mouth states are active (except smile/wide_smile which use the ref) */}
+            {/* Default mouth - only show when no special mouth state is set */}
+            {!complementary?.mouthState && (
+              <mesh ref={mouthRef} position={[0, -0.18 + faceYOffset, 0.26 * headScale]}>
+                <circleGeometry args={[0.07 * headScale, 20]} />
+                <meshBasicMaterial color="#2a2a2a" />
               </mesh>
-              <mesh ref={rightEyebrowRef} position={[eyebrowX, eyebrowY, eyebrowZ]}>
-                <boxGeometry args={[0.12 * headScale, 0.03 * headScale, 0.02]} />
-                <meshStandardMaterial color={eyebrowColor} roughness={0.8} />
+            )}
+
+            {/* Smile curve - regular smile */}
+            {complementary?.mouthState === 'smile' && (
+              <mesh ref={smileMeshRef} position={[0, -0.14 + faceYOffset, 0.27 * headScale]} rotation={[0, 0, Math.PI]}>
+                <torusGeometry args={[0.08 * headScale, 0.015 * headScale, 8, 16, Math.PI]} />
+                <meshBasicMaterial color="#2a2a2a" />
               </mesh>
-            </>
-          );
-        })()}
+            )}
 
-        {/* Glasses */}
-        {hasGlasses && (
-          <>
-            <mesh position={[-0.12 * headScale, 0.05 + faceYOffset, 0.27 * headScale]}>
-              <torusGeometry args={[0.09 * headScale, 0.015 * headScale, 8, 16]} />
-              <meshStandardMaterial color="#4a4a4a" metalness={0.8} roughness={0.2} />
-            </mesh>
-            <mesh position={[0.12 * headScale, 0.05 + faceYOffset, 0.27 * headScale]}>
-              <torusGeometry args={[0.09 * headScale, 0.015 * headScale, 8, 16]} />
-              <meshStandardMaterial color="#4a4a4a" metalness={0.8} roughness={0.2} />
-            </mesh>
-            <mesh position={[0, 0.05 + faceYOffset, 0.27 * headScale]}>
-              <boxGeometry args={[0.06 * headScale, 0.015 * headScale, 0.015 * headScale]} />
-              <meshStandardMaterial color="#4a4a4a" metalness={0.8} roughness={0.2} />
-            </mesh>
-          </>
-        )}
-
-        {/* BEARD - Blocky style */}
-        {hasBeard && (
-          <>
-            {/* Main beard body */}
-            <mesh position={[0, -0.22 + faceYOffset, 0.22 * headScale]} castShadow>
-              <boxGeometry args={[0.35 * headScale, 0.25 * headScale, 0.15 * headScale]} />
-              <meshStandardMaterial color={hairColor} roughness={0.8} />
-            </mesh>
-            {/* Left side extension */}
-            <mesh position={[-0.15 * headScale, -0.15 + faceYOffset, 0.18 * headScale]} castShadow>
-              <boxGeometry args={[0.12 * headScale, 0.18 * headScale, 0.12 * headScale]} />
-              <meshStandardMaterial color={hairColor} roughness={0.8} />
-            </mesh>
-            {/* Right side extension */}
-            <mesh position={[0.15 * headScale, -0.15 + faceYOffset, 0.18 * headScale]} castShadow>
-              <boxGeometry args={[0.12 * headScale, 0.18 * headScale, 0.12 * headScale]} />
-              <meshStandardMaterial color={hairColor} roughness={0.8} />
-            </mesh>
-            {/* Bottom point/goatee style */}
-            <mesh position={[0, -0.35 + faceYOffset, 0.24 * headScale]} castShadow>
-              <boxGeometry args={[0.18 * headScale, 0.08 * headScale, 0.08 * headScale]} />
-              <meshStandardMaterial color={hairColor} roughness={0.8} />
-            </mesh>
-          </>
-        )}
-
-        {/* THIN BEARD - Follows jawline and around mouth */}
-        {hasThinBeard && (
-          <>
-            {/* Left jaw line */}
-            <mesh position={[-0.23 * headScale, -0.18 + faceYOffset, 0.24 * headScale]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.16 * headScale, 0.08 * headScale]} />
-              <meshStandardMaterial color={hairColor} roughness={0.8} />
-            </mesh>
-            {/* Right jaw line */}
-            <mesh position={[0.24 * headScale, -0.18 + faceYOffset, 0.24 * headScale]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.16 * headScale, 0.08 * headScale]} />
-              <meshStandardMaterial color={hairColor} roughness={0.8} />
-            </mesh>
-            {/* Chin center */}
-            <mesh position={[0, -0.28 + faceYOffset, 0.24 * headScale]} castShadow>
-              <boxGeometry args={[0.22 * headScale, 0.06 * headScale, 0.06 * headScale]} />
-              <meshStandardMaterial color={hairColor} roughness={0.8} />
-            </mesh>
-            {/* Left down corner connecting jaw to chin */}
-            <mesh position={[-0.15 * headScale, -0.25 + faceYOffset, 0.24 * headScale]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.06 * headScale, 0.06 * headScale]} />
-              <meshStandardMaterial color={hairColor} roughness={0.8} />
-            </mesh>
-            {/* Right down corner connecting jaw to chin */}
-            <mesh position={[0.15 * headScale, -0.25 + faceYOffset, 0.24 * headScale]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.06 * headScale, 0.06 * headScale]} />
-              <meshStandardMaterial color={hairColor} roughness={0.8} />
-            </mesh>
-            {/* Thin moustache - left */}
-            <mesh position={[-0.06 * headScale, -0.11 + faceYOffset, 0.24 * headScale]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.03 * headScale, 0.03 * headScale]} />
-              <meshStandardMaterial color={hairColor} roughness={0.8} />
-            </mesh>
-            {/* Thin moustache - right */}
-            <mesh position={[0.06 * headScale, -0.11 + faceYOffset, 0.24 * headScale]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.03 * headScale, 0.03 * headScale]} />
-              <meshStandardMaterial color={hairColor} roughness={0.8} />
-            </mesh>
-          </>
-        )}
-
-        {/* MOUSTACHE - Bushy blocky style */}
-        {hasMoustache && (
-          <>
-            {/* Left side */}
-            <mesh position={[-0.1 * headScale, -0.12 + faceYOffset, 0.26 * headScale]} castShadow>
-              <boxGeometry args={[0.15 * headScale, 0.08 * headScale, 0.06 * headScale]} />
-              <meshStandardMaterial color={hairColor} roughness={0.8} />
-            </mesh>
-            {/* Right side */}
-            <mesh position={[0.1 * headScale, -0.12 + faceYOffset, 0.26 * headScale]} castShadow>
-              <boxGeometry args={[0.15 * headScale, 0.08 * headScale, 0.06 * headScale]} />
-              <meshStandardMaterial color={hairColor} roughness={0.8} />
-            </mesh>
-            {/* Center connector */}
-            <mesh position={[0, -0.11 + faceYOffset, 0.26 * headScale]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.05 * headScale, 0.06 * headScale]} />
-              <meshStandardMaterial color={hairColor} roughness={0.8} />
-            </mesh>
-          </>
-        )}
-
-        {/* MONOCLE - Single lens on right eye */}
-        {hasMonocle && (
-          <>
-            {/* Lens (right eye) */}
-            <mesh position={[0.12 * headScale, 0.05 + faceYOffset, 0.27 * headScale]}>
-              <torusGeometry args={[0.09 * headScale, 0.015 * headScale, 8, 16]} />
-              <meshStandardMaterial color="#4a4a4a" metalness={0.8} roughness={0.2} />
-            </mesh>
-            {/* Chain/cord going up and around */}
-            <mesh position={[0.12 * headScale, 0.15 + faceYOffset, 0.20 * headScale]} rotation={[0, 0, Math.PI / 4]}>
-              <boxGeometry args={[0.02 * headScale, 0.15 * headScale, 0.01 * headScale]} />
-              <meshStandardMaterial color="#2a2a2a" roughness={0.6} />
-            </mesh>
-          </>
-        )}
-
-        {/* EYE PATCH - Pirate style */}
-        {hasEyePatch && (
-          <>
-            {/* Patch (over right eye) */}
-            <mesh position={[0.12 * headScale, 0.1 + faceYOffset, 0.27 * headScale]}>
-              <boxGeometry args={[0.12 * headScale, 0.1 * headScale, 0.01]} />
-              <meshStandardMaterial color="#2a2a2a" roughness={0.9} />
-            </mesh>
-        
-            {/* Patch (over right eye) - Demi-circle shape */}
-            <mesh position={[0.12 * headScale, 0.06 + faceYOffset, 0.27 * headScale]} rotation={[Math.PI / 2, -Math.PI / 2,0]}>
-              <cylinderGeometry 
-                args={[0.06 * headScale, 0.06 * headScale, 0.01, 32, 1, false, 0, Math.PI]} 
-              />
-              <meshStandardMaterial color="#2a2a2a" roughness={0.9} side={THREE.DoubleSide} />
-            </mesh>    
-          
-            {/* Flat strap across face - diagonal from patch to left side */}
-            <mesh position={[-faceYOffset, 0.18 + faceYOffset, 0.27 * headScale]} rotation={[0, 0, -Math.PI / 6]}>
-              <boxGeometry args={[0.47 * headScale, 0.025 * headScale, 0.01]} />
-              <meshStandardMaterial color="#2a2a2a" roughness={0.7} />
-            </mesh>
-          </>
-        )}
-
-        {/* TOP HAT - Tall gentleman's hat */}
-        {hasTopHat && (
-          <>
-            {/* Wide brim */}
-            <mesh position={[0, 0.35 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.60 * headScale, 0.05 * headScale, 0.60 * headScale]} />
-              <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
-            </mesh>
-            {/* Tall cylinder body */}
-            <mesh position={[0, 0.55 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.45 * headScale, 0.35 * headScale, 0.45 * headScale]} />
-              <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
-            </mesh>
-            {/* Top */}
-            <mesh position={[0, 0.73 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.45 * headScale, 0.03 * headScale, 0.45 * headScale]} />
-              <meshStandardMaterial color={character.model3D.accessoryColor} roughness={0.7} />
-            </mesh>
-            {/* Hat band */}
-            <mesh position={[0, 0.40 * headScale, 0.24 * headScale]} castShadow>
-              <boxGeometry args={[0.46 * headScale, 0.06 * headScale, 0.02 * headScale]} />
-              <meshStandardMaterial color="#8b0000" roughness={0.6} />
-            </mesh>
-          </>
-        )}
-
-        {/* RANGER HAT - Flat-topped campaign/Rough Rider style */}
-        {hasRangerHat && (
-          <>
-            {/* Wide flat brim */}
-            <mesh position={[0, 0.32 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.70 * headScale, 0.04 * headScale, 0.70 * headScale]} />
-              <meshStandardMaterial color="#8B7355" roughness={0.8} />
-            </mesh>
-            {/* Brim front upturn */}
-            <mesh position={[0, 0.35 * headScale, 0.32 * headScale]} rotation={[0.3, 0, 0]} castShadow>
-              <boxGeometry args={[0.35 * headScale, 0.04 * headScale, 0.12 * headScale]} />
-              <meshStandardMaterial color="#8B7355" roughness={0.8} />
-            </mesh>
-            {/* Crown base - flat top (campaign style) */}
-            <mesh position={[0, 0.42 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.48 * headScale, 0.16 * headScale, 0.48 * headScale]} />
-              <meshStandardMaterial color="#8B7355" roughness={0.8} />
-            </mesh>
-            {/* Flat top */}
-            <mesh position={[0, 0.51 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.44 * headScale, 0.03 * headScale, 0.44 * headScale]} />
-              <meshStandardMaterial color="#8B7355" roughness={0.8} />
-            </mesh>
-            {/* Four dents/pinches in crown (campaign hat style) */}
-            {/* Front pinch */}
-            <mesh position={[0, 0.48 * headScale, 0.20 * headScale]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.08 * headScale]} />
-              <meshStandardMaterial color="#7a6548" roughness={0.8} />
-            </mesh>
-            {/* Back pinch */}
-            <mesh position={[0, 0.48 * headScale, -0.20 * headScale]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.08 * headScale]} />
-              <meshStandardMaterial color="#7a6548" roughness={0.8} />
-            </mesh>
-            {/* Left pinch */}
-            <mesh position={[-0.20 * headScale, 0.48 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.08 * headScale]} />
-              <meshStandardMaterial color="#7a6548" roughness={0.8} />
-            </mesh>
-            {/* Right pinch */}
-            <mesh position={[0.20 * headScale, 0.48 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.08 * headScale, 0.08 * headScale]} />
-              <meshStandardMaterial color="#7a6548" roughness={0.8} />
-            </mesh>
-            {/* Hat band - leather strap */}
-            <mesh position={[0, 0.36 * headScale, 0.25 * headScale]} castShadow>
-              <boxGeometry args={[0.50 * headScale, 0.05 * headScale, 0.02 * headScale]} />
-              <meshStandardMaterial color="#5c4a3a" roughness={0.7} />
-            </mesh>
-            {/* Band around sides */}
-            <mesh position={[-0.25 * headScale, 0.36 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.02 * headScale, 0.05 * headScale, 0.50 * headScale]} />
-              <meshStandardMaterial color="#5c4a3a" roughness={0.7} />
-            </mesh>
-            <mesh position={[0.25 * headScale, 0.36 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.02 * headScale, 0.05 * headScale, 0.50 * headScale]} />
-              <meshStandardMaterial color="#5c4a3a" roughness={0.7} />
-            </mesh>
-            {/* Cord/strap detail */}
-            <mesh position={[0, 0.38 * headScale, 0.26 * headScale]} castShadow>
-              <boxGeometry args={[0.06 * headScale, 0.03 * headScale, 0.02 * headScale]} />
-              <meshStandardMaterial color="#c9a227" metalness={0.5} roughness={0.4} />
-            </mesh>
-          </>
-        )}
-
-        {/* BAT MASK - Batman cowl style */}
-        {hasBatMask && (
-          <>
-            {/* Main cowl - covers top and sides of head */}
-            <mesh position={[0, 0.15 * headScale, -0.02 * headScale]} castShadow>
-              <boxGeometry args={[0.52 * headScale, 0.45 * headScale, 0.50 * headScale]} />
-              <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
-            </mesh>
-            {/* Forehead piece - extends down */}
-            <mesh position={[0, 0.08 * headScale, 0.22 * headScale]} castShadow>
-              <boxGeometry args={[0.48 * headScale, 0.25 * headScale, 0.08 * headScale]} />
-              <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
-            </mesh>
-            {/* Left ear - pointed bat ear */}
-            <mesh position={[-0.18 * headScale, 0.45 * headScale, 0]} rotation={[0, 0, 0.2]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.25 * headScale, 0.08 * headScale]} />
-              <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
-            </mesh>
-            {/* Left ear tip */}
-            <mesh position={[-0.20 * headScale, 0.58 * headScale, 0]} rotation={[0, 0, 0.3]} castShadow>
-              <boxGeometry args={[0.05 * headScale, 0.12 * headScale, 0.05 * headScale]} />
-              <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
-            </mesh>
-            {/* Right ear - pointed bat ear */}
-            <mesh position={[0.18 * headScale, 0.45 * headScale, 0]} rotation={[0, 0, -0.2]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.25 * headScale, 0.08 * headScale]} />
-              <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
-            </mesh>
-            {/* Right ear tip */}
-            <mesh position={[0.20 * headScale, 0.58 * headScale, 0]} rotation={[0, 0, -0.3]} castShadow>
-              <boxGeometry args={[0.05 * headScale, 0.12 * headScale, 0.05 * headScale]} />
-              <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
-            </mesh>
-            {/* Eye socket left - angular cut */}
-            <mesh position={[-0.12 * headScale, 0.05 * headScale, 0.26 * headScale]} castShadow>
-              <boxGeometry args={[0.14 * headScale, 0.10 * headScale, 0.02 * headScale]} />
-              <meshStandardMaterial color="#2a2a2a" roughness={0.5} />
-            </mesh>
-            {/* Eye socket right - angular cut */}
-            <mesh position={[0.12 * headScale, 0.05 * headScale, 0.26 * headScale]} castShadow>
-              <boxGeometry args={[0.14 * headScale, 0.10 * headScale, 0.02 * headScale]} />
-              <meshStandardMaterial color="#2a2a2a" roughness={0.5} />
-            </mesh>
-            {/* Nose bridge piece */}
-            <mesh position={[0, 0.02 * headScale, 0.27 * headScale]} castShadow>
-              <boxGeometry args={[0.06 * headScale, 0.12 * headScale, 0.02 * headScale]} />
-              <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
-            </mesh>
-            {/* Cheek pieces - left */}
-            <mesh position={[-0.22 * headScale, -0.05 * headScale, 0.18 * headScale]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.15 * headScale, 0.15 * headScale]} />
-              <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
-            </mesh>
-            {/* Cheek pieces - right */}
-            <mesh position={[0.22 * headScale, -0.05 * headScale, 0.18 * headScale]} castShadow>
-              <boxGeometry args={[0.08 * headScale, 0.15 * headScale, 0.15 * headScale]} />
-              <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
-            </mesh>
-            {/* Neck piece */}
-            <mesh position={[0, -0.15 * headScale, 0]} castShadow>
-              <boxGeometry args={[0.40 * headScale, 0.10 * headScale, 0.40 * headScale]} />
-              <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
-            </mesh>
-          </>
-        )}
-
-{/* VADER MASK - Improved Primitive Style */}
-      {hasVaderMask && (
-        <group name="VaderHelmetContainer">
-          {/* --- GLOSSY HELMET SECTION --- */}
-
-          {/* Main helmet dome - Stretched Sphere for roundness */}
-          <mesh position={[0, 0.3 * headScale, -0.05 * headScale]} scale={[1, 1.2, 1.1]} castShadow>
-            {/* args: [radius, widthSegments, heightSegments, phiStart, phiLength, thetaStart, thetaLength] */}
-            {/* Cut sphere in half to sit on head */}
-            <sphereGeometry args={[0.42 * headScale, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.6]} />
-            <meshStandardMaterial color="#050505" metalness={0.8} roughness={0.1} envMapIntensity={1.2} />
-          </mesh>
-
-          {/* Helmet Side/Back Flange (The "hair" shape) - Approximated with angled boxes */}
-          {/* Back piece */}
-           <mesh position={[0, -0.1 * headScale, -0.25 * headScale]} rotation={[-0.3, 0, 0]} castShadow>
-            <boxGeometry args={[0.7 * headScale, 0.6 * headScale, 0.1 * headScale]} />
-             <meshStandardMaterial color="#050505" metalness={0.8} roughness={0.1} />
-          </mesh>
-          {/* Left Side Flange */}
-           <mesh position={[-0.32 * headScale, -0.1 * headScale, -0.05 * headScale]} rotation={[0, 0.4, 0.2]} castShadow>
-            <boxGeometry args={[0.1 * headScale, 0.6 * headScale, 0.5 * headScale]} />
-             <meshStandardMaterial color="#050505" metalness={0.8} roughness={0.1} />
-          </mesh>
-           {/* Right Side Flange */}
-           <mesh position={[0.32 * headScale, -0.1 * headScale, -0.05 * headScale]} rotation={[0, -0.4, -0.2]} castShadow>
-            <boxGeometry args={[0.1 * headScale, 0.6 * headScale, 0.5 * headScale]} />
-             <meshStandardMaterial color="#050505" metalness={0.8} roughness={0.1} />
-          </mesh>
-
-          {/* Forehead ridge - The connecting strip */}
-          <mesh position={[0, 0.38 * headScale, 0.22 * headScale]} rotation={[0.2,0,0]} castShadow>
-            <boxGeometry args={[0.15 * headScale, 0.35 * headScale, 0.05 * headScale]} />
-            <meshStandardMaterial color="#050505" metalness={0.8} roughness={0.1} />
-          </mesh>
-
-          {/* --- MATTE FACE MASK SECTION --- */}
-
-          {/* Main Face Triangle base */}
-          <mesh position={[0, -0.05 * headScale, 0.2 * headScale]} rotation={[0, Math.PI/4, Math.PI]} scale={[1, 1, 0.5]} castShadow>
-            {/* A cone pointing down makes a good triangular face shape */}
-            <coneGeometry args={[0.35 * headScale, 0.5 * headScale, 4]} />
-             <meshStandardMaterial color="#151515" metalness={0.3} roughness={0.6} />
-          </mesh>
-
-          {/* Eye lens left - Flattened Sphere */}
-          <mesh position={[-0.14 * headScale, 0.1 * headScale, 0.28 * headScale]} rotation={[0.1, -0.2, 0]} scale={[1, 0.7, 0.3]} castShadow>
-            <sphereGeometry args={[0.1 * headScale, 16, 16]} />
-            {/* Reddish black lenses */}
-            <meshStandardMaterial color="#1a0000" metalness={0.9} roughness={0.05} />
-          </mesh>
-          {/* Eye lens right - Flattened Sphere */}
-          <mesh position={[0.14 * headScale, 0.1 * headScale, 0.28 * headScale]} rotation={[0.1, 0.2, 0]} scale={[1, 0.7, 0.3]} castShadow>
-             <sphereGeometry args={[0.1 * headScale, 16, 16]} />
-            <meshStandardMaterial color="#1a0000" metalness={0.9} roughness={0.05} />
-          </mesh>
-
-          {/* Nose/mouth grille main block - Triangular Prism */}
-          <mesh position={[0, -0.15 * headScale, 0.32 * headScale]} rotation={[Math.PI/2, Math.PI/2, 0]} castShadow>
-            {/* Cylinder with 3 radial segments is a triangular prism */}
-            <cylinderGeometry args={[0.12 * headScale, 0.12 * headScale, 0.15 * headScale, 3]} />
-             <meshStandardMaterial color="#101010" metalness={0.5} roughness={0.5} />
-          </mesh>
-
-          {/* Grille lines - keep these as thin boxes, they work well */}
-          {[-0.04, 0, 0.04].map((offset, i) => (
-            <mesh key={i} position={[0, (-0.15 + offset * 1.5) * headScale, 0.38 * headScale]} castShadow>
-              <boxGeometry args={[0.12 * headScale, 0.01 * headScale, 0.01 * headScale]} />
-              <meshStandardMaterial color="#333333" metalness={0.7} roughness={0.3} />
-            </mesh>
-          ))}
-
-          {/* Cheek Vents/Tusks - Cylinders instead of boxes */}
-          {/* Left */}
-          <mesh position={[-0.22 * headScale, -0.18 * headScale, 0.25 * headScale]} rotation={[Math.PI/2, 0, -0.2]} castShadow>
-             <cylinderGeometry args={[0.04 * headScale, 0.05 * headScale, 0.15 * headScale, 8]} />
-             <meshStandardMaterial color="#151515" metalness={0.4} roughness={0.5} />
-          </mesh>
-          {/* Right */}
-          <mesh position={[0.22 * headScale, -0.18 * headScale, 0.25 * headScale]} rotation={[Math.PI/2, 0, 0.2]} castShadow>
-             <cylinderGeometry args={[0.04 * headScale, 0.05 * headScale, 0.15 * headScale, 8]} />
-             <meshStandardMaterial color="#151515" metalness={0.4} roughness={0.5} />
-          </mesh>
-
-          {/* Chin guard */}
-          <mesh position={[0, -0.3 * headScale, 0.22 * headScale]} rotation={[-0.2,0,0]} castShadow>
-            <boxGeometry args={[0.2 * headScale, 0.1 * headScale, 0.12 * headScale]} />
-             <meshStandardMaterial color="#151515" metalness={0.3} roughness={0.6} />
-          </mesh>
-        </group>
-      )}
-
-        {/* Nose */}
-        <mesh ref={noseRef} position={[0, -0.05 + faceYOffset, 0.26 * headScale]}>
-          <boxGeometry args={[0.08 * headScale, 0.12 * headScale, 0.08 * headScale]} />
-          <meshStandardMaterial color={skinColor} roughness={0.6} />
-        </mesh>
-
-        {/* Mouth - hidden when other mouth states are active (except smile/wide_smile which use the ref) */}
-        {/* Default mouth - only show when no special mouth state is set */}
-        {!complementary?.mouthState && (
-          <mesh ref={mouthRef} position={[0, -0.18 + faceYOffset, 0.26 * headScale]}>
-            <circleGeometry args={[0.07 * headScale, 20]} />
-            <meshBasicMaterial color="#2a2a2a" />
-          </mesh>
-        )}
-        
-        {/* Smile curve - regular smile */}
-        {complementary?.mouthState === 'smile' && (
-          <mesh ref={smileMeshRef} position={[0, -0.14 + faceYOffset, 0.27 * headScale]} rotation={[0, 0, Math.PI]}>
-            <torusGeometry args={[0.08 * headScale, 0.015 * headScale, 8, 16, Math.PI]} />
-            <meshBasicMaterial color="#2a2a2a" />
-          </mesh>
-        )}
-        
-        {/* Wide smile - half circle (filled) */}
-        {complementary?.mouthState === 'wide_smile' && (
-          <mesh ref={smileMeshRef} position={[0, -0.14 + faceYOffset, 0.27 * headScale]} rotation={[0, 0, Math.PI]}>
-            <circleGeometry args={[0.1 * headScale, 16, 0, Math.PI]} />
-            <meshBasicMaterial color="#2a2a2a" />
-          </mesh>
-        )}
-
-        {/* NEW: Smirk - asymmetrical smile */}
-        {complementary?.mouthState === 'smirk' && (
-          <mesh 
-          position={[-0.05, -0.12 + faceYOffset, 0.28 * headScale]} 
-          rotation-z={Math.PI + 0.1}
-          scale={headScale}
-        >
-          <torusGeometry args={[0.07, 0.012, 10, 20, Math.PI * 0.7]} />
-          <meshBasicMaterial color="#1a1a1a" />
-        </mesh>
-        )}
-
-        {/* Open mouth - small open circle */}
-        {complementary?.mouthState === 'open' && (
-          <mesh position={[0, -0.17 + faceYOffset, 0.27 * headScale]}>
-            <circleGeometry args={[0.05 * headScale, 20]} />
-            <meshBasicMaterial color="#2a2a2a" />
-          </mesh>
-        )}
-
-        {/* Surprised mouth - larger O shape */}
-        {complementary?.mouthState === 'surprised' && (
-          <group position={[0, -0.2 + faceYOffset, 0.28 * headScale]}>
-            {/* Outer lip ring */}
-            
-            {/* Dark interior */}
-            <mesh position={[0, 0, -0.01]}>
-              <circleGeometry args={[0.055 * headScale, 20]} />
-              <meshBasicMaterial color="#1a1a1a" />
-            </mesh>
-          </group>
-        )}
-
-        {/* NEW: Slight smile - subtle */}
-        {complementary?.mouthState === 'slight_smile' && (
-          <mesh position={[0, -0.14 + faceYOffset, 0.3 * headScale]} rotation={[0, 0, Math.PI]}>
-            <torusGeometry args={[0.05 * headScale, 0.012 * headScale, 8, 50, Math.PI]} />
-            <meshBasicMaterial color="#2a2a2a" />
-          </mesh>
-        )}
-
-        {/* Sad smile - inverted slight smile (frown) */}
-        {complementary?.mouthState === 'sad_smile' && (
-          <mesh position={[0, -0.18 + faceYOffset, 0.3 * headScale]} rotation={[0, 0, 0]}>
-            <torusGeometry args={[0.05 * headScale, 0.012 * headScale, 8, 50, Math.PI]} />
-            <meshBasicMaterial color="#2a2a2a" />
-          </mesh>
-        )}
-
-        {/* NEW: Grimace - wide tense mouth */}
-        {complementary?.mouthState === 'grimace' && (
-          <mesh position={[0, -0.18 + faceYOffset, 0.26 * headScale]}>
-            <boxGeometry args={[0.16 * headScale, 0.03 * headScale, 0.01]} />
-            <meshBasicMaterial color="#2a2a2a" />
-          </mesh>
-        )}
-
-        {/* NEW: Tense - very thin line */}
-        {complementary?.mouthState === 'tense' && (
-          <mesh position={[0, -0.18 + faceYOffset, 0.26 * headScale]}>
-            <boxGeometry args={[0.14 * headScale, 0.01 * headScale, 0.01]} />
-            <meshBasicMaterial color="#2a2a2a" />
-          </mesh>
-        )}
-
-        {/* Kiss lips (puckered) */}
-        {complementary?.mouthState === 'kiss' && (
-          <group position={[0, -0.16 + faceYOffset, 0.30 * headScale]}>
-           {/* upper lip BIG */}
-           <mesh position={[0.019 * headScale, 0.02, 0]} rotation={[0, 0, -0.5]}>
-              <boxGeometry args={[0.05 * headScale, 0.012 * headScale, 0.005]} />
-              <meshBasicMaterial color="#2a2a2a" />
-            </mesh>
-            {/* Upper lip - low part */}
-            <mesh position={[0.019 * headScale,0, 0]} rotation={[0, 0, 0.45]}>
-              <boxGeometry args={[0.035 * headScale, 0.010 * headScale, 0.005]} />
-              <meshBasicMaterial color="#2a2a2a" />
-            </mesh>
-
-            
-            {/* low lip - upper part */}
-            <mesh position={[0.02 * headScale,-0.01, 0]} rotation={[0, 0, -0.6]}>
-              <boxGeometry args={[0.027 * headScale, 0.010 * headScale, 0.005]} />
-              <meshBasicMaterial color="#2a2a2a" />
-            </mesh>
-
-            {/* LOW lip - low part */}
-            <mesh position={[0.015 * headScale, -0.03, 0.005]} rotation={[0, 0, 0.5]}>
-              <boxGeometry args={[0.05 * headScale, 0.012 * headScale, 0.006]} />
-              <meshBasicMaterial color="#2a2a2a" />
-            </mesh>
-          </group>
-        )}
-
-        {/* NEW: Grimacing Smile - Wide rectangular teeth show */}
-        {complementary?.mouthState === 'teeth_showing' && (
-          <group position={[0, -0.14 + faceYOffset, 0.26 * headScale]}>
-            
-            {/* Optional: Thin upper lip edge for tension (dark line above teeth) */}
-            <mesh position={[0, -0.02, 0.005]} rotation={[0, 0, Math.PI / 2]}>
-               {/* Capsule: radius, length, radialSegments, heightSegments */}
-              <capsuleGeometry args={[0.04 * headScale, 0.12 * headScale, 16, 4]} />
-              {/* <boxGeometry args={[0.2 * headScale, 0.007 * headScale, 0.005]} /> */}
-              <meshBasicMaterial color="#2a2a2a" />
-            </mesh>
-
-            
-            
-            
-
-           {/* The Teeth Block (Main white area) — wider and slightly taller */}
-           <mesh position={[0, -0.015, 0]}>
-              <boxGeometry args={[0.18 * headScale, 0.06 * headScale, 0.005]} />
-              <meshBasicMaterial color="#ffffff" />
-            </mesh>
-
-            {/* Vertical Tooth Dividers — more subtle, slightly inset */}
-            {[-0.06, -0.02, 0.02, 0].map((xPos, i) => (
-              <mesh key={i} position={[xPos * headScale, -0.015, 0]}>
-                <boxGeometry args={[0.003 * headScale, 0.06 * headScale, 0.005]} />
-                <meshBasicMaterial color="#e0e0e0" />
+            {/* Wide smile - half circle (filled) */}
+            {complementary?.mouthState === 'wide_smile' && (
+              <mesh ref={smileMeshRef} position={[0, -0.14 + faceYOffset, 0.27 * headScale]} rotation={[0, 0, Math.PI]}>
+                <circleGeometry args={[0.1 * headScale, 16, 0, Math.PI]} />
+                <meshBasicMaterial color="#2a2a2a" />
               </mesh>
-            ))}
- 
+            )}
 
-           
-          </group>
-        )}
+            {/* NEW: Smirk - asymmetrical smile */}
+            {complementary?.mouthState === 'smirk' && (
+              <mesh
+                position={[-0.05, -0.12 + faceYOffset, 0.28 * headScale]}
+                rotation-z={Math.PI + 0.1}
+                scale={headScale}
+              >
+                <torusGeometry args={[0.07, 0.012, 10, 20, Math.PI * 0.7]} />
+                <meshBasicMaterial color="#1a1a1a" />
+              </mesh>
+            )}
 
-        {/* NEW: Big grin - extra wide smile */}
-        {complementary?.mouthState === 'big_grin' && (
-          <mesh position={[0, -0.14 + faceYOffset, 0.27 * headScale]} rotation={[0, 0, Math.PI]}>
-            <torusGeometry args={[0.12 * headScale, 0.015 * headScale, 8, 16, Math.PI]} />
-            <meshBasicMaterial color="#2a2a2a" />
-          </mesh>
-        )}
+            {/* Open mouth - small open circle */}
+            {complementary?.mouthState === 'open' && (
+              <mesh position={[0, -0.17 + faceYOffset, 0.27 * headScale]}>
+                <circleGeometry args={[0.05 * headScale, 20]} />
+                <meshBasicMaterial color="#2a2a2a" />
+              </mesh>
+            )}
 
-        {/* NEW: O-shape - open mouth (surprised/wow) */}
-        {complementary?.mouthState === 'o_shape' && (
-          <group position={[0, -0.16 + faceYOffset, 0.28 * headScale]}>
-            <mesh position={[0, -0.02, 0.005]} rotation={[0, 0, Math.PI / 2]}>
-               {/* Capsule: radius, length, radialSegments, heightSegments */}
-              <capsuleGeometry args={[0.04 * headScale, 0.12 * headScale, 16, 4]} />
-              <meshBasicMaterial color="#2a2a2a" />
-            </mesh>
-          </group>
-        )}
+            {/* Surprised mouth - larger O shape */}
+            {complementary?.mouthState === 'surprised' && (
+              <group position={[0, -0.2 + faceYOffset, 0.28 * headScale]}>
+                {/* Outer lip ring */}
 
-        {/* PIPE - smoking pipe in mouth (moves with head) */}
-        {hasPipe && (
-          <group position={[0.06+0.1 * headScale, -0.09-0.12 + faceYOffset, 0.07+0.3 * headScale]} rotation={[0.3, -2.5, 0]}>
-            {/* Bowl */}
-            <mesh position={[0, 0.03, 0]} castShadow>
-              <cylinderGeometry args={[0.025 * headScale, 0.02 * headScale, 0.05 * headScale, 8]} />
-              <meshStandardMaterial color="#5c4a3a" roughness={0.7} />
-            </mesh>
-            {/* Stem */}
-            <mesh position={[0, 0, 0.05 * headScale]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-              <cylinderGeometry args={[0.008 * headScale, 0.008 * headScale, 0.1 * headScale, 6]} />
-              <meshStandardMaterial color="#3a2a1a" roughness={0.6} />
-            </mesh>
-            {/* Mouthpiece */}
-            <mesh position={[0, -0.01, 0.1 * headScale]} castShadow>
-              <boxGeometry args={[0.015 * headScale, 0.01 * headScale, 0.02 * headScale]} />
-              <meshStandardMaterial color="#1a1a1a" roughness={0.5} />
-            </mesh>
-          </group>
-        )}
+                {/* Dark interior */}
+                <mesh position={[0, 0, -0.01]}>
+                  <circleGeometry args={[0.055 * headScale, 20]} />
+                  <meshBasicMaterial color="#1a1a1a" />
+                </mesh>
+              </group>
+            )}
 
-        {/* CIGAR - in mouth (moves with head) */}
-        {hasCigar && (
-          <group position={[0.12 * headScale, -0.12 + faceYOffset, 0.32 * headScale]} rotation={[0, 0.4, 0.1]}>
-            {/* Main cigar body */}
-            <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-              <cylinderGeometry args={[0.012 * headScale, 0.015 * headScale, 0.12 * headScale, 8]} />
-              <meshStandardMaterial color="#8B4513" roughness={0.8} />
-            </mesh>
-            {/* Burning tip */}
-            <mesh position={[0.07 * headScale, 0, 0]} castShadow>
-              <sphereGeometry args={[0.015 * headScale, 6, 6]} />
-              <meshStandardMaterial color="#ff4500" emissive="#ff4500" emissiveIntensity={0.5} />
-            </mesh>
-            {/* Ash */}
-            <mesh position={[0.055 * headScale, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-              <cylinderGeometry args={[0.013 * headScale, 0.012 * headScale, 0.02 * headScale, 6]} />
-              <meshStandardMaterial color="#808080" roughness={0.9} />
-            </mesh>
-          </group>
-        )}
+            {/* NEW: Slight smile - subtle */}
+            {complementary?.mouthState === 'slight_smile' && (
+              <mesh position={[0, -0.14 + faceYOffset, 0.3 * headScale]} rotation={[0, 0, Math.PI]}>
+                <torusGeometry args={[0.05 * headScale, 0.012 * headScale, 8, 50, Math.PI]} />
+                <meshBasicMaterial color="#2a2a2a" />
+              </mesh>
+            )}
 
-        {/* Anime Face Decorations */}
-        <FaceDecorations complementary={complementary} headScale={headScale} />
+            {/* Sad smile - inverted slight smile (frown) */}
+            {complementary?.mouthState === 'sad_smile' && (
+              <mesh position={[0, -0.18 + faceYOffset, 0.3 * headScale]} rotation={[0, 0, 0]}>
+                <torusGeometry args={[0.05 * headScale, 0.012 * headScale, 8, 50, Math.PI]} />
+                <meshBasicMaterial color="#2a2a2a" />
+              </mesh>
+            )}
+
+            {/* NEW: Grimace - wide tense mouth */}
+            {complementary?.mouthState === 'grimace' && (
+              <mesh position={[0, -0.18 + faceYOffset, 0.26 * headScale]}>
+                <boxGeometry args={[0.16 * headScale, 0.03 * headScale, 0.01]} />
+                <meshBasicMaterial color="#2a2a2a" />
+              </mesh>
+            )}
+
+            {/* NEW: Tense - very thin line */}
+            {complementary?.mouthState === 'tense' && (
+              <mesh position={[0, -0.18 + faceYOffset, 0.26 * headScale]}>
+                <boxGeometry args={[0.14 * headScale, 0.01 * headScale, 0.01]} />
+                <meshBasicMaterial color="#2a2a2a" />
+              </mesh>
+            )}
+
+            {/* Kiss lips (puckered) */}
+            {complementary?.mouthState === 'kiss' && (
+              <group position={[0, -0.16 + faceYOffset, 0.30 * headScale]}>
+                {/* upper lip BIG */}
+                <mesh position={[0.019 * headScale, 0.02, 0]} rotation={[0, 0, -0.5]}>
+                  <boxGeometry args={[0.05 * headScale, 0.012 * headScale, 0.005]} />
+                  <meshBasicMaterial color="#2a2a2a" />
+                </mesh>
+                {/* Upper lip - low part */}
+                <mesh position={[0.019 * headScale, 0, 0]} rotation={[0, 0, 0.45]}>
+                  <boxGeometry args={[0.035 * headScale, 0.010 * headScale, 0.005]} />
+                  <meshBasicMaterial color="#2a2a2a" />
+                </mesh>
+
+
+                {/* low lip - upper part */}
+                <mesh position={[0.02 * headScale, -0.01, 0]} rotation={[0, 0, -0.6]}>
+                  <boxGeometry args={[0.027 * headScale, 0.010 * headScale, 0.005]} />
+                  <meshBasicMaterial color="#2a2a2a" />
+                </mesh>
+
+                {/* LOW lip - low part */}
+                <mesh position={[0.015 * headScale, -0.03, 0.005]} rotation={[0, 0, 0.5]}>
+                  <boxGeometry args={[0.05 * headScale, 0.012 * headScale, 0.006]} />
+                  <meshBasicMaterial color="#2a2a2a" />
+                </mesh>
+              </group>
+            )}
+
+            {/* NEW: Grimacing Smile - Wide rectangular teeth show */}
+            {complementary?.mouthState === 'teeth_showing' && (
+              <group position={[0, -0.14 + faceYOffset, 0.26 * headScale]}>
+
+                {/* Optional: Thin upper lip edge for tension (dark line above teeth) */}
+                <mesh position={[0, -0.02, 0.005]} rotation={[0, 0, Math.PI / 2]}>
+                  {/* Capsule: radius, length, radialSegments, heightSegments */}
+                  <capsuleGeometry args={[0.04 * headScale, 0.12 * headScale, 16, 4]} />
+                  {/* <boxGeometry args={[0.2 * headScale, 0.007 * headScale, 0.005]} /> */}
+                  <meshBasicMaterial color="#2a2a2a" />
+                </mesh>
+
+
+
+
+
+                {/* The Teeth Block (Main white area) — wider and slightly taller */}
+                <mesh position={[0, -0.015, 0]}>
+                  <boxGeometry args={[0.18 * headScale, 0.06 * headScale, 0.005]} />
+                  <meshBasicMaterial color="#ffffff" />
+                </mesh>
+
+                {/* Vertical Tooth Dividers — more subtle, slightly inset */}
+                {[-0.06, -0.02, 0.02, 0].map((xPos, i) => (
+                  <mesh key={i} position={[xPos * headScale, -0.015, 0]}>
+                    <boxGeometry args={[0.003 * headScale, 0.06 * headScale, 0.005]} />
+                    <meshBasicMaterial color="#e0e0e0" />
+                  </mesh>
+                ))}
+
+
+
+              </group>
+            )}
+
+            {/* NEW: Big grin - extra wide smile */}
+            {complementary?.mouthState === 'big_grin' && (
+              <mesh position={[0, -0.14 + faceYOffset, 0.27 * headScale]} rotation={[0, 0, Math.PI]}>
+                <torusGeometry args={[0.12 * headScale, 0.015 * headScale, 8, 16, Math.PI]} />
+                <meshBasicMaterial color="#2a2a2a" />
+              </mesh>
+            )}
+
+            {/* NEW: O-shape - open mouth (surprised/wow) */}
+            {complementary?.mouthState === 'o_shape' && (
+              <group position={[0, -0.16 + faceYOffset, 0.28 * headScale]}>
+                <mesh position={[0, -0.02, 0.005]} rotation={[0, 0, Math.PI / 2]}>
+                  {/* Capsule: radius, length, radialSegments, heightSegments */}
+                  <capsuleGeometry args={[0.04 * headScale, 0.12 * headScale, 16, 4]} />
+                  <meshBasicMaterial color="#2a2a2a" />
+                </mesh>
+              </group>
+            )}
+
+            {/* PIPE - smoking pipe in mouth (moves with head) */}
+            {hasPipe && (
+              <group position={[0.06 + 0.1 * headScale, -0.09 - 0.12 + faceYOffset, 0.07 + 0.3 * headScale]} rotation={[0.3, -2.5, 0]}>
+                {/* Bowl */}
+                <mesh position={[0, 0.03, 0]} castShadow>
+                  <cylinderGeometry args={[0.025 * headScale, 0.02 * headScale, 0.05 * headScale, 8]} />
+                  <meshStandardMaterial color="#5c4a3a" roughness={0.7} />
+                </mesh>
+                {/* Stem */}
+                <mesh position={[0, 0, 0.05 * headScale]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+                  <cylinderGeometry args={[0.008 * headScale, 0.008 * headScale, 0.1 * headScale, 6]} />
+                  <meshStandardMaterial color="#3a2a1a" roughness={0.6} />
+                </mesh>
+                {/* Mouthpiece */}
+                <mesh position={[0, -0.01, 0.1 * headScale]} castShadow>
+                  <boxGeometry args={[0.015 * headScale, 0.01 * headScale, 0.02 * headScale]} />
+                  <meshStandardMaterial color="#1a1a1a" roughness={0.5} />
+                </mesh>
+              </group>
+            )}
+
+            {/* CIGAR - in mouth (moves with head) */}
+            {hasCigar && (
+              <group position={[0.12 * headScale, -0.12 + faceYOffset, 0.32 * headScale]} rotation={[0, 0.4, 0.1]}>
+                {/* Main cigar body */}
+                <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+                  <cylinderGeometry args={[0.012 * headScale, 0.015 * headScale, 0.12 * headScale, 8]} />
+                  <meshStandardMaterial color="#8B4513" roughness={0.8} />
+                </mesh>
+                {/* Burning tip */}
+                <mesh position={[0.07 * headScale, 0, 0]} castShadow>
+                  <sphereGeometry args={[0.015 * headScale, 6, 6]} />
+                  <meshStandardMaterial color="#ff4500" emissive="#ff4500" emissiveIntensity={0.5} />
+                </mesh>
+                {/* Ash */}
+                <mesh position={[0.055 * headScale, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+                  <cylinderGeometry args={[0.013 * headScale, 0.012 * headScale, 0.02 * headScale, 6]} />
+                  <meshStandardMaterial color="#808080" roughness={0.9} />
+                </mesh>
+              </group>
+            )}
+
+            {/* Anime Face Decorations */}
+            <FaceDecorations complementary={complementary} headScale={headScale} />
           </group>
         );
       })()}
@@ -2939,7 +2970,7 @@ const Character = React.memo(function Character({ character, isActive, animation
   return (
     <group ref={meshRef} position={position} scale={[scale * 0.5, scale * 0.5, scale * 0.5]}>
       {renderBody()}
-      
+
       {/* Glow when active */}
       {isActive && (
         <pointLight position={[0, 0.5, 1]} intensity={0.8} color={character.color} distance={4} />
@@ -3162,7 +3193,7 @@ export function CharacterDisplay3D({
         dpr={isMobile ? [1, 1.5] : [1, 2]} // Lower pixel ratio on mobile
         style={{ background: 'transparent' }}
         onCreated={handleCreated}
-        frameloop="always" // Render continuously at 60fps for smooth animations
+        frameloop="demand" // Only render when invalidated - much better performance with multiple characters
       >
         {/* Simplified lighting for mobile, full lighting for web */}
         <ambientLight intensity={isMobile ? 0.5 : 0.3} />
@@ -3244,6 +3275,9 @@ export function CharacterDisplay3D({
 
         {/* Performance monitoring - only for active characters to avoid overhead */}
         {isActive && <ThreeJSPerformanceMonitor />}
+
+        {/* Invalidate canvas for animations - enables efficient frameloop="demand" */}
+        <AnimationInvalidator isAnimating={isActive || animation !== 'idle' || isTalking} />
       </Canvas>
     </View>
   );
