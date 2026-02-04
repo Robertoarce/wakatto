@@ -140,8 +140,8 @@ export async function generateCharacterResponse(
       for await (const chunk of stream) {
         // Handle delta updates
         if (chunk.delta) {
-          const deltaText = typeof chunk.delta === 'string' 
-            ? chunk.delta 
+          const deltaText = typeof chunk.delta === 'string'
+            ? chunk.delta
             : (chunk.delta as any).response || '';
           if (deltaText) {
             accumulated += deltaText;
@@ -266,8 +266,8 @@ export async function generateOrchestration(
 
       for await (const chunk of stream) {
         if (chunk.delta) {
-          const deltaText = typeof chunk.delta === 'string' 
-            ? chunk.delta 
+          const deltaText = typeof chunk.delta === 'string'
+            ? chunk.delta
             : JSON.stringify(chunk.delta);
           accumulated += deltaText;
           options.callbacks?.onDelta?.(deltaText, accumulated);
@@ -348,8 +348,8 @@ export async function generateBobResponse(
 
       for await (const chunk of stream) {
         if (chunk.delta) {
-          const deltaText = typeof chunk.delta === 'string' 
-            ? chunk.delta 
+          const deltaText = typeof chunk.delta === 'string'
+            ? chunk.delta
             : (chunk.delta as any).response || '';
           if (deltaText) {
             accumulated += deltaText;

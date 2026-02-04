@@ -435,7 +435,7 @@ const AnimationsScreen = ({ onNavigateToChat }: AnimationsScreenProps): JSX.Elem
   const [effectColor, setEffectColor] = useState('#8b5cf6');
 
   // Tab state - default to complementary
-  const [activeTab, setActiveTab] = useState<'base' | 'complementary' | 'sounds'>('complementary');
+  const [activeTab, setActiveTab] = useState<'base' | 'complementary' | 'sounds'>('base');
 
   // Expression preset state
   const [selectedExpression, setSelectedExpression] = useState<string | null>(null);

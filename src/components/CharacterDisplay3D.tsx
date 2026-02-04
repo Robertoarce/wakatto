@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useState, useEffect } from 'react';
+import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, Dimensions, Platform } from 'react-native';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Html } from '@react-three/drei';
@@ -42,7 +42,18 @@ function AnimationInvalidator({ isAnimating }: { isAnimating: boolean }) {
 }
 
 // Component to monitor actual Three.js render FPS (using circular buffer for O(1) operations)
-function ThreeJSPerformanceMonitor() {
+// Now with auto-restart capability when FPS drops below threshold
+interface ThreeJSPerformanceMonitorProps {
+  onLowFPS?: () => void;
+  fpsThreshold?: number; // FPS threshold to trigger restart (default: 40)
+  lowFPSDuration?: number; // How long FPS must be low before restart (ms, default: 3000)
+}
+
+function ThreeJSPerformanceMonitor({
+  onLowFPS,
+  fpsThreshold = 40,
+  lowFPSDuration = 3000
+}: ThreeJSPerformanceMonitorProps) {
   const lastTime = useRef(performance.now());
   const lastLogTime = useRef(performance.now());
   const frameCount = useRef(0);
@@ -51,6 +62,14 @@ function ThreeJSPerformanceMonitor() {
   const fpsBuffer = useRef(new Float32Array(300)); // 5 seconds worth at 60fps
   const bufferIndex = useRef(0);
   const bufferCount = useRef(0);
+
+  // Low FPS detection state
+  const lowFPSStartTime = useRef<number | null>(null);
+  const hasTriggeredRestart = useRef(false);
+  // Use a recent window (last 60 frames = ~1 second) for more responsive detection
+  const recentFPSBuffer = useRef(new Float32Array(60));
+  const recentBufferIndex = useRef(0);
+  const recentBufferCount = useRef(0);
 
   // Register this monitor on mount, unregister on unmount
   useEffect(() => {
@@ -71,6 +90,40 @@ function ThreeJSPerformanceMonitor() {
     fpsBuffer.current[bufferIndex.current] = fps;
     bufferIndex.current = (bufferIndex.current + 1) % 300;
     if (bufferCount.current < 300) bufferCount.current++;
+
+    // Also track in recent buffer for faster low-FPS detection
+    recentFPSBuffer.current[recentBufferIndex.current] = fps;
+    recentBufferIndex.current = (recentBufferIndex.current + 1) % 60;
+    if (recentBufferCount.current < 60) recentBufferCount.current++;
+
+    // Check for sustained low FPS (only from monitor 0 to avoid duplicate triggers)
+    if (monitorId.current === 0 && onLowFPS && !hasTriggeredRestart.current && recentBufferCount.current >= 30) {
+      // Calculate average of recent frames
+      let recentSum = 0;
+      for (let i = 0; i < recentBufferCount.current; i++) {
+        recentSum += recentFPSBuffer.current[i];
+      }
+      const recentAvgFPS = recentSum / recentBufferCount.current;
+
+      if (recentAvgFPS < fpsThreshold) {
+        // FPS is below threshold
+        if (lowFPSStartTime.current === null) {
+          lowFPSStartTime.current = now;
+          console.log(`[Three.js] ⚠️ Low FPS detected: ${recentAvgFPS.toFixed(1)} (threshold: ${fpsThreshold})`);
+        } else if (now - lowFPSStartTime.current >= lowFPSDuration) {
+          // FPS has been low for too long - trigger restart
+          console.log(`[Three.js] 🔄 FPS below ${fpsThreshold} for ${lowFPSDuration}ms - triggering restart (avg: ${recentAvgFPS.toFixed(1)})`);
+          hasTriggeredRestart.current = true;
+          onLowFPS();
+        }
+      } else {
+        // FPS recovered - reset the timer
+        if (lowFPSStartTime.current !== null) {
+          console.log(`[Three.js] ✅ FPS recovered: ${recentAvgFPS.toFixed(1)}`);
+        }
+        lowFPSStartTime.current = null;
+      }
+    }
 
     // Log every 15 seconds - only from monitor 0 to avoid duplicate logs
     if (monitorId.current === 0 && now - lastLogTime.current >= 15000 && bufferCount.current > 0) {
@@ -1171,21 +1224,41 @@ const Character = React.memo(function Character({ character, isActive, animation
           break;
 
         case 'yawn':
-          // Yawn - mouth wide, covering with hand
+          // Yawn - mouth wide open, hand covering, eyebrows raised
           const yawnCycle = (Math.sin(time * 0.6) + 1) / 2; // 0 to 1
-          targetMeshY = yawnCycle * 0.05;
-          targetHeadRotX = -0.2 * yawnCycle + lookXOffset; // Head tilts back during yawn
+          targetMeshY = yawnCycle * 0.05; //just a little bit of movement to the bottom
+          targetHeadRotX = -0.25 * yawnCycle + lookXOffset; // Head tilts back during yawn
           targetHeadRotY = lookYOffset;
-          // Right hand covers mouth during yawn
-          targetRightArmRotX = -1.8 * yawnCycle;
-          targetRightArmRotZ = 0.3 * yawnCycle;
-          // Left arm stretches slightly
-          targetLeftArmRotX = -0.5 * yawnCycle;
-          targetLeftArmRotZ = -0.3 * yawnCycle;
+
+          // Right hand covers mouth during yawn - arm raised with tight elbow bend
+          targetRightArmRotX = -1.8 * yawnCycle; // Raise arm (not too high) (negative goes foward in front)
+          targetRightArmRotZ = -1.8 * yawnCycle; // Rotate arm strongly inward toward face
+          targetRightForearmRotX = -1.2 * yawnCycle; // Tight elbow bend to bring hand to mouth
+
+          // Left arm stretches slightly outward
+          targetLeftArmRotX = -0.6 * yawnCycle;
+          targetLeftArmRotZ = -0.35 * yawnCycle;
+          targetLeftForearmRotX = -0.3 * yawnCycle; // Slight elbow bend
+
+          // Mouth opens wide during yawn peak, then closes
+          if (mouthRef.current) {
+            // Mouth opens as yawn builds, max at peak
+            const mouthOpen = yawnCycle * 1.2; // 0 to 1.2
+            mouthRef.current.scale.y = 0.1 + mouthOpen * 0.9; // From closed (0.1) to wide open (1.0)
+            mouthRef.current.scale.x = 1.5 + mouthOpen * 0.5; // Slight widening
+          }
+
+          // Eyebrows raise like worried expression, coordinated with mouth
+          targetLeftEyebrowPosY = yawnCycle * 0.04; // Rise up
+          targetRightEyebrowPosY = yawnCycle * 0.04;
+          targetLeftEyebrowRotZ = yawnCycle * 0.2; // Inner edge up (worried look)
+          targetRightEyebrowRotZ = -yawnCycle * 0.2;
+
           // Eyes close during peak yawn
-          if (yawnCycle > 0.6) {
-            targetLeftEyeScaleY = 0.2;
-            targetRightEyeScaleY = 0.2;
+          if (yawnCycle > 0.5) {
+            const eyeClose = (yawnCycle - 0.5) * 2; // 0 to 1 during peak
+            targetLeftEyeScaleY = 1 - eyeClose * 0.85; // Close to 0.15
+            targetRightEyeScaleY = 1 - eyeClose * 0.85;
           }
           break;
 
@@ -3035,6 +3108,23 @@ export function CharacterDisplay3D({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [shiftPressed, setShiftPressed] = useState(false);
 
+  // Auto-restart mechanism for low FPS recovery
+  const [restartKey, setRestartKey] = useState(0);
+  const lastRestartTime = useRef(0);
+  const MIN_RESTART_INTERVAL = 10000; // Don't restart more than once per 10 seconds
+
+  const handleLowFPS = useCallback(() => {
+    const now = Date.now();
+    // Prevent rapid restarts
+    if (now - lastRestartTime.current < MIN_RESTART_INTERVAL) {
+      console.log(`[Three.js] 🚫 Skipping restart - too soon (${((now - lastRestartTime.current) / 1000).toFixed(1)}s since last restart)`);
+      return;
+    }
+    lastRestartTime.current = now;
+    console.log(`[Three.js] 🔄 Restarting Canvas to recover FPS...`);
+    setRestartKey(prev => prev + 1);
+  }, []);
+
   // Track shift key for zoom control (shift + scroll to zoom)
   useEffect(() => {
     if (Platform.OS !== 'web') return; // Only on web
@@ -3188,6 +3278,7 @@ export function CharacterDisplay3D({
   return (
     <View style={styles.container}>
       <Canvas
+        key={`canvas-${restartKey}`} // Key changes on low FPS to force remount
         camera={{ position: [cameraX, cameraY, cameraDistance], fov }}
         gl={glConfig}
         dpr={isMobile ? [1, 1.5] : [1, 2]} // Lower pixel ratio on mobile
@@ -3273,8 +3364,14 @@ export function CharacterDisplay3D({
           zoomSpeed={0.8}
         />
 
-        {/* Performance monitoring - only for active characters to avoid overhead */}
-        {isActive && <ThreeJSPerformanceMonitor />}
+        {/* Performance monitoring with auto-restart on low FPS - only for active characters */}
+        {isActive && (
+          <ThreeJSPerformanceMonitor
+            onLowFPS={handleLowFPS}
+            fpsThreshold={40}
+            lowFPSDuration={3000}
+          />
+        )}
 
         {/* Invalidate canvas for animations - enables efficient frameloop="demand" */}
         <AnimationInvalidator isAnimating={isActive || animation !== 'idle' || isTalking} />
