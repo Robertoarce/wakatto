@@ -212,6 +212,137 @@ export type {
 } from './character3d/types';
 
 // ============================================
+// ANIMATION-SPECIFIC DECORATIONS
+// ============================================
+
+/** Floating ZzZzZ letters that rise from the head during doze animation */
+function ZzzBubble({ headScale = 1 }: { headScale: number }) {
+  const groupRef = useRef<THREE.Group>(null);
+  const timeRef = useRef(Math.random() * 100); // Random start offset
+
+  useFrame((_, delta) => {
+    if (!groupRef.current) return;
+    timeRef.current += delta;
+    const t = timeRef.current;
+    // Animate each Z child
+    groupRef.current.children.forEach((child, i) => {
+      const speed = 0.4 + i * 0.08;
+      const cycle = ((t * speed + i * 1.2) % 4) / 4; // 0 to 1 over 4 seconds
+      // Rise up and drift to the right
+      child.position.y = cycle * 0.6 * headScale;
+      child.position.x = (0.15 + i * 0.08 + cycle * 0.12) * headScale;
+      // Scale: grow in, then fade out
+      const scaleVal = cycle < 0.15 ? cycle / 0.15 : cycle > 0.75 ? (1 - cycle) / 0.25 : 1;
+      const baseSize = (0.5 + i * 0.2) * headScale;
+      child.scale.setScalar(scaleVal * baseSize);
+      // Slight wobble
+      child.rotation.z = Math.sin(t * 2 + i) * 0.15;
+    });
+  });
+
+  return (
+    <group ref={groupRef} position={[0, 0.3 * headScale, 0.1 * headScale]}>
+      {/* Each child is a "Z" made of 3 small boxes */}
+      {[0, 1, 2].map((i) => (
+        <group key={i}>
+          {/* Top bar of Z */}
+          <mesh position={[0, 0.02, 0]}>
+            <boxGeometry args={[0.05, 0.012, 0.01]} />
+            <meshBasicMaterial color="#ffffff" transparent opacity={0.9} />
+          </mesh>
+          {/* Diagonal of Z */}
+          <mesh position={[0, 0, 0]} rotation={[0, 0, -0.7]}>
+            <boxGeometry args={[0.055, 0.01, 0.01]} />
+            <meshBasicMaterial color="#ffffff" transparent opacity={0.9} />
+          </mesh>
+          {/* Bottom bar of Z */}
+          <mesh position={[0, -0.02, 0]}>
+            <boxGeometry args={[0.05, 0.012, 0.01]} />
+            <meshBasicMaterial color="#ffffff" transparent opacity={0.9} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+/** Red angry tint on the upper portion of the head, comic-book style */
+function AngryHeadTint({ headScale = 1 }: { headScale: number }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const timeRef = useRef(0);
+
+  useFrame((_, delta) => {
+    if (!meshRef.current) return;
+    timeRef.current += delta;
+    // Pulsing red opacity for the comic effect
+    const pulse = 0.3 + Math.sin(timeRef.current * 4) * 0.15;
+    (meshRef.current.material as THREE.MeshBasicMaterial).opacity = pulse;
+  });
+
+  return (
+    <mesh ref={meshRef} position={[0, 0.22 * headScale, 0.01 * headScale]}>
+      <boxGeometry args={[0.52 * headScale, 0.2 * headScale, 0.52 * headScale]} />
+      <meshBasicMaterial color="#ff2222" transparent opacity={0.3} depthWrite={false} />
+    </mesh>
+  );
+}
+
+/** Tear streams flowing down from closed eyes during cry animation */
+function CryTearStreams({ headScale = 1, faceYOffset = 0 }: { headScale: number; faceYOffset: number }) {
+  const leftTearRef = useRef<THREE.Group>(null);
+  const rightTearRef = useRef<THREE.Group>(null);
+  const timeRef = useRef(Math.random() * 100);
+
+  useFrame((_, delta) => {
+    timeRef.current += delta;
+    const t = timeRef.current;
+
+    // Animate tear drops falling from eyes
+    [leftTearRef, rightTearRef].forEach((ref, idx) => {
+      if (!ref.current) return;
+      ref.current.children.forEach((child, i) => {
+        const speed = 1.5 + i * 0.3;
+        const cycle = ((t * speed + i * 0.8 + idx * 0.4) % 2) / 2; // 0-1 cycle
+        // Fall from eye level downward
+        child.position.y = -cycle * 0.25 * headScale;
+        // Slight wobble
+        child.position.x = Math.sin(t * 3 + i * 2 + idx) * 0.005 * headScale;
+        // Scale: appear then fade
+        const opacity = cycle < 0.1 ? cycle / 0.1 : cycle > 0.8 ? (1 - cycle) / 0.2 : 1;
+        child.scale.setScalar(opacity);
+      });
+    });
+  });
+
+  const tearColor = '#87ceeb';
+  const eyeY = 0.05 + faceYOffset;
+  const eyeZ = 0.27 * headScale;
+
+  return (
+    <>
+      {/* Left eye tear stream */}
+      <group ref={leftTearRef} position={[-0.12 * headScale, eyeY - 0.04 * headScale, eyeZ]}>
+        {[0, 1, 2].map((i) => (
+          <mesh key={i}>
+            <sphereGeometry args={[0.018 * headScale, 6, 6]} />
+            <meshBasicMaterial color={tearColor} transparent opacity={0.7} />
+          </mesh>
+        ))}
+      </group>
+      {/* Right eye tear stream */}
+      <group ref={rightTearRef} position={[0.12 * headScale, eyeY - 0.04 * headScale, eyeZ]}>
+        {[0, 1, 2].map((i) => (
+          <mesh key={i}>
+            <sphereGeometry args={[0.018 * headScale, 6, 6]} />
+            <meshBasicMaterial color={tearColor} transparent opacity={0.7} />
+          </mesh>
+        ))}
+      </group>
+    </>
+  );
+}
+
+// ============================================
 // MAIN CHARACTER COMPONENT
 // ============================================
 
@@ -957,15 +1088,29 @@ const Character = React.memo(function Character({ character, isActive, animation
           break;
 
         case 'shrug':
-          // Shrugging - uncertainty animation
+          // Shrugging - clear shoulder up/down with arms out
           targetMeshY = Math.sin(time * 0.5) * 0.02;
           targetHeadRotZ = Math.sin(time * 1.5) * 0.15;
-          // Shoulders up motion via arms
-          const shrugPhase = Math.sin(time * 2) * 0.5 + 0.5;
-          targetLeftArmRotX = -0.3;
-          targetLeftArmRotZ = -0.5 - shrugPhase * 0.3;
-          targetRightArmRotX = -0.3;
-          targetRightArmRotZ = 0.5 + shrugPhase * 0.3;
+          targetHeadRotX = lookXOffset;
+          targetHeadRotY = lookYOffset;
+          // Smooth shoulder up/down cycle
+          const shrugPhase = (Math.sin(time * 2.5) + 1) / 2; // 0 to 1
+          // Arms spread outward, palms up gesture
+          targetLeftArmRotX = -0.4;
+          targetLeftArmRotZ = -0.6 - shrugPhase * 0.3;
+          targetRightArmRotX = -0.4;
+          targetRightArmRotZ = 0.6 + shrugPhase * 0.3;
+          // KEY: Shoulders (arms) move UP and DOWN for clear shrug
+          targetLeftArmPosY = shrugPhase * 0.15;  // Lift shoulders up
+          targetRightArmPosY = shrugPhase * 0.15;
+          // Forearms bent outward (palms-up "I dunno" gesture)
+          targetLeftForearmRotX = -0.5 - shrugPhase * 0.2;
+          targetRightForearmRotX = -0.5 - shrugPhase * 0.2;
+          // Raised eyebrows for questioning look
+          targetLeftEyebrowPosY = 0.03;
+          targetRightEyebrowPosY = 0.03;
+          targetLeftEyebrowRotZ = 0.1;
+          targetRightEyebrowRotZ = -0.1;
           break;
 
         case 'wave':
@@ -1068,7 +1213,7 @@ const Character = React.memo(function Character({ character, isActive, animation
           break;
 
         case 'cry':
-          // Cry - hunched over, hands to face
+          // Cry - hunched over, hands to face, eyes closed with tears
           targetMeshY = Math.sin(time * 2) * 0.03;
           targetMeshRotX = 0.15; // Hunched forward (positive X = forward)
           targetHeadRotX = 0.3 + Math.sin(time * 3) * 0.05;
@@ -1077,10 +1222,18 @@ const Character = React.memo(function Character({ character, isActive, animation
           targetLeftArmRotZ = -0.3;
           targetRightArmRotX = -2.0;
           targetRightArmRotZ = 0.3;
+          // Eyes closed - shut tight while crying
+          targetLeftEyeScaleY = 0.05;
+          targetRightEyeScaleY = 0.05;
+          // Sad eyebrows - drooping at outer edges
+          targetLeftEyebrowRotZ = 0.3;
+          targetRightEyebrowRotZ = -0.3;
+          targetLeftEyebrowPosY = -0.01;
+          targetRightEyebrowPosY = -0.01;
           break;
 
         case 'angry':
-          // Angry - tense posture, clenched fists
+          // Angry - tense posture, clenched fists, furrowed eyebrows
           targetMeshY = Math.sin(time * 4) * 0.02;
           targetHeadRotX = 0.15 + lookXOffset;
           targetHeadRotY = lookYOffset;
@@ -1089,6 +1242,14 @@ const Character = React.memo(function Character({ character, isActive, animation
           targetLeftArmRotZ = -0.4;
           targetRightArmRotX = -0.5;
           targetRightArmRotZ = 0.4;
+          // Angry eyebrows - deeply furrowed inward and down
+          targetLeftEyebrowRotZ = -0.4;  // Inner edge down (angry V shape)
+          targetRightEyebrowRotZ = 0.4;
+          targetLeftEyebrowPosY = -0.02;
+          targetRightEyebrowPosY = -0.02;
+          // Narrow eyes for angry look
+          targetLeftEyeScaleY = 0.5;
+          targetRightEyeScaleY = 0.5;
           break;
 
         case 'nervous':
@@ -1131,7 +1292,7 @@ const Character = React.memo(function Character({ character, isActive, animation
           break;
 
         case 'doze':
-          // Doze - sleepy, head drooping
+          // Doze - sleepy, head drooping with ZzZ (rendered in JSX)
           // Reduced head tilt to prevent chin clipping into body
           const dozeHead = Math.sin(time * 0.3) * 0.5;
           targetHeadRotX = 0.2 + dozeHead + lookXOffset; // Reduced from 0.4 to 0.2
@@ -1142,6 +1303,11 @@ const Character = React.memo(function Character({ character, isActive, animation
           targetRightArmRotZ = 0.1;
           targetLeftEyeScaleY = 0.1; // Eyes mostly closed
           targetRightEyeScaleY = 0.1;
+          // Relaxed eyebrows - slightly drooped
+          targetLeftEyebrowRotZ = 0.15;
+          targetRightEyebrowRotZ = -0.15;
+          targetLeftEyebrowPosY = -0.01;
+          targetRightEyebrowPosY = -0.01;
           break;
 
         case 'stretch':
@@ -2921,6 +3087,22 @@ const Character = React.memo(function Character({ character, isActive, animation
 
             {/* Anime Face Decorations */}
             <FaceDecorations complementary={complementary} headScale={headScale} />
+
+            {/* Animation-specific decorations */}
+            {/* ZzZzZ floating up during doze */}
+            {animation === 'doze' && (
+              <ZzzBubble headScale={headScale} />
+            )}
+
+            {/* Red angry tint on upper head (comic-book style) */}
+            {animation === 'angry' && (
+              <AngryHeadTint headScale={headScale} />
+            )}
+
+            {/* Tear streams during cry */}
+            {animation === 'cry' && (
+              <CryTearStreams headScale={headScale} faceYOffset={faceYOffset} />
+            )}
           </group>
         );
       })()}
