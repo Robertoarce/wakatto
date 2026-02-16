@@ -600,11 +600,11 @@ Speed (sp): "slow" | "normal" | "fast" | "explosive"
 
 EXAMPLES (use "a" for body + "ex" for expression):
 Excited greeting: {"a":"wave","sp":"fast","lk":"center","ex":"excited","fx":"sparkles"}
-Deep thinking: {"a":"chin_stroke","sp":"slow","lk":"up","ex":"thoughtful"}
+Deep thinking: {"a":"head_tilt","sp":"slow","lk":"up","ex":"thoughtful"}
 Frustrated: {"a":"cross_arms","sp":"normal","ex":"frustrated"}
 Sympathetic: {"a":"nod","sp":"slow","lk":"at_left_character","ex":"sad","m":"slight_smile"}
 Playful tease: {"a":"lean_forward","sp":"fast","lk":"center","ex":"playful"}
-Nervous: {"a":"fidget","sp":"fast","lk":"down","ex":"nervous"}
+Nervous: {"a":"nervous","sp":"fast","lk":"down","ex":"nervous"}
 With override: {"a":"happy","ex":"joyful","m":"smirk"} (joyful but with smirk instead of big_grin)
 
 Full scene (THIS IS WHAT YOUR ENTIRE RESPONSE SHOULD LOOK LIKE):

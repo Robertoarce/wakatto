@@ -197,7 +197,7 @@ Your 3D avatar will animate based on these parameters. Call this before or durin
             'nod', 'shake_head', 'shrug', 'wave', 'point', 'clap', 'bow',
             'lean_back', 'lean_forward', 'cross_arms',
             'facepalm', 'laugh', 'cry', 'angry', 'nervous', 'celebrate',
-            'head_tilt', 'chin_stroke'
+            'head_tilt'
           ],
         },
         look_at: {

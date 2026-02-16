@@ -73,14 +73,15 @@ const PROCESSING_PRESETS: ProcessingAnimationPreset[] = [
     description: 'Curious head tilt to the side',
   },
   {
-    animation: 'chin_stroke',
-    duration: 1500, // Reduced from 2500
+    animation: 'head_tilt',
+    duration: 1500,
     durationVariance: 0.2,
     complementary: {
       lookDirection: 'down',
       mouthState: 'closed',
+      eyebrowState: 'raised',
     },
-    description: 'Thoughtfully stroking chin',
+    description: 'Thoughtfully tilting head',
   },
   {
     animation: 'lean_forward',
@@ -93,13 +94,14 @@ const PROCESSING_PRESETS: ProcessingAnimationPreset[] = [
     description: 'Leaning forward with interest',
   },
   {
-    animation: 'weight_shift',
-    duration: 1000, // New: subtle movement
+    animation: 'idle',
+    duration: 1000,
     durationVariance: 0.3,
     complementary: {
       eyeState: 'open',
+      mouthState: 'closed',
     },
-    description: 'Shifting weight while thinking',
+    description: 'Standing still while thinking',
   },
   {
     animation: 'idle',
@@ -113,14 +115,14 @@ const PROCESSING_PRESETS: ProcessingAnimationPreset[] = [
     description: 'Glancing up thoughtfully',
   },
   {
-    animation: 'fidget',
-    duration: 1200, // New: shows processing
+    animation: 'look_around',
+    duration: 1200,
     durationVariance: 0.2,
     complementary: {
       eyeState: 'open',
       mouthState: 'closed',
     },
-    description: 'Slight fidgeting while processing',
+    description: 'Looking around while processing',
   },
   {
     animation: 'peek',

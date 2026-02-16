@@ -8,7 +8,7 @@ import { IdleAnimationState } from '../types/chatInterface.types';
 // Available idle animations pool
 export const IDLE_ANIMATIONS: AnimationState[] = [
   'idle', 'kick_ground', 'meh', 'foot_tap',
-  'look_around', 'yawn', 'fidget', 'rub_eyes', 'weight_shift'
+  'look_around', 'yawn', 'rub_eyes'
 ];
 
 // Base complementary states (without look direction - that's handled separately)

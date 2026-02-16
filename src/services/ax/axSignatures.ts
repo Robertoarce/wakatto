@@ -37,7 +37,7 @@ export const ANIMATIONS = [
   'nod', 'shake_head', 'shrug', 'wave', 'point', 'clap', 'bow',
   'lean_back', 'lean_forward', 'cross_arms',
   'facepalm', 'laugh', 'cry', 'angry', 'nervous', 'celebrate',
-  'head_tilt', 'chin_stroke'
+  'head_tilt'
 ] as const;
 
 export type Animation = typeof ANIMATIONS[number];

@@ -44,12 +44,9 @@ export type AnimationState =
   | 'foot_tap'
   | 'look_around'
   | 'yawn'
-  | 'fidget'
   | 'rub_eyes'
-  | 'weight_shift'
   // Processing/thinking animations
-  | 'head_tilt'
-  | 'chin_stroke';
+  | 'head_tilt';
 
 // Look direction types
 export type LookDirection = 'center' | 'left' | 'right' | 'up' | 'down' | 'at_left_character' | 'at_right_character' | 'away';

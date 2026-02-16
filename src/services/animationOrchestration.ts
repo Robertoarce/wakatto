@@ -158,9 +158,9 @@ const VALID_ANIMATIONS: AnimationState[] = [
   'celebrate', 'peek', 'doze', 'stretch',
   // Idle animations
   'kick_ground', 'meh', 'foot_tap', 'look_around', 'yawn',
-  'fidget', 'rub_eyes', 'weight_shift',
+  'rub_eyes',
   // Processing/thinking animations
-  'head_tilt', 'chin_stroke'
+  'head_tilt'
 ];
 
 const VALID_LOOK_DIRECTIONS: LookDirection[] = [
@@ -691,11 +691,8 @@ const DEFAULT_ANIMATION_DURATIONS: Record<string, number> = {
   foot_tap: 1000,
   look_around: 1200,
   yawn: 1500,
-  fidget: 1000,
   rub_eyes: 1200,
-  weight_shift: 800,
   head_tilt: 600,
-  chin_stroke: 1200,
   lean_forward: 800,
   lean_back: 800,
   cross_arms: 1000,
