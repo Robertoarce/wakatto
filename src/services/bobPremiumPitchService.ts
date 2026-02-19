@@ -125,7 +125,7 @@ export function generatePremiumPitchScene(): PremiumPitchResult {
   
   // Segment 2: Bob starts turning around (still 'away' but animating)
   segments.push({
-    animation: 'surprise_happy' as AnimationState,
+    animation: 'surprise_jump' as AnimationState,
     duration: TURN_AROUND_DURATION,
     isTalking: false,
     complementary: {

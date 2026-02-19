@@ -352,7 +352,7 @@ export const CHARACTER_GESTURES: CharacterGesture[] = [
     name: 'Eyes Widen',
     category: 'reacting',
     description: 'Eyes widen in realization',
-    animation: 'surprise_happy',
+    animation: 'surprise_jump',
     intensity: 'subtle'
   },
   {

@@ -150,7 +150,7 @@ interface LLMSceneResponse {
 const VALID_ANIMATIONS: AnimationState[] = [
   // Core animations
   'idle', 'thinking', 'talking', 'confused', 'happy', 'excited',
-  'winning', 'walking', 'jump', 'surprise_jump', 'surprise_happy',
+  'winning', 'walking', 'jump', 'surprise_jump',
   'lean_back', 'lean_forward', 'cross_arms', 'nod', 'shake_head',
   'shrug', 'wave', 'point', 'clap', 'bow',
   // Expressive animations
@@ -699,7 +699,6 @@ const DEFAULT_ANIMATION_DURATIONS: Record<string, number> = {
   point: 800,
   jump: 800,
   surprise_jump: 1000,
-  surprise_happy: 1200,
   walking: 2000,
   confused: 1200,
   happy: 1000,

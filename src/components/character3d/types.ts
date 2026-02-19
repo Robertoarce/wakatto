@@ -16,7 +16,6 @@ export type AnimationState =
   | 'walking'
   | 'jump'
   | 'surprise_jump'
-  | 'surprise_happy'
   | 'lean_back'
   | 'lean_forward'
   | 'cross_arms'

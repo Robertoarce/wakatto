@@ -44,7 +44,6 @@ const ALL_ANIMATIONS: { name: AnimationState; description: string; category: str
   
   // Reaction animations
   { name: 'surprise_jump', description: 'Startled jump with hands out', category: 'Reaction' },
-  { name: 'surprise_happy', description: 'Pleasant surprise, hands to face', category: 'Reaction' },
   { name: 'laugh', description: 'Laughing with head thrown back', category: 'Reaction' },
   { name: 'celebrate', description: 'Arms up celebration, jumping', category: 'Reaction' },
   

@@ -34,7 +34,7 @@ export interface EntranceConfig {
 const ENTRANCE_CONFIGS: Record<EntranceAnimationType, Omit<EntranceConfig, 'startDelay'>> = {
   drop_from_sky: {
     type: 'drop_from_sky',
-    bodyAnimation: 'surprise_happy',
+    bodyAnimation: 'surprise_jump',
     duration: 1200,
   },
   slide_in: {

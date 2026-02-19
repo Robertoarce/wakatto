@@ -386,22 +386,22 @@ function NervousSweatTint({ headScale = 1, faceYOffset = 0 }: { headScale: numbe
         <boxGeometry args={[0.54 * headScale, 0.6 * headScale, 0.54 * headScale]} />
         <meshBasicMaterial color="#3366aa" transparent opacity={0.3} depthWrite={false} />
       </mesh>
-      {/* BIG manga-style sweat drop at top-right of head */}
-      <group ref={sweatRef} position={[0.2 * headScale, 0.32 * headScale, 0.18 * headScale]}>
-        {/* Main drop body (large teardrop shape) */}
-        <mesh position={[0, -0.02 * headScale, 0]} rotation={[0, 0, -0.15]}>
-          <coneGeometry args={[0.045 * headScale, 0.14 * headScale, 8]} />
-          <meshBasicMaterial color="#b0e0ff" transparent opacity={0.85} />
+      {/* BIG manga-style sweat drop at top-right of face (pushed forward to be visible) */}
+      <group ref={sweatRef} position={[0.22 * headScale, 0.32 * headScale, 0.32 * headScale]}>
+        {/* Cone tail pointing upward, base centered on sphere */}
+        <mesh position={[0, 0.08 * headScale, 0]}>
+          <coneGeometry args={[0.05 * headScale, 0.16 * headScale, 8]} />
+          <meshBasicMaterial color="#7ec8e3" />
         </mesh>
-        {/* Round top of drop */}
-        <mesh position={[0, 0.04 * headScale, 0]}>
-          <sphereGeometry args={[0.045 * headScale, 10, 10]} />
-          <meshBasicMaterial color="#b0e0ff" transparent opacity={0.85} />
+        {/* Round bulge at bottom */}
+        <mesh position={[0, 0, 0]}>
+          <sphereGeometry args={[0.05 * headScale, 10, 10]} />
+          <meshBasicMaterial color="#7ec8e3" />
         </mesh>
-        {/* Highlight / shine on drop */}
-        <mesh position={[-0.015 * headScale, 0.03 * headScale, 0.02 * headScale]}>
-          <sphereGeometry args={[0.012 * headScale, 6, 6]} />
-          <meshBasicMaterial color="#ffffff" transparent opacity={0.9} />
+        {/* Highlight / shine on round part */}
+        <mesh position={[-0.015 * headScale, 0.01 * headScale, 0.025 * headScale]}>
+          <sphereGeometry args={[0.014 * headScale, 6, 6]} />
+          <meshBasicMaterial color="#ffffff" />
         </mesh>
       </group>
     </>
@@ -1083,27 +1083,30 @@ const Character = React.memo(function Character({ character, isActive, animation
           break;
 
         case 'surprise_jump':
-          // Surprised jump - sudden upward movement with hands out
+          // Surprised jump - sudden upward movement, 'oh!' expression
           const surpriseJump = Math.abs(Math.sin(time * 6)) * 0.6;
           targetMeshY = surpriseJump;
-          targetHeadRotX = -0.2; // Head tilted back
+          targetHeadRotX = -0.2 + lookXOffset; // Head tilted back
+          targetHeadRotY = lookYOffset;
           targetLeftArmRotX = -1.5; // Arms out to sides
           targetLeftArmRotZ = -1.2;
           targetRightArmRotX = -1.5;
           targetRightArmRotZ = 1.2;
           targetLeftLegRotX = -0.3;
           targetRightLegRotX = -0.3;
-          break;
-
-        case 'surprise_happy':
-          // Surprised and happy - bouncing with hands to face
-          targetMeshY = Math.abs(Math.sin(time * 4)) * 0.2;
-          targetHeadRotZ = Math.sin(time * 3) * 0.2;
-          targetHeadRotX = -0.1;
-          targetLeftArmRotX = -2.0; // Hands near face
-          targetLeftArmRotZ = -0.5;
-          targetRightArmRotX = -2.0;
-          targetRightArmRotZ = 0.5;
+          // Eyebrows raised high - shocked
+          targetLeftEyebrowPosY = 0.05;
+          targetRightEyebrowPosY = 0.05;
+          targetLeftEyebrowRotZ = 0.15;
+          targetRightEyebrowRotZ = -0.15;
+          // Wide eyes
+          targetLeftEyeScaleY = 1.3;
+          targetRightEyeScaleY = 1.3;
+          // 'Oh' mouth via mouthRef
+          if (mouthRef.current) {
+            mouthRef.current.scale.y = 0.9;
+            mouthRef.current.scale.x = 0.9;
+          }
           break;
 
         case 'lean_back':
@@ -1287,13 +1290,40 @@ const Character = React.memo(function Character({ character, isActive, animation
           break;
 
         case 'laugh':
-          // Laugh - bouncing with head thrown back
-          targetMeshY = Math.abs(Math.sin(time * 8)) * 0.1;
-          targetHeadRotX = -0.3 + Math.sin(time * 8) * 0.1 + lookXOffset;
+          // Laugh - rocking back/forward, hand on stomach, eyes & mouth open/close in rhythm
+          const laughRhythm = Math.sin(time * 7); // Main rhythm cycle
+          const laughBounce = Math.abs(laughRhythm) * 0.08;
+          // Rock body back and forward
+          targetMeshRotX = laughRhythm * 0.12; // Forward/backward rocking
+          targetMeshY = laughBounce;
+          // Head tilted back slightly, rocking with body
+          targetHeadRotX = -0.2 + laughRhythm * 0.1 + lookXOffset;
           targetHeadRotY = lookYOffset;
-          targetHeadRotZ = Math.sin(time * 4) * 0.1;
-          targetLeftArmRotZ = -0.2 + Math.sin(time * 8) * 0.1;
-          targetRightArmRotZ = 0.2 + Math.sin(time * 8) * 0.1;
+          targetHeadRotZ = Math.sin(time * 3.5) * 0.08;
+          // Body slightly curved forward (hunched from laughing)
+          // Arms crossed (same as cross_arms)
+          targetLeftArmRotX = -1.8;
+          targetLeftArmRotY = 0.8;
+          targetLeftArmRotZ = 0.5;
+          targetLeftArmPosX = 0.3;
+          targetLeftArmPosZ = 0.4;
+          targetLeftForearmRotX = -1.6;
+          targetRightArmRotX = -0.5;
+          targetRightArmRotY = -0.8;
+          targetRightArmRotZ = -0.6;
+          targetRightArmPosX = -0.3;
+          targetRightArmPosZ = 0.4;
+          targetRightForearmRotX = -1.6;
+          // Eyes open and close in rhythm with laughing
+          const laughEyeOpen = laughRhythm > 0.2 ? 1.0 : 0.15;
+          targetLeftEyeScaleY = laughEyeOpen;
+          targetRightEyeScaleY = laughEyeOpen;
+          // Mouth open and close in rhythm
+          if (mouthRef.current) {
+            const mouthOpenAmt = (laughRhythm + 1) / 2; // 0 to 1
+            mouthRef.current.scale.y = 0.2 + mouthOpenAmt * 0.8;
+            mouthRef.current.scale.x = 1.5 + mouthOpenAmt * 0.5;
+          }
           break;
 
         case 'cry':
@@ -1417,15 +1447,32 @@ const Character = React.memo(function Character({ character, isActive, animation
           break;
 
         case 'stretch':
-          // Stretch - arms up, yawning
-          const stretchPhase = (Math.sin(time * 0.8) + 1) / 2;
-          // targetMeshY = stretchPhase * 0.1;
-          targetHeadRotX = -0.3 * stretchPhase + lookXOffset;
+          // Stretch - full body stretch: arms up high, back arches, tiptoes
+          const stretchPhase = (Math.sin(time * 0.6) + 1) / 2; // 0 to 1 slow cycle
+          // Body rises up on tiptoes and arches back
+          targetMeshY = stretchPhase * 0.08;
+          targetMeshRotX = -stretchPhase * 0.1; // Slight lean back
+          // Head tilts back during stretch peak
+          targetHeadRotX = -0.35 * stretchPhase + lookXOffset;
           targetHeadRotY = lookYOffset;
-          targetLeftArmRotX = -2.5 * stretchPhase;
-          targetLeftArmRotZ = -0.4 * stretchPhase;
-          targetRightArmRotX = -2.5 * stretchPhase;
-          targetRightArmRotZ = 0.4 * stretchPhase;
+          // Arms reach HIGH above head, spread apart
+          targetLeftArmRotX = -2.8 * stretchPhase; // Arms up
+          targetLeftArmRotZ = -0.5 - stretchPhase * 0.3; // Spread outward
+          targetRightArmRotX = -2.8 * stretchPhase;
+          targetRightArmRotZ = 0.5 + stretchPhase * 0.3;
+          // Forearms extend upward (straighten arms)
+          targetLeftForearmRotX = -0.3 * stretchPhase;
+          targetRightForearmRotX = -0.3 * stretchPhase;
+          // Rise on tiptoes
+          targetLeftFootRotX = -stretchPhase * 0.4;
+          targetRightFootRotX = -stretchPhase * 0.4;
+          // Slight side twist at peak for realism
+          targetMeshRotY = Math.sin(time * 1.2) * stretchPhase * 0.08;
+          // Eyes close during intense stretch
+          if (stretchPhase > 0.6) {
+            targetLeftEyeScaleY = 0.15;
+            targetRightEyeScaleY = 0.15;
+          }
           break;
 
         // =========================================
@@ -2946,8 +2993,8 @@ const Character = React.memo(function Character({ character, isActive, animation
             </mesh>
 
             {/* Mouth - hidden when other mouth states are active (except smile/wide_smile which use the ref) */}
-            {/* Default mouth - only show when no special mouth state is set AND no animation-specific mouth */}
-            {!complementary?.mouthState && animation !== 'happy' && animation !== 'excited' && animation !== 'celebrate' && (
+            {/* Default mouth - show when no special mouth state is set AND no animation-specific mouth, OR for animations that control mouth directly */}
+            {((!complementary?.mouthState && animation !== 'happy' && animation !== 'excited' && animation !== 'celebrate') || animation === 'surprise_jump' || animation === 'laugh') && (
               <mesh ref={mouthRef} position={[0, -0.18 + faceYOffset, 0.26 * headScale]}>
                 <circleGeometry args={[0.07 * headScale, 20]} />
                 <meshBasicMaterial color="#2a2a2a" />

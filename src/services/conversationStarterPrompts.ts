@@ -177,7 +177,7 @@ ${storySection}
    - CENTER position: look at whoever they're addressing → "center" for user
 
 ## Animation System
-Body: idle,thinking,talking,wave,nod,lean_forward,lean_back,excited,happy,surprise_happy,shrug,point
+Body: idle,thinking,talking,wave,nod,lean_forward,lean_back,excited,happy,surprise_jump,shrug,point
 Look: center,left,right,at_left_character,at_right_character
 Eye: open,blink | Eyebrow: normal,raised
 Mouth: closed,smile,open | Face: normal,blush
@@ -193,7 +193,7 @@ EXAMPLE (5 exchanges, yours should have ${Math.max(5, characterIds.length + 2)}-
 {"s":{"ch":[
 {"c":"freud","t":"You know, I was just thinking about something interesting...","ord":1,"a":"thinking","sp":"slow","lk":"at_right_character","ex":"thoughtful"},
 {"c":"jung","t":"Oh? Do tell. You have that look in your eyes.","ord":2,"a":"lean_forward","sp":"normal","lk":"at_left_character","ex":"curious","eb":"raised"},
-{"c":"freud","t":"Wait - I think someone's here!","ord":3,"a":"surprise_happy","sp":"fast","lk":"center","ex":"surprised"},
+{"c":"freud","t":"Wait - I think someone's here!","ord":3,"a":"surprise_jump","sp":"fast","lk":"center","ex":"surprised"},
 {"c":"jung","t":"Oh wonderful! Hello there! Welcome!","ord":4,"a":"wave","sp":"fast","lk":"center","ex":"happy","m":"smile"},
 {"c":"freud","t":"Yes, please join us! What's on your mind today?","ord":5,"a":"happy","sp":"normal","lk":"center","ex":"welcoming","m":"smile"}
 ]}}
@@ -478,7 +478,7 @@ function createFallbackStarter(characterIds: string[]): ConversationStarterResul
     startDelay: index * 3000,
     segments: [
       {
-        animation: (index === 0 ? 'surprise_happy' : index === 1 ? 'wave' : 'happy') as AnimationState,
+        animation: (index === 0 ? 'surprise_jump' : index === 1 ? 'wave' : 'happy') as AnimationState,
         duration: 600,
         isTalking: false,
         complementary: { lookDirection: line.lookDir },

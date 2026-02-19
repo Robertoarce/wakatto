@@ -120,7 +120,7 @@ They're having a genuine heart-to-heart, gossiping, debating, and being their au
 ${characterProfiles}
 
 ## Animation System
-Body: idle,thinking,talking,confused,happy,excited,winning,jump,surprise_jump,surprise_happy,lean_back,lean_forward,cross_arms,nod,shake_head,shrug,wave,point,clap,bow,facepalm,dance,laugh,cry,angry,nervous,celebrate,peek
+Body: idle,thinking,talking,confused,happy,excited,winning,jump,surprise_jump,lean_back,lean_forward,cross_arms,nod,shake_head,shrug,wave,point,clap,bow,facepalm,dance,laugh,cry,angry,nervous,celebrate,peek
 Look: center,left,right,up,down,at_left_character,at_right_character
 Eye: open,closed,wink_left,wink_right,blink | Eyebrow: normal,raised,furrowed,sad,worried,one_raised
 Mouth: closed,open,smile,wide_smile,surprised | Face: normal,blush,sweat_drop,sparkle_eyes
