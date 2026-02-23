@@ -1,0 +1,22 @@
+{
+  "background_color": "#0f0f0f",
+  "description": "Explore multiple perspectives with AI-powered conversations featuring diverse characters",
+  "display": "standalone",
+  "lang": "en",
+  "name": "Wakatto",
+  "short_name": "Wakatto",
+  "start_url": "/?utm_source=web_app_manifest",
+  "orientation": "portrait",
+  "related_applications": [
+    {
+      "platform": "itunes",
+      "id": "com.wakatto.app"
+    },
+    {
+      "platform": "play",
+      "url": "http://play.google.com/store/apps/details?id=com.wakatto.app",
+      "id": "com.wakatto.app"
+    }
+  ],
+  "prefer_related_applications": true
+}
