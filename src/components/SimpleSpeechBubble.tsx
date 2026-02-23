@@ -82,6 +82,12 @@ interface SimpleSpeechBubbleProps {
   characterCount?: number;
   // Payment button support
   onPaymentSelect?: (tier: 'premium' | 'gold') => void;
+  // Dynamic sizing: measured pixel height of the character display container
+  containerHeight?: number;
+  // Dynamic sizing: the wrapper's top position as a percentage (e.g. 20 for single char)
+  wrapperTopPercent?: number;
+  // Dynamic sizing: 0.0 (edge/front) to 1.0 (center/back) for perspective height scaling
+  perspectiveDepth?: number;
 }
 
 export function SimpleSpeechBubble({
@@ -93,6 +99,9 @@ export function SimpleSpeechBubble({
   isMobileStacked = false,
   characterCount = 1,
   onPaymentSelect,
+  containerHeight,
+  wrapperTopPercent,
+  perspectiveDepth = 1.0,
 }: SimpleSpeechBubbleProps) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const {
@@ -208,12 +217,25 @@ export function SimpleSpeechBubble({
   const usableWidth = finalWidth - (paddingH * 2);
   const charsPerLine = Math.max(20, Math.floor(usableWidth / avgCharWidth));
 
-  // Limit bubble height to ~15 lines for readability
-  // For multiple characters, use the smaller maxLines prop
-  const effectiveMaxLines = isSingleCharacter ? 15 : maxLines;
-
-  // Max height for scrollable content (based on ~15 lines)
-  const maxContentHeight = lineHeight * effectiveMaxLines;
+  // Dynamic max content height: pin bubble to top of container, fill available space
+  // When containerHeight is available, compute based on container dimensions + perspective
+  // Otherwise fallback to fixed line count
+  const nameHeight = nameFontSize + 4; // name text + marginBottom
+  const dynamicMaxContentHeight = (() => {
+    if (containerHeight && containerHeight > 0 && wrapperTopPercent != null) {
+      const topMargin = isMobile ? 10 : 16;       // gap from header/top of container
+      const bottomMargin = isMobile ? 30 : 50;    // gap from divider/playback controls
+      const totalAvailable = containerHeight - topMargin - bottomMargin;
+      // Perspective factor: center/back chars (1.0) get full height, edge/front (0.0) get 40%
+      const perspectiveFactor = 0.4 + (perspectiveDepth * 0.6);
+      const computed = totalAvailable * perspectiveFactor - paddingV * 2 - nameHeight;
+      return Math.max(lineHeight * 2, computed); // At least 2 lines
+    }
+    // Fallback: fixed line count (original behavior)
+    const effectiveMaxLines = isSingleCharacter ? 15 : maxLines;
+    return lineHeight * effectiveMaxLines;
+  })();
+  const maxContentHeight = dynamicMaxContentHeight;
 
   // Ref for auto-scrolling to bottom
   const scrollViewRef = useRef<ScrollView>(null);
@@ -304,6 +326,18 @@ export function SimpleSpeechBubble({
     );
   }
 
+  // Dynamic top offset: pin bubble near container top
+  // The bubble is inside FloatingCharacterWrapper which is at wrapperTopPercent% of the container.
+  // To pin the bubble's top edge near the container's top, we use a negative offset.
+  const bubbleTop = (() => {
+    if (containerHeight && containerHeight > 0 && wrapperTopPercent != null) {
+      const wrapperTopPx = containerHeight * (wrapperTopPercent / 100);
+      const topMargin = isMobile ? 10 : 16; // gap from header/top
+      return topMargin - wrapperTopPx; // large negative value to reach near container top
+    }
+    return -20; // Original fallback
+  })();
+
   // Floating layout - positioned within wrapper (inherits floating animation)
   // For single character: wrapper shifts left, so we need to compensate by moving bubble right
   // The bubble should appear to the right of the character, not overlapping
@@ -338,7 +372,7 @@ export function SimpleSpeechBubble({
           paddingVertical: paddingV,
           // Position horizontally - adjusted for single character to prevent overlap
           left: horizontalPosition,
-          top: -20,
+          top: bubbleTop,
           transform: [{ translateX: -finalWidth / 2 }],
         },
       ]}

@@ -480,6 +480,7 @@ export function ChatInterface({ messages, onSendMessage, showSidebar, onToggleSi
   const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]); // Fixed characters from conversation creation
   const [isMobileView, setIsMobileView] = useState(isMobile);
   const [hoveredCharacterId, setHoveredCharacterId] = useState<string | null>(null); // Track which character is hovered
+  const [displayContainerHeight, setDisplayContainerHeight] = useState(0); // Measured height of character display area
   const [isFullscreenHovered, setIsFullscreenHovered] = useState(false); // Track fullscreen button hover
   const [nameKey, setNameKey] = useState(0); // Key to trigger re-animation
   // Character loading (hook handles loading from both built-in and database)
@@ -1760,7 +1761,9 @@ Each silence, a cathedral where you still reside.`;
       >
       {/* 3D Character Display - Hidden when chat history is shown */}
       {!showChatHistory && (
-      <View style={[
+      <View
+        onLayout={(e) => setDisplayContainerHeight(e.nativeEvent.layout.height)}
+        style={[
         styles.characterDisplayContainer,
         // In mobile landscape fullscreen: take full available height (no cap)
         // On web/desktop: use flex: 1 to fill available space and push divider to bottom
@@ -1948,9 +1951,9 @@ Each silence, a cathedral where you still reside.`;
           </View>
         )}
 
-        {/* Mobile Speech Bubble Stack - 40% of screen height, hidden when chat history shown */}
+        {/* Mobile Speech Bubble Stack - fills toward divider, hidden when chat history shown */}
         {isMobile && selectedCharacters.length > 1 && !isMobileLandscape && !showChatHistory && (
-          <View style={[styles.mobileBubbleStackContainer, { maxHeight: screenHeight * 0.4 }]}>
+          <View style={[styles.mobileBubbleStackContainer, { maxHeight: displayContainerHeight > 0 ? displayContainerHeight - 60 : screenHeight * 0.4 }]}>
             <ScrollView
               style={styles.mobileBubbleStack}
               contentContainerStyle={styles.mobileBubbleStackContent}
@@ -2207,6 +2210,9 @@ Each silence, a cathedral where you still reside.`;
                             isVisible={formattedText.length > 0}
                             characterCount={total}
                             onPaymentSelect={onPaymentSelect}
+                            containerHeight={displayContainerHeight}
+                            wrapperTopPercent={20 + (20 - verticalPosition)}
+                            perspectiveDepth={total === 1 ? 1.0 : (1 - distanceFromCenter)}
                           />
                         )}
                         <MemoizedCharacterDisplay3D
