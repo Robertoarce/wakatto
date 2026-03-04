@@ -321,7 +321,7 @@ class BenchmarkRunner {
         
         case 'haiku-model':
           prompt = buildMinimalPrompt(characterIds, message);
-          model = 'claude-3-5-haiku-20241022';
+          model = 'claude-3-haiku-20240307';
           break;
         
         case 'sonnet-model':

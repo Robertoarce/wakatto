@@ -51,7 +51,7 @@ interface LLMCallLogEntry {
 
 // Cost per 1M tokens (approximate, as of 2025)
 const TOKEN_COSTS: Record<string, { input: number; output: number }> = {
-  'claude-3-5-haiku-20241022': { input: 0.25, output: 1.25 },
+  'claude-3-haiku-20240307': { input: 0.25, output: 1.25 },
   'claude-3-5-sonnet-20241022': { input: 3, output: 15 },
   'claude-3-opus-20240229': { input: 15, output: 75 },
   'gpt-4': { input: 30, output: 60 },
@@ -119,7 +119,7 @@ interface AIMessage {
 let config: AIConfig = {
   provider: 'anthropic', // Default to Claude
   apiKey: '', // Will be loaded from secure storage or environment
-  model: 'claude-3-5-haiku-20241022', // Claude 3.5 Haiku (fastest and cheapest)
+  model: 'claude-3-haiku-20240307', // Claude 3 Haiku (fastest and cheapest)
 };
 
 // Load API key from secure storage on initialization
